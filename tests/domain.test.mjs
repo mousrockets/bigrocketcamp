@@ -1,0 +1,13 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {DatabaseSync} from 'node:sqlite';
+import {readFileSync} from 'node:fs';
+import {normalizeResult,summarize,validateExercise,parisDay} from '../lib/domain.mjs';
+const base={MatchGuid:'match-1',PlayerId:'Epic|1',Name:'Nokouki',Day:'2026-11-04',Kind:'match',Team:0,Winner:1,Score:300,Goals:1,Assists:0,Saves:2};
+test('Victoire selon l’équipe, pas selon un booléen fourni',()=>{const r=normalizeResult({...base,Victory:true});assert.equal(summarize([r],[],'')[1].due,5);assert.equal(summarize([{...r,team:1}],[],'')[1].wins,1);});
+test('Tests bots exclus et entraînement sans GUID refusé',()=>{assert.throws(()=>normalizeResult({...base,MatchGuid:''}));assert.equal(summarize([normalizeResult({...base,Kind:'test'})],[],'')[1].played,0);});
+test('Total réalisé conservé au-delà de la dette et dates filtrées',()=>{const r=normalizeResult(base),s=summarize([r],[{player:'nokouki',count:25}],'2026-11-05')[1];assert.deepEqual([s.played,s.due,s.done,s.remaining],[0,5,25,0]);});
+test('Rejet des pompes négatives, fractions et dates invalides',()=>{const x={id:'1234567890123456',player:'nokouki',count:5,day:'2026-11-04'};for(const patch of [{count:-1},{count:1.5},{count:0},{day:'2026-02-31'},{player:'intrus'}])assert.throws(()=>validateExercise({...x,...patch}));assert.equal(validateExercise(x).count,5);});
+test('Jour français en franchissant minuit UTC',()=>assert.equal(parisDay(new Date('2026-11-04T23:30:00Z')),'2026-11-05'));
+test('Clé SQL match + joueur et déclaration idempotente',()=>{const db=new DatabaseSync(':memory:');db.exec(readFileSync(new URL('../drizzle/0000_real_rattler.sql',import.meta.url),'utf8'));const insert=db.prepare('INSERT INTO results VALUES (?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(match_guid,player_id) DO NOTHING');for(let i=0;i<3;i++)insert.run('m','p','nokouki','2026-11-04','match',0,1,10,0,0,0,'now');insert.run('m','p2','chat-pris-tea','2026-11-04','match',0,1,10,0,0,0,'now');assert.equal(db.prepare('SELECT COUNT(*) AS n FROM results').get().n,2);const ex=db.prepare('INSERT INTO exercises VALUES (?,?,?,?,?,?) ON CONFLICT(id) DO NOTHING');ex.run('id','nokouki',5,'2026-11-04','now','u');ex.run('id','nokouki',5,'2026-11-04','now','u');assert.equal(db.prepare('SELECT SUM(count) AS n FROM exercises').get().n,5);db.close();});
+test('Validation PS5 et normalisation du nom',()=>assert.equal(normalizeResult({...base,Name:'kevin-74000',PlayerId:'PSN|123'}).name,'kevin-74000'));
