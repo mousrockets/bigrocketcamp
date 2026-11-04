@@ -11,3 +11,12 @@ test('Rejet des pompes négatives, fractions et dates invalides',()=>{const x={i
 test('Jour français en franchissant minuit UTC',()=>assert.equal(parisDay(new Date('2026-11-04T23:30:00Z')),'2026-11-05'));
 test('Clé SQL match + joueur et déclaration idempotente',()=>{const db=new DatabaseSync(':memory:');db.exec(readFileSync(new URL('../drizzle/0000_real_rattler.sql',import.meta.url),'utf8'));const insert=db.prepare('INSERT INTO results VALUES (?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(match_guid,player_id) DO NOTHING');for(let i=0;i<3;i++)insert.run('m','p','nokouki','2026-11-04','match',0,1,10,0,0,0,'now');insert.run('m','p2','chat-pris-tea','2026-11-04','match',0,1,10,0,0,0,'now');assert.equal(db.prepare('SELECT COUNT(*) AS n FROM results').get().n,2);const ex=db.prepare('INSERT INTO exercises VALUES (?,?,?,?,?,?) ON CONFLICT(id) DO NOTHING');ex.run('id','nokouki',5,'2026-11-04','now','u');ex.run('id','nokouki',5,'2026-11-04','now','u');assert.equal(db.prepare('SELECT SUM(count) AS n FROM exercises').get().n,5);db.close();});
 test('Validation PS5 et normalisation du nom',()=>assert.equal(normalizeResult({...base,Name:'kevin-74000',PlayerId:'PSN|123'}).name,'kevin-74000'));
+test('Une mise à jour tardive enrichit le match sans le recompter',()=>{
+ const db=new DatabaseSync(':memory:');db.exec(readFileSync(new URL('../drizzle/0000_real_rattler.sql',import.meta.url),'utf8'));
+ const route=readFileSync(new URL('../app/api/ingest/route.ts',import.meta.url),'utf8');
+ const sql=route.match(/db\.prepare\("(INSERT INTO results[^"\n]+)"\)/)[1];const insert=db.prepare(sql);
+ insert.run('m','p','nokouki','2026-11-04','test',0,1,10,0,0,0,'now');
+ insert.run('m','p','nokouki','2026-11-04','match',0,1,100,1,0,0,'later');
+ insert.run('m','p','nokouki','2026-11-04','test',0,1,10,0,0,0,'old-pc');
+ const rows=db.prepare('SELECT * FROM results').all();assert.equal(rows.length,1);assert.equal(rows[0].score,100);assert.equal(rows[0].kind,'match');assert.equal(summarize(rows,[],'')[1].due,5);db.close();
+});
