@@ -78,6 +78,19 @@ test('Connexion lente : les lectures automatiques restent uniques et finissent p
  }finally{await h.cleanup();}
 });
 
+test('Historique non reçu : distinguer une attente hors ligne de zéro match reçu après lecture',async()=>{
+ const h=await harness(0);try{
+  const panel=()=>h.root().findByProps({'aria-label':'Collecte de kevin-74000'});
+  const counters=()=>h.root().findAllByProps({className:'results'})[2];
+  h.f.db.prepare("INSERT INTO epic_accounts (slot,owner,account_id,tokens,status) VALUES ('kevin-74000','another-member','synthetic-id','unread-test-value','waiting_offline')").run();
+  await action(()=>{for(const tick of h.intervals)tick();});
+  assert.match(content(panel()),/Historique en attente/);assert.match(content(counters()),/— parties reçues/);assert.ok(!content(counters()).includes('0 parties'));
+  h.f.db.prepare("UPDATE epic_accounts SET status='synced',last_sync=? WHERE slot='kevin-74000'").run(new Date().toISOString());
+  await action(()=>{for(const tick of h.intervals)tick();});
+  assert.match(content(panel()),/Fenêtre récente Epic reçue/);assert.match(content(panel()),/Dernière lecture/);assert.match(content(counters()),/0 parties reçues/);
+ }finally{await h.cleanup();}
+});
+
 test('Cartes : rang 2v2, division et MMR du dernier relevé, indépendants de la date des matchs',async()=>{
  const h=await harness(5);try{
   const panel=()=>h.root().findByProps({'aria-label':'Classement 2v2 de nokouki'});
