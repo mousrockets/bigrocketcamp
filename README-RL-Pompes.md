@@ -9,6 +9,7 @@ Application privée pour chat-pris-tea, nokouki et kevin-74000.
 - Déclarer un exercice en choisissant le joueur, puis les pompes, le gainage ou les abdos réalisés.
 - 1 minute de gainage réduit la dette de 15 pompes ; 20 abdos la réduisent de 10 pompes. Les défaites continuent de générer 5 pompes.
 - Le gainage se saisit en minutes par tranches de 0,25 minute (15 secondes). Les équivalences fractionnaires sont conservées, sans arrondir la dette à l’entier.
+- Si une série dépasse la dette, l’aperçu distingue son équivalent de la réduction effective (plafonnée au solde). La confirmation affiche le solde actualisé, jamais une réduction supérieure à la dette. Toute la série reste dans les totaux et l’historique. Les réponses d’actualisation obsolètes ne remplacent pas un solde plus récent.
 - La dette et les trois totaux d’efforts restent cumulés depuis le début. Le filtre de date sélectionne les matchs et l’historique des exercices.
 - Le gainage est stocké en secondes entières, les autres exercices en répétitions. Les anciennes séries et les déclarations de l’ancien client sont des pompes. Les tentatives répétées avec le même UUID ne doublent pas une série ; un type ou une quantité différents avec le même UUID sont refusés.
 - Les tests contre des bots restent séparés. Le bonus dernier aux points est désactivé.

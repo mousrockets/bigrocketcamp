@@ -56,3 +56,21 @@ test('Authentification, origine, date future et entrées invalides restent prot�
   assert.equal(db.prepare('SELECT COUNT(*) AS n FROM exercises').get().n,1);
  }finally{db.close();}
 });
+test('Dépasser la dette enregistre la série entière une seule fois et garde un solde nul',async()=>{
+ const {db,post,input}=await fixture();
+ try{
+  const insert=db.prepare('INSERT INTO results VALUES (?,?,?,?,?,?,?,?,?,?,?,?)');
+  for(let i=0;i<2;i++)insert.run(`loss-${i}`,'player-1','nokouki',parisDay(),'match',0,1,10,0,0,0,'now');
+  const state=()=>summarize(db.prepare('SELECT * FROM results').all(),db.prepare('SELECT * FROM exercises').all(),'')[1];
+  assert.equal(state().remaining,5);
+  const body={...input,type:'pushups',count:20};
+  assert.equal((await post(body)).status,200);
+  assert.deepEqual([state().due,state().done,state().remaining,state().pushups],[10,25,0,25]);
+  assert.equal((await post(body)).status,200);
+  assert.equal(state().pushups,25);
+  assert.equal(db.prepare('SELECT count FROM exercises WHERE id=?').get(body.id).count,20);
+  assert.equal((await post({...body,id:'next-exercise-123456',count:5})).status,200);
+  assert.equal(state().remaining,0);
+  assert.equal(state().pushups,30);
+ }finally{db.close();}
+});

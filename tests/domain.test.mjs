@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
 import {readFileSync} from 'node:fs';
-import {normalizeResult,summarize,validateExercise,parisDay,pushupCredit,exerciseDescription} from '../lib/domain.mjs';
+import {normalizeResult,summarize,validateExercise,parisDay,pushupCredit,exerciseDescription,exerciseEffect} from '../lib/domain.mjs';
 const base={MatchGuid:'match-1',PlayerId:'Epic|1',Name:'Nokouki',Day:'2026-11-04',Kind:'match',Team:0,Winner:1,Score:300,Goals:1,Assists:0,Saves:2};
 test('Victoire selon l’équipe, pas selon un booléen fourni',()=>{const r=normalizeResult({...base,Victory:true});assert.equal(summarize([r],[],'')[1].due,5);assert.equal(summarize([{...r,team:1}],[],'')[1].wins,1);});
 test('Tests bots exclus et entraînement sans GUID refusé',()=>{assert.throws(()=>normalizeResult({...base,MatchGuid:''}));assert.equal(summarize([normalizeResult({...base,Kind:'test'})],[],'')[1].played,0);});
@@ -42,4 +42,12 @@ test('Types et quantités d’exercices validés, ancien format accepté',()=>{
  assert.equal(validateExercise(x).type,'pushups');
  for(const type of ['pushups','plank','crunches'])assert.equal(validateExercise({...x,type}).type,type);
  for(const patch of [{type:'course'},{type:null},{type:''},{count:Infinity},{count:NaN},{count:'20'},{type:'plank',count:0},{type:'plank',count:0.5},{type:'plank',count:60001},{type:'crunches',count:1.5},{type:'crunches',count:10001}])assert.throws(()=>validateExercise({...x,...patch}));
+});
+test('Une série excédentaire annonce uniquement la dette réellement réduite',()=>{
+ assert.deepEqual(exerciseEffect(5,{type:'pushups',count:20}),{equivalent:20,reduction:5,remaining:0,excess:15});
+ assert.deepEqual(exerciseEffect(0,{type:'pushups',count:20}),{equivalent:20,reduction:0,remaining:0,excess:20});
+ assert.deepEqual(exerciseEffect(5,{type:'plank',count:60}),{equivalent:15,reduction:5,remaining:0,excess:10});
+ assert.deepEqual(exerciseEffect(5,{type:'crunches',count:20}),{equivalent:10,reduction:5,remaining:0,excess:5});
+ assert.deepEqual(exerciseEffect(3.75,{type:'pushups',count:5}),{equivalent:5,reduction:3.75,remaining:0,excess:1.25});
+ assert.deepEqual(exerciseEffect(5,{type:'pushups',count:2}),{equivalent:2,reduction:2,remaining:3,excess:0});
 });

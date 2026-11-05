@@ -1,17 +1,20 @@
 'use client';
-import {useEffect,useState} from 'react';
-import {roster,parisDay,summarize,validateExercise,pushupCredit,exerciseDescription,formatNumber} from '../lib/domain.mjs';
+import {useEffect,useRef,useState} from 'react';
+import {roster,parisDay,summarize,validateExercise,pushupCredit,exerciseEffect,exerciseDescription,formatNumber} from '../lib/domain.mjs';
 
 type ExerciseType='pushups'|'plank'|'crunches';
 type Declaration={id:string;player:string;type:ExerciseType;count:number;day:string};
+type State={results:any[];exercises:(Declaration&{created:string})[];collectors:{last_seen:string}[]};
 
 export default function Dashboard(){
- const [data,setData]=useState<any>(null),[error,setError]=useState(''),[notice,setNotice]=useState('');
+ const [data,setData]=useState<State|null>(null),[error,setError]=useState(''),[notice,setNotice]=useState('');
  const [day,setDay]=useState(parisDay()),[player,setPlayer]=useState(roster[0]),[type,setType]=useState<ExerciseType>('pushups'),[count,setCount]=useState(5);
  const [busy,setBusy]=useState(false),[test,setTest]=useState(false),[pending,setPending]=useState<Declaration|null>(null);
+ const refreshRequest=useRef(0);
  async function refresh(){
-  try{const r=await fetch('/api/state');if(!r.ok)throw Error('Impossible de charger les résultats. Vérifie ta connexion.');setData(await r.json());setError('');}
-  catch(e){setError((e as Error).message);}
+  const request=++refreshRequest.current;
+  try{const r=await fetch('/api/state');if(!r.ok)throw Error('Impossible de charger les résultats. Vérifie ta connexion.');const state=await r.json() as State;if(request!==refreshRequest.current)return null;setData(state);setError('');return state;}
+  catch(e){if(request===refreshRequest.current)setError((e as Error).message);return null;}
  }
  useEffect(()=>{
   refresh();const t=setInterval(refresh,15000);
@@ -32,14 +35,17 @@ export default function Dashboard(){
    const r=await fetch('/api/exercise',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
    const j=await r.json() as {error?:string};if(!r.ok)throw Error(j.error||'Impossible d’enregistrer cet exercice.');
    setPending(null);try{localStorage.removeItem('rl-pending');}catch{}
-   setNotice(`${exerciseDescription(payload)} enregistrés pour ${payload.player} : ${formatNumber(pushupCredit(payload))} pompes de dette en moins.`);
-   await refresh();
+   setNotice(`Exercice enregistré pour ${payload.player} : ${exerciseDescription(payload)}.`);
+   const state=await refresh();
+   if(state){const updated=summarize(state.results,state.exercises,'').find((p:any)=>p.name===payload.player)!;setNotice(`Exercice enregistré pour ${payload.player} : ${exerciseDescription(payload)}. Solde restant : ${formatNumber(updated.remaining)} pompes.`);}
   }catch(e){setError((e as Error).message);}finally{setBusy(false);}
  }
  const stats=data?summarize(data.results,data.exercises,day):[];
  const rows=data?.results.filter((r:any)=>(!day||r.day===day)&&(test||r.kind==='match'))||[];
  const exercises=data?.exercises.filter((e:any)=>!day||e.day===day)||[];
  const draft=pending||{type,count:type==='plank'?count*60:count};
+ const selected=stats.find((p:any)=>p.name===(pending?.player||player));
+ const effect=selected&&Number.isFinite(draft.count)&&draft.count>0?exerciseEffect(selected.remaining,draft):null;
  return <main>
   <header><a className="brand" href="/">RL<span> / </span>POMPES</a><span className="pill">LE CLUB DES MAUVAIS PERDANTS</span></header>
   <section className="intro"><div><p className="eyebrow">ROCKET LEAGUE · NOTRE ÉQUIPE</p><h1>On perd ensemble.<br/><em>On pousse ensemble.</em></h1><p className="muted">Une défaite, 5 pompes. Pompes, gainage ou abdos : chaque effort compte.</p></div><div className="rule"><strong>5</strong><span>POMPES / DÉFAITE</span><small>Bonus dernier aux points désactivé</small></div></section>
@@ -70,7 +76,7 @@ export default function Dashboard(){
      <label>Exercice<select value={type} disabled={!!pending||busy} onChange={e=>{const next=e.target.value as ExerciseType;setType(next);setCount(next==='plank'?1:next==='crunches'?20:5);}}><option value="pushups">Pompes</option><option value="plank">Gainage</option><option value="crunches">Abdos</option></select></label>
      <label>{type==='plank'?'Durée de gainage (minutes)':type==='crunches'?'Nombre d’abdos':'Nombre de pompes'}<input type="number" min={type==='plank'?0.25:1} step={type==='plank'?0.25:1} max={type==='plank'?1000:10000} required value={Number.isNaN(count)?'':count} disabled={!!pending||busy} onChange={e=>setCount(e.target.valueAsNumber)} aria-describedby="exercise-credit"/></label>
      {type==='plank'&&<p className="small muted">Par tranches de 15 secondes : 0,25 min = 15 s ; 0,5 min = 30 s.</p>}
-     <p id="exercise-credit" className="credit" aria-live="polite">{Number.isFinite(draft.count)&&draft.count>0?`${formatNumber(pushupCredit(draft))} pompes de dette en moins`:'Saisis une quantité pour voir l’équivalence.'}</p>
+     <div id="exercise-credit" className="credit" aria-live="polite">{effect?<><p>Équivalent : {formatNumber(effect.equivalent)} pompes.</p><p>Dette actuelle : {formatNumber(selected?.remaining??0)} pompes · Réduction : {formatNumber(effect.reduction)} · Restant : {formatNumber(effect.remaining)}.</p>{effect.excess>0&&<p className="small muted">Cette série dépasse la dette actuelle de {formatNumber(effect.excess)} équiv. pompes. Le solde restera à zéro et toute la série sera conservée dans l’historique et les totaux.</p>}</>:<p>{Number.isFinite(draft.count)&&draft.count>0?'Chargement du solde…':'Saisis une quantité pour voir l’équivalence.'}</p>}</div>
      <button className="primary" disabled={busy}>{busy?'Enregistrement…':pending?'Réessayer la déclaration':'Valider mon exercice →'}</button>
      {pending&&<p className="small">Déclaration en attente : {exerciseDescription(pending)} pour {pending.player}. Réessayer ne la comptera pas deux fois.</p>}
     </form>
