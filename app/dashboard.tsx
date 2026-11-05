@@ -492,16 +492,20 @@ export default function Dashboard(){
     <section id="team">
       <div className="section-title"><h2>Le tableau de l’équipe</h2><div className="filters"><label>Date <input type="date" value={day} onChange={e=>setDay(e.target.value)}/></label><button onClick={()=>setDay('')}>Tout</button><button onClick={()=>setDay(parisDay())}>Aujourd’hui</button></div></div>
       <p className="live-status"><span aria-hidden="true"/>Actualisation toutes les 3 secondes · {data?.epicPaused?'Collecte Epic en pause':'Vérification Epic chaque minute'}</p>
-      <p className="muted small">Les matchs Epic sont récupérés une fois Rocket League fermé.{data?.epic?.[0]?.last_sync&&<> Dernière réception Epic : {new Date(data.epic[0].last_sync).toLocaleString('fr-FR',{timeZone:'Europe/Paris'})}.</>}</p>
+      <p className="muted small">Les compteurs indiquent les parties reçues. L’historique Epic arrive une fois Rocket League fermé, pas après chaque match pendant une session.{data?.epic?.[0]?.last_sync&&<> Dernière réception Epic : {new Date(data.epic[0].last_sync).toLocaleString('fr-FR',{timeZone:'Europe/Paris'})}.</>}</p>
       <p className="muted small">Matchs et historique sur la date choisie · Dette et totaux d’exercices cumulés depuis le début.</p>
       <div className="cards" ref={cardsRef} onScroll={onCardsScroll}>{!data?<SkeletonCards/>:stats.map(p=>{
         const streak=streaks[p.name];
         const all=allStats.find(a=>a.name===p.name)||p;
+        const connection=data.epic?.find(c=>c.slot===p.name);
+        const historyPending=p.played===0&&!connection?.last_sync;
+        const collectionLabel=connection?.status==='reconnect'?'Autorisation Epic à renouveler.':connection?.status==='error'?'Lecture Epic indisponible.':connection?.status==='waiting_offline'?'Historique en attente : joueur en ligne ou présence inconnue.':!connection?'Compte Epic à connecter.':!connection.last_sync?'Historique pas encore récupéré.':connection.status==='partial'?'Historique reçu partiellement.':'Fenêtre récente Epic reçue.';
         return <article className={p.name===recognized?'card me':'card'} key={p.name}>
           <div className="card-top"><span className="avatar">{players[p.name]?.initials??p.name.slice(0,2).toUpperCase()}</span>{p.name===recognized&&<span className="you">TOI</span>}{streak.current>0&&<span className="streak" title={`${streak.current} jour(s) d’affilée avec un exercice`}>🔥 {streak.current} j</span>}<span className="platform">{players[p.name]?.platform??'PC'}</span></div>
           <h3>{p.name}</h3>
           <DoublesRankPanel player={p.name} rank={data.doublesRanks?.find(r=>r.player===p.name)}/>
-          <div className="results"><span><b>{p.played}</b> parties</span><span className="win"><b>{p.wins}</b> victoires</span><span><b>{p.losses}</b> défaites</span></div>
+          <div className="results"><span><b>{historyPending?'—':p.played}</b> parties reçues</span><span className="win"><b>{historyPending?'—':p.wins}</b> victoires</span><span><b>{historyPending?'—':p.losses}</b> défaites</span></div>
+          <p className="small muted" aria-label={`Collecte de ${p.name}`}>{collectionLabel}{connection?.last_sync&&<> Dernière lecture : {new Date(connection.last_sync).toLocaleString('fr-FR',{timeZone:'Europe/Paris'})}.</>}</p>
           <div className="debt"><strong><Odometer value={formatNumber(p.remaining)}/></strong><span>pompes restantes</span></div>
           <div className="progress"><i style={{width:`${p.due?Math.min(100,p.done/p.due*100):100}%`}}/></div>
           <p className="small muted">{formatNumber(p.done)} équiv. pompes réalisés · {p.due} dues au total</p>

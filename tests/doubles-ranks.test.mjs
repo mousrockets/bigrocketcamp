@@ -29,6 +29,7 @@ test('Identité liée prioritaire ; pseudonyme ambigu bloqué ; équivalence PSN
  const ambiguous=[...rows,{...rows[0],player_id:'Epic|other|0'}];assert.equal(rankTargets(ambiguous,[],'owner')[1].conflict,true);
  assert.equal(rankTargets([{...rows[0],source_difference:'identity'}],[],'owner')[1].conflict,true);
  assert.equal(rankTargets(ambiguous,[{slot:'nokouki',owner:'owner',account_id:'linked'}],'owner')[1].playerId,'Epic|linked|0');
+ assert.equal(rankTargets(ambiguous,[{slot:'nokouki',owner:'another-member',account_id:'linked'}],'owner')[1].playerId,'Epic|linked|0');
  assert.equal(rankTargets([{...rows[0],player_id:'PSN|synthetic|0'},{...rows[0],player_id:'PS4|synthetic|0'}],[],'owner')[1].playerId,'PS4|synthetic|0');
 });
 test('D1 et vraie API : lecture publique du rang via observer, dernier relevé conservé en cas d’échec',async()=>{
