@@ -18,6 +18,10 @@ Epic renvoie au plus 20 matchs récents, sans pagination vérifiée. Une premiè
 
 ## Service cloud
 
+Le tableau affiche uniquement le classement **2v2 classé** (playlist 11), avec rang, division, MMR et date du dernier relevé. `Skills/GetPlayerSkill v1` est demandé depuis la session du compte secondaire, sans connecter le joueur ; cette lecture publique peut fonctionner pendant que le joueur est en ligne. Un compte lié fournit l’identité de référence ; sinon un identifiant unique déjà observé dans les matchs du groupe suffit. Une identité ambiguë reste à vérifier.
+
+Le MMR affiché est `round(Mu * 20 + 100)`, conversion de l’échelle TrueSkill documentée dans rlru `MatchSkills`. Le champ PsyNet nommé `MMR` est aussi sur l’échelle interne et ne doit pas être affiché directement comme un nombre de points de jeu. Le rang provient de `Tier`, pas d’un seuil de MMR supposé ; la division PsyNet 0 à 3 devient I à IV. Le rang Légende supersonique n’affiche pas de division. Les matchs de placement restent indiqués comme tels. Une lecture manquante n’est jamais présentée comme un MMR nul : le dernier relevé valide est conservé avec sa date et son état d’actualisation. Aucun historique d’exercices ou calcul de dette ne dépend du classement.
+
 Le Site MCP expose `get_sync_status`, `sync_epic_histories` et `get_daily_recap`. L’accès Sites et l’identité ChatGPT sont obligatoires pour les appels ; la découverte n’expose aucune donnée. La synchronisation n’utilise que les connexions appartenant à l’appelant et son compte secondaire. Les publications préservent l’audience privée partagée.
 
 Vérifier le plugin du Site, les deux autorisations et une lecture sûre avant d’activer la tâche horaire décrite dans `.openai/tasks/epic-sync.md`. Ne jamais annoncer une collecte autonome opérationnelle sur la seule base de la publication. Le récap quotidien à 8 h Europe/Paris reste distinct et porte sur la veille. Les exécutions ordinaires ne redéploient pas le Site.

@@ -4,7 +4,12 @@ import {roster,parisDay,summarize,dailyRecap,lastPlaceRule,validateExercise,push
 
 type ExerciseType='pushups'|'plank'|'crunches';
 type Declaration={id:string;player:string;type:ExerciseType;count:number;day:string};
-type State={results:any[];exercises:(Declaration&{created:string})[];collectors:{last_seen:string}[];matchRosters?:{match_guid:string;expected_players:number}[];reliability?:{confirmed:number;single:number;corrected:number;review:number}};
+type DoublesRank={player:string;mmr:number|null;label:string;status:string;fetchedAt:string|null};
+type State={results:any[];exercises:(Declaration&{created:string})[];collectors:{last_seen:string}[];matchRosters?:{match_guid:string;expected_players:number}[];reliability?:{confirmed:number;single:number;corrected:number;review:number};doublesRanks?:DoublesRank[]};
+
+function DoublesRankPanel({player,rank}:{player:string;rank?:DoublesRank}){
+ return <div className="rank-panel" aria-label={`Classement 2v2 de ${player}`}><span className="rank-mode">2V2 CLASSÉ · DERNIER RELEVÉ</span><p className="rank-name">{rank?.label||'Classement non reçu'}</p>{rank?.mmr!=null?<strong className="rank-mmr">{formatNumber(rank.mmr)} <span>MMR</span></strong>:<p className="small muted">MMR non reçu</p>}{rank?.fetchedAt&&<p className="rank-meta">{rank.status!=='ready'?'Dernière valeur connue · ':''}{new Date(rank.fetchedAt).toLocaleString('fr-FR',{timeZone:'Europe/Paris',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</p>}{rank?.status==='unavailable'&&<p className="rank-meta">Actualisation du classement indisponible.</p>}</div>;
+}
 
 export default function Dashboard(){
  const [data,setData]=useState<State|null>(null),[error,setError]=useState(''),[notice,setNotice]=useState('');
@@ -68,7 +73,7 @@ export default function Dashboard(){
    <p className="muted small">Matchs et historique sur la date choisie · Dette et totaux d’exercices cumulés depuis le début.</p>
    <div className="cards">{!data?<p>Chargement de l’équipe…</p>:stats.map((p:any,i:number)=><article className="card" key={p.name}>
     <div className="card-top"><span className="avatar">{['CT','NK','K7'][i]}</span><span className="platform">{i===2?'PS5':'PC'}</span></div>
-    <h3>{p.name}</h3><div className="results"><span><b>{p.played}</b> parties</span><span className="win"><b>{p.wins}</b> victoires</span><span><b>{p.losses}</b> défaites</span></div>
+    <h3>{p.name}</h3><DoublesRankPanel player={p.name} rank={data.doublesRanks?.find(r=>r.player===p.name)}/><div className="results"><span><b>{p.played}</b> parties</span><span className="win"><b>{p.wins}</b> victoires</span><span><b>{p.losses}</b> défaites</span></div>
     <div className="debt"><strong>{formatNumber(p.remaining)}</strong><span>pompes restantes</span></div>
     <div className="progress"><i style={{width:`${p.due?Math.min(100,p.done/p.due*100):100}%`}}/></div>
     <p className="small muted">{formatNumber(p.done)} équiv. pompes réalisés · {p.due} dues au total</p>

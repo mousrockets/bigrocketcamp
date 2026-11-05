@@ -3,8 +3,8 @@ import {getChatGPTUser} from '../chatgpt-auth';
 import {connectionStatus,syncHistories,recapState} from '../../lib/epic-sync.mjs';
 import {parisDay} from '../../lib/domain.mjs';
 const tools=[
- {name:'get_sync_status',description:'Lire les connexions Epic et leur couverture dans RL-Pompes, sans jetons.',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:true}},
- {name:'sync_epic_histories',description:'Vérifier la présence avec le compte secondaire puis synchroniser les joueurs hors ligne. Aucun compte joueur connecté si la présence est inconnue.',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:false,idempotentHint:true}},
+ {name:'get_sync_status',description:'Lire les connexions Epic, leur couverture et les derniers classements 2v2 (rang, division, MMR) dans RL-Pompes, sans jetons.',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:true}},
+ {name:'sync_epic_histories',description:'Actualiser les classements 2v2 via le compte secondaire, puis vérifier la présence et synchroniser les matchs des joueurs hors ligne. Aucun compte joueur connecté si la présence est inconnue.',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:false,idempotentHint:true}},
  {name:'get_daily_recap',description:'Lire le récap RL-Pompes réconcilié avec toutes les sources, sans doublons. Par défaut la veille en heure de Paris.',inputSchema:{type:'object',properties:{day:{type:'string',pattern:'^\\d{4}-\\d{2}-\\d{2}$'}},additionalProperties:false},annotations:{readOnlyHint:true}},
 ];
 export async function POST(request:Request){
