@@ -11,6 +11,7 @@ export default function Dashboard(){
  const [day,setDay]=useState(parisDay()),[player,setPlayer]=useState(roster[0]),[type,setType]=useState<ExerciseType>('pushups'),[count,setCount]=useState(5);
  const [busy,setBusy]=useState(false),[test,setTest]=useState(false),[pending,setPending]=useState<Declaration|null>(null);
  const refreshRequest=useRef(0);
+ const submissionInFlight=useRef(false);
  async function refresh(){
   const request=++refreshRequest.current;
   try{const r=await fetch('/api/state');if(!r.ok)throw Error('Impossible de charger les résultats. Vérifie ta connexion.');const state=await r.json() as State;if(request!==refreshRequest.current)return null;setData(state);setError('');return state;}
@@ -25,11 +26,12 @@ export default function Dashboard(){
   return()=>clearInterval(t);
  },[]);
  async function submit(){
-  if(busy)return;
+  if(submissionInFlight.current)return;
+  submissionInFlight.current=true;
   setBusy(true);setNotice('');setError('');
-  const payload=pending||{id:crypto.randomUUID(),player,type,count:type==='plank'?count*60:count,day:parisDay()};
-  setPending(payload);
   try{
+   const payload=pending||{id:crypto.randomUUID(),player,type,count:type==='plank'?count*60:count,day:parisDay()};
+   setPending(payload);
    // A storage restriction must not prevent saving the exercise on the server.
    try{localStorage.setItem('rl-pending',JSON.stringify(payload));}catch{}
    const r=await fetch('/api/exercise',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
@@ -38,7 +40,7 @@ export default function Dashboard(){
    setNotice(`Exercice enregistré pour ${payload.player} : ${exerciseDescription(payload)}.`);
    const state=await refresh();
    if(state){const updated=summarize(state.results,state.exercises,'').find((p:any)=>p.name===payload.player)!;setNotice(`Exercice enregistré pour ${payload.player} : ${exerciseDescription(payload)}. Solde restant : ${formatNumber(updated.remaining)} pompes.`);}
-  }catch(e){setError((e as Error).message);}finally{setBusy(false);}
+  }catch(e){setError((e as Error).message);}finally{submissionInFlight.current=false;setBusy(false);}
  }
  const stats=data?summarize(data.results,data.exercises,day):[];
  const rows=data?.results.filter((r:any)=>(!day||r.day===day)&&(test||r.kind==='match'))||[];

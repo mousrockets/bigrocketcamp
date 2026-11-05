@@ -1,31 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {DatabaseSync} from 'node:sqlite';
-import {readFileSync} from 'node:fs';
-import {transpileModule,ModuleKind} from 'typescript';
-import {validateExercise,parisDay,summarize} from '../lib/domain.mjs';
-
-const journal=JSON.parse(readFileSync(new URL('../drizzle/meta/_journal.json',import.meta.url),'utf8'));
-const initial=readFileSync(new URL('../drizzle/0000_real_rattler.sql',import.meta.url),'utf8');
-const source=readFileSync(new URL('../app/api/exercise/route.ts',import.meta.url),'utf8');
-let sequence=0;
-async function fixture(){
- const db=new DatabaseSync(':memory:');db.exec(initial);
- // An existing production-style row must survive the additive migration.
- db.prepare('INSERT INTO exercises VALUES (?,?,?,?,?,?)').run('legacy-exercise-1','nokouki',5,'2026-11-04','2026-11-04T12:00:00Z','old-user');
- for(const entry of journal.entries.slice(1))db.exec(readFileSync(new URL(`../drizzle/${entry.tag}.sql`,import.meta.url),'utf8'));
- const actor={user:{userId:'current-user'}};
- const env={DB:{prepare(sql){return {bind(...values){const statement=db.prepare(sql);return {async run(){return statement.run(...values);},async first(){return statement.get(...values)||null;}};}};}}};
- // Run the actual route with only the Cloudflare binding and identity substituted.
- globalThis.__exerciseFixture={env,getChatGPTUser:async()=>actor.user,validateExercise,parisDay};
- const compiled=transpileModule(source.replace(/^import .*;\s*$/gm,''),{compilerOptions:{module:ModuleKind.ESNext}}).outputText;
- const code=`const {env,getChatGPTUser,validateExercise,parisDay}=globalThis.__exerciseFixture;\n${compiled}\n// fixture ${sequence++}`;
- const {POST}=await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
- delete globalThis.__exerciseFixture;
- const post=(body,origin='https://rl.example')=>POST(new Request('https://rl.example/api/exercise',{method:'POST',headers:{'Content-Type':'application/json',origin},body:JSON.stringify(body)}));
- const input={id:'new-exercise-123456',player:'nokouki',count:60,type:'plank',day:parisDay()};
- return {db,actor,post,input};
-}
+import {parisDay,summarize} from '../lib/domain.mjs';
+import {fixture} from './helpers/exercise-fixture.mjs';
 
 test('Migration, ancien client, historique et nouvelles séries idempotentes',async()=>{
  const {db,post,input}=await fixture();

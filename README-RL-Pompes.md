@@ -22,7 +22,7 @@ La console PS5 ne peut pas envoyer directement à ce collecteur. Les données de
 
 ## Vérification
 
-`node --test tests/*.test.mjs` vérifie les calculs, dates, entrées invalides, migrations SQLite et la route de déclaration (identité et binding D1 simulés). `node node_modules/typescript/bin/tsc --noEmit` vérifie les types. Les migrations SQL et leur journal sont versionnés ; ne pas modifier une migration déjà publiée.
+`npm test` vérifie les calculs, dates, entrées invalides, migrations SQLite et les routes de déclaration/lecture (identité et binding D1 simulés). La matrice de régression couvre les trois exercices, les dettes nulles ou fractionnaires, les séries inférieures, égales ou supérieures à la dette et les limites de quantité. Les tests du composant React exécutent le formulaire réel : double validation immédiate, reprise après coupure/rechargement, stockage local indisponible et réponses d’actualisation obsolètes. Le rendu de test React ne remplace pas un essai dans un navigateur réel. `node node_modules/typescript/bin/tsc --noEmit` vérifie les types. Les migrations SQL et leur journal sont versionnés ; ne pas modifier une migration déjà publiée.
 
 Les bases locale et hébergée sont séparées. Ne jamais importer les tests locaux dans la base réelle. L'API d'ingestion exige INGEST_KEY et le collecteur doit également franchir l'accès privé Sites. Les routes de lecture et de déclaration exigent une identité connectée. Tous les membres invités sont considérés comme une équipe de confiance : ils peuvent déclarer une série pour chaque joueur.
 
