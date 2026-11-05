@@ -1,6 +1,6 @@
 # Synchronisation cloud RL-Pompes
 
-Cette tâche est à activer seulement après vérification du plugin du Site, des autorisations et d’une lecture hors ligne réelle. Cadence retenue : une fois par heure, Europe/Paris. Ne pas créer de doublon et préserver la tâche de récap quotidien à 16 h.
+Cette tâche est à activer seulement après vérification du plugin du Site, des autorisations et d’une lecture hors ligne réelle. Cadence retenue : une fois par heure, Europe/Paris. Ne pas créer de doublon et préserver la tâche de récap quotidien à 8 h.
 
 1. Utiliser les outils du plugin RL-Pompes lié au Site `REDACTED_PROJECT_ID`. Lire `get_sync_status` pour vérifier les connexions. Une tâche cloud doit pouvoir accéder à ce plugin avec l’identité du propriétaire ; le simple accès HTTP de service n’apporte pas cette identité.
 2. Appeler une seule fois `sync_epic_histories`. L’outil vérifie lui-même la présence via le compte secondaire, bloque les comptes en ligne ou inconnus et applique les verrous et délais Epic. Ne jamais remplacer cette vérification par un login direct ou une commande locale. Ne pas lancer de flux d’autorisation en tâche de fond.

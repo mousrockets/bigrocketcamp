@@ -1,6 +1,6 @@
 # Notification quotidienne RL-Pompes
 
-Destinataire : utilisateur propriétaire de ce Site, dans la conversation de la tâche. Horaire demandé : 16 h, Europe/Paris. Le rapport porte sur la journée civile précédente en heure de Paris, afin de laisser arriver les données après les sessions de jeu. Aucun email, message Slack ni invitation à un tiers.
+Destinataire : utilisateur propriétaire de ce Site, dans la conversation de la tâche. Horaire demandé : 8 h du matin, Europe/Paris. Le rapport porte sur la journée civile précédente en heure de Paris, afin de laisser arriver les données après les sessions de jeu. Aucun email, message Slack ni invitation à un tiers.
 
 1. Lire le Site lié. Si son plugin RL-Pompes est disponible, appeler `get_daily_recap` pour la date de la veille en heure de Paris. Ce calcul serveur réconcilie les sources et fournit le bilan, la fiabilité et la couverture. Ne pas lancer de synchronisation Epic dans cette tâche de notification.
 2. Si le plugin n’est pas accessible, lire l’aperçu de sa base D1 avec Sites puis, uniquement, les tables `results`, `result_observations`, `source_reports`, `match_rosters` et `collectors`, par pages. Continuer uniquement avec `model_projection.next_offset`, jusqu’à null. Ne jamais lire `epic_accounts` ou `epic_grants`, ni rechercher de jetons. Si des pages ou valeurs sont omises/tronquées, si la limite de lecture empêche de terminer, ou si un accès échoue, indiquer clairement que le bilan est incomplet. Ne jamais inventer des matchs manquants.
