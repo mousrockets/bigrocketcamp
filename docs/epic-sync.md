@@ -16,6 +16,8 @@ Une course reste possible si le joueur lance le jeu juste après la vérificatio
 
 ## Lecture automatique
 
+Le secret d’exécution Sites `EPIC_COLLECTION_PAUSED=true` bloque toutes les connexions de collecte, y compris les déclenchements manuels et MCP, avant toute utilisation des autorisations. `get_sync_status` et l’API d’état indiquent la pause. Elle conserve les autorisations chiffrées et les données reçues. Une pause de diagnostic ne doit pas être levée automatiquement ; la tâche horaire doit également rester désactivée jusqu’à décision explicite du propriétaire.
+
 Le tableau de l’équipe est le premier contenu sous l’en-tête. L’affichage relit les données reçues toutes les 3 secondes, sans chevaucher les lectures périodiques lentes. Une mutation de l’utilisateur peut toujours forcer une lecture plus récente ; une ancienne réponse ne la remplace pas.
 
 Tant que le tableau est visible par un membre connecté, il demande une lecture (`action: 'auto'`) chaque minute. Le serveur l’espace d’au moins une minute de façon atomique pour l’ensemble des visiteurs et utilise les liaisons du propriétaire du compte secondaire, avec les mêmes vérifications de présence. Le rang 2v2 est actualisé à chaque passage. Un joueur hors ligne déjà lu récemment n’est pas reconnecté inutilement, mais son historique est relu au plus tard après 5 minutes : une courte session peut avoir échappé aux contrôles de présence. Après une session en ligne observée, ses matchs arrivent au premier passage où il est de nouveau hors ligne.

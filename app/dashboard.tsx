@@ -20,6 +20,7 @@ type State={
   reactions?:Reaction[];
   me?:string|null;
   epic?:{slot:string;status:string;last_sync:string|null;last_attempt:string|null}[];
+  epicPaused?:boolean;
 };
 type CheerKind='cheer'|'finish'|'badge'|'loss';
 type Cheer={id:number;text:string;kind:CheerKind;pieces:CSSProperties[]};
@@ -486,10 +487,11 @@ export default function Dashboard(){
       </div>
     </header>
     {error&&<p className="alert" role="alert">{error} <button onClick={refresh}>Actualiser</button></p>}
+    {data?.epicPaused&&<aside className="alert" aria-label="Collecte Epic en pause">Collecte Epic suspendue pendant le diagnostic. Les données déjà reçues restent disponibles.</aside>}
 
     <section id="team">
       <div className="section-title"><h2>Le tableau de l’équipe</h2><div className="filters"><label>Date <input type="date" value={day} onChange={e=>setDay(e.target.value)}/></label><button onClick={()=>setDay('')}>Tout</button><button onClick={()=>setDay(parisDay())}>Aujourd’hui</button></div></div>
-      <p className="live-status"><span aria-hidden="true"/>Actualisation toutes les 3 secondes · Vérification Epic chaque minute</p>
+      <p className="live-status"><span aria-hidden="true"/>Actualisation toutes les 3 secondes · {data?.epicPaused?'Collecte Epic en pause':'Vérification Epic chaque minute'}</p>
       <p className="muted small">Les matchs Epic sont récupérés une fois Rocket League fermé.{data?.epic?.[0]?.last_sync&&<> Dernière réception Epic : {new Date(data.epic[0].last_sync).toLocaleString('fr-FR',{timeZone:'Europe/Paris'})}.</>}</p>
       <p className="muted small">Matchs et historique sur la date choisie · Dette et totaux d’exercices cumulés depuis le début.</p>
       <div className="cards" ref={cardsRef} onScroll={onCardsScroll}>{!data?<SkeletonCards/>:stats.map(p=>{
@@ -601,6 +603,6 @@ export default function Dashboard(){
         })}</tbody></table>{!exercises.length&&<p className="empty">Aucun exercice enregistré pour cette période.</p>}</div>
       </section>
     </div>
-    <footer><span>LES TROIS MOUSROCKETS · {data?.epic?.[0]?.last_sync?'Dernière réception Epic : '+new Date(data.epic[0].last_sync).toLocaleString('fr-FR',{timeZone:'Europe/Paris'}):data?.collectors.length?'Dernière réception PC : '+new Date(data.collectors[0].last_seen).toLocaleString('fr-FR',{timeZone:'Europe/Paris'}):'En attente de la première collecte'}</span><p>Affichage actualisé toutes les 3 secondes et vérification Epic chaque minute lorsque cette page est visible. Matchs récupérés après fermeture de Rocket League. Page fermée : synchronisation horaire. Tests bots exclus du bilan.</p><a href="/signout-with-chatgpt?return_to=%2F" target="_top">Se déconnecter</a></footer>
+    <footer><span>LES TROIS MOUSROCKETS · {data?.epic?.[0]?.last_sync?'Dernière réception Epic : '+new Date(data.epic[0].last_sync).toLocaleString('fr-FR',{timeZone:'Europe/Paris'}):data?.collectors.length?'Dernière réception PC : '+new Date(data.collectors[0].last_seen).toLocaleString('fr-FR',{timeZone:'Europe/Paris'}):'En attente de la première collecte'}</span><p>{data?.epicPaused?"Collecte Epic en pause. Affichage des données reçues actualisé toutes les 3 secondes.":"Affichage actualisé toutes les 3 secondes et vérification Epic chaque minute lorsque cette page est visible. Matchs récupérés après fermeture de Rocket League. Page fermée : synchronisation horaire."} Tests bots exclus du bilan.</p><a href="/signout-with-chatgpt?return_to=%2F" target="_top">Se déconnecter</a></footer>
   </main>;
 }
