@@ -205,7 +205,14 @@ export default function Dashboard(){
     refresh();
     // Skip polling while the tab is hidden; catch up as soon as it is visible again.
     const t=setInterval(()=>{if(typeof document==='undefined'||!document.hidden)refresh();},15000);
-    const onVisible=()=>{if(!document.hidden)refresh();};
+    let hiddenAt=0;
+    const onVisible=()=>{
+      if(document.hidden){hiddenAt=Date.now();return;}
+      // An installed app can stay open for days: reload after a long pause to run the latest published version.
+      const installed=matchMedia('(display-mode: standalone)').matches||(navigator as Navigator&{standalone?:boolean}).standalone===true;
+      if(installed&&hiddenAt&&Date.now()-hiddenAt>300000&&!submissionInFlight.current){location.reload();return;}
+      refresh();
+    };
     if(typeof document!=='undefined')document.addEventListener('visibilitychange',onVisible);
     if(readStorage('rl-sound')==='off')setSound(false);
     const savedTheme=readStorage('rl-theme');
@@ -241,7 +248,11 @@ export default function Dashboard(){
     };
     autoSync();
     const t=setInterval(autoSync,30000);
-    return()=>clearInterval(t);
+    if(typeof document!=='undefined')document.addEventListener('visibilitychange',autoSync);
+    return()=>{
+      clearInterval(t);
+      if(typeof document!=='undefined')document.removeEventListener('visibilitychange',autoSync);
+    };
   },[]);
 
   useEffect(()=>{
