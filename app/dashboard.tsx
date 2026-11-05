@@ -209,7 +209,14 @@ export default function Dashboard(){
     refresh();
     // Skip polling while the tab is hidden; catch up as soon as it is visible again.
     const t=setInterval(()=>{if(typeof document==='undefined'||!document.hidden)refreshIfIdle();},3000);
-    const onVisible=()=>{if(!document.hidden)refreshIfIdle();};
+    let hiddenAt=0;
+    const onVisible=()=>{
+      if(document.hidden){hiddenAt=Date.now();return;}
+      // An installed app can stay open for days: reload after a long pause to run the latest published version.
+      const installed=typeof window!=='undefined'&&(matchMedia('(display-mode: standalone)').matches||(navigator as Navigator&{standalone?:boolean}).standalone===true);
+      if(installed&&hiddenAt&&Date.now()-hiddenAt>300000&&!submissionInFlight.current){location.reload();return;}
+      refreshIfIdle();
+    };
     if(typeof document!=='undefined')document.addEventListener('visibilitychange',onVisible);
     if(readStorage('rl-sound')==='off')setSound(false);
     const savedTheme=readStorage('rl-theme');
