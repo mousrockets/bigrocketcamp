@@ -481,6 +481,7 @@ export default function Dashboard(){
             <a href="#week">La semaine</a>
             <a href="#history">Derniers matchs</a>
             <a href="/connexions">Connecter les comptes Epic</a>
+            <a href="/direct">Direct depuis le PC · à tester</a>
             <a href="/signout-with-chatgpt?return_to=%2F" target="_top">Se déconnecter</a>
           </nav>
         </div>}
@@ -493,6 +494,7 @@ export default function Dashboard(){
       <div className="section-title"><h2>Le tableau de l’équipe</h2><div className="filters"><label>Date <input type="date" value={day} onChange={e=>setDay(e.target.value)}/></label><button onClick={()=>setDay('')}>Tout</button><button onClick={()=>setDay(parisDay())}>Aujourd’hui</button></div></div>
       <p className="live-status"><span aria-hidden="true"/>Actualisation toutes les 3 secondes · {data?.epicPaused?'Collecte Epic en pause':'Vérification Epic chaque minute'}</p>
       <p className="muted small">Les compteurs indiquent les parties reçues. L’historique Epic arrive une fois Rocket League fermé, pas après chaque match pendant une session.{data?.epic?.[0]?.last_sync&&<> Dernière réception Epic : {new Date(data.epic[0].last_sync).toLocaleString('fr-FR',{timeZone:'Europe/Paris'})}.</>}</p>
+      <p className="small"><a href="/direct">Configurer le direct depuis un PC ↗</a> · Un onglet sur le PC qui joue ; premier essai à valider.</p>
       <p className="muted small">Matchs et historique sur la date choisie · Dette et totaux d’exercices cumulés depuis le début.</p>
       <div className="cards" ref={cardsRef} onScroll={onCardsScroll}>{!data?<SkeletonCards/>:stats.map(p=>{
         const streak=streaks[p.name];
