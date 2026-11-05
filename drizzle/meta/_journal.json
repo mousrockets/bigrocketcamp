@@ -36,6 +36,13 @@
       "when": 1793894393529,
       "tag": "0004_magenta_bloodaxe",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1793902516888,
+      "tag": "0005_slimy_songbird",
+      "breakpoints": true
     }
   ]
 }
