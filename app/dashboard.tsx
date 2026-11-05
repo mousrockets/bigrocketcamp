@@ -58,8 +58,8 @@ export default function Dashboard(){
  const recapLabel=new Intl.DateTimeFormat('fr-FR',{timeZone:'Europe/Paris',day:'numeric',month:'long',year:'numeric'}).format(new Date(`${recapDay}T12:00:00Z`));
  function yesterday(){const date=new Date(`${parisDay()}T12:00:00Z`);date.setUTCDate(date.getUTCDate()-1);setRecapDay(parisDay(date));}
  return <main>
-  <header><a className="brand" href="/">RL<span> / </span>POMPES</a><span className="pill">LE CLUB DES MAUVAIS PERDANTS</span></header>
-  <section className="intro"><div><p className="eyebrow">ROCKET LEAGUE · NOTRE ÉQUIPE</p><h1>On perd ensemble.<br/><em>On pousse ensemble.</em></h1><p className="muted">Une défaite, 5 pompes. Pompes, gainage ou abdos : chaque effort compte.</p></div><div className="rule"><strong>5</strong><span>POMPES / DÉFAITE</span><small>{lastPlaceRule.enabled?'Dernier aux points du match : +5 si défaite':'Bonus dernier aux points désactivé'}</small></div></section>
+  <header><a className="brand" href="/" aria-label="Les Trois Mousrockets, accueil"><img className="club-logo" src="/club-photo.jpg" alt="" width={64} height={64}/><span className="brand-name"><span>Les Trois</span><strong>Mousrockets</strong></span></a><span className="pill">UN POUR TOUS, TOUS POUR LE BUT</span></header>
+  <section className="intro"><div><p className="eyebrow">LES TROIS MOUSROCKETS · ROCKET LEAGUE</p><h1>On perd ensemble.<br/><em>On pousse ensemble.</em></h1><p className="muted">Une défaite, 5 pompes. Pompes, gainage ou abdos : chaque effort compte.</p></div><div className="rule"><strong>5</strong><span>POMPES / DÉFAITE</span><small>{lastPlaceRule.enabled?'Dernier aux points du match : +5 si défaite':'Bonus dernier aux points désactivé'}</small></div></section>
   {error&&<p className="alert" role="alert">{error} <button onClick={refresh}>Actualiser</button></p>}
   <section className="sync-summary"><div><b>Historique vérifié entre les sources</b><p className="small muted">{data?.reliability?`${data.reliability.confirmed} résultat(s) confirmé(s) par les deux sources · ${data.reliability.corrected} corrigé(s) · ${data.reliability.single} reçu(s) d’une seule source`:'Chargement des sources…'}</p>{!!data?.reliability?.review&&<p className="small">{data.reliability.review} résultat(s) à vérifier, exclus du calcul des pompes.</p>}</div><a href="/connexions">Connecter les comptes Epic →</a></section>
   <section className="daily-recap" aria-labelledby="recap-title">
@@ -102,6 +102,6 @@ export default function Dashboard(){
     <p className="small muted">Déclaration pour aujourd’hui. Le solde reste à zéro minimum ; tous les efforts sont comptabilisés et conservés.</p>
    </section>
   </div>
-  <footer><span>RL-POMPES · {data?.collectors.length?`Dernière synchronisation : ${new Date(data.collectors[0].last_seen).toLocaleString('fr-FR')}`:'En attente du premier collecteur PC'}</span><p>Kevin : collecte PS5 à vérifier lors d’une partie avec un joueur PC. Tests bots exclus du bilan. Actualisation toutes les 15 secondes.</p><a href="/signout-with-chatgpt?return_to=%2F" target="_top">Se déconnecter</a></footer>
+  <footer><span>LES TROIS MOUSROCKETS · {data?.collectors.length?`Dernière synchronisation : ${new Date(data.collectors[0].last_seen).toLocaleString('fr-FR')}`:'En attente du premier collecteur PC'}</span><p>Kevin : collecte PS5 à vérifier lors d’une partie avec un joueur PC. Tests bots exclus du bilan. Actualisation toutes les 15 secondes.</p><a href="/signout-with-chatgpt?return_to=%2F" target="_top">Se déconnecter</a></footer>
  </main>;
 }

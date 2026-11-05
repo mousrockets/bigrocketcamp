@@ -1,6 +1,6 @@
-# RL-Pompes
+# Les Trois Mousrockets
 
-Application privée pour chat-pris-tea, nokouki et kevin-74000.
+Application privée pour chat-pris-tea, nokouki et kevin-74000. Le club utilise la photo fournie par son propriétaire, conservée sans modification dans `public/club-photo.jpg`.
 
 ## Utilisation
 
@@ -26,7 +26,7 @@ La console PS5 ne peut pas envoyer directement à ce collecteur. Les données de
 
 L’API `/api/ingest` accepte désormais aussi les joueurs hors groupe dans `results`, avec les mêmes champs. Un collecteur qui dispose du tableau final complet peut ajouter `matches: [{"MatchGuid":"identifiant-du-match","PlayerCount":4}]` (effectif réel de tous les participants de ce match, adversaires compris). Le serveur vérifie le nombre d’identifiants distincts, la présence des deux équipes, le jour et le vainqueur communs avant d’enregistrer cette confirmation dans `match_rosters`. Un ancien collecteur sans `matches` reste compatible mais ne fournit pas de classement complet. Ne jamais déclarer complet un sous-ensemble contenant seulement les joueurs du groupe.
 
-Le récap est recalculé à partir des données persistées lorsque l’application est ouverte. Les instructions de notification quotidienne en lecture seule sont dans `.openai/tasks/daily-recap.md`. L’horaire demandé est 16 h, Europe/Paris, pour le bilan de la veille. La création effective de la tâche doit être vérifiée avec Sites ; le fichier d’instructions seul ne programme aucun envoi.
+Le récap est recalculé à partir des données persistées lorsque l’application est ouverte. Les instructions de notification quotidienne en lecture seule sont dans `.openai/tasks/daily-recap.md`. L’horaire demandé est 8 h, Europe/Paris, pour le bilan de la veille. La création effective de la tâche doit être vérifiée avec Sites ; le fichier d’instructions seul ne programme aucun envoi.
 
 ## Vérification
 
