@@ -6,7 +6,11 @@ Application privée pour chat-pris-tea, nokouki et kevin-74000.
 
 - Se connecter au site avec le compte ChatGPT autorisé.
 - Choisir une date pour les parties ; les compteurs de pompes restent cumulés.
-- Déclarer une série en choisissant le joueur et le nombre réalisé.
+- Déclarer un exercice en choisissant le joueur, puis les pompes, le gainage ou les abdos réalisés.
+- 1 minute de gainage réduit la dette de 15 pompes ; 20 abdos la réduisent de 10 pompes. Les défaites continuent de générer 5 pompes.
+- Le gainage se saisit en minutes par tranches de 0,25 minute (15 secondes). Les équivalences fractionnaires sont conservées, sans arrondir la dette à l’entier.
+- La dette et les trois totaux d’efforts restent cumulés depuis le début. Le filtre de date sélectionne les matchs et l’historique des exercices.
+- Le gainage est stocké en secondes entières, les autres exercices en répétitions. Les anciennes séries et les déclarations de l’ancien client sont des pompes. Les tentatives répétées avec le même UUID ne doublent pas une série ; un type ou une quantité différents avec le même UUID sont refusés.
 - Les tests contre des bots restent séparés. Le bonus dernier aux points est désactivé.
 
 ## Architecture
@@ -17,7 +21,7 @@ La console PS5 ne peut pas envoyer directement à ce collecteur. Les données de
 
 ## Vérification
 
-`node --test tests/domain.test.mjs` vérifie les calculs, dates, entrées invalides et contraintes SQLite. `node node_modules/typescript/bin/tsc --noEmit` vérifie les types. Le build passe par le helper Sites. Les migrations SQL et leur journal sont versionnés ; ne pas modifier une migration déjà publiée.
+`node --test tests/*.test.mjs` vérifie les calculs, dates, entrées invalides, migrations SQLite et la route de déclaration (identité et binding D1 simulés). `node node_modules/typescript/bin/tsc --noEmit` vérifie les types. Les migrations SQL et leur journal sont versionnés ; ne pas modifier une migration déjà publiée.
 
 Les bases locale et hébergée sont séparées. Ne jamais importer les tests locaux dans la base réelle. L'API d'ingestion exige INGEST_KEY et le collecteur doit également franchir l'accès privé Sites. Les routes de lecture et de déclaration exigent une identité connectée. Tous les membres invités sont considérés comme une équipe de confiance : ils peuvent déclarer une série pour chaque joueur.
 
