@@ -19,6 +19,8 @@ type State={
   doublesRanks?:DoublesRank[];
   reactions?:Reaction[];
   me?:string|null;
+  epic?:{slot:string;status:string;last_sync:string|null;last_attempt:string|null}[];
+  epicPaused?:boolean;
 };
 type CheerKind='cheer'|'finish'|'badge'|'loss';
 type Cheer={id:number;text:string;kind:CheerKind;pieces:CSSProperties[]};
@@ -180,6 +182,7 @@ export default function Dashboard(){
   const [activeCard,setActiveCard]=useState(0);
   const cardsCentered=useRef(false);
   const refreshRequest=useRef(0);
+  const refreshInFlight=useRef(0);
   const submissionInFlight=useRef(false);
   const playerTouched=useRef(false);
   const seenLosses=useRef<Set<string>|null>(null);
@@ -187,6 +190,7 @@ export default function Dashboard(){
   soundRef.current=sound;
 
   async function refresh(){
+    refreshInFlight.current++;
     const request=++refreshRequest.current;
     try{
       const r=await fetch('/api/state');
@@ -198,20 +202,21 @@ export default function Dashboard(){
     }catch(e){
       if(request===refreshRequest.current)setError((e as Error).message);
       return null;
-    }
+    }finally{refreshInFlight.current--;}
   }
+  async function refreshIfIdle(){if(refreshInFlight.current)return null;return refresh();}
 
   useEffect(()=>{
     refresh();
     // Skip polling while the tab is hidden; catch up as soon as it is visible again.
-    const t=setInterval(()=>{if(typeof document==='undefined'||!document.hidden)refresh();},15000);
+    const t=setInterval(()=>{if(typeof document==='undefined'||!document.hidden)refreshIfIdle();},3000);
     let hiddenAt=0;
     const onVisible=()=>{
       if(document.hidden){hiddenAt=Date.now();return;}
       // An installed app can stay open for days: reload after a long pause to run the latest published version.
-      const installed=matchMedia('(display-mode: standalone)').matches||(navigator as Navigator&{standalone?:boolean}).standalone===true;
+      const installed=typeof window!=='undefined'&&(matchMedia('(display-mode: standalone)').matches||(navigator as Navigator&{standalone?:boolean}).standalone===true);
       if(installed&&hiddenAt&&Date.now()-hiddenAt>300000&&!submissionInFlight.current){location.reload();return;}
-      refresh();
+      refreshIfIdle();
     };
     if(typeof document!=='undefined')document.addEventListener('visibilitychange',onVisible);
     if(readStorage('rl-sound')==='off')setSound(false);
@@ -229,30 +234,29 @@ export default function Dashboard(){
     }catch{}
     return()=>{
       clearInterval(t);
+      refreshRequest.current++;
       if(typeof document!=='undefined')document.removeEventListener('visibilitychange',onVisible);
     };
   },[]);
 
   // Asks the server for an Epic read; the server throttles and checks presence itself.
   useEffect(()=>{
-    let running=false;
+    let running=false,stopped=false;
     const autoSync=async()=>{
-      if(running||(typeof document!=='undefined'&&document.hidden))return;
+      if(stopped||running||(typeof document!=='undefined'&&document.hidden))return;
       running=true;
       try{
         const r=await fetch('/api/epic',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'auto'})});
         const j=r.ok?await r.json() as {synced?:number;ranksUpdated?:number}:null;
-        if(j?.synced||j?.ranksUpdated)await refresh();
+        if(!stopped&&(j?.synced||j?.ranksUpdated))await refresh();
       }catch{}
       finally{running=false;}
     };
     autoSync();
-    const t=setInterval(autoSync,30000);
-    if(typeof document!=='undefined')document.addEventListener('visibilitychange',autoSync);
-    return()=>{
-      clearInterval(t);
-      if(typeof document!=='undefined')document.removeEventListener('visibilitychange',autoSync);
-    };
+    const t=setInterval(autoSync,60000);
+    const onVisible=()=>{if(!document.hidden)autoSync();};
+    if(typeof document!=='undefined')document.addEventListener('visibilitychange',onVisible);
+    return()=>{stopped=true;clearInterval(t);if(typeof document!=='undefined')document.removeEventListener('visibilitychange',onVisible);};
   },[]);
 
   useEffect(()=>{
@@ -483,9 +487,12 @@ export default function Dashboard(){
       </div>
     </header>
     {error&&<p className="alert" role="alert">{error} <button onClick={refresh}>Actualiser</button></p>}
+    {data?.epicPaused&&<aside className="alert" aria-label="Collecte Epic en pause">Collecte Epic suspendue pendant le diagnostic. Les données déjà reçues restent disponibles.</aside>}
 
     <section id="team">
       <div className="section-title"><h2>Le tableau de l’équipe</h2><div className="filters"><label>Date <input type="date" value={day} onChange={e=>setDay(e.target.value)}/></label><button onClick={()=>setDay('')}>Tout</button><button onClick={()=>setDay(parisDay())}>Aujourd’hui</button></div></div>
+      <p className="live-status"><span aria-hidden="true"/>Actualisation toutes les 3 secondes · {data?.epicPaused?'Collecte Epic en pause':'Vérification Epic chaque minute'}</p>
+      <p className="muted small">Les matchs Epic sont récupérés une fois Rocket League fermé.{data?.epic?.[0]?.last_sync&&<> Dernière réception Epic : {new Date(data.epic[0].last_sync).toLocaleString('fr-FR',{timeZone:'Europe/Paris'})}.</>}</p>
       <p className="muted small">Matchs et historique sur la date choisie · Dette et totaux d’exercices cumulés depuis le début.</p>
       <div className="cards" ref={cardsRef} onScroll={onCardsScroll}>{!data?<SkeletonCards/>:stats.map(p=>{
         const streak=streaks[p.name];
@@ -596,6 +603,6 @@ export default function Dashboard(){
         })}</tbody></table>{!exercises.length&&<p className="empty">Aucun exercice enregistré pour cette période.</p>}</div>
       </section>
     </div>
-    <footer><span>LES TROIS MOUSROCKETS · {data?.collectors.length?`Dernière synchronisation : ${new Date(data.collectors[0].last_seen).toLocaleString('fr-FR')}`:'En attente du premier collecteur PC'}</span><p>Kevin : collecte PS5 à vérifier lors d’une partie avec un joueur PC. Tests bots exclus du bilan. Actualisation toutes les 15 secondes quand la page est ouverte. Lecture Epic automatique dès qu’un joueur quitte le jeu.</p><a href="/signout-with-chatgpt?return_to=%2F" target="_top">Se déconnecter</a></footer>
+    <footer><span>LES TROIS MOUSROCKETS · {data?.epic?.[0]?.last_sync?'Dernière réception Epic : '+new Date(data.epic[0].last_sync).toLocaleString('fr-FR',{timeZone:'Europe/Paris'}):data?.collectors.length?'Dernière réception PC : '+new Date(data.collectors[0].last_seen).toLocaleString('fr-FR',{timeZone:'Europe/Paris'}):'En attente de la première collecte'}</span><p>{data?.epicPaused?"Collecte Epic en pause. Affichage des données reçues actualisé toutes les 3 secondes.":"Affichage actualisé toutes les 3 secondes et vérification Epic chaque minute lorsque cette page est visible. Matchs récupérés après fermeture de Rocket League. Page fermée : synchronisation horaire."} Tests bots exclus du bilan.</p><a href="/signout-with-chatgpt?return_to=%2F" target="_top">Se déconnecter</a></footer>
   </main>;
 }

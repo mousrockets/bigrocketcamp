@@ -136,3 +136,5 @@ h1 em{color:var(--orange)}
 .exercise-history table{min-width:0}
 .reactions button{min-height:40px}
 }
+
+.live-status{display:flex;align-items:center;gap:8px;font-size:12px;line-height:1.5;color:var(--green);margin:12px 0 6px}.live-status>span{width:7px;height:7px;flex-shrink:0;border-radius:50%;background:var(--green);box-shadow:0 0 10px var(--glow-blue)}

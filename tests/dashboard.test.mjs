@@ -17,14 +17,16 @@ const content=node=>typeof node==='string'?node:node.children?.map(content).join
 const deferred=()=>{let resolve,reject;const promise=new Promise((yes,no)=>{resolve=yes;reject=no;});return {promise,resolve,reject};};
 const action=fn=>act(async()=>{fn();await new Promise(resolve=>setImmediate(resolve));});
 
-async function harness(debt){
+async function harness(debt,{visibility=false}={}){
  const f=await fixture({legacy:false});f.resetDebt(debt);
- const storage=new Map(),intervals=new Set(),savedGlobals=new Map();
- const network={posts:[],failAfterSave:false,delayNextState:null};
+ const storage=new Map(),intervals=new Set(),intervalDelays=new Map(),savedGlobals=new Map(),listeners=new Map();
+ const network={posts:[],failAfterSave:false,delayNextState:null,stateGets:0};
  function override(name,value){savedGlobals.set(name,Object.getOwnPropertyDescriptor(globalThis,name));Object.defineProperty(globalThis,name,{value,writable:true,configurable:true});}
  override('IS_REACT_ACT_ENVIRONMENT',true);
  override('localStorage',{getItem:key=>storage.get(key)||null,setItem:(key,value)=>storage.set(key,value),removeItem:key=>storage.delete(key)});
- override('setInterval',fn=>{intervals.add(fn);return fn;});override('clearInterval',fn=>intervals.delete(fn));
+ override('setInterval',(fn,delay)=>{intervals.add(fn);intervalDelays.set(fn,delay);return fn;});override('clearInterval',fn=>{intervals.delete(fn);intervalDelays.delete(fn);});
+ const visibleDocument={hidden:false,documentElement:{dataset:{}},addEventListener(type,fn){if(!listeners.has(type))listeners.set(type,new Set());listeners.get(type).add(fn);},removeEventListener(type,fn){listeners.get(type)?.delete(fn);}};
+ if(visibility){override('document',visibleDocument);override('matchMedia',()=>({matches:false,addEventListener(){},removeEventListener(){}}));}
  override('fetch',async(url,options)=>{
   if(url==='/api/exercise'){
    const body=JSON.parse(options.body);network.posts.push(body);
@@ -34,6 +36,7 @@ async function harness(debt){
   }
   if(url==='/api/epic'){network.autoSyncs=(network.autoSyncs||0)+1;return Response.json({ran:false});}
   assert.equal(url,'/api/state');
+  network.stateGets++;
   const response=await f.readState();
   if(network.delayNextState){const wait=network.delayNextState;network.delayNextState=null;wait.snapshot=response;return wait.promise;}
   return response;
@@ -56,8 +59,24 @@ async function harness(debt){
   finally{console.error=originalConsoleError;for(const [key,descriptor] of savedGlobals){if(descriptor)Object.defineProperty(globalThis,key,descriptor);else delete globalThis[key];}f.db.close();}
  }
  try{await mount();}catch(e){await cleanup();throw e;}
- return {f,storage,network,intervals,root,number,setCount,setType,submit,debtText,mount,unmount:()=>action(()=>renderer.unmount()),cleanup};
+ return {f,storage,network,intervals,intervalDelays,visibleDocument,listeners,root,number,setCount,setType,submit,debtText,mount,unmount:()=>action(()=>renderer.unmount()),cleanup};
 }
+
+test('Actualisation rapide : pause en arrière-plan et reprise immédiate des lectures et de la collecte',async()=>{
+ const h=await harness(5,{visibility:true});try{
+  const stateTick=[...h.intervals].find(fn=>h.intervalDelays.get(fn)===3000),sourceTick=[...h.intervals].find(fn=>h.intervalDelays.get(fn)===60000);assert.ok(stateTick);assert.ok(sourceTick);
+  const beforeState=h.network.stateGets,beforeSource=h.network.autoSyncs;
+  h.visibleDocument.hidden=true;await action(()=>{stateTick();sourceTick();});assert.equal(h.network.stateGets,beforeState);assert.equal(h.network.autoSyncs,beforeSource);
+  h.visibleDocument.hidden=false;await action(()=>{for(const fn of h.listeners.get('visibilitychange'))fn();});assert.equal(h.network.stateGets,beforeState+1);assert.equal(h.network.autoSyncs,beforeSource+1);
+ }finally{await h.cleanup();}assert.equal(h.intervals.size,0);assert.equal(h.listeners.get('visibilitychange').size,0);
+});
+test('Connexion lente : les lectures automatiques restent uniques et finissent par mettre le tableau à jour',async()=>{
+ const h=await harness(5);try{
+  const tick=[...h.intervals].find(fn=>h.intervalDelays.get(fn)===3000),wait=deferred();h.network.delayNextState=wait;const before=h.network.stateGets;
+  await action(()=>tick());assert.equal(h.network.stateGets,before+1);await action(()=>{tick();tick();});assert.equal(h.network.stateGets,before+1);
+  await action(()=>wait.resolve(wait.snapshot));assert.equal(h.debtText(),'5');await action(()=>tick());assert.equal(h.network.stateGets,before+2);
+ }finally{await h.cleanup();}
+});
 
 test('Cartes : rang 2v2, division et MMR du dernier relevé, indépendants de la date des matchs',async()=>{
  const h=await harness(5);try{

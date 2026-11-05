@@ -5,6 +5,7 @@ import {validateExercise,parisDay,summarize,normalizeParticipant} from '../../li
 import {validateMatchRosters} from '../../lib/match-rules.mjs';
 import {observationWrites,readMerged} from '../../lib/reconcile.mjs';
 import {readDoublesRanks} from '../../lib/doubles-ranks.mjs';
+import {collectionPaused} from '../../lib/epic-sync.mjs';
 
 const journal=JSON.parse(readFileSync(new URL('../../drizzle/meta/_journal.json',import.meta.url),'utf8'));
 const initial=readFileSync(new URL('../../drizzle/0000_real_rattler.sql',import.meta.url),'utf8');
@@ -35,7 +36,7 @@ export async function fixture({legacy=true}={}){
   return bound();
  }}};
  // Execute the real API routes; replace only Cloudflare D1 and authenticated identity.
- const context={env,getChatGPTUser:async()=>actor.user,validateExercise,parisDay,normalizeParticipant,validateMatchRosters,observationWrites,readMerged,readDoublesRanks};
+ const context={env,getChatGPTUser:async()=>actor.user,validateExercise,parisDay,normalizeParticipant,validateMatchRosters,observationWrites,readMerged,readDoublesRanks,collectionPaused};
  const {POST}=await loadRoute('../../app/api/exercise/route.ts',context);
  const {GET}=await loadRoute('../../app/api/state/route.ts',context);
  const {POST:INGEST}=await loadRoute('../../app/api/ingest/route.ts',context);
