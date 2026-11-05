@@ -58,6 +58,19 @@ async function harness(debt){
  return {f,storage,network,intervals,root,number,setCount,setType,submit,debtText,mount,unmount:()=>action(()=>renderer.unmount()),cleanup};
 }
 
+test('Cartes : rang 2v2, division et MMR du dernier relevé, indépendants de la date des matchs',async()=>{
+ const h=await harness(5);try{
+  const panel=()=>h.root().findByProps({'aria-label':'Classement 2v2 de nokouki'});
+  assert.match(content(panel()),/Classement non reçu/);assert.equal(panel().findAllByProps({className:'rank-mmr'}).length,0);
+  const now=new Date().toISOString();h.f.db.prepare('INSERT INTO player_ranks VALUES (?,?,?,?,?,?,?,?,?,?)').run('nokouki','Epic|synthetic|0',11,1200,17,2,10,now,now,'ready');
+  await action(()=>{for(const refresh of h.intervals)refresh();});
+  assert.match(content(panel()),/Champion II · Division II/);assert.equal(content(panel().findByProps({className:'rank-mmr'})).replace(/\s/g,''),'1200MMR');
+  await action(()=>h.root().findAllByType('button').find(b=>content(b)==='Tout').props.onClick());assert.match(content(panel()),/Champion II · Division II/);assert.equal(h.debtText(),'5');
+  h.f.db.prepare("UPDATE player_ranks SET status='unavailable' WHERE player='nokouki'").run();await action(()=>{for(const refresh of h.intervals)refresh();});
+  assert.match(content(panel()),/Dernière valeur connue/);assert.match(content(panel()),/Actualisation du classement indisponible/);assert.equal(content(panel().findByProps({className:'rank-mmr'})).replace(/\s/g,''),'1200MMR');
+ }finally{await h.cleanup();}
+});
+
 for(const [debt,count,remaining] of [[5,2,'3'],[5,5,'0'],[5,20,'0'],[0,20,'0'],[3.75,5,'0']]){
  test(`Formulaire : ${debt} dues et ${count} pompes saisies affichent ${remaining} restantes`,async()=>{
   const h=await harness(debt);
