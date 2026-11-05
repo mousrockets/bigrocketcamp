@@ -24,6 +24,8 @@ Tant que le tableau est visible par un membre connecté, il demande une lecture 
 
 Les lectures et demandes automatiques sont suspendues lorsque l’onglet est caché et reprennent dès son retour. Le tableau affiche la date de réception Epic réelle, sans la confondre avec l’actualisation de l’écran. Pendant une partie, seule l’ancienne collecte PC peut fournir des résultats en direct ; la méthode Epic nécessite toujours la fermeture du jeu. La tâche horaire reste le filet de sécurité quand aucune page n’est ouverte.
 
+Les déclenchements HTTP et MCP enregistrent aussi la promesse de lecture avec `waitUntil` avant de l’attendre : la fermeture de l’onglet ne l’interrompt pas immédiatement. Le délai de grâce de Workers reste limité à 30 secondes après déconnexion ; une interruption du runtime conserve les verrous jusqu’à leur expiration de sécurité.
+
 Epic renvoie au plus 20 matchs récents, sans pagination vérifiée. Une première lecture ne garantit jamais toute une journée. Une fenêtre pleine sans recouvrement avec la précédente est signalée comme lacune, durablement ; un petit relevé ultérieur ne suffit pas à la déclarer résolue. Les entrées incomplètes, sans résultat, sans propriétaire identifié ou issues d’une playlist non reconnue sont ignorées et signalées. Les anciennes données restent disponibles. Playlists reconnues : 1, 2, 3, 4, 10, 11, 13, 27, 28, 29, 30, 34.
 
 ## Service cloud
