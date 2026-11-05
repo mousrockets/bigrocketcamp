@@ -37,3 +37,6 @@ Les bases locale et hébergée sont séparées. Ne jamais importer les tests loc
 ## Évolution
 
 Conserver l'identifiant `.openai/hosting.json`, le dépôt privé, les données D1 et ajouter des migrations pour les nouvelles fonctionnalités. Le code et le design peuvent évoluer après publication. Toute modification rétroactive des règles de calcul doit être décidée explicitement.
+# Historique Epic et rapprochement des sources
+
+La page `/connexions` permet d’autoriser un compte Epic secondaire de vérification, puis les comptes joueurs. Les relevés Epic et PC sont rapprochés sans doublons et sans supprimer les anciens matchs. Les résultats incertains sont signalés et exclus de la dette. Le détail de la connexion chiffrée, des vérifications de présence, des limites de couverture et de la mise en service figure dans [docs/epic-sync.md](docs/epic-sync.md).

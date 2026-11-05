@@ -3,15 +3,16 @@ import {readFileSync} from 'node:fs';
 import {transpileModule,ModuleKind} from 'typescript';
 import {validateExercise,parisDay,summarize,normalizeParticipant} from '../../lib/domain.mjs';
 import {validateMatchRosters} from '../../lib/match-rules.mjs';
+import {observationWrites,readMerged} from '../../lib/reconcile.mjs';
 
 const journal=JSON.parse(readFileSync(new URL('../../drizzle/meta/_journal.json',import.meta.url),'utf8'));
 const initial=readFileSync(new URL('../../drizzle/0000_real_rattler.sql',import.meta.url),'utf8');
 let sequence=0;
-async function loadRoute(path,context){
+export async function loadRoute(path,context){
  const source=readFileSync(new URL(path,import.meta.url),'utf8');
  globalThis.__exerciseFixture=context;
  const compiled=transpileModule(source.replace(/^import .*;\s*$/gm,''),{compilerOptions:{module:ModuleKind.ESNext}}).outputText;
- const code=`const {env,getChatGPTUser,validateExercise,parisDay,normalizeParticipant,validateMatchRosters}=globalThis.__exerciseFixture;\n${compiled}\n// fixture ${sequence++}`;
+ const code=`const {${Object.keys(context).join(',')}}=globalThis.__exerciseFixture;\n${compiled}\n// fixture ${sequence++}`;
  try{return await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);}
  finally{delete globalThis.__exerciseFixture;}
 }
@@ -33,7 +34,7 @@ export async function fixture({legacy=true}={}){
   return bound();
  }}};
  // Execute the real API routes; replace only Cloudflare D1 and authenticated identity.
- const context={env,getChatGPTUser:async()=>actor.user,validateExercise,parisDay,normalizeParticipant,validateMatchRosters};
+ const context={env,getChatGPTUser:async()=>actor.user,validateExercise,parisDay,normalizeParticipant,validateMatchRosters,observationWrites,readMerged};
  const {POST}=await loadRoute('../../app/api/exercise/route.ts',context);
  const {GET}=await loadRoute('../../app/api/state/route.ts',context);
  const {POST:INGEST}=await loadRoute('../../app/api/ingest/route.ts',context);
@@ -43,11 +44,11 @@ export async function fixture({legacy=true}={}){
  const input={id:'new-exercise-123456',player:'nokouki',count:60,type:'plank',day:parisDay()};
  const stats=()=>summarize(db.prepare('SELECT * FROM results').all(),db.prepare('SELECT * FROM exercises').all(),'');
  function resetDebt(remaining){
-  db.exec('DELETE FROM results; DELETE FROM exercises; DELETE FROM match_rosters;');
+  db.exec('DELETE FROM results; DELETE FROM exercises; DELETE FROM match_rosters; DELETE FROM result_observations; DELETE FROM source_reports;');
   const due=Math.ceil(remaining/5)*5;
   const insert=db.prepare('INSERT INTO results VALUES (?,?,?,?,?,?,?,?,?,?,?,?)');
   for(let i=0;i<due/5;i++)insert.run(`loss-${i}`,'player-1','nokouki',parisDay(),'match',0,1,10,0,0,0,'now');
   if(due>remaining)db.prepare('INSERT INTO exercises (id,player,count,day,created,author,type) VALUES (?,?,?,?,?,?,?)').run('baseline-exercise-1','nokouki',(due-remaining)*4,parisDay(),'2026-11-04T12:00:00Z','current-user','plank');
  }
- return {db,actor,post,ingest,readState,input,stats,resetDebt};
+ return {db,env,actor,post,ingest,readState,input,stats,resetDebt};
 }

@@ -1,0 +1,31 @@
+'use client';
+import {useEffect,useRef,useState} from 'react';
+const names=['observer','chat-pris-tea','nokouki','kevin-74000'];
+const label=(slot:string)=>slot==='observer'?'Compte secondaire de vérification':slot;
+const statusLabel:Record<string,string>={ready:'Prêt',synced:'Synchronisé',partial:'Lecture partielle',waiting_offline:'En attente du joueur hors ligne',error:'Lecture indisponible',reconnect:'Autorisation à renouveler'};
+type Connection={slot:string;connected:boolean;owned:boolean;status?:string;lastSync?:string;coverage?:string;detail?:string};
+type Grant={slot:string;code:string;url:string;expires:number;interval:number};
+export default function Connections(){
+ const [connections,setConnections]=useState<Connection[]>([]),[grant,setGrant]=useState<Grant|null>(null),[busy,setBusy]=useState(false),[message,setMessage]=useState(''),[error,setError]=useState('');
+ const inFlight=useRef(false);
+ async function refresh(){try{const r=await fetch('/api/epic');if(!r.ok)throw Error('Connexion à RL-Pompes requise.');const data=await r.json() as {connections:Connection[]};setConnections(data.connections);}catch(e){setError((e as Error).message);}}
+ useEffect(()=>{refresh();const t=setInterval(refresh,15000);return()=>clearInterval(t);},[]);
+ async function act(action:string,slot?:string){
+  if(inFlight.current)return;inFlight.current=true;setBusy(true);setError('');
+  try{const r=await fetch('/api/epic',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,slot})});const result=await r.json() as any;if(!r.ok)throw Error(result.error||'Action impossible.');
+   if(action==='start'){setGrant(result);setMessage('Ouvre Epic dans un autre onglet et connecte le compte indiqué.');}
+   else if(action==='poll'){if(result.connected){setGrant(null);setMessage('Compte connecté. Son autorisation est conservée de façon chiffrée.');}else setMessage('En attente de la validation sur Epic…');}
+   else if(action==='sync')setMessage(result.reason||`${result.synced} compte(s) synchronisé(s). Les comptes en ligne ou de présence inconnue sont laissés en attente.`);
+   else if(action==='disconnect'){if(grant?.slot===slot)setGrant(null);setMessage('Connexion retirée. L’historique des matchs est conservé.');}
+   await refresh();
+  }catch(e){setError((e as Error).message);}finally{inFlight.current=false;setBusy(false);}
+ }
+ useEffect(()=>{if(!grant)return;const t=setInterval(()=>{if(Date.now()<grant.expires)act('poll',grant.slot);},Math.max(5,grant.interval)*1000);return()=>clearInterval(t);},[grant]);
+ return <main><header><a className="brand" href="/">RL<span> / </span>POMPES</a><a href="/">← Retour au tableau</a></header>
+  <section className="connection-intro"><p className="eyebrow">HISTORIQUE AUTOMATIQUE</p><h1>Connecter Epic</h1><p className="muted">Aucun logiciel à laisser tourner sur le PC. Connecte d’abord le compte secondaire qui ne sert jamais à jouer, puis chaque compte joueur.</p><p className="small muted">Le compte secondaire vérifie la présence avant chaque lecture. Une présence inconnue bloque la récupération. Il peut être nécessaire d’ajouter les joueurs à ses amis Epic pour rendre leur présence visible. Évite de lancer le jeu pendant une lecture : un lancement simultané reste possible.</p></section>
+  {error&&<p className="alert" role="alert">{error}</p>}{message&&<p role="status">{message}</p>}
+  {grant&&<section className="daily-recap" aria-label="Autorisation Epic"><h2>{label(grant.slot)}</h2><p>1. Ouvre <a href={grant.url} target="_blank" rel="noopener noreferrer">epicgames.com/activate ↗</a>.</p><p>2. Connecte-toi avec le compte {grant.slot==='observer'?'secondaire, jamais utilisé pour jouer':`de ${grant.slot}`} et saisis ce code :</p><p className="device-code">{grant.code}</p><p>3. Termine l’autorisation Epic, puis reviens ici.</p><p className="small muted">Expire à {new Date(grant.expires).toLocaleTimeString('fr-FR')} · Aucun mot de passe à transmettre à RL-Pompes.</p><button disabled={busy} onClick={()=>act('poll',grant.slot)}>Vérifier l’autorisation</button></section>}
+  <section className="connection-list">{names.map(slot=>{const c=connections.find(c=>c.slot===slot);return <article className="card" key={slot}><h2>{label(slot)}</h2><p>{c?.connected?statusLabel[c.status||'']||'Connecté':'Non connecté'}</p>{c?.lastSync&&<p className="small muted">Dernière lecture : {new Date(c.lastSync).toLocaleString('fr-FR',{timeZone:'Europe/Paris'})}</p>}{c?.detail&&<p className="small muted">{c.detail}</p>}{c?.coverage==='gap'&&<p className="alert">Des matchs peuvent manquer entre deux lectures.</p>}{(!c?.connected||c.owned)&&<button disabled={busy} onClick={()=>act('start',slot)}>{c?.connected?'Renouveler l’autorisation':'Connecter ce compte'}</button>}{c?.connected&&c.owned&&<button disabled={busy} onClick={()=>act('disconnect',slot)}>Retirer la connexion</button>}{c?.connected&&!c.owned&&<p className="small muted">Connexion gérée par le membre qui l’a ajoutée.</p>}</article>;})}</section>
+  <section className="daily-recap"><h2>Lire les matchs hors ligne</h2><p className="muted">Le compte secondaire et les comptes joueurs à synchroniser doivent être connectés par le même membre de RL-Pompes. La lecture conserve l’ancien historique et déduplique les matchs communs.</p><button className="primary" disabled={busy} onClick={()=>act('sync')}>{busy?'Opération en cours…':'Vérifier la présence et synchroniser'}</button><p className="small muted">Epic renvoie au plus 20 matchs récents par lecture. Une longue session peut dépasser cette fenêtre. Le bilan indique les données reçues, sans garantir une journée complète.</p></section>
+ </main>;
+}
