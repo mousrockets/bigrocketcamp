@@ -1,4 +1,4 @@
-import {env} from 'cloudflare:workers';
+import {env,waitUntil} from 'cloudflare:workers';
 import {getChatGPTUser} from '../chatgpt-auth';
 import {connectionStatus,syncHistories,recapState} from '../../lib/epic-sync.mjs';
 import {parisDay} from '../../lib/domain.mjs';
@@ -18,7 +18,7 @@ export async function POST(request:Request){
    const user=await getChatGPTUser();if(!user)return Response.json({jsonrpc:'2.0',id,error:{code:-32001,message:'Connexion requise.'}},{status:401});
    const name=rpc.params?.name,args=rpc.params?.arguments||{};let value;
    if(name==='get_sync_status')value=await connectionStatus(env,user.userId);
-   else if(name==='sync_epic_histories')value=await syncHistories(env,user.userId);
+   else if(name==='sync_epic_histories'){const run=syncHistories(env,user.userId);waitUntil(run);value=await run;}
    else if(name==='get_daily_recap'){let day=args.day;if(day===undefined){const d=new Date(`${parisDay()}T12:00:00Z`);d.setUTCDate(d.getUTCDate()-1);day=parisDay(d);}value=await recapState(env,day);}
    else throw Error('Outil inconnu.');
    result={content:[{type:'text',text:JSON.stringify(value)}]};
