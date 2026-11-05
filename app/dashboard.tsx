@@ -226,6 +226,24 @@ export default function Dashboard(){
     };
   },[]);
 
+  // Asks the server for an Epic read; the server throttles and checks presence itself.
+  useEffect(()=>{
+    let running=false;
+    const autoSync=async()=>{
+      if(running||(typeof document!=='undefined'&&document.hidden))return;
+      running=true;
+      try{
+        const r=await fetch('/api/epic',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'auto'})});
+        const j=r.ok?await r.json() as {synced?:number;ranksUpdated?:number}:null;
+        if(j?.synced||j?.ranksUpdated)await refresh();
+      }catch{}
+      finally{running=false;}
+    };
+    autoSync();
+    const t=setInterval(autoSync,30000);
+    return()=>clearInterval(t);
+  },[]);
+
   useEffect(()=>{
     if(!theme||typeof document==='undefined')return;
     const media=matchMedia('(prefers-color-scheme: light)');
@@ -442,10 +460,10 @@ export default function Dashboard(){
             {installHelp&&<small className="menu-hint">{installMode==='ios'?'Sur iPhone/iPad : touche Partager (carré avec une flèche) puis « Sur l’écran d’accueil ».':'Ouvre le menu du navigateur (⋮ ou …) puis « Installer l’application » ou « Ajouter à l’écran d’accueil ». Sur ordinateur, Chrome et Edge le proposent.'}</small>}
           </>}
           <nav onClick={()=>setMenuOpen(false)}>
+            <a href="#team">Le tableau de l’équipe</a>
             <a href="#exercise">Déclarer un exercice</a>
             <a href="#recap-title">Récap du jour</a>
             <a href="#week">La semaine</a>
-            <a href="#team">Le tableau de l’équipe</a>
             <a href="#history">Derniers matchs</a>
             <a href="/connexions">Connecter les comptes Epic</a>
             <a href="/signout-with-chatgpt?return_to=%2F" target="_top">Se déconnecter</a>
@@ -453,12 +471,34 @@ export default function Dashboard(){
         </div>}
       </div>
     </header>
+    {error&&<p className="alert" role="alert">{error} <button onClick={refresh}>Actualiser</button></p>}
+
+    <section id="team">
+      <div className="section-title"><h2>Le tableau de l’équipe</h2><div className="filters"><label>Date <input type="date" value={day} onChange={e=>setDay(e.target.value)}/></label><button onClick={()=>setDay('')}>Tout</button><button onClick={()=>setDay(parisDay())}>Aujourd’hui</button></div></div>
+      <p className="muted small">Matchs et historique sur la date choisie · Dette et totaux d’exercices cumulés depuis le début.</p>
+      <div className="cards" ref={cardsRef} onScroll={onCardsScroll}>{!data?<SkeletonCards/>:stats.map(p=>{
+        const streak=streaks[p.name];
+        const all=allStats.find(a=>a.name===p.name)||p;
+        return <article className={p.name===recognized?'card me':'card'} key={p.name}>
+          <div className="card-top"><span className="avatar">{players[p.name]?.initials??p.name.slice(0,2).toUpperCase()}</span>{p.name===recognized&&<span className="you">TOI</span>}{streak.current>0&&<span className="streak" title={`${streak.current} jour(s) d’affilée avec un exercice`}>🔥 {streak.current} j</span>}<span className="platform">{players[p.name]?.platform??'PC'}</span></div>
+          <h3>{p.name}</h3>
+          <DoublesRankPanel player={p.name} rank={data.doublesRanks?.find(r=>r.player===p.name)}/>
+          <div className="results"><span><b>{p.played}</b> parties</span><span className="win"><b>{p.wins}</b> victoires</span><span><b>{p.losses}</b> défaites</span></div>
+          <div className="debt"><strong><Odometer value={formatNumber(p.remaining)}/></strong><span>pompes restantes</span></div>
+          <div className="progress"><i style={{width:`${p.due?Math.min(100,p.done/p.due*100):100}%`}}/></div>
+          <p className="small muted">{formatNumber(p.done)} équiv. pompes réalisés · {p.due} dues au total</p>
+          <dl className="exercise-totals"><div><dt>Pompes</dt><dd>{formatNumber(p.pushups)}</dd></div><div><dt>Gainage (min)</dt><dd>{formatNumber(p.plankSeconds/60)}</dd></div><div><dt>Abdos</dt><dd>{formatNumber(p.crunches)}</dd></div></dl>
+          <ul className="badges" aria-label={`Badges de ${p.name}`}>{badgeRules.map(b=>{const has=b.earned(all,streak);return <li key={b.id} className={has?'earned':''} title={b.label}><span aria-hidden="true">{b.emoji}</span><span className="sr-only">{b.label}{has?' : obtenu':' : à débloquer'}</span></li>;})}</ul>
+          <button onClick={()=>{if(!pending&&!busy){playerTouched.current=true;setPlayer(p.name);}document.getElementById('exercise')?.scrollIntoView({behavior:'smooth'});}}>Déclarer un exercice ↗</button>
+        </article>;
+      })}</div>
+      {data&&<div className="card-dots" role="group" aria-label="Choisir un joueur">{stats.map((p,i)=><button type="button" key={p.name} className={i===activeCard?'dot active':'dot'} aria-label={`Voir la carte de ${p.name}`} aria-current={i===activeCard} onClick={()=>scrollToCard(i)}/>)}</div>}
+    </section>
 
     <section className="intro">
       <div><p className="eyebrow">LES TROIS MOUSROCKETS · ROCKET LEAGUE</p><h1>On perd ensemble.<br/><em>On pousse ensemble.</em></h1><p className="muted">Une défaite, 5 pompes. Pompes, gainage ou abdos : chaque effort compte.</p><KickoffScene/></div>
       <div className="rule"><strong>5</strong><span>POMPES / DÉFAITE</span><small>{lastPlaceRule.enabled?'Dernier aux points du match : +5 si défaite':'Bonus dernier aux points désactivé'}</small></div>
     </section>
-    {error&&<p className="alert" role="alert">{error} <button onClick={refresh}>Actualiser</button></p>}
 
     <section id="exercise" className="exercise">
       <p className="eyebrow">À TOI DE JOUER</p><h2>Déclarer un exercice</h2><p className="muted">Choisis ton effort pour réduire ta dette.</p>
@@ -522,28 +562,6 @@ export default function Dashboard(){
       </>}
     </section>
 
-    <section id="team">
-      <div className="section-title"><h2>Le tableau de l’équipe</h2><div className="filters"><label>Date <input type="date" value={day} onChange={e=>setDay(e.target.value)}/></label><button onClick={()=>setDay('')}>Tout</button><button onClick={()=>setDay(parisDay())}>Aujourd’hui</button></div></div>
-      <p className="muted small">Matchs et historique sur la date choisie · Dette et totaux d’exercices cumulés depuis le début.</p>
-      <div className="cards" ref={cardsRef} onScroll={onCardsScroll}>{!data?<SkeletonCards/>:stats.map(p=>{
-        const streak=streaks[p.name];
-        const all=allStats.find(a=>a.name===p.name)||p;
-        return <article className={p.name===recognized?'card me':'card'} key={p.name}>
-          <div className="card-top"><span className="avatar">{players[p.name]?.initials??p.name.slice(0,2).toUpperCase()}</span>{p.name===recognized&&<span className="you">TOI</span>}{streak.current>0&&<span className="streak" title={`${streak.current} jour(s) d’affilée avec un exercice`}>🔥 {streak.current} j</span>}<span className="platform">{players[p.name]?.platform??'PC'}</span></div>
-          <h3>{p.name}</h3>
-          <DoublesRankPanel player={p.name} rank={data.doublesRanks?.find(r=>r.player===p.name)}/>
-          <div className="results"><span><b>{p.played}</b> parties</span><span className="win"><b>{p.wins}</b> victoires</span><span><b>{p.losses}</b> défaites</span></div>
-          <div className="debt"><strong><Odometer value={formatNumber(p.remaining)}/></strong><span>pompes restantes</span></div>
-          <div className="progress"><i style={{width:`${p.due?Math.min(100,p.done/p.due*100):100}%`}}/></div>
-          <p className="small muted">{formatNumber(p.done)} équiv. pompes réalisés · {p.due} dues au total</p>
-          <dl className="exercise-totals"><div><dt>Pompes</dt><dd>{formatNumber(p.pushups)}</dd></div><div><dt>Gainage (min)</dt><dd>{formatNumber(p.plankSeconds/60)}</dd></div><div><dt>Abdos</dt><dd>{formatNumber(p.crunches)}</dd></div></dl>
-          <ul className="badges" aria-label={`Badges de ${p.name}`}>{badgeRules.map(b=>{const has=b.earned(all,streak);return <li key={b.id} className={has?'earned':''} title={b.label}><span aria-hidden="true">{b.emoji}</span><span className="sr-only">{b.label}{has?' : obtenu':' : à débloquer'}</span></li>;})}</ul>
-          <button onClick={()=>{if(!pending&&!busy){playerTouched.current=true;setPlayer(p.name);}document.getElementById('exercise')?.scrollIntoView({behavior:'smooth'});}}>Déclarer un exercice ↗</button>
-        </article>;
-      })}</div>
-      {data&&<div className="card-dots" role="group" aria-label="Choisir un joueur">{stats.map((p,i)=><button type="button" key={p.name} className={i===activeCard?'dot active':'dot'} aria-label={`Voir la carte de ${p.name}`} aria-current={i===activeCard} onClick={()=>scrollToCard(i)}/>)}</div>}
-    </section>
-
     <div className="histories">
       <section id="history" className="history">
         <div className="section-title"><h2>Les derniers matchs</h2><label className="small"><input type="checkbox" checked={test} onChange={e=>setTest(e.target.checked)}/> Inclure les tests bots</label></div>
@@ -567,6 +585,6 @@ export default function Dashboard(){
         })}</tbody></table>{!exercises.length&&<p className="empty">Aucun exercice enregistré pour cette période.</p>}</div>
       </section>
     </div>
-    <footer><span>LES TROIS MOUSROCKETS · {data?.collectors.length?`Dernière synchronisation : ${new Date(data.collectors[0].last_seen).toLocaleString('fr-FR')}`:'En attente du premier collecteur PC'}</span><p>Kevin : collecte PS5 à vérifier lors d’une partie avec un joueur PC. Tests bots exclus du bilan. Actualisation toutes les 15 secondes quand la page est ouverte.</p><a href="/signout-with-chatgpt?return_to=%2F" target="_top">Se déconnecter</a></footer>
+    <footer><span>LES TROIS MOUSROCKETS · {data?.collectors.length?`Dernière synchronisation : ${new Date(data.collectors[0].last_seen).toLocaleString('fr-FR')}`:'En attente du premier collecteur PC'}</span><p>Kevin : collecte PS5 à vérifier lors d’une partie avec un joueur PC. Tests bots exclus du bilan. Actualisation toutes les 15 secondes quand la page est ouverte. Lecture Epic automatique dès qu’un joueur quitte le jeu.</p><a href="/signout-with-chatgpt?return_to=%2F" target="_top">Se déconnecter</a></footer>
   </main>;
 }

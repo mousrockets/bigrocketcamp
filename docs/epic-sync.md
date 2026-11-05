@@ -14,6 +14,10 @@ L’autorisation device Epic demande seulement `basic_profile`. Les autorisation
 
 Une course reste possible si le joueur lance le jeu juste après la vérification : cette méthode communautaire n’offre pas de garantie officielle de non-interférence. Les verrous D1 empêchent les lectures simultanées de cette application. `LoginBanned` impose dix minutes d’attente persistante ; les autres erreurs ne provoquent pas de boucle de reconnexion. Chaque session est fermée après lecture, y compris en cas d’erreur.
 
+## Lecture automatique
+
+Tant que le tableau est ouvert par un membre connecté, il demande une lecture (`action: 'auto'`) toutes les 30 secondes. Le serveur l’espace d’au moins 2 minutes de façon atomique et utilise les liaisons du propriétaire du compte secondaire, avec les mêmes vérifications de présence. Le rang 2v2 est actualisé à chaque passage. Un joueur déjà lu et resté `Offline` depuis le passage précédent (moins de 5 minutes, sans erreur) n’est pas reconnecté : il ne peut pas avoir de nouveau match. Après une session en ligne, ses matchs arrivent au premier passage où il est de nouveau hors ligne. Pendant une partie, seule la collecte PC fournit les résultats en direct. La tâche horaire reste le filet de sécurité quand aucune page n’est ouverte.
+
 Epic renvoie au plus 20 matchs récents, sans pagination vérifiée. Une première lecture ne garantit jamais toute une journée. Une fenêtre pleine sans recouvrement avec la précédente est signalée comme lacune, durablement ; un petit relevé ultérieur ne suffit pas à la déclarer résolue. Les entrées incomplètes, sans résultat, sans propriétaire identifié ou issues d’une playlist non reconnue sont ignorées et signalées. Les anciennes données restent disponibles. Playlists reconnues : 1, 2, 3, 4, 10, 11, 13, 27, 28, 29, 30, 34.
 
 ## Service cloud
@@ -22,7 +26,7 @@ Le tableau affiche uniquement le classement **2v2 classé** (playlist 11), avec 
 
 Le MMR affiché est `round(Mu * 20 + 100)`, conversion de l’échelle TrueSkill documentée dans rlru `MatchSkills`. Le champ PsyNet nommé `MMR` est aussi sur l’échelle interne et ne doit pas être affiché directement comme un nombre de points de jeu. Le rang provient de `Tier`, pas d’un seuil de MMR supposé ; la division PsyNet 0 à 3 devient I à IV. Le rang Légende supersonique n’affiche pas de division. Les matchs de placement restent indiqués comme tels. Une lecture manquante n’est jamais présentée comme un MMR nul : le dernier relevé valide est conservé avec sa date et son état d’actualisation. Aucun historique d’exercices ou calcul de dette ne dépend du classement.
 
-Le Site MCP expose `get_sync_status`, `sync_epic_histories` et `get_daily_recap`. L’accès Sites et l’identité ChatGPT sont obligatoires pour les appels ; la découverte n’expose aucune donnée. La synchronisation n’utilise que les connexions appartenant à l’appelant et son compte secondaire. Les publications préservent l’audience privée partagée.
+Le Site MCP expose `get_sync_status`, `sync_epic_histories` et `get_daily_recap`. L’accès Sites et l’identité ChatGPT sont obligatoires pour les appels ; la découverte n’expose aucune donnée. La synchronisation manuelle et MCP n’utilise que les connexions appartenant à l’appelant et son compte secondaire ; la lecture automatique utilise celles du propriétaire du compte secondaire. Les publications préservent l’audience privée partagée.
 
 Vérifier le plugin du Site, les deux autorisations et une lecture sûre avant d’activer la tâche horaire décrite dans `.openai/tasks/epic-sync.md`. Ne jamais annoncer une collecte autonome opérationnelle sur la seule base de la publication. Le récap quotidien à 8 h Europe/Paris reste distinct et porte sur la veille. Les exécutions ordinaires ne redéploient pas le Site.
 

@@ -6,7 +6,7 @@ import {create} from 'react-test-renderer';
 import {transpileModule,ModuleKind,JsxEmit} from 'typescript';
 import {fixture,loadRoute} from './helpers/exercise-fixture.mjs';
 import {seal} from '../lib/epic-vault.mjs';
-import {connectionStatus,beginLink,finishLink,disconnect,syncHistories} from '../lib/epic-sync.mjs';
+import {connectionStatus,beginLink,finishLink,disconnect,syncHistories,autoSync} from '../lib/epic-sync.mjs';
 const source=readFileSync(new URL('../app/connexions/client.tsx',import.meta.url),'utf8');
 const compiled=transpileModule(source,{compilerOptions:{module:ModuleKind.ESNext,jsx:JsxEmit.ReactJSX}}).outputText.replaceAll('"react/jsx-runtime"',JSON.stringify(import.meta.resolve('react/jsx-runtime'))).replaceAll("'react'",JSON.stringify(import.meta.resolve('react')));
 const {default:Connections}=await import(`data:text/javascript;base64,${Buffer.from(compiled).toString('base64')}`);
@@ -18,7 +18,7 @@ for(const authorized of [false,true])test(`Retour après Epic, page rechargée :
  try{
   f.env.EPIC_VAULT_KEY=key;const expires=Date.now()+600000,encrypted=await seal({device:'synthetic-device'},key,`epic-grant:${owner}:${slot}`);
   f.db.prepare('INSERT INTO epic_grants (slot,owner,device,expires,next_poll,interval,lease_until) VALUES (?,?,?,?,0,5,0)').run(slot,owner,encrypted,expires);
-  const routes=await loadRoute('../../app/api/epic/route.ts',{env:f.env,getChatGPTUser:async()=>f.actor.user,connectionStatus,beginLink,finishLink,disconnect,syncHistories});
+  const routes=await loadRoute('../../app/api/epic/route.ts',{env:f.env,getChatGPTUser:async()=>f.actor.user,connectionStatus,beginLink,finishLink,disconnect,syncHistories,autoSync});
   const calls=[];
   override('IS_REACT_ACT_ENVIRONMENT',true);
   override('sessionStorage',{getItem(){throw Error('Storage blocked');},setItem(){throw Error('Storage blocked');},removeItem(){throw Error('Storage blocked');}});

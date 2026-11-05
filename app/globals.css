@@ -12,6 +12,7 @@ button:active:not(:disabled){transform:translateY(4px);box-shadow:0 0 0 var(--li
 .primary:active:not(:disabled){box-shadow:0 0 0 var(--orange-dark);transform:translateY(5px)}
 .quick-counts button{font-size:14px;font-weight:800;padding:12px}
 #team,#history,#recap-title{scroll-margin-top:20px}
+#team{padding-top:28px}
 .fab{box-shadow:0 5px 0 var(--orange-dark),0 8px 20px #0008;transition:transform .08s;font-style:italic;text-transform:uppercase}.fab:active{transform:translateY(5px);box-shadow:0 0 0 var(--orange-dark)}
 .card{transition:transform .2s,border-color .2s}.card:hover{transform:translateY(-3px);border-color:var(--hover-line)}
 .progress i{transition:width .7s cubic-bezier(.2,.9,.3,1.25)}

@@ -32,6 +32,7 @@ async function harness(debt){
    if(network.failAfterSave){network.failAfterSave=false;throw Error('Connexion interrompue après l’enregistrement.');}
    return response;
   }
+  if(url==='/api/epic'){network.autoSyncs=(network.autoSyncs||0)+1;return Response.json({ran:false});}
   assert.equal(url,'/api/state');
   const response=await f.readState();
   if(network.delayNextState){const wait=network.delayNextState;network.delayNextState=null;wait.snapshot=response;return wait.promise;}
