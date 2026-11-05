@@ -157,3 +157,30 @@ test('Échec de connexion puis nouvelle tentative : le verrou du formulaire se l
   assert.equal(h.root().findAllByProps({role:'alert'}).length,0);assert.equal(h.number().props.disabled,false);
  }finally{await h.cleanup();}
 });
+
+test('Le récap affiche chaque joueur et complète le bon jour après une synchronisation tardive',async()=>{
+ const h=await harness(0);
+ try{
+  const recapTable=()=>h.root().findByProps({'aria-label':'Récapitulatif quotidien'});
+  const playerCells=()=>recapTable().findByType('tbody').findAllByType('tr').map(r=>r.findAllByType('td').map(content));
+  assert.match(content(recapTable()),/Non comparable/);
+  const insert=h.f.db.prepare('INSERT INTO results VALUES (?,?,?,?,?,?,?,?,?,?,?,?)');
+  insert.run('late-match','p1','chat-pris-tea','2026-11-04','match',0,1,50,0,0,0,'2026-11-05T08:00:00Z');
+  insert.run('late-match','p2','nokouki','2026-11-04','match',0,1,100,0,0,0,'2026-11-05T08:00:00Z');
+  insert.run('late-match','p3','adversaire','2026-11-04','match',1,1,300,0,0,0,'2026-11-05T08:00:00Z');
+  h.f.db.prepare('INSERT INTO match_rosters VALUES (?,?,?)').run('late-match',3,'2026-11-05T08:00:00Z');
+  await action(()=>{for(const tick of h.intervals)tick();});
+  await action(()=>h.root().findByProps({'aria-label':'Date du récap'}).props.onChange({target:{value:'2026-11-04'}}));
+  assert.deepEqual(playerCells()[0].slice(0,4),['chat-pris-tea','1','0','1']);
+  assert.match(playerCells()[0][4],/^1 fois/);assert.equal(playerCells()[0][5],'5');
+  assert.match(playerCells()[2][4],/Non comparable/);
+  // A newer import updates points, while the same match still counts once.
+  h.f.db.prepare('UPDATE results SET score=200,received=? WHERE name=?').run('2026-11-05T09:00:00Z','chat-pris-tea');
+  await action(()=>{for(const tick of h.intervals)tick();});
+  assert.equal(playerCells()[0][1],'1');assert.match(playerCells()[0][4],/^0 fois/);assert.match(playerCells()[1][4],/^1 fois/);
+  assert.equal(h.root().findByProps({'aria-label':'Date du récap'}).props.value,'2026-11-04');
+  // Clearing the date input leaves a valid recap on screen.
+  await action(()=>h.root().findByProps({'aria-label':'Date du récap'}).props.onChange({target:{value:''}}));
+  assert.equal(h.root().findByProps({'aria-label':'Date du récap'}).props.value,'2026-11-04');
+ }finally{await h.cleanup();}
+});

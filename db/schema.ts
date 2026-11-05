@@ -7,3 +7,4 @@ export const results = sqliteTable('results', {
 },t=>[primaryKey({columns:[t.matchGuid,t.playerId]})]);
 export const exercises=sqliteTable('exercises',{id:text('id').primaryKey(),player:text('player').notNull(),count:integer('count').notNull(),day:text('day').notNull(),created:text('created').notNull(),author:text('author').notNull(),type:text('type',{enum:['pushups','plank','crunches']}).notNull().default('pushups')});
 export const collectors=sqliteTable('collectors',{id:text('id').primaryKey(),lastSeen:text('last_seen').notNull()});
+export const matchRosters=sqliteTable('match_rosters',{matchGuid:text('match_guid').primaryKey(),expectedPlayers:integer('expected_players').notNull(),received:text('received').notNull()});

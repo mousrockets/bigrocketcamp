@@ -15,6 +15,13 @@
       "when": 1793860184984,
       "tag": "0001_red_malice",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1793865939749,
+      "tag": "0002_petite_risque",
+      "breakpoints": true
     }
   ]
 }
