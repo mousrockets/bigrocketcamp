@@ -109,20 +109,17 @@ export async function saveOwnProfile(db: Database, memberId: string, input: unkn
     .bind(duoPseudo, memberId)
     .first();
   if (holder) throw withStatus('Ce pseudo duo est déjà celui d’un autre membre.', 409);
+  // A pseudo with history may be chosen: a new player finds their matches under it. Its game identity
+  // (player_identities.owner) never follows on its own: only an administrator hands it over.
   try {
-    await db.batch([
-      db
-        .prepare(
-          `UPDATE members SET duo_pseudo = ?, solo_pseudo = ?, platform = ?,
-            roster_position = COALESCE(roster_position, (SELECT COALESCE(MAX(roster_position), 0) + 1 FROM members))
-          WHERE id = ?`,
-        )
-        .bind(duoPseudo, soloPseudo, fields.platform, memberId),
-      // A former member's game identity comes back with their pseudo, once an administrator invited them again.
-      db
-        .prepare('UPDATE player_identities SET owner = ? WHERE slot = ? AND owner NOT IN (SELECT id FROM members)')
-        .bind(memberId, duoPseudo),
-    ]);
+    await db
+      .prepare(
+        `UPDATE members SET duo_pseudo = ?, solo_pseudo = ?, platform = ?,
+          roster_position = COALESCE(roster_position, (SELECT COALESCE(MAX(roster_position), 0) + 1 FROM members))
+        WHERE id = ?`,
+      )
+      .bind(duoPseudo, soloPseudo, fields.platform, memberId)
+      .run();
   } catch (error) {
     if (String(error).includes('UNIQUE')) throw withStatus('Ce pseudo duo est déjà celui d’un autre membre.', 409);
     throw error;

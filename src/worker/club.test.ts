@@ -121,14 +121,14 @@ describe('the profile', () => {
     expect(otherFields.status).toBe(200);
   });
 
-  test('a former member invited again gets their game identity back with their pseudo', async () => {
+  test('choosing a pseudo with history never hands over its game identity', async () => {
     await env.DB.prepare(
       "INSERT INTO player_identities (slot, owner, player_id) VALUES ('carla', 'member-gone', 'Epic|carla-test|0')",
     ).run();
     await env.DB.prepare("INSERT INTO members (id, email) VALUES ('member-carla', 'carla@example.com')").run();
     const carla = await sessionOf('member-carla');
     expect((await call('/api/profile', carla, 'PUT', { duoPseudo: 'carla', platform: 'pc' })).status).toBe(200);
-    expect(await count("SELECT COUNT(*) AS n FROM player_identities WHERE owner = 'member-carla'")).toBe(1);
+    expect(await count("SELECT COUNT(*) AS n FROM player_identities WHERE owner = 'member-carla'")).toBe(0);
   });
 
   test('a member deletes their own account: sessions and address go, game records stay', async () => {
