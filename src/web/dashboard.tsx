@@ -18,6 +18,7 @@ import {
 import { currentSeason, seasonEndLabel, seasonTiming } from '../lib/season';
 import { versionLabel } from '../lib/version';
 import { apiFetch, signOut } from './api';
+import { useBoard } from './board-client';
 import { Brand } from './brand';
 import { playerPlatform, useClub } from './club';
 import type { MonthlyState } from './monthly-mmr';
@@ -546,46 +547,16 @@ export function Dashboard() {
   const [activeCard, setActiveCard] = useState(0);
   const [podiumMode, setPodiumMode] = useState<PodiumMode>('effort');
   const cardsCentered = useRef(false);
-  const refreshRequest = useRef(0);
-  const refreshInFlight = useRef(0);
   const submissionInFlight = useRef(false);
   const playerTouched = useRef(false);
   const seenLosses = useRef<Set<string> | null>(null);
   const soundRef = useRef(sound);
   soundRef.current = sound;
 
-  async function refresh() {
-    refreshInFlight.current++;
-    const request = ++refreshRequest.current;
-    try {
-      const response = await apiFetch('/api/state');
-      if (!response.ok) throw Error('Impossible de charger les résultats. Vérifie ta connexion.');
-      const state = (await response.json()) as State;
-      // A newer request was started meanwhile: its answer wins.
-      if (request !== refreshRequest.current) return null;
-      setData(state);
-      setError('');
-      return state;
-    } catch (e) {
-      if (request === refreshRequest.current) setError((e as Error).message);
-      return null;
-    } finally {
-      refreshInFlight.current--;
-    }
-  }
+  const refresh = useBoard<State>(roster, setData, setError);
 
-  async function refreshIfIdle() {
-    if (refreshInFlight.current) return null;
-    return refresh();
-  }
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: sets up polling and restores preferences once.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: restores preferences once.
   useEffect(() => {
-    refresh();
-    // Skip polling while the tab is hidden; catch up as soon as it is visible again.
-    const timer = setInterval(() => {
-      if (!document.hidden) refreshIfIdle();
-    }, 3000);
     let hiddenAt = 0;
     const onVisible = () => {
       if (document.hidden) {
@@ -595,9 +566,7 @@ export function Dashboard() {
       // An installed app can stay open for days: reload after a long pause to run the latest published version.
       if (isStandalone() && hiddenAt && Date.now() - hiddenAt > 300000 && !submissionInFlight.current) {
         location.reload();
-        return;
       }
-      refreshIfIdle();
     };
     document.addEventListener('visibilitychange', onVisible);
     if (readStorage('rl-sound') === 'off') setSound(false);
@@ -627,8 +596,6 @@ export function Dashboard() {
       // An invalid stored declaration is ignored: it could never be accepted by the server.
     }
     return () => {
-      clearInterval(timer);
-      refreshRequest.current++;
       document.removeEventListener('visibilitychange', onVisible);
     };
   }, []);
@@ -1203,7 +1170,7 @@ export function Dashboard() {
         </div>
         <p className="live-status">
           <span aria-hidden="true" />
-          Actualisation toutes les 3 secondes · scores reçus par le Direct PC
+          Mise à jour en direct · scores reçus par le Direct PC
         </p>
         <details className="team-info">
           <summary>Comment ça marche ?</summary>

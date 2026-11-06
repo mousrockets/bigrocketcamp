@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { monthBounds, monthCloseGraceMs, nextMonth, parisMonth } from '../lib/monthly-mmr';
 import { apiFetch } from './api';
 
 type MonthlyRow = {
@@ -55,19 +56,31 @@ function postMonthly(body: Record<string, unknown>) {
   });
 }
 
+/** Whether a finished month waits to be closed: only then is the API asked to close it. */
+function closeIsDue(data: MonthlyState, now: number = Date.now()): boolean {
+  const closed = new Set(data.closed.map((result) => result.month));
+  const current = parisMonth(now);
+  for (let month = data.startsMonth, step = 0; month < current && step < 24; month = nextMonth(month), step++) {
+    if (!closed.has(month) && now >= Date.parse(monthBounds(month).cutoffAt) + monthCloseGraceMs) return true;
+  }
+  return false;
+}
+
 export function MonthlyMmr({ data, onRefresh }: { data: MonthlyState; onRefresh: () => Promise<unknown> }) {
+  const latest = useRef(data);
+  latest.current = data;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const writing = useRef(false);
 
-  // Runs once: asks the API to close a finished month while the page is open.
+  // Runs once: asks the API to close a finished month while the page is open, as soon as one is due.
   // biome-ignore lint/correctness/useExhaustiveDependencies: the polling must not restart on every parent refresh.
   useEffect(() => {
     let active = true;
     let running = false;
     const closeDue = async () => {
-      if (!active || running || document.hidden) return;
+      if (!active || running || document.hidden || !closeIsDue(latest.current)) return;
       running = true;
       try {
         const response = await postMonthly({ action: 'refresh' });

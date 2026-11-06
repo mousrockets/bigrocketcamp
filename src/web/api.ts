@@ -1,3 +1,5 @@
+import { forgetBoard } from './board-store';
+
 // Any /api/* call can answer 401 once the session cookie is missing or expired. The pages keep their own
 // error handling; this module only remembers that a sign-in is needed so that the app can show the sign-in screen.
 let signInRequired = false;
@@ -25,6 +27,7 @@ export function isSignInRequired(): boolean {
 
 export async function signOut(): Promise<void> {
   try {
+    await forgetBoard();
     await fetch('/api/auth/logout', { method: 'POST' });
   } finally {
     // Reloading shows the sign-in screen, or the same page if the request did not reach the server.

@@ -168,13 +168,7 @@ export function reconcile(
     if (duplicates.length === 1) keep.push(first);
     else keep.push({ ...first, review_required: true, verification: 'review', source_difference: 'identity' });
   }
-  rows = keep.sort(
-    (a, b) =>
-      b.day.localeCompare(a.day) ||
-      (b.received || '').localeCompare(a.received || '') ||
-      a.match_guid.localeCompare(b.match_guid) ||
-      a.player_id.localeCompare(b.player_id),
-  );
+  rows = keep.sort(compareResults);
   const byMatch = new Map<string, MergedResult[]>();
   for (const row of rows) {
     const group = byMatch.get(row.match_guid);
@@ -222,16 +216,37 @@ export function reconcile(
       if (old && old.expected_players === players.length) complete.push({ ...old, match_guid: guid });
     }
   }
+  return { rows, rosters: complete, reliability: reliabilityOf(roster, rows) };
+}
+
+/** Newest day first, then newest reception: the order the board lists results in. */
+export function compareResults(a: MergedResult, b: MergedResult): number {
+  return (
+    b.day.localeCompare(a.day) ||
+    (b.received || '').localeCompare(a.received || '') ||
+    a.match_guid.localeCompare(b.match_guid) ||
+    a.player_id.localeCompare(b.player_id)
+  );
+}
+
+export interface Reliability {
+  confirmed: number;
+  single: number;
+  corrected: number;
+  review: number;
+}
+
+/** How the club's own match results were checked. */
+export function reliabilityOf(
+  roster: Roster,
+  rows: readonly Pick<MergedResult, 'name' | 'kind' | 'verification' | 'review_required'>[],
+): Reliability {
   const groupRows = rows.filter((row) => roster.includes(row.name) && row.kind === 'match');
   return {
-    rows,
-    rosters: complete,
-    reliability: {
-      confirmed: groupRows.filter((row) => row.verification === 'confirmed').length,
-      single: groupRows.filter((row) => row.verification === 'single').length,
-      corrected: groupRows.filter((row) => row.verification === 'corrected').length,
-      review: groupRows.filter((row) => row.review_required).length,
-    },
+    confirmed: groupRows.filter((row) => row.verification === 'confirmed').length,
+    single: groupRows.filter((row) => row.verification === 'single').length,
+    corrected: groupRows.filter((row) => row.verification === 'corrected').length,
+    review: groupRows.filter((row) => row.review_required).length,
   };
 }
 
@@ -311,36 +326,65 @@ export async function observationWrites(
   return writes;
 }
 
-export async function readMerged(db: Database, roster: Roster) {
-  const [legacy, observations, rosters, reports, aliases] = await Promise.all([
-    db.prepare('SELECT * FROM results ORDER BY day DESC,received DESC,rowid DESC').all<StoredResult>(),
-    db.prepare('SELECT * FROM result_observations ORDER BY received').all<Observation & { payload: string }>(),
-    db.prepare('SELECT * FROM match_rosters').all<CompleteRoster>(),
-    db.prepare('SELECT * FROM source_reports ORDER BY received').all<SourceReport & { players: string }>(),
-    db.prepare('SELECT player_id,slot FROM player_identity_aliases').all<{ player_id: string; slot: string }>(),
-  ]);
-  // A newly received namesake remains unassigned until the member confirms its
-  // stable platform ID. Resolving it later changes no historical source payload.
-  const assign = <Row extends { name?: unknown; player_id?: unknown }>(row: Row): Row => {
+export interface Alias {
+  player_id: string;
+  slot: string;
+}
+
+/**
+ * Names a newly received namesake after the club player who confirmed its stable platform ID; until then it
+ * stays unassigned. Resolving it later changes no historical source payload.
+ */
+export function aliasAssigner(roster: Roster, aliases: readonly Alias[]) {
+  return <Row extends { name?: unknown; player_id?: unknown }>(row: Row): Row => {
     if (typeof row?.name !== 'string' || !row.name.startsWith('Non attribué · ')) return row;
-    const alias = aliases.results.find(
+    const alias = aliases.find(
       (candidate) => playerKey(candidate.player_id) === playerKey(row.player_id) && roster.includes(candidate.slot),
     );
     return alias ? { ...row, name: alias.slot } : row;
   };
-  const mappedObservations = observations.results.map((observation) => {
+}
+
+export interface MatchSources {
+  legacy: StoredResult[];
+  observations: (Observation & { payload: string })[];
+  rosters: CompleteRoster[];
+  reports: (SourceReport & { players: string })[];
+}
+
+/** Reconciles every source received, with unassigned namesakes named after their confirmed player. */
+export function mergeSources(roster: Roster, aliases: readonly Alias[], sources: MatchSources) {
+  const assign = aliasAssigner(roster, aliases);
+  const observations = sources.observations.map((observation) => {
     try {
       return { ...observation, payload: JSON.stringify(assign(JSON.parse(observation.payload))) };
     } catch {
       return observation;
     }
   });
-  const mappedReports = reports.results.map((report) => {
+  const reports = sources.reports.map((report) => {
     try {
       return { ...report, players: JSON.stringify(JSON.parse(report.players).map(assign)) };
     } catch {
       return report;
     }
   });
-  return reconcile(roster, legacy.results.map(assign), mappedObservations, rosters.results, mappedReports);
+  return reconcile(roster, sources.legacy.map(assign), observations, sources.rosters, reports);
+}
+
+/** Reconciles the whole history at once: the reference the stored match results must equal. */
+export async function readMerged(db: Database, roster: Roster) {
+  const [legacy, observations, rosters, reports, aliases] = await Promise.all([
+    db.prepare('SELECT * FROM results ORDER BY day DESC,received DESC,rowid DESC').all<StoredResult>(),
+    db.prepare('SELECT * FROM result_observations ORDER BY received,rowid').all<Observation & { payload: string }>(),
+    db.prepare('SELECT * FROM match_rosters').all<CompleteRoster>(),
+    db.prepare('SELECT * FROM source_reports ORDER BY received,rowid').all<SourceReport & { players: string }>(),
+    db.prepare('SELECT player_id,slot FROM player_identity_aliases').all<Alias>(),
+  ]);
+  return mergeSources(roster, aliases.results, {
+    legacy: legacy.results,
+    observations: observations.results,
+    rosters: rosters.results,
+    reports: reports.results,
+  });
 }

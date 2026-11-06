@@ -1,57 +1,60 @@
 import { Hono } from 'hono';
-import { readClubPlayers, rosterOf } from '../../lib/club';
-import { readDoublesRanks } from '../../lib/doubles-ranks';
-import { readMonthlyMmr } from '../../lib/monthly-mmr';
-import { readRankSourceHealth } from '../../lib/rank-source';
-import { readMerged } from '../../lib/reconcile';
-import type { AppEnv } from '../auth';
+import { type BoardReader, prepareBoard, readBoardChanges, readFullBoard, readHead } from '../../lib/board';
+import { parisMonth } from '../../lib/monthly-mmr';
+import { type AppEnv, sha256 } from '../auth';
+import { noStore } from '../respond';
 
 export const stateRoutes = new Hono<AppEnv>();
 
+/** An open board waits at most this long for a change, then asks again. */
+export const maxWaitSeconds = 25;
+/** How often a waiting board checks the version: a received match shows within this delay. */
+const checkEveryMs = 2000;
+const hourMs = 3_600_000;
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 stateRoutes.get('/', async (c) => {
-  const db = c.env.DB;
-  const memberId = c.var.member.id;
-  const players = await readClubPlayers(db);
-  const roster = rosterOf(players);
-  const [merged, exercises, collectors, doublesRanks, reactions, me, monthly, rankSource] = await Promise.all([
-    readMerged(db, roster),
-    db.prepare('SELECT * FROM exercises ORDER BY created DESC').all<Record<string, unknown>>(),
-    db.prepare('SELECT * FROM collectors ORDER BY last_seen DESC').all(),
-    readDoublesRanks(db, roster),
-    db
-      .prepare(
-        'SELECT exercise_id, emoji, COUNT(*) AS count, MAX(author = ?) AS mine FROM exercise_reactions GROUP BY exercise_id, emoji',
-      )
-      .bind(memberId)
-      .all(),
-    db
-      .prepare(
-        'SELECT player FROM exercises WHERE author = ? GROUP BY player ORDER BY COUNT(*) DESC, MAX(created) DESC LIMIT 1',
-      )
-      .bind(memberId)
-      .first<{ player: string }>(),
-    readMonthlyMmr(db, players, memberId),
-    // Only an instance with a rank source can see it stop.
-    c.env.RANK_SOURCE_KEY ? readRankSourceHealth(db) : null,
-  ]);
-  // Authors stay private: a member only learns which exercises are theirs.
-  const ownExercises = exercises.results.map(({ author, ...exercise }) => ({ ...exercise, mine: author === memberId }));
-  const body = JSON.stringify({
-    results: merged.rows,
-    exercises: ownExercises,
-    collectors: collectors.results,
-    matchRosters: merged.rosters,
-    reliability: merged.reliability,
-    doublesRanks,
-    reactions: reactions.results,
-    me: me?.player ?? null,
-    monthly,
-    rankSource,
-  });
-  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(body)));
-  const etag = `"${Array.from(digest.slice(0, 16), (byte) => byte.toString(16).padStart(2, '0')).join('')}"`;
-  // Revalidated on every poll: an unchanged state costs an empty 304.
-  const headers = { 'Content-Type': 'application/json', 'Cache-Control': 'private, no-cache', ETag: etag };
-  if (c.req.header('if-none-match') === etag) return new Response(null, { status: 304, headers });
-  return new Response(body, { headers });
+  const reader: BoardReader = {
+    db: c.env.DB,
+    memberId: c.var.member.id,
+    hasRankSource: Boolean(c.env.RANK_SOURCE_KEY),
+  };
+  const since = c.req.query('since');
+  if (since === undefined) return fullBoard(c.req.header('if-none-match'), reader);
+  const from = Number(since);
+  if (!Number.isSafeInteger(from) || from < 0) return c.json({ error: 'Version du tableau invalide.' }, 400, noStore);
+  const wait = Math.min(maxWaitSeconds, Math.max(0, Number(c.req.query('wait')) || 0)) * 1000;
+  const started = Date.now();
+  for (;;) {
+    const head = await readHead(reader.db);
+    if (from === 0 || head.version !== from || head.pending) {
+      const { players, pending } = await prepareBoard(reader.db);
+      return c.json(await readBoardChanges(reader, players, from, { pending }), 200, noStore);
+    }
+    // Nothing new: an empty answer, and the board asks again.
+    if (Date.now() - started + checkEveryMs > wait) return c.body(null, 204, noStore);
+    await sleep(checkEveryMs);
+  }
 });
+
+/**
+ * The whole board, for boards loaded before page-by-page reading. Revalidated on every poll: an unchanged
+ * board costs an empty 304 and a single row read.
+ */
+async function fullBoard(ifNoneMatch: string | undefined, reader: BoardReader) {
+  const viewer = (await sha256(reader.memberId)).slice(0, 12);
+  // Within the hour, time alone (a rank source going quiet, an undo window closing) changes nothing shown.
+  const tagOf = (version: number) => `"${version}-${viewer}-${parisMonth()}-${Math.floor(Date.now() / hourMs)}"`;
+  const head = await readHead(reader.db);
+  const headers: Record<string, string> = { 'Content-Type': 'application/json', 'Cache-Control': 'private, no-cache' };
+  if (!head.pending && ifNoneMatch === tagOf(head.version)) {
+    return new Response(null, { status: 304, headers: { ...headers, ETag: tagOf(head.version) } });
+  }
+  const { players, pending } = await prepareBoard(reader.db);
+  // Read before the board: a change made meanwhile gives a newer version, never an older body.
+  const { version } = await readHead(reader.db);
+  const body = JSON.stringify({ ...(await readFullBoard(reader, players)), version });
+  if (!pending) headers.ETag = tagOf(version);
+  return new Response(body, { headers });
+}

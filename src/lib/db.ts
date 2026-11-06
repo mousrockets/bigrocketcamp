@@ -13,7 +13,13 @@ export interface Statement {
   run(): Promise<RunResult>;
 }
 
+/** One answer per statement of a batch, which D1 runs as a single transaction. */
+export interface BatchResult {
+  results: unknown[];
+  meta?: { changes?: number };
+}
+
 export interface Database {
   prepare(sql: string): Statement;
-  batch(statements: Statement[]): Promise<unknown[]>;
+  batch(statements: Statement[]): Promise<BatchResult[]>;
 }
