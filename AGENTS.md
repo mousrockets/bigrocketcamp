@@ -21,6 +21,8 @@ Règles pour tout agent IA qui travaille sur ce dépôt. Elles valent aussi pour
 - `npm run check` : lint, types et tests. Doit passer avant toute PR.
 - `npm run fmt` : formate le code.
 - `npm run types` : régénère les types du Worker après un changement de `wrangler.jsonc`.
+- `npm run db:generate` : écrit la migration suivante dans `migrations/` à partir de `src/lib/schema.ts`.
+- `npm run db:studio` : ouvre Drizzle Studio sur la base locale (https://local.drizzle.studio?port=10077).
 
 ## Workflow
 
@@ -39,6 +41,12 @@ Règles pour tout agent IA qui travaille sur ce dépôt. Elles valent aussi pour
 - TypeScript strict uniquement : aucun fichier JavaScript.
 - Node 24 et npm. Tests : Vitest, exécuté dans le moteur des Workers Cloudflare.
 - API : Hono sur un Worker Cloudflare, dans `src/worker`. App web : React et Vite, dans `src/web`.
+- Base : D1 (SQLite). Le schéma est décrit en TypeScript avec Drizzle ORM dans `src/lib/schema.ts`. Requêtes typées avec Drizzle, SQL brut là où il se lit mieux.
+- Changer la base :
+  - modifier `src/lib/schema.ts`, puis `npm run db:generate`, et relire la migration générée ;
+  - les triggers et les reprises de données s'écrivent à la main dans la migration ;
+  - une migration qui touche des données existantes arrive avec un test qui la rejoue sur des données de forme réelle ;
+  - les mois clos (`monthly_mmr_results`) et les dettes (`drink_debts`) ne changent jamais.
 - Interface : uniquement des composants shadcn (Base UI) de `src/web/components/ui`, adaptés au style du projet. Un composant du projet se construit à partir d'eux. Pour en ajouter un : `npx shadcn@latest add <nom>`.
 - Tout élément cliquable affiche un curseur en forme de main (règle globale de `src/web/styles.css`).
 - Toujours les versions les plus récentes possibles : voir « Mises à jour » dans `docs/deploiement.md`.

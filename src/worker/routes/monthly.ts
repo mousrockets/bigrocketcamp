@@ -1,8 +1,8 @@
 import { Hono } from 'hono';
-import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import { readClubPlayers, readRoster } from '../../lib/club';
 import { closeMonthlyMmr, readMonthlyMmr, settleDrink } from '../../lib/monthly-mmr';
 import { type AppEnv, sameOrigin } from '../auth';
+import { failure } from '../respond';
 
 export const monthlyRoutes = new Hono<AppEnv>();
 
@@ -27,7 +27,6 @@ monthlyRoutes.post('/', async (c) => {
     }
     throw new Error('Action inconnue.');
   } catch (error) {
-    const status = ((error as { status?: number } | null)?.status ?? 400) as ContentfulStatusCode;
-    return c.json({ error: error instanceof Error ? error.message : 'Action impossible.' }, status, noStore);
+    return failure(c, error, 'Action impossible.');
   }
 });

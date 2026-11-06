@@ -1,13 +1,15 @@
 import { Hono } from 'hono';
+import { prepareBoard } from '../../lib/board';
 import { readRoster } from '../../lib/club';
+import { readStoredResults } from '../../lib/match-builds';
 import {
   canonicalPlayerId,
   readIdentityBindings,
   readPlayerIdentities,
   unassignedPrefix,
 } from '../../lib/player-identities';
-import { readMerged } from '../../lib/reconcile';
 import { type AppEnv, sameOrigin } from '../auth';
+import { failure } from '../respond';
 
 export const identityRoutes = new Hono<AppEnv>();
 
@@ -17,15 +19,16 @@ const gamePlayerId = /^(Epic|Steam|PS4|XboxOne|Switch|PsyNet)\|[^\s|]{1,128}\|0$
 identityRoutes.get('/', async (c) => {
   const db = c.env.DB;
   const roster = await readRoster(db);
-  const [identities, aliases, merged] = await Promise.all([
+  await prepareBoard(db);
+  const [identities, aliases, stored] = await Promise.all([
     readPlayerIdentities(db, roster),
     readIdentityBindings(db, roster),
-    readMerged(db, roster),
+    readStoredResults(db),
   ]);
   const isBound = (playerId: string) =>
     aliases.some((alias) => canonicalPlayerId(alias.player_id) === canonicalPlayerId(playerId));
   const seen = new Set<string>();
-  const candidates = merged.rows
+  const candidates = stored
     .filter((row) => row.kind === 'match' && !row.review_required && !isBound(row.player_id))
     .filter((row) => {
       const id = canonicalPlayerId(row.player_id);
@@ -86,8 +89,8 @@ identityRoutes.post('/', async (c) => {
       return c.json({ ok: true }, 200, noStore);
     }
     if (action !== 'confirm' || !gamePlayerId.test(playerId)) throw new Error('Identifiant invalide.');
-    const merged = await readMerged(db, roster);
-    const seenInAMatch = merged.rows.some(
+    await prepareBoard(db);
+    const seenInAMatch = (await readStoredResults(db, playerId)).some(
       (row) => row.kind === 'match' && !row.review_required && canonicalPlayerId(row.player_id) === playerId,
     );
     if (!seenInAMatch) throw new Error('Choisis un joueur déjà présent dans un tableau reçu.');
@@ -105,6 +108,6 @@ identityRoutes.post('/', async (c) => {
       return c.json({ error: 'Cet identifiant est déjà attribué à un autre joueur.' }, 409, noStore);
     return c.json({ ok: true }, 200, noStore);
   } catch (error) {
-    return c.json({ error: error instanceof Error ? error.message : 'Confirmation impossible.' }, 400, noStore);
+    return failure(c, error, 'Confirmation impossible.');
   }
 });

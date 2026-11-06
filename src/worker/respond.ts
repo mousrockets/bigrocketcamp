@@ -15,8 +15,23 @@ export async function smallJson(c: Context, maxLength = 2000): Promise<Record<st
   }
 }
 
-/** Answers with the error's own status when the business logic gave one. */
-export function failure(c: Context, error: unknown, fallback: string) {
-  const status = ((error as { status?: number } | null)?.status ?? 400) as ContentfulStatusCode;
-  return c.json({ error: error instanceof Error ? error.message : fallback }, status, noStore);
+/** A database error quotes the query and its values: it stays in the server, by its name only. */
+const isDatabaseError = (error: Error) =>
+  error.name === 'DrizzleQueryError' || /D1_|SQLITE_|Failed query/.test(error.message);
+
+/** The business rule's own message, or the fallback; never a database error. */
+export function publicMessage(error: unknown, fallback: string): string {
+  if (!(error instanceof Error)) return fallback;
+  if (isDatabaseError(error)) {
+    console.error('database error', error.name);
+    return fallback;
+  }
+  return error.message;
+}
+
+/** Answers with the error's own status when the business logic gave one; 500 for a database error. */
+export function failure(c: Context, error: unknown, fallback: string, status: ContentfulStatusCode = 400) {
+  const own = (error as { status?: number } | null)?.status as ContentfulStatusCode | undefined;
+  const internal = error instanceof Error && isDatabaseError(error);
+  return c.json({ error: publicMessage(error, fallback) }, internal ? 500 : (own ?? status), noStore);
 }

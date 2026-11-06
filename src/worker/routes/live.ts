@@ -10,6 +10,7 @@ import {
 } from '../../lib/player-identities';
 import { matchKey, observationWrites } from '../../lib/reconcile';
 import { type AppEnv, sameOrigin } from '../auth';
+import { failure } from '../respond';
 
 export const liveRoutes = new Hono<AppEnv>();
 
@@ -75,13 +76,18 @@ liveRoutes.post('/', async (c) => {
     await db.batch(writes as D1PreparedStatement[]);
     // The board shows the match as soon as it is rebuilt; a match another collector is sending at the same
     // moment is rebuilt by whichever lands last, or by the next board that opens.
+    // The match is stored either way: a build that fails here is done by the next board that asks.
     const guids = [...new Set(rows.map((row) => matchKey(row.matchGuid)))];
-    for (let attempt = 0; attempt < 3 && guids.length; attempt++) {
-      const built = new Set(await buildMatches(db, roster, bindings, guids));
-      guids.splice(0, guids.length, ...guids.filter((guid) => !built.has(guid)));
+    try {
+      for (let attempt = 0; attempt < 3 && guids.length; attempt++) {
+        const built = new Set(await buildMatches(db, roster, bindings, guids));
+        guids.splice(0, guids.length, ...guids.filter((guid) => !built.has(guid)));
+      }
+    } catch (error) {
+      console.error('match build deferred', error instanceof Error ? error.name : 'unknown');
     }
     return c.json({ ok: true, match: rows[0]?.matchGuid, received: rows.length }, 200, noStore);
   } catch (error) {
-    return c.json({ error: error instanceof Error ? error.message : 'Envoi invalide.' }, 400, noStore);
+    return failure(c, error, 'Envoi invalide.');
   }
 });

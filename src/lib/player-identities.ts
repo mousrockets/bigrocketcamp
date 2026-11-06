@@ -1,6 +1,9 @@
+import { eq } from 'drizzle-orm';
 import type { Roster } from './club';
 import type { Database } from './db';
+import { orm } from './orm';
 import { playerKey } from './reconcile';
+import { playerIdentities, playerIdentityAliases } from './schema';
 
 export const unassignedPrefix = 'Non attribué · ';
 
@@ -11,9 +14,6 @@ export interface PlayerIdentity {
   slot: string;
   owner: string;
   player_id: string;
-  last_sync: string | null;
-  last_attempt: string | null;
-  coverage: string;
 }
 
 export interface IdentityBinding {
@@ -21,15 +21,21 @@ export interface IdentityBinding {
   player_id: string;
 }
 
+/** The club players' main game IDs, or only those the member owns. */
 export async function readPlayerIdentities(db: Database, roster: Roster, owner?: string): Promise<PlayerIdentity[]> {
-  const columns = 'SELECT slot,owner,player_id,last_sync,last_attempt,coverage FROM player_identities';
-  const query = owner === undefined ? db.prepare(columns) : db.prepare(`${columns} WHERE owner=?`).bind(owner);
-  return (await query.all<PlayerIdentity>()).results.filter((identity) => roster.includes(identity.slot));
+  const identities = await orm(db)
+    .select({ slot: playerIdentities.slot, owner: playerIdentities.owner, player_id: playerIdentities.playerId })
+    .from(playerIdentities)
+    .where(owner === undefined ? undefined : eq(playerIdentities.owner, owner));
+  return identities.filter((identity) => roster.includes(identity.slot));
 }
 
+/** Every game ID confirmed for a club player. */
 export async function readIdentityBindings(db: Database, roster: Roster): Promise<IdentityBinding[]> {
-  const bindings = await db.prepare('SELECT player_id,slot FROM player_identity_aliases').all<IdentityBinding>();
-  return bindings.results.filter((binding) => roster.includes(binding.slot));
+  const bindings = await orm(db)
+    .select({ player_id: playerIdentityAliases.playerId, slot: playerIdentityAliases.slot })
+    .from(playerIdentityAliases);
+  return bindings.filter((binding) => roster.includes(binding.slot));
 }
 
 /** Names a received player after the club member who confirmed that game ID; a namesake stays unassigned. */

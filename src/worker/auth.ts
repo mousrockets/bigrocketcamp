@@ -1,6 +1,9 @@
+import { eq, sql } from 'drizzle-orm';
 import type { Context, MiddlewareHandler } from 'hono';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import type { Role } from '../lib/members';
+import { orm } from '../lib/orm';
+import { members, sessions, signInCodes } from '../lib/schema';
 
 export interface Member {
   id: string;
@@ -49,24 +52,20 @@ export function sameOrigin(c: Context): boolean {
 }
 
 export async function sendSignInCode(env: Env, email: string, requestUrl: string): Promise<'sent' | 'too-soon'> {
-  const db = env.DB;
-  const member = await db.prepare('SELECT id FROM members WHERE email = ?').bind(email).first();
-  const previous = await db
-    .prepare('SELECT sent FROM sign_in_codes WHERE email = ?')
-    .bind(email)
-    .first<{ sent: number }>();
+  const db = orm(env.DB);
+  const [member] = await db.select({ id: members.id }).from(members).where(eq(members.email, email));
+  const [previous] = await db.select({ sent: signInCodes.sent }).from(signInCodes).where(eq(signInCodes.email, email));
   if (previous && Date.now() - previous.sent < codeResendDelay) return 'too-soon';
   // An unknown address gets the same answer as a member, so the form never reveals who is in the club.
   if (!member) return 'sent';
 
   const code = randomCode();
   const now = Date.now();
+  const saved = { codeHash: await sha256(`${email}:${code}`), expires: now + codeLifetime, attempts: 0, sent: now };
   await db
-    .prepare(
-      'INSERT INTO sign_in_codes (email, code_hash, expires, attempts, sent) VALUES (?, ?, ?, 0, ?) ON CONFLICT(email) DO UPDATE SET code_hash = excluded.code_hash, expires = excluded.expires, attempts = 0, sent = excluded.sent',
-    )
-    .bind(email, await sha256(`${email}:${code}`), now + codeLifetime, now)
-    .run();
+    .insert(signInCodes)
+    .values({ email, ...saved })
+    .onConflictDoUpdate({ target: signInCodes.email, set: saved });
   await deliver(env, email, code, requestUrl);
   return 'sent';
 }
@@ -99,18 +98,18 @@ async function deliver(env: Env, email: string, code: string, requestUrl: string
 }
 
 export async function verifySignInCode(c: Context<AppEnv>, email: string, code: string): Promise<boolean> {
-  const db = c.env.DB;
-  const saved = await db
-    .prepare('SELECT code_hash, expires, attempts FROM sign_in_codes WHERE email = ?')
-    .bind(email)
-    .first<{ code_hash: string; expires: number; attempts: number }>();
+  const db = orm(c.env.DB);
+  const [saved] = await db.select().from(signInCodes).where(eq(signInCodes.email, email));
   if (!saved || saved.expires < Date.now() || saved.attempts >= codeAttempts) return false;
-  if (saved.code_hash !== (await sha256(`${email}:${code}`))) {
-    await db.prepare('UPDATE sign_in_codes SET attempts = attempts + 1 WHERE email = ?').bind(email).run();
+  if (saved.codeHash !== (await sha256(`${email}:${code}`))) {
+    await db
+      .update(signInCodes)
+      .set({ attempts: sql`${signInCodes.attempts} + 1` })
+      .where(eq(signInCodes.email, email));
     return false;
   }
-  const member = await db.prepare('SELECT id FROM members WHERE email = ?').bind(email).first<{ id: string }>();
-  await db.prepare('DELETE FROM sign_in_codes WHERE email = ?').bind(email).run();
+  const [member] = await db.select({ id: members.id }).from(members).where(eq(members.email, email));
+  await db.delete(signInCodes).where(eq(signInCodes.email, email));
   if (!member) return false;
   await openSession(c, member.id);
   return true;
@@ -118,10 +117,9 @@ export async function verifySignInCode(c: Context<AppEnv>, email: string, code: 
 
 async function openSession(c: Context<AppEnv>, memberId: string): Promise<void> {
   const token = randomToken();
-  const expires = Date.now() + sessionLifetime;
-  await c.env.DB.prepare('INSERT INTO sessions (token_hash, member_id, expires) VALUES (?, ?, ?)')
-    .bind(await sha256(token), memberId, expires)
-    .run();
+  await orm(c.env.DB)
+    .insert(sessions)
+    .values({ tokenHash: await sha256(token), memberId, expires: Date.now() + sessionLifetime });
   writeSessionCookie(c, token);
 }
 
@@ -143,9 +141,9 @@ export function clearSessionCookie(c: Context): void {
 export async function closeSession(c: Context<AppEnv>): Promise<void> {
   const token = getCookie(c, sessionCookie);
   if (token)
-    await c.env.DB.prepare('DELETE FROM sessions WHERE token_hash = ?')
-      .bind(await sha256(token))
-      .run();
+    await orm(c.env.DB)
+      .delete(sessions)
+      .where(eq(sessions.tokenHash, await sha256(token)));
   clearSessionCookie(c);
 }
 
@@ -154,16 +152,18 @@ export const requireMember: MiddlewareHandler<AppEnv> = async (c, next) => {
   const token = getCookie(c, sessionCookie);
   if (!token) return c.json({ error: 'Connexion requise.' }, 401);
   const tokenHash = await sha256(token);
-  const session = await c.env.DB.prepare(
-    'SELECT members.id, members.email, members.role, sessions.expires FROM sessions JOIN members ON members.id = sessions.member_id WHERE sessions.token_hash = ?',
-  )
-    .bind(tokenHash)
-    .first<Member & { expires: number }>();
+  const db = orm(c.env.DB);
+  const [session] = await db
+    .select({ id: members.id, email: members.email, role: members.role, expires: sessions.expires })
+    .from(sessions)
+    .innerJoin(members, eq(members.id, sessions.memberId))
+    .where(eq(sessions.tokenHash, tokenHash));
   if (!session || session.expires < Date.now()) return c.json({ error: 'Connexion requise.' }, 401);
   if (session.expires - Date.now() < sessionLifetime - day) {
-    await c.env.DB.prepare('UPDATE sessions SET expires = ? WHERE token_hash = ?')
-      .bind(Date.now() + sessionLifetime, tokenHash)
-      .run();
+    await db
+      .update(sessions)
+      .set({ expires: Date.now() + sessionLifetime })
+      .where(eq(sessions.tokenHash, tokenHash));
     writeSessionCookie(c, token);
   }
   c.set('member', { id: session.id, email: session.email, role: session.role });
