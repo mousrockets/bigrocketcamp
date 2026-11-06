@@ -1727,6 +1727,7 @@ export function Dashboard() {
                   <small>
                     {matchWhen(match.day, match.received)}
                     {match.kind === 'test' ? ' · Test bots' : ''}
+                    {match.left ? ' · Un joueur est parti' : ''}
                   </small>
                 </div>
                 <ul className="match-players">

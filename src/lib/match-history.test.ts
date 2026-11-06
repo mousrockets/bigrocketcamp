@@ -55,3 +55,35 @@ test('a scoreboard without goals shows no score', () => {
   const rows = [withoutGoals];
   expect(matchHistory(rows, rows, matchIndex(rows), roster)[0]?.score).toBeNull();
 });
+
+test('a scoreboard received whole with a side short of a player says that someone left', () => {
+  const forfeit = [
+    line('forfeit', alice, 0, 0, 300, 2),
+    line('forfeit', bob, 0, 0, 250, 1),
+    line('forfeit', 'Opponent 1', 1, 0, 100),
+  ];
+  const full = scoreboard.filter((row) => row.match_guid === 'late');
+  const rows = [...forfeit, ...full];
+  const rosters = [
+    { match_guid: 'forfeit', expected_players: 3 },
+    { match_guid: 'late', expected_players: 4 },
+  ];
+  const history = matchHistory(
+    rows.filter((row) => roster.includes(row.name)),
+    rows,
+    matchIndex(rows, rosters),
+    roster,
+  );
+  expect(history.map((match) => [match.guid, match.left])).toEqual([
+    ['forfeit', true],
+    ['late', false],
+  ]);
+  // Leaving changes nothing to what the match costs.
+  expect(history[0]?.players.map(({ pushups }) => pushups)).toEqual([0, 0]);
+});
+
+test('without a scoreboard received whole, a short side is not taken for a departure', () => {
+  const clubOnly = [line('old', alice, 0, 1, 100), line('old', bob, 0, 1, 50)];
+  const [match] = matchHistory(clubOnly, clubOnly, matchIndex(clubOnly), roster);
+  expect(match?.left).toBe(false);
+});
