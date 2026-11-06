@@ -4,9 +4,9 @@ import type { DeployedVersion } from '../lib/version';
 /** The build this page was loaded from. */
 export const loadedCommit = __APP_COMMIT__;
 
-const checkEvery = 60_000;
+const checkEvery = 5 * 60_000;
 
-/** The build the API runs: checked on load, every minute while the page is visible, and on each return to it. */
+/** The build the API runs: checked on load, every five minutes while the page is visible, and on each return to it. */
 export function useDeployedVersion(): DeployedVersion | null {
   const [deployed, setDeployed] = useState<DeployedVersion | null>(null);
   useEffect(() => {

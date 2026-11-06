@@ -138,5 +138,8 @@ export async function readRankSourceHealth(db: Database, now: number = Date.now(
     .prepare("SELECT MAX(fetched_at) AS last FROM player_ranks WHERE playlist = 11 AND status = 'ready'")
     .first<{ last: string | null }>();
   const lastReadAt = row?.last ?? null;
-  return { lastReadAt, stale: lastReadAt === null || now - Date.parse(lastReadAt) > staleAfter };
+  return { lastReadAt, stale: rankSourceStale(lastReadAt, now) };
 }
+
+export const rankSourceStale = (lastReadAt: string | null, now: number = Date.now()): boolean =>
+  lastReadAt === null || now - Date.parse(lastReadAt) > staleAfter;

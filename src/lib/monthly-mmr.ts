@@ -5,7 +5,8 @@ import type { MmrEntry } from './mmr-ledger';
 import { readPlayerIdentities } from './player-identities';
 
 export const monthCloseGraceMs = 300_000;
-const undoMs = 86_400_000;
+/** How long the member who marked a drink paid can take it back. */
+export const undoMs = 86_400_000;
 const localParts = new Intl.DateTimeFormat('en-CA', {
   timeZone: 'Europe/Paris',
   year: 'numeric',
@@ -141,23 +142,48 @@ export function monthlyRanking(
 }
 
 async function policy(db: Database, now: number) {
+  const read = () =>
+    db.prepare('SELECT starts_month FROM monthly_mmr_policy WHERE id=1').first<{ starts_month: string }>();
+  const config = await read();
+  if (config) return config;
   await db
     .prepare('INSERT INTO monthly_mmr_policy (id,starts_month) VALUES (1,?) ON CONFLICT(id) DO NOTHING')
     .bind(parisMonth(now))
     .run();
-  return db.prepare('SELECT starts_month FROM monthly_mmr_policy WHERE id=1').first<{ starts_month: string }>();
+  return read();
 }
 
-const entries = (db: Database) =>
-  db
+/** The month's readings of each player, oldest first: only what one month's ranking needs. */
+const monthEntries = (db: Database, roster: Roster, month: string) => {
+  const bounds = monthBounds(month);
+  return db
     .prepare(
-      'SELECT rowid AS sequence,id,player,mmr,tier,division,recorded_at FROM mmr_entries ORDER BY recorded_at,rowid',
+      `SELECT rowid AS sequence,id,player,mmr,tier,division,recorded_at FROM mmr_entries
+        WHERE player IN (SELECT value FROM json_each(?1)) AND recorded_at >= ?2 AND recorded_at < ?3
+        ORDER BY recorded_at,rowid`,
     )
+    .bind(JSON.stringify(roster), bounds.startAt, bounds.cutoffAt)
     .all<MmrEntry>();
+};
+
+/** Each player's latest reading of the month: all the live ranking shows. */
+const latestEntries = (db: Database, roster: Roster, month: string) => {
+  const bounds = monthBounds(month);
+  return db
+    .prepare(
+      `SELECT entry.rowid AS sequence,entry.id,entry.player,entry.mmr,entry.tier,entry.division,entry.recorded_at
+        FROM json_each(?1) AS slot
+        JOIN mmr_entries AS entry ON entry.rowid = (
+          SELECT rowid FROM mmr_entries WHERE player = slot.value AND recorded_at >= ?2 AND recorded_at < ?3
+          ORDER BY recorded_at DESC, rowid DESC LIMIT 1
+        )`,
+    )
+    .bind(JSON.stringify(roster), bounds.startAt, bounds.cutoffAt)
+    .all<MmrEntry>();
+};
 
 export async function closeMonthlyMmr(db: Database, roster: Roster, now: number = Date.now()) {
   const config = await policy(db, now);
-  const all = (await entries(db)).results;
   const current = parisMonth(now);
   let closed = 0;
   const existing = (await db.prepare('SELECT month FROM monthly_mmr_results').all<{ month: string }>()).results.map(
@@ -166,7 +192,7 @@ export async function closeMonthlyMmr(db: Database, roster: Roster, now: number 
   for (let month = config?.starts_month ?? current; month < current && closed < 24; month = nextMonth(month)) {
     const bounds = monthBounds(month);
     if (now < Date.parse(bounds.cutoffAt) + monthCloseGraceMs || existing.includes(month)) continue;
-    const snapshot = monthlyRanking(roster, all, month);
+    const snapshot = monthlyRanking(roster, (await monthEntries(db, roster, month)).results, month);
     const payload = JSON.stringify(snapshot);
     const closedAt = new Date(now).toISOString();
     const writes = [
@@ -235,8 +261,9 @@ export async function readMonthlyMmr(
   now: number = Date.now(),
 ) {
   const roster = rosterOf(players);
-  const [all, closed, debts, identities, config] = await Promise.all([
-    entries(db),
+  const month = parisMonth(now);
+  const [latest, closed, debts, identities, config] = await Promise.all([
+    latestEntries(db, roster, month),
     db
       .prepare('SELECT month,cutoff_at,closed_at,status,snapshot FROM monthly_mmr_results ORDER BY month DESC')
       .all<{ month: string; closed_at: string; snapshot: string }>(),
@@ -245,8 +272,7 @@ export async function readMonthlyMmr(
     db.prepare('SELECT starts_month FROM monthly_mmr_policy WHERE id=1').first<{ starts_month: string }>(),
   ]);
   const allowedPlayers = identities.map((identity) => identity.slot);
-  const month = parisMonth(now);
-  const { debts: _preview, losers: _last, ...live } = monthlyRanking(roster, all.results, month, { live: true });
+  const { debts: _preview, losers: _last, ...live } = monthlyRanking(roster, latest.results, month, { live: true });
   return {
     startsMonth: config?.starts_month ?? month,
     current: { ...live, status: 'live' as const },

@@ -49,7 +49,15 @@ npx wrangler d1 execute bigrocketcamp --remote --command "INSERT INTO members (i
 
 ## Rester dans le plan gratuit
 
-Les limites qui comptent : 100 000 requêtes par jour, 10 ms de CPU par requête (attente réseau exclue), 5 millions de lignes lues par jour en base. L'app ne relit jamais toute la base pour afficher une page : elle lit des totaux tenus à jour à chaque match.
+Les limites qui comptent : 100 000 requêtes par jour, 10 ms de CPU par requête (attente réseau exclue), 5 millions de lignes lues et 100 000 écrites par jour en base. Ce que coûte une requête ne doit pas grandir avec l'historique :
+
+- **Un compteur de version** (`sync_state`) avance à chaque changement que le tableau affiche, par des triggers SQLite : rien à oublier dans le code. Un tableau ouvert envoie sa version ; sans changement, la requête lit 4 lignes.
+- **Attente longue** : `GET /api/state?since=N&wait=25` garde la requête jusqu'à 25 s et répond dès qu'une version plus récente existe (vérifiée toutes les 2 s). Un match reçu s'affiche en 2 à 3 secondes ; un tableau ouvert sans activité coûte une requête toutes les 25 s. Onglet caché : aucune requête.
+- **Seulement les changements** : la réponse ne contient que les lignes modifiées depuis `N` (colonne `seq`) et ce qui a disparu (`sync_removals`), plus les petites parties (rangs, mois en cours, collecteurs). À l'ouverture, le tableau lit tout par pages de 2 000 lignes, puis le garde dans le navigateur (IndexedDB) : la fois suivante, il ne lit que ce qui a changé.
+- **Résultats de match stockés** (`match_results`) : chaque match est réconcilié seul quand un collecteur l'envoie, au lieu de réconcilier toutes les observations à chaque affichage. Un nouveau joueur ou un identifiant confirmé fait reconstruire les matchs par lots de 80 au fil des requêtes.
+- Une page chargée avant cette version reçoit encore le tableau entier (`GET /api/state` sans `since`, avec ETag), le temps de se recharger.
+
+`npx vitest run src/worker/load.test.ts --silent=false` mesure les lignes lues et écrites par requête ; le test échoue si le coût d'un tableau ouvert grandit avec l'historique.
 
 ## Mises à jour
 

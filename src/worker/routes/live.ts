@@ -1,13 +1,14 @@
 import { Hono } from 'hono';
 import { readRoster } from '../../lib/club';
 import { parseLiveMatch } from '../../lib/live-stats';
+import { buildMatches } from '../../lib/match-builds';
 import {
   attributeLivePlayers,
   canonicalPlayerId,
   readIdentityBindings,
   readPlayerIdentities,
 } from '../../lib/player-identities';
-import { observationWrites } from '../../lib/reconcile';
+import { matchKey, observationWrites } from '../../lib/reconcile';
 import { type AppEnv, sameOrigin } from '../auth';
 
 export const liveRoutes = new Hono<AppEnv>();
@@ -72,6 +73,13 @@ liveRoutes.post('/', async (c) => {
         .bind(sourceId, now),
     );
     await db.batch(writes as D1PreparedStatement[]);
+    // The board shows the match as soon as it is rebuilt; a match another collector is sending at the same
+    // moment is rebuilt by whichever lands last, or by the next board that opens.
+    const guids = [...new Set(rows.map((row) => matchKey(row.matchGuid)))];
+    for (let attempt = 0; attempt < 3 && guids.length; attempt++) {
+      const built = new Set(await buildMatches(db, roster, bindings, guids));
+      guids.splice(0, guids.length, ...guids.filter((guid) => !built.has(guid)));
+    }
     return c.json({ ok: true, match: rows[0]?.matchGuid, received: rows.length }, 200, noStore);
   } catch (error) {
     return c.json({ error: error instanceof Error ? error.message : 'Envoi invalide.' }, 400, noStore);
