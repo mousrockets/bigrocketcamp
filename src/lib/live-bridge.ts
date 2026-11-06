@@ -1,4 +1,5 @@
 import { checkLiveMatch, type LiveMatch, matchCapture, statsStream } from './live-stats';
+import { defaultTimeoutMs, fetchWithin } from './timeout';
 
 const queueKey = 'rl-live-queue-v1';
 const gameSocket = 'ws://localhost:49124/';
@@ -38,6 +39,8 @@ interface BridgeOptions {
   schedule?: (callback: () => void, delay: number) => unknown;
   cancel?: (handle: unknown) => void;
   now?: () => number;
+  /** How long a send may take before it is given up and retried. */
+  timeoutMs?: number;
 }
 
 /** Reads final scoreboards from the game on this PC and sends them to the API, keeping them while offline. */
@@ -49,6 +52,7 @@ export function liveBridge({
   schedule = setTimeout as unknown as (callback: () => void, delay: number) => unknown,
   cancel = clearTimeout as unknown as (handle: unknown) => void,
   now = Date.now,
+  timeoutMs = defaultTimeoutMs,
 }: BridgeOptions = {}) {
   let queue: LiveMatch[] = [];
   let active = false;
@@ -121,11 +125,17 @@ export function liveBridge({
         }
         let response: Response;
         try {
-          response = await fetcher('/api/live', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-          });
+          // A send that never answers would hold every later match: it is given up, then retried.
+          response = await fetchWithin(
+            fetcher,
+            '/api/live',
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload),
+            },
+            timeoutMs,
+          );
         } catch {
           onStatus({ message: 'Envoi en attente de connexion Internet.' });
           laterUpload();

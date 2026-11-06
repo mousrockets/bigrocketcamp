@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { fetchWithin } from '../lib/timeout';
 import type { DeployedVersion } from '../lib/version';
 
 /** The build this page was loaded from. */
@@ -14,7 +15,7 @@ export function useDeployedVersion(): DeployedVersion | null {
     async function check() {
       if (document.hidden) return;
       try {
-        const response = await fetch('/api/health', { cache: 'no-store' });
+        const response = await fetchWithin(fetch, '/api/health', { cache: 'no-store' });
         if (!response.ok) return;
         const body = (await response.json()) as Partial<DeployedVersion>;
         // An API older than this check names no commit: nothing to compare.
