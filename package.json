@@ -11,7 +11,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "check": "biome check . && tsc --noEmit -p tsconfig.json && tsc --noEmit -p src/worker/tsconfig.json && vitest run",
+    "check": "biome check . && tsc --noEmit -p tsconfig.json && tsc --noEmit -p src/worker/tsconfig.json && tsc --noEmit -p src/web/sw/tsconfig.json && vitest run",
     "fmt": "biome check --write .",
     "types": "wrangler types src/worker/runtime.d.ts",
     "deploy": "wrangler d1 migrations apply bigrocketcamp --remote --config wrangler.jsonc && wrangler deploy",

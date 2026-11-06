@@ -17,5 +17,5 @@
     "noEmit": true
   },
   "include": ["scripts", "src/lib", "src/web", "src/vite-env.d.ts", "vite.config.ts", "vitest.config.ts"],
-  "exclude": ["src/lib/**/*.test.ts"]
+  "exclude": ["src/lib/**/*.test.ts", "src/web/sw"]
 }

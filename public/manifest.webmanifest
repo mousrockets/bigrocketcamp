@@ -3,6 +3,7 @@
   "short_name": "Mousrockets",
   "description": "Nos matchs Rocket League et nos pompes.",
   "lang": "fr",
+  "id": "/",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

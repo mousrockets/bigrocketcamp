@@ -661,7 +661,7 @@ export function Dashboard() {
       }
       // An installed app can stay open for days: reload after a long pause to run the latest published version.
       if (isStandalone() && hiddenAt && Date.now() - hiddenAt > 300000 && !submissionInFlight.current) {
-        location.reload();
+        reloadKeeping(formDraft.current);
       }
     };
     document.addEventListener('visibilitychange', onVisible);

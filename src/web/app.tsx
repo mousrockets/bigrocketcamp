@@ -34,7 +34,9 @@ function Unavailable() {
     <main>
       <section className="sign-in">
         <h1>Club injoignable</h1>
-        <p className="muted">Le club ne répond pas pour l’instant. Vérifie ta connexion, puis recharge la page.</p>
+        <p className="muted">
+          Le club ne répond pas pour l’instant. Vérifie ta connexion : la page réessaie toute seule.
+        </p>
       </section>
     </main>
   );
@@ -58,12 +60,30 @@ export function App() {
   const path = location.pathname.replace(/\/+$/, '') || '/';
 
   useEffect(() => {
-    fetchClub()
-      .then((loaded) => {
-        if (loaded) setClub(loaded);
-        else if (!isSignInRequired()) setFailed(true);
-      })
-      .catch(() => setFailed(true));
+    let loading = false;
+    function load() {
+      if (loading || document.hidden) return;
+      loading = true;
+      fetchClub()
+        .then((loaded) => {
+          setFailed(!loaded && !isSignInRequired());
+          if (loaded) setClub(loaded);
+          if (loaded || isSignInRequired()) stopRetrying();
+        })
+        .catch(() => setFailed(true))
+        .finally(() => {
+          loading = false;
+        });
+    }
+    // An installed app opened offline has no reload button: it tries again once the network or the member is back.
+    function stopRetrying() {
+      removeEventListener('online', load);
+      document.removeEventListener('visibilitychange', load);
+    }
+    load();
+    addEventListener('online', load);
+    document.addEventListener('visibilitychange', load);
+    return stopRetrying;
   }, []);
 
   useEffect(() => {
@@ -72,7 +92,10 @@ export function App() {
 
   const clubName = club?.name ?? name;
   useEffect(() => {
-    if (clubName) document.title = `${clubName} · Le club`;
+    if (!clubName) return;
+    document.title = `${clubName} · Le club`;
+    // The name under the icon on an iPhone home screen (Android reads the manifest).
+    document.querySelector('meta[name="apple-mobile-web-app-title"]')?.setAttribute('content', clubName);
   }, [clubName]);
 
   // A new member chooses their duo pseudo before anything else: every game record is keyed by it.
