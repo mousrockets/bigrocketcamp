@@ -98,13 +98,10 @@ export function Direct() {
           Le score arrive.
         </h1>
         <p className="muted">
-          Un onglet ouvert sur le PC qui joue transmet les tableaux finaux au club, sans logiciel supplémentaire ni
-          connexion à vos comptes Epic. Le téléphone consulte ensuite les résultats sur la page d’accueil.
+          Un onglet ouvert sur le PC qui joue transmet les tableaux finaux au club, sans logiciel supplémentaire. Le
+          téléphone consulte ensuite les résultats sur la page d’accueil.
         </p>
-        <p className="small muted">
-          Ce nouveau mode doit encore être validé avec une vraie partie et ton navigateur. La collecte communautaire
-          Epic est retirée.
-        </p>
+        <p className="small muted">Ce nouveau mode doit encore être validé avec une vraie partie et ton navigateur.</p>
       </section>
       {error && (
         <p className="alert" role="alert">
@@ -123,7 +120,7 @@ export function Direct() {
           players && (
             <p className="alert">
               Aucune identité de jeu n’est associée à ce compte. Consulte{' '}
-              <a href="/connexions">les identités des joueurs</a>. Aucun mot de passe Epic n’est demandé.
+              <a href="/connexions">les identités des joueurs</a>.
             </p>
           )
         )}

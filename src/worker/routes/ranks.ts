@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
-import { publicMmrKeyMatches } from '../../lib/public-mmr-auth';
 import { readRankTargets, recordObservedRanks, validateObservedRanks } from '../../lib/rank-source';
+import { secretKeyMatches } from '../../lib/secret-key';
 import type { AppEnv } from '../auth';
 
 // For the instance's rank source only, authenticated by its own key (X-Rank-Source-Key).
@@ -9,7 +9,7 @@ export const rankRoutes = new Hono<AppEnv>();
 const noStore = { 'Cache-Control': 'no-store' };
 
 rankRoutes.use(async (c, next) => {
-  if (!publicMmrKeyMatches(c.env.RANK_SOURCE_KEY, c.req.header('X-Rank-Source-Key'))) {
+  if (!secretKeyMatches(c.env.RANK_SOURCE_KEY, c.req.header('X-Rank-Source-Key'))) {
     return c.json({ error: 'Source de rangs non autorisée.' }, 401, noStore);
   }
   await next();

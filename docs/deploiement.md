@@ -14,7 +14,7 @@ Cloudflare déploie ensuite chaque commit de `main` lui-même : aucun jeton Clou
 
 Dans le Worker, Settings :
 
-- **Variables and Secrets** (lues par l'API) : `MAIL_FROM` (expéditeur des codes, par exemple `Les Trois Mousrockets <connexion@mousrockets.com>`), et en secrets `RESEND_API_KEY`, `INGEST_KEY` (ancien collecteur PC) et `PUBLIC_MMR_IMPORT_KEY` (relevé mensuel du MMR), ces deux derniers seulement s'ils servent ; `RANK_SOURCE_KEY` (au moins 32 caractères) si une source de rangs alimente le MMR 2v2 (`GET /api/ranks/targets`, `POST /api/ranks`, en-tête `X-Rank-Source-Key`).
+- **Variables and Secrets** (lues par l'API) : `MAIL_FROM` (expéditeur des codes, par exemple `Les Trois Mousrockets <connexion@mousrockets.com>`), et en secrets `RESEND_API_KEY` ; `RANK_SOURCE_KEY` (au moins 32 caractères) si une source de rangs alimente le MMR 2v2 (`GET /api/ranks/targets`, `POST /api/ranks`, en-tête `X-Rank-Source-Key`).
 - **Build → Deploy command** : `npm run deploy`. Il applique les migrations de la base avant de déployer.
 - `wrangler.jsonc` : l'identifiant de la base D1 de production (`database_id`).
 
@@ -37,7 +37,7 @@ npx wrangler d1 execute bigrocketcamp --remote --command "INSERT INTO members (i
 ## Reprendre les données du prototype
 
 1. Exporter chaque table du prototype en JSON (un tableau par table, fichier `<table>.json`), hors du dépôt.
-2. `node scripts/import-prototype.ts <dossier> > import.sql`
+2. `node scripts/import-prototype.ts <dossier> > import.sql` (les relevés RLStats du prototype ne sont pas repris)
 3. `npx wrangler d1 execute bigrocketcamp --remote --file import.sql`, puis créer le premier administrateur (voir plus haut).
 4. Supprimer l'export et `import.sql` : ils contiennent des données personnelles.
 

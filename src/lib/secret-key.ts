@@ -1,14 +1,5 @@
-/** Whether the signed-in member is the one configured to import public MMR snapshots. */
-export function canImportPublicMmr(settings: { MMR_UPDATER_USER_ID?: unknown }, userId: string): boolean {
-  return (
-    typeof settings.MMR_UPDATER_USER_ID === 'string' &&
-    settings.MMR_UPDATER_USER_ID.length > 0 &&
-    settings.MMR_UPDATER_USER_ID === userId
-  );
-}
-
 /** Compares in constant time, so the response time never reveals how much of the key matched. */
-export function publicMmrKeyMatches(expected: unknown, provided: unknown): boolean {
+export function secretKeyMatches(expected: unknown, provided: unknown): boolean {
   if (
     typeof expected !== 'string' ||
     expected.length < 32 ||

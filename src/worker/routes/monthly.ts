@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import { readClubPlayers, readRoster } from '../../lib/club';
-import { closeMonthlyMmr, readMonthlyMmr, recordMmr, settleDrink } from '../../lib/monthly-mmr';
+import { closeMonthlyMmr, readMonthlyMmr, settleDrink } from '../../lib/monthly-mmr';
 import { type AppEnv, sameOrigin } from '../auth';
 
 export const monthlyRoutes = new Hono<AppEnv>();
@@ -21,7 +21,6 @@ monthlyRoutes.post('/', async (c) => {
   try {
     const input = JSON.parse(body);
     const roster = await readRoster(db);
-    if (input.action === 'record') return c.json(await recordMmr(db, roster, memberId, input), 200, noStore);
     if (input.action === 'refresh') return c.json(await closeMonthlyMmr(db, roster), 200, noStore);
     if (input.action === 'settle' || input.action === 'undo') {
       return c.json(await settleDrink(db, roster, memberId, input.id, input.action === 'undo'), 200, noStore);

@@ -1,16 +1,7 @@
 import { env } from 'cloudflare:workers';
 import { describe, expect, test } from 'vitest';
 import { players, roster } from './club-fixture';
-import { readDoublesRanks } from './doubles-ranks';
-import {
-  closeMonthlyMmr,
-  monthBounds,
-  monthlyRanking,
-  readMonthlyMmr,
-  recordMmr,
-  settleDrink,
-  validateMmrEntry,
-} from './monthly-mmr';
+import { closeMonthlyMmr, monthBounds, monthlyRanking, readMonthlyMmr, settleDrink } from './monthly-mmr';
 
 const [first = '', second = '', third = ''] = roster;
 const finalDay = '2026-11-30T21:00:00.000Z';
@@ -23,12 +14,10 @@ function declarations(values: (number | null)[] = [1200, 1100, 1000], at = final
   });
 }
 
-const input = (player = first, mmr: unknown = 1200, id: string = crypto.randomUUID()) => ({ id, player, mmr });
-
 async function reset() {
   await env.DB.batch(
-    ['mmr_entries', 'player_ranks', 'monthly_mmr_results', 'drink_debts', 'player_identities', 'public_mmr_sync'].map(
-      (table) => env.DB.prepare(`DELETE FROM ${table}`),
+    ['mmr_entries', 'player_ranks', 'monthly_mmr_results', 'drink_debts', 'player_identities'].map((table) =>
+      env.DB.prepare(`DELETE FROM ${table}`),
     ),
   );
 }
@@ -125,70 +114,19 @@ describe('monthly MMR ranking', () => {
     expect(stale.missing.length).toBe(3);
     expect(stale.debts.length).toBe(0);
   });
-
-  test('validation: integers only, zero is valid, rank and division must agree', () => {
-    for (const mmr of [-1, 10001, 1.5, Number.NaN, '1200', null]) {
-      expect(() => validateMmrEntry(roster, input(first, mmr))).toThrow();
-    }
-    expect(validateMmrEntry(roster, input(first, 0)).mmr).toBe(0);
-    expect(() => validateMmrEntry(roster, { ...input(), tier: 17 })).toThrow();
-    expect(() => validateMmrEntry(roster, { ...input(), tier: 22, division: 1 })).toThrow();
-    expect(validateMmrEntry(roster, { ...input(), tier: 17, division: 2 }).division).toBe(2);
-  });
 });
 
 describe('monthly MMR storage', () => {
-  test('owner only, no client date, idempotent entry, 2v2 rank updated without inventing a tier', async () => {
+  test('the live ranking reads the rank source entries, without revealing their author', async () => {
     await reset();
     await owners();
-    const value = input();
-    await expect(recordMmr(env.DB, roster, 'current-user', input(second))).rejects.toMatchObject({ status: 403 });
-    const before = Date.now();
-    expect(
-      await recordMmr(env.DB, roster, 'current-user', {
-        ...value,
-        recorded_at: '2020-01-01T00:00:00Z',
-        month: '2020-01',
-      }),
-    ).toEqual({ ok: true, player: first });
-    const saved = await env.DB.prepare('SELECT recorded_at FROM mmr_entries WHERE id=?')
-      .bind(value.id)
-      .first<{ recorded_at: string }>();
-    expect(Date.parse(saved?.recorded_at ?? '')).toBeGreaterThanOrEqual(before - 1000);
-    await recordMmr(env.DB, roster, 'current-user', value);
-    expect(await count('SELECT count(*) AS n FROM mmr_entries')).toBe(1);
-    await expect(recordMmr(env.DB, roster, 'current-user', { ...value, mmr: 1190 })).rejects.toMatchObject({
-      status: 409,
-    });
-
-    const rank = (await readDoublesRanks(env.DB, roster))[0];
-    expect(rank?.mmr).toBe(1200);
-    expect(rank?.label).toBe('Rang non renseigné');
-    expect(rank?.status).toBe('manual');
-
-    const monthly = await readMonthlyMmr(env.DB, players, 'current-user');
-    expect(monthly.allowedPlayers[0]).toBe(first);
-    expect(monthly.current.rows[0]?.mmr).toBe(1200);
-    expect(JSON.stringify(monthly)).not.toContain('current-user');
+    await seed([1200, 1100, 1000]);
+    const monthly = await readMonthlyMmr(env.DB, players, 'current-user', Date.parse(finalDay));
+    expect(monthly.allowedPlayers).toEqual([first]);
+    expect(monthly.current.rows.map((row) => row.mmr)).toEqual([1200, 1100, 1000]);
+    expect(JSON.stringify(monthly)).not.toContain('synthetic-author');
     expect('debts' in monthly.current).toBe(false);
-  });
-
-  test('a retry of an older entry in the same millisecond keeps the last MMR shown and ranked', async () => {
-    await reset();
-    await owners();
-    const older = input(first, 1200);
-    const latest = input(first, 1250);
-    await recordMmr(env.DB, roster, 'current-user', older);
-    await recordMmr(env.DB, roster, 'current-user', latest);
-    await env.DB.prepare('UPDATE mmr_entries SET recorded_at=?').bind(finalDay).run();
-    await env.DB.prepare('UPDATE player_ranks SET fetched_at=?').bind(finalDay).run();
-    await recordMmr(env.DB, roster, 'current-user', latest);
-    await recordMmr(env.DB, roster, 'current-user', older);
-    const rank = await env.DB.prepare('SELECT mmr FROM player_ranks').first<{ mmr: number }>();
-    expect(rank?.mmr).toBe(1250);
-    expect((await readMonthlyMmr(env.DB, players, 'current-user', Date.parse(finalDay))).current.rows[0]?.mmr).toBe(
-      1250,
-    );
+    expect('publicSync' in monthly).toBe(false);
   });
 
   test('closing waits for the end and the grace period, is never retroactive, and creates two drinks', async () => {
@@ -215,7 +153,7 @@ describe('monthly MMR storage', () => {
     ['readings too old', [1200, 1100, 1000], true, 'incomplete'],
   ];
   for (const [name, values, stale, status] of archived) {
-    test(`${name}: the result is archived without debt, even with old Epic MMRs present`, async () => {
+    test(`${name}: the result is archived without debt, even with an old frozen rank present`, async () => {
       await reset();
       await env.DB.batch(
         roster.map((player, i) =>

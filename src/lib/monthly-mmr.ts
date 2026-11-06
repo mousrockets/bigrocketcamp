@@ -1,9 +1,8 @@
 import { type ClubPlayer, type Roster, rosterOf } from './club';
 import type { Database } from './db';
 import { parisDay } from './domain';
-import { type MmrEntry, mmrObservedAt, projectMmrRankWrite, publicCloseFreshMs } from './mmr-ledger';
+import type { MmrEntry } from './mmr-ledger';
 import { readPlayerIdentities } from './player-identities';
-import { readPublicMmrStatus } from './public-ranks';
 
 export const monthCloseGraceMs = 300_000;
 const undoMs = 86_400_000;
@@ -85,34 +84,23 @@ export function monthlyRanking(
   { live = false }: { live?: boolean } = {},
 ) {
   const bounds = monthBounds(month);
-  const admissible = (entry: MmrEntry) =>
-    entry.source === 'rlstats'
-      ? Date.parse(mmrObservedAt(entry)) >= Date.parse(bounds.cutoffAt) - publicCloseFreshMs
-      : mmrObservedAt(entry) >= bounds.lastDayStartAt;
+  // Only a reading from the month's last day confirms the player's rating at the close.
+  const admissible = (entry: MmrEntry) => entry.recorded_at >= bounds.lastDayStartAt;
   const rows = roster
     .map((player) => {
       const candidates = entries
         .filter(
           (entry) =>
-            entry.player === player &&
-            mmrObservedAt(entry) >= bounds.startAt &&
-            mmrObservedAt(entry) < bounds.cutoffAt &&
-            (entry.source !== 'rlstats' ||
-              Date.parse(entry.recorded_at) <= Date.parse(bounds.cutoffAt) + monthCloseGraceMs),
+            entry.player === player && entry.recorded_at >= bounds.startAt && entry.recorded_at < bounds.cutoffAt,
         )
         .sort(
-          (a, b) =>
-            mmrObservedAt(a).localeCompare(mmrObservedAt(b)) ||
-            a.recorded_at.localeCompare(b.recorded_at) ||
-            Number(a.sequence ?? 0) - Number(b.sequence ?? 0),
+          (a, b) => a.recorded_at.localeCompare(b.recorded_at) || Number(a.sequence ?? 0) - Number(b.sequence ?? 0),
         );
       const latest = (live ? null : candidates.filter(admissible).at(-1)) || candidates.at(-1);
       return {
         player,
         mmr: latest?.mmr ?? null,
-        recordedAt: latest ? mmrObservedAt(latest) : null,
-        source: latest?.source ?? 'manual',
-        sourceUrl: latest?.source_url ?? null,
+        recordedAt: latest?.recorded_at ?? null,
         confirmedForClose: Boolean(latest) && admissible(latest as MmrEntry),
       };
     })
@@ -152,44 +140,6 @@ export function monthlyRanking(
   };
 }
 
-export interface MmrInput {
-  id: string;
-  player: string;
-  mmr: number;
-  tier: number | null;
-  division: number | null;
-}
-
-export function validateMmrEntry(roster: Roster, input: unknown): MmrInput {
-  const { id, player, mmr, tier = null, division = null } = (input ?? {}) as Record<string, unknown>;
-  if (
-    typeof id !== 'string' ||
-    !/^[a-zA-Z0-9-]{16,80}$/.test(id) ||
-    typeof player !== 'string' ||
-    !roster.includes(player) ||
-    typeof mmr !== 'number' ||
-    !Number.isSafeInteger(mmr) ||
-    mmr < 0 ||
-    mmr > 10000
-  ) {
-    throw new Error('Saisis un MMR 2v2 entier entre 0 et 10 000.');
-  }
-  if (tier !== null && (typeof tier !== 'number' || !Number.isSafeInteger(tier) || tier < 0 || tier > 22)) {
-    throw new Error('Rang invalide.');
-  }
-  if (
-    tier !== null &&
-    tier > 0 &&
-    tier < 22 &&
-    (typeof division !== 'number' || !Number.isSafeInteger(division) || division < 1 || division > 4)
-  ) {
-    throw new Error('Choisis une division de I à IV.');
-  }
-  if ((tier === null || tier === 0 || tier === 22) && division !== null)
-    throw new Error('Ce rang ne comporte pas de division.');
-  return { id, player, mmr, tier: tier as number | null, division: division as number | null };
-}
-
 async function policy(db: Database, now: number) {
   await db
     .prepare('INSERT INTO monthly_mmr_policy (id,starts_month) VALUES (1,?) ON CONFLICT(id) DO NOTHING')
@@ -201,43 +151,9 @@ async function policy(db: Database, now: number) {
 const entries = (db: Database) =>
   db
     .prepare(
-      'SELECT rowid AS sequence,id,player,mmr,tier,division,recorded_at,source,source_at,source_url FROM mmr_entries ORDER BY recorded_at,rowid',
+      'SELECT rowid AS sequence,id,player,mmr,tier,division,recorded_at FROM mmr_entries ORDER BY recorded_at,rowid',
     )
     .all<MmrEntry>();
-
-type SavedEntry = { player: string; mmr: number; tier: number | null; division: number | null; author: string };
-const sameEntry = (saved: SavedEntry, value: MmrInput) =>
-  (['player', 'mmr', 'tier', 'division'] as const).every((key) => saved[key] === value[key]);
-
-export async function recordMmr(db: Database, roster: Roster, userId: string, input: unknown) {
-  const value = validateMmrEntry(roster, input);
-  const identity = (await readPlayerIdentities(db, roster, userId)).find(
-    (candidate) => candidate.slot === value.player,
-  );
-  if (!identity) throw withStatus('Chaque joueur doit renseigner son propre MMR.', 403);
-  const old = await db
-    .prepare('SELECT player,mmr,tier,division,author FROM mmr_entries WHERE id=?')
-    .bind(value.id)
-    .first<SavedEntry>();
-  if (old && !(old.author === userId && sameEntry(old, value)))
-    throw withStatus('Cette déclaration existe avec un autre contenu.', 409);
-  await policy(db, Date.now());
-  await db.batch([
-    db
-      .prepare(
-        'INSERT INTO mmr_entries (id,player,mmr,tier,division,author) VALUES (?,?,?,?,?,?) ON CONFLICT(id) DO NOTHING',
-      )
-      .bind(value.id, value.player, value.mmr, value.tier, value.division, userId),
-    projectMmrRankWrite(db, { playerId: identity.player_id, id: value.id, author: userId, player: value.player }),
-  ]);
-  const saved = await db
-    .prepare('SELECT player,mmr,tier,division,author FROM mmr_entries WHERE id=?')
-    .bind(value.id)
-    .first<SavedEntry>();
-  if (!saved || saved.author !== userId || !sameEntry(saved, value))
-    throw withStatus('Cette déclaration existe avec un autre contenu.', 409);
-  return { ok: true, player: value.player };
-}
 
 export async function closeMonthlyMmr(db: Database, roster: Roster, now: number = Date.now()) {
   const config = await policy(db, now);
@@ -319,7 +235,7 @@ export async function readMonthlyMmr(
   now: number = Date.now(),
 ) {
   const roster = rosterOf(players);
-  const [all, closed, debts, identities, config, publicSync] = await Promise.all([
+  const [all, closed, debts, identities, config] = await Promise.all([
     entries(db),
     db
       .prepare('SELECT month,cutoff_at,closed_at,status,snapshot FROM monthly_mmr_results ORDER BY month DESC')
@@ -327,7 +243,6 @@ export async function readMonthlyMmr(
     db.prepare('SELECT * FROM drink_debts ORDER BY month DESC,payer,recipient').all<StoredDebt>(),
     readPlayerIdentities(db, roster, userId),
     db.prepare('SELECT starts_month FROM monthly_mmr_policy WHERE id=1').first<{ starts_month: string }>(),
-    readPublicMmrStatus(db, players),
   ]);
   const allowedPlayers = identities.map((identity) => identity.slot);
   const month = parisMonth(now);
@@ -337,7 +252,6 @@ export async function readMonthlyMmr(
     current: { ...live, status: 'live' as const },
     closed: closed.results.map((row) => ({ ...JSON.parse(row.snapshot), closedAt: row.closed_at })),
     allowedPlayers,
-    publicSync,
     debts: debts.results.map((debt) => ({
       id: debt.id,
       month: debt.month,

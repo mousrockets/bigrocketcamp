@@ -1,7 +1,6 @@
 import { Hono } from 'hono';
 import { readClubPlayers, rosterOf } from '../../lib/club';
 import { readDoublesRanks } from '../../lib/doubles-ranks';
-import { collectionPaused } from '../../lib/epic-sync';
 import { readMonthlyMmr } from '../../lib/monthly-mmr';
 import { readRankSourceHealth } from '../../lib/rank-source';
 import { readMerged } from '../../lib/reconcile';
@@ -14,7 +13,7 @@ stateRoutes.get('/', async (c) => {
   const memberId = c.var.member.id;
   const players = await readClubPlayers(db);
   const roster = rosterOf(players);
-  const [merged, exercises, collectors, doublesRanks, reactions, me, epic, monthly, rankSource] = await Promise.all([
+  const [merged, exercises, collectors, doublesRanks, reactions, me, monthly, rankSource] = await Promise.all([
     readMerged(db, roster),
     db.prepare('SELECT * FROM exercises ORDER BY created DESC').all<Record<string, unknown>>(),
     db.prepare('SELECT * FROM collectors ORDER BY last_seen DESC').all(),
@@ -31,11 +30,6 @@ stateRoutes.get('/', async (c) => {
       )
       .bind(memberId)
       .first<{ player: string }>(),
-    db
-      .prepare(
-        "SELECT slot, 'retired' AS status, last_sync, last_attempt FROM player_identities ORDER BY last_sync DESC",
-      )
-      .all(),
     readMonthlyMmr(db, players, memberId),
     // Only an instance with a rank source can see it stop.
     c.env.RANK_SOURCE_KEY ? readRankSourceHealth(db) : null,
@@ -51,9 +45,6 @@ stateRoutes.get('/', async (c) => {
     doublesRanks,
     reactions: reactions.results,
     me: me?.player ?? null,
-    epic: epic.results,
-    epicPaused: collectionPaused(),
-    epicRetired: true,
     monthly,
     rankSource,
   });
