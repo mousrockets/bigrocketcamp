@@ -142,6 +142,25 @@ export function exerciseDescription(exercise: CountedExercise): string {
   return `${formatNumber(exercise.count)} pompes`;
 }
 
+const pushups = (count: number) => `${formatNumber(count)} pompe${Math.abs(count) >= 2 ? 's' : ''}`;
+
+/**
+ * What the player reads once the server has saved an exercise: what it reduced, from the debt it was declared
+ * against, then what is left now. `remaining` is read again after saving, so a defeat received meanwhile shows.
+ */
+export function exerciseReceipt(
+  player: string,
+  exercise: CountedExercise,
+  debtBefore: number,
+  remaining: number,
+): string {
+  const effect = exerciseEffect(debtBefore, exercise);
+  const reduced = effect.reduction > 0 ? `Dette réduite de ${pushups(effect.reduction)}` : 'Aucune dette à réduire';
+  const ahead =
+    effect.excess > 0 && remaining === 0 ? ` ${pushups(effect.excess)} d’avance pour les prochaines défaites.` : '';
+  return `Exercice enregistré pour ${player} : ${exerciseDescription(exercise)}. ${reduced}, il en reste ${formatNumber(remaining)}.${ahead}`;
+}
+
 export interface Exercise {
   id: string;
   player: string;
