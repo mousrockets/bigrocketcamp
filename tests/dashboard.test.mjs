@@ -11,13 +11,14 @@ const source=readFileSync(new URL('../app/dashboard.tsx',import.meta.url),'utf8'
 const compiled=transpileModule(source,{compilerOptions:{module:ModuleKind.ESNext,jsx:JsxEmit.ReactJSX}}).outputText
  .replaceAll('"react/jsx-runtime"',JSON.stringify(import.meta.resolve('react/jsx-runtime')))
  .replaceAll("'react'",JSON.stringify(import.meta.resolve('react')))
- .replaceAll("'../lib/domain.mjs'",JSON.stringify(new URL('../lib/domain.mjs',import.meta.url).href));
+ .replaceAll("'../lib/domain.mjs'",JSON.stringify(new URL('../lib/domain.mjs',import.meta.url).href))
+ .replaceAll("'../lib/season.mjs'",JSON.stringify(new URL('../lib/season.mjs',import.meta.url).href));
 const {default:Dashboard}=await import(`data:text/javascript;base64,${Buffer.from(compiled).toString('base64')}`);
 const content=node=>typeof node==='string'?node:node.children?.map(content).join('')||'';
 const deferred=()=>{let resolve,reject;const promise=new Promise((yes,no)=>{resolve=yes;reject=no;});return {promise,resolve,reject};};
 // State reads are asynchronous (hashed ETag): wait until they settle, then let React apply them.
 const reads=new Set();
-const action=fn=>act(async()=>{fn();for(let i=0;i<200&&reads.size;i++)await new Promise(resolve=>setImmediate(resolve));for(let i=0;i<3;i++)await new Promise(resolve=>setImmediate(resolve));});
+const action=fn=>act(async()=>{fn();for(let i=0;i<3;i++){if(reads.size)await Promise.allSettled([...reads]);await new Promise(resolve=>setImmediate(resolve));}});
 
 async function harness(debt,{visibility=false}={}){
  const f=await fixture({legacy:false});f.resetDebt(debt);
@@ -67,7 +68,7 @@ async function harness(debt,{visibility=false}={}){
 
 test('Actualisation rapide : pause et reprise de lecture, aucun déclenchement de connexion Epic',async()=>{
  const h=await harness(5,{visibility:true});try{
-  const stateTick=[...h.intervals].find(fn=>h.intervalDelays.get(fn)===3000),sourceTick=[...h.intervals].find(fn=>h.intervalDelays.get(fn)===60000);assert.ok(stateTick);assert.equal(sourceTick,undefined);
+  const stateTick=[...h.intervals].find(fn=>h.intervalDelays.get(fn)===3000);assert.ok(stateTick);
   const beforeState=h.network.stateGets,beforeSource=h.network.autoSyncs;
   h.visibleDocument.hidden=true;await action(()=>{stateTick();});assert.equal(h.network.stateGets,beforeState);assert.equal(h.network.autoSyncs,beforeSource);
   h.visibleDocument.hidden=false;await action(()=>{for(const fn of h.listeners.get('visibilitychange'))fn();});assert.equal(h.network.stateGets,beforeState+1);assert.equal(h.network.autoSyncs||0,0);
@@ -86,10 +87,10 @@ test('Historique non reçu : conserver les compteurs sans relancer la collecte r
   const panel=()=>h.root().findByProps({'aria-label':'Collecte de kevin-74000'});
   const counters=()=>h.root().findAllByProps({className:'results'})[2];
   h.f.db.prepare("INSERT INTO player_identities (slot,owner,player_id) VALUES ('kevin-74000','another-member','Epic|synthetic-id|0')").run();
-  await act(async()=>{for(const tick of h.intervals)tick();await new Promise(done=>setTimeout(done,15));});
+  await action(()=>{for(const tick of h.intervals)tick();});
   assert.match(content(panel()),/accès Epic retiré/);assert.match(content(counters()),/— parties reçues/);assert.ok(!content(counters()).includes('0 parties'));
   h.f.db.prepare("UPDATE player_identities SET last_sync=? WHERE slot='kevin-74000'").run(new Date().toISOString());
-  await act(async()=>{for(const tick of h.intervals)tick();await new Promise(done=>setTimeout(done,15));});
+  await action(()=>{for(const tick of h.intervals)tick();});
   assert.match(content(panel()),/accès Epic retiré/);assert.match(content(panel()),/Dernière lecture/);assert.match(content(counters()),/0 parties reçues/);
  }finally{await h.cleanup();}
 });

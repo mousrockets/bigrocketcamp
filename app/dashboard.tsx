@@ -2,6 +2,7 @@
 import {useEffect,useRef,useState} from 'react';
 import type {CSSProperties} from 'react';
 import {roster,parisDay,summarize,dailyRecap,lastPlaceRule,validateExercise,pushupCredit,exerciseEffect,exerciseDescription,formatNumber} from '../lib/domain.mjs';
+import {currentSeason,seasonTiming,seasonEndLabel} from '../lib/season.mjs';
 
 type ExerciseType='pushups'|'plank'|'crunches';
 type Declaration={id:string;player:string;type:ExerciseType;count:number;day:string};
@@ -111,6 +112,29 @@ function speak(text:string){
     speechSynthesis.cancel();
     speechSynthesis.speak(utterance);
   }catch{}
+}
+
+function SeasonCountdown(){
+  const [now,setNow]=useState<number|null>(null);
+  useEffect(()=>{
+    const update=()=>{if(typeof document==='undefined'||!document.hidden)setNow(Date.now());};
+    update();const timer=setInterval(update,currentSeason.confirmedEndAt?1000:60000);
+    if(typeof document!=='undefined')document.addEventListener('visibilitychange',update);
+    return()=>{clearInterval(timer);if(typeof document!=='undefined')document.removeEventListener('visibilitychange',update);};
+  },[]);
+  const timing=now===null?null:seasonTiming(now);
+  const precise=!!currentSeason.confirmedEndAt;
+  return <aside className="season-countdown" aria-label={`Fin de la saison ${currentSeason.number}`}>
+    <div className="season-copy"><p className="eyebrow">FIN DE SAISON {currentSeason.number} <span className="season-status">{precise?'DATE ANNONCÉE':'ESTIMATION'}</span></p>
+      <p className="season-date"><time dateTime={currentSeason.confirmedEndAt||currentSeason.estimatedEndDay}>{seasonEndLabel()}</time></p>
+      <p className="season-note">{precise?'Heure de Paris · France métropolitaine':'Date indicative · heure française de fin du compétitif non annoncée.'}</p>
+      <p className="season-sources">{!precise&&<><a href={currentSeason.estimateSource} target="_blank" rel="noopener noreferrer">Calendrier communautaire</a><span aria-hidden="true"> · </span></>}<a href={currentSeason.officialSource} target="_blank" rel="noopener noreferrer">Infos officielles ↗</a></p>
+    </div>
+    <div className="season-clock" role="timer" aria-live="off">
+      <strong>{!timing?'—':timing.exact?(timing.ended?'Terminée':`${timing.days} j ${String(timing.hours).padStart(2,'0')}:${String(timing.minutes).padStart(2,'0')}:${String(timing.seconds).padStart(2,'0')}`):timing.estimateReached?'À confirmer':`J−${timing.days}`}</strong>
+      <span>{precise?(timing?.ended?'Échéance annoncée atteinte':'avant la fin annoncée'):timing?.estimateReached?'Date indicative atteinte · annonce à vérifier':'jours avant la date estimée'}</span>
+    </div>
+  </aside>;
 }
 
 function DoublesRankPanel({player,rank}:{player:string;rank?:DoublesRank}){
@@ -490,6 +514,7 @@ export default function Dashboard(){
       <p className="muted small">Les compteurs indiquent les parties reçues. Les anciennes données Epic restent disponibles ; leur collecte est retirée. Le MMR affiche la dernière valeur reçue.</p>
       <p className="small"><a href="/direct">Configurer le direct depuis un PC ↗</a> · Un onglet sur le PC qui joue ; premier essai à valider.</p>
       <p className="muted small">Matchs et historique sur la date choisie · Dette et totaux d’exercices cumulés depuis le début.</p>
+      <SeasonCountdown/>
       <div className="cards" ref={cardsRef} onScroll={onCardsScroll}>{!data?<SkeletonCards/>:stats.map(p=>{
         const streak=streaks[p.name];
         const all=allStats.find(a=>a.name===p.name)||p;
@@ -569,6 +594,7 @@ export default function Dashboard(){
         <button type="button" aria-pressed={podiumMode==='effort'} onClick={()=>choosePodium('effort')}>Efforts</button>
         <button type="button" aria-pressed={podiumMode==='mmr'} onClick={()=>choosePodium('mmr')}>MMR 2v2</button>
       </div>
+      {podiumMode==='mmr'&&<SeasonCountdown/>}
       {!data?<div className="sk-table"><i className="sk sk-big"/></div>:<>
         <ol className="podium">{[podiumRows[1],podiumRows[0],podiumRows[2]].map(p=>{const rank=podiumRows.indexOf(p)+1;return <li key={p.name} className={`step step-${rank}`} title={p.title}>
           <span className="step-name">{p.name}</span>
