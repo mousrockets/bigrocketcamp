@@ -19,11 +19,11 @@ Content-Type: application/json
 
 Casse, espaces et tirets sont ignorés. Pas de session, pas d'en-tête `Origin` exigé.
 
-| Réponse | Corps | Sens |
-|---|---|---|
-| `200` | `{"token":"…","player":"<pseudo duo>"}` | Associé. Le jeton fait 32 octets aléatoires en base64url (43 caractères) ; seul son SHA-256 est stocké, dans `collector_devices`. |
-| `400` | `{"error":"…"}` | Le corps ne contient pas un code de 8 caractères de l'alphabet. Ne compte pas comme un essai. |
-| `401` | `{"error":"…"}` | Code inconnu, expiré, déjà utilisé, ou bloqué. Le membre doit générer un nouveau code. |
+| Réponse | Corps                                   | Sens                                                                                                                              |
+| ------- | --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `200`   | `{"token":"…","player":"<pseudo duo>"}` | Associé. Le jeton fait 32 octets aléatoires en base64url (43 caractères) ; seul son SHA-256 est stocké, dans `collector_devices`. |
+| `400`   | `{"error":"…"}`                         | Le corps ne contient pas un code de 8 caractères de l'alphabet. Ne compte pas comme un essai.                                     |
+| `401`   | `{"error":"…"}`                         | Code inconnu, expiré, déjà utilisé, ou bloqué. Le membre doit générer un nouveau code.                                            |
 
 **Essais limités** : un code faux ne peut pas être rattaché au code visé, donc chaque essai faux compte pour tous les codes en attente. Après 5 essais faux pendant sa validité, un code est refusé même s'il est juste.
 
