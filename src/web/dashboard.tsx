@@ -1663,7 +1663,7 @@ export function Dashboard() {
         ) : (
           <>
             {podiumMode === 'mmr' && mmrPodium.some((p) => p.mmr === null) ? (
-              <p className="empty small">Les trois MMR du mois sont nécessaires pour afficher le podium.</p>
+              <p className="empty small">Il faut le MMR du mois de chaque joueur pour afficher le podium.</p>
             ) : (
               <ol className="podium">
                 {podiumSteps.map((p) => {
