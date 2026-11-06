@@ -5,34 +5,49 @@ import React,{act} from 'react';
 import {create} from 'react-test-renderer';
 import {transpileModule,ModuleKind,JsxEmit} from 'typescript';
 import {fixture,loadRoute} from './helpers/exercise-fixture.mjs';
-import {seal} from '../lib/epic-vault.mjs';
-import {connectionStatus,beginLink,finishLink,disconnect,syncHistories,autoSync} from '../lib/epic-sync.mjs';
+import {roster,summarize} from '../lib/domain.mjs';
+import {readMerged,observationWrites} from '../lib/reconcile.mjs';
+import {readPlayerIdentities,readIdentityBindings,attributeLivePlayers,canonicalPlayerId,unassignedPrefix} from '../lib/player-identities.mjs';
 const source=readFileSync(new URL('../app/connexions/client.tsx',import.meta.url),'utf8');
 const compiled=transpileModule(source,{compilerOptions:{module:ModuleKind.ESNext,jsx:JsxEmit.ReactJSX}}).outputText.replaceAll('"react/jsx-runtime"',JSON.stringify(import.meta.resolve('react/jsx-runtime'))).replaceAll("'react'",JSON.stringify(import.meta.resolve('react')));
 const {default:Connections}=await import(`data:text/javascript;base64,${Buffer.from(compiled).toString('base64')}`);
 const content=node=>typeof node==='string'?node:node?.children?.map(content).join('')||'';
-const key=Buffer.alloc(32,8).toString('base64'),slot='chat-pris-tea',owner='current-user',account='d'.repeat(32);
-for(const authorized of [false,true])test(`Retour après Epic, page rechargée : ${authorized?'autorisation récupérée sans ressaisie':'bouton de vérification restauré même sans stockage navigateur'}`,async t=>{
- const f=await fixture({legacy:false});let renderer;const saved=new Map();
- const override=(name,value)=>{saved.set(name,Object.getOwnPropertyDescriptor(globalThis,name));Object.defineProperty(globalThis,name,{value,writable:true,configurable:true});};
- try{
-  f.env.EPIC_VAULT_KEY=key;const expires=Date.now()+600000,encrypted=await seal({device:'synthetic-device'},key,`epic-grant:${owner}:${slot}`);
-  f.db.prepare('INSERT INTO epic_grants (slot,owner,device,expires,next_poll,interval,lease_until) VALUES (?,?,?,?,0,5,0)').run(slot,owner,encrypted,expires);
-  const routes=await loadRoute('../../app/api/epic/route.ts',{env:f.env,getChatGPTUser:async()=>f.actor.user,connectionStatus,beginLink,finishLink,disconnect,syncHistories,autoSync});
-  const calls=[];
-  override('IS_REACT_ACT_ENVIRONMENT',true);
-  override('sessionStorage',{getItem(){throw Error('Storage blocked');},setItem(){throw Error('Storage blocked');},removeItem(){throw Error('Storage blocked');}});
-  t.mock.method(globalThis,'setInterval',()=>1);t.mock.method(globalThis,'clearInterval',()=>{});
-  t.mock.method(globalThis,'fetch',async(url,options)=>{
-   if(String(url).startsWith('https://api.epicgames.dev/'))return Response.json(authorized?{account_id:account,access_token:'synthetic-access',refresh_token:'synthetic-refresh'}:{error:'authorization_pending'},{status:authorized?200:400});
-   assert.equal(url,'/api/epic');if(options?.method==='POST'){calls.push(JSON.parse(options.body));return routes.POST(new Request('https://rl.example/api/epic',{...options,headers:{...options.headers,origin:'https://rl.example'}}));}return routes.GET();
-  });
-  const originalError=console.error;t.mock.method(console,'error',(message,...args)=>{if(!String(message).startsWith('react-test-renderer is deprecated'))originalError(message,...args);});
-  await act(async()=>{renderer=create(React.createElement(Connections));});
-  for(let i=0;i<12;i++)await act(async()=>{await new Promise(resolve=>setTimeout(resolve,4));});
-  assert.deepEqual(calls,[{action:'poll',slot}]);
-  if(authorized){assert.equal(f.db.prepare('SELECT account_id FROM epic_accounts WHERE slot=?').get(slot).account_id,account);assert.match(content(renderer.toJSON()),/Compte connecté/);assert.equal(renderer.root.findAllByProps({'aria-label':'Autorisation Epic'}).length,0);}
-  else{assert.equal(renderer.root.findAllByProps({'aria-label':'Autorisation Epic'}).length,1);assert.ok(renderer.root.findAllByType('button').some(b=>content(b)==='Vérifier l’autorisation'));}
- }finally{if(renderer)await act(async()=>renderer.unmount());for(const [name,descriptor] of saved){if(descriptor)Object.defineProperty(globalThis,name,descriptor);else delete globalThis[name];}f.db.close();}
+async function setup(){
+ const f=await fixture({legacy:false});
+ for(const [slot,owner,id] of [['chat-pris-tea','other-owner','Epic|synthetic-main|0'],['kevin-74000','current-user','Epic|synthetic-console-account|0']]){f.db.prepare('INSERT INTO player_identities (slot,owner,player_id) VALUES (?,?,?)').run(slot,owner,id);f.db.prepare('INSERT INTO player_identity_aliases VALUES (?,?,?,?)').run(id,slot,owner,'synthetic');}
+ const rows=[{matchGuid:'synthetic-identity-game',playerId:'PS4|222222|0',name:unassignedPrefix+'kevin-74000',day:'2026-11-05',kind:'match',team:0,winner:1,score:100,goals:0,assists:0,saves:0},{matchGuid:'synthetic-identity-game',playerId:'Epic|opponent|0',name:'Opponent',day:'2026-11-05',kind:'match',team:1,winner:1,score:200,goals:0,assists:0,saves:0}];
+ await f.env.DB.batch(await observationWrites(f.env.DB,{rows,rosters:[{matchGuid:'synthetic-identity-game',playerCount:2}],sourceId:'synthetic-local',sourceType:'collector'},'synthetic'));
+ const context={env:f.env,getChatGPTUser:async()=>f.actor.user,roster,readMerged,readPlayerIdentities,readIdentityBindings,canonicalPlayerId,unassignedPrefix};
+ const route=await loadRoute('../../app/api/identities/route.ts',context);
+ const post=(body,origin='https://club.example')=>route.POST(new Request('https://club.example/api/identities',{method:'POST',headers:{origin,'Content-Type':'application/json'},body:JSON.stringify(body)}));
+ return {...f,route,post};
+}
+test('Identités : pseudo adverse non attribué, confirmation locale propriétaire seulement, aucun accès Epic',async t=>{
+ const f=await setup();try{
+  let calls=0;t.mock.method(globalThis,'fetch',async()=>{calls++;throw Error('No external access');});
+  const mapped=attributeLivePlayers([{playerId:'Epic|unknown|0',name:'nokouki'}],[]);assert.equal(mapped[0].name,unassignedPrefix+'nokouki');
+  let merged=await readMerged(f.env.DB);assert.equal(summarize(merged.rows,[],'')[2].due,0);
+  assert.equal((await f.post({slot:'chat-pris-tea',playerId:'PS4|222222|0'})).status,403);
+  assert.equal((await f.post({slot:'kevin-74000',playerId:'PS4|999999|0'})).status,400);
+  assert.equal((await f.post({slot:'kevin-74000',playerId:'PS4|222222|0'},'https://other.example')).status,403);
+  assert.equal((await f.post({slot:'kevin-74000',playerId:'PS4|222222|0'})).status,200);
+  merged=await readMerged(f.env.DB);assert.equal(summarize(merged.rows,[],'')[2].due,5);assert.equal(merged.rosters.length,1);assert.equal(f.db.prepare('SELECT COUNT(*) n FROM result_observations').get().n,2);
+  assert.equal((await f.post({slot:'kevin-74000',playerId:'PS4|222222|0',action:'remove'})).status,200);merged=await readMerged(f.env.DB);assert.equal(summarize(merged.rows,[],'')[2].due,0);assert.equal(calls,0);
+  f.actor.user=null;assert.equal((await f.route.GET()).status,401);assert.equal((await f.post({slot:'kevin-74000',playerId:'PS4|222222|0'})).status,401);
+ }finally{f.db.close();}
 });
-test('Les autorisations en attente sont visibles seulement par leur propriétaire, sans code device ni jeton',async()=>{const f=await fixture({legacy:false});try{f.db.prepare('INSERT INTO epic_grants VALUES (?,?,?,?,?,?,?)').run(slot,owner,'encrypted-synthetic-device',Date.now()+600000,0,5,0);const own=await connectionStatus(f.env,owner),other=await connectionStatus(f.env,'someone-else');assert.equal(own.pending.length,1);assert.deepEqual(other.pending,[]);assert.ok(!JSON.stringify(own).includes('encrypted-synthetic-device'));assert.deepEqual(Object.keys(own.pending[0]).sort(),['expires','interval','slot']);}finally{f.db.close();}});
+test('Vraie page des joueurs : aucun parcours OAuth, association console sans jeton et correction du tableau',async t=>{
+ const f=await setup(),saved=new Map(),posts=[];let view;
+ const override=(key,value)=>{saved.set(key,Object.getOwnPropertyDescriptor(globalThis,key));Object.defineProperty(globalThis,key,{value,writable:true,configurable:true});};
+ try{
+  override('IS_REACT_ACT_ENVIRONMENT',true);override('sessionStorage',{removeItem(){}});
+  t.mock.method(globalThis,'fetch',async(url,options)=>{assert.equal(url,'/api/identities');if(options){posts.push(JSON.parse(options.body));return f.post(posts.at(-1));}return f.route.GET();});
+  const oldError=console.error;t.mock.method(console,'error',(message,...args)=>{if(!String(message).startsWith('react-test-renderer is deprecated'))oldError(message,...args);});
+  await act(async()=>{view=create(React.createElement(Connections));await new Promise(done=>setImmediate(done));});
+  assert.equal(posts.length,0);assert.match(content(view.toJSON()),/connexion communautaire Epic est retirée/);assert.ok(!view.root.findAllByType('button').some(b=>/Connecter ce compte|Vérifier l’autorisation/.test(content(b))));
+  const select=view.root.findByProps({'aria-label':'Identifiant de kevin-74000'});
+  await act(async()=>select.props.onChange({target:{value:'PS4|222222|0'}}));
+  await act(async()=>{view.root.findAllByType('button').find(b=>content(b)==='Confirmer mon identifiant').props.onClick();await new Promise(done=>setTimeout(done,20));});
+  assert.equal(posts.length,1);assert.match(content(view.toJSON()),/Identifiant confirmé/);const merged=await readMerged(f.env.DB);assert.equal(summarize(merged.rows,[],'')[2].played,1);
+ }finally{if(view)await act(async()=>view.unmount());for(const [key,value] of saved){if(value)Object.defineProperty(globalThis,key,value);else delete globalThis[key];}f.db.close();}
+});

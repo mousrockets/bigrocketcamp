@@ -19,10 +19,10 @@ export async function loadRoute(path,context){
  finally{delete globalThis.__exerciseFixture;}
 }
 
-export async function fixture({legacy=true}={}){
+export async function fixture({legacy=true,beforeRetirement}={}){
  const db=new DatabaseSync(':memory:');db.exec(initial);
  if(legacy)db.prepare('INSERT INTO exercises VALUES (?,?,?,?,?,?)').run('legacy-exercise-1','nokouki',5,'2026-11-04','2026-11-04T12:00:00Z','old-user');
- for(const entry of journal.entries.slice(1))db.exec(readFileSync(new URL(`../../drizzle/${entry.tag}.sql`,import.meta.url),'utf8'));
+ for(const entry of journal.entries.slice(1)){if(entry.tag.startsWith('0006_'))beforeRetirement?.(db);db.exec(readFileSync(new URL(`../../drizzle/${entry.tag}.sql`,import.meta.url),'utf8'));}
  const actor={user:{userId:'current-user'}};
  const env={INGEST_KEY:'test-ingest-key',DB:{async batch(writes){db.exec('BEGIN');try{const results=writes.map(w=>w.execute());db.exec('COMMIT');return results;}catch(e){db.exec('ROLLBACK');throw e;}},prepare(sql){
   const statement=db.prepare(sql);
