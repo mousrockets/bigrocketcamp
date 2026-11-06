@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { type AppEnv, requireAdmin, requireMember } from './auth';
 import { requireMemberOrCollector } from './collectors';
+import { noStore } from './respond';
 import { authRoutes } from './routes/auth';
 import { clubNameRoutes, clubRoutes } from './routes/club';
 import { collectorDeviceRoutes, collectorRoutes } from './routes/collector';
@@ -17,7 +18,14 @@ import { stateRoutes } from './routes/state';
 
 export const app = new Hono<AppEnv>().basePath('/api');
 
-app.get('/health', (c) => c.json({ status: 'ok' }));
+// Which build answers, and since when: the web app reloads itself when it no longer matches.
+app.get('/health', (c) =>
+  c.json(
+    { status: 'ok', commit: __APP_COMMIT__, deployedAt: c.env.CF_VERSION_METADATA.timestamp || null },
+    200,
+    noStore,
+  ),
+);
 app.route('/auth', authRoutes);
 app.route('/', importRoutes);
 app.route('/ranks', rankRoutes);

@@ -18,6 +18,10 @@ Dans le Worker, Settings :
 - **Build → Deploy command** : `npm run deploy`. Il applique les migrations de la base avant de déployer.
 - `wrangler.jsonc` : l'identifiant de la base D1 de production (`database_id`).
 
+## Version déployée
+
+`GET /api/health` renvoie `{"status":"ok","commit":"a1b2c3d","deployedAt":"…"}`, et le pied de page du tableau l'affiche. Le commit vient de `WORKERS_CI_COMMIT_SHA`, que Workers Builds fournit à la commande de build (`dev` pour un build local) ; la date est celle de la version du Worker (binding `version_metadata`). Quand l'API annonce un autre commit que celui de la page chargée, le tableau se recharge dès qu'il est masqué ou laissé 30 secondes sans interaction, jamais pendant un envoi ni avec un champ en cours de saisie, et garde le formulaire d'exercice.
+
 ## Le club et ses membres
 
 Le nom du club et ses membres sont des réglages de l'app, en base : un administrateur les gère dans la page Réglages (lien en bas du tableau). Seuls les membres invités se connectent, avec leur adresse e-mail et un code reçu par mail ; personne ne s'inscrit seul.

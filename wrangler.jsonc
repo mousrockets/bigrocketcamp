@@ -13,6 +13,8 @@
   "preview_urls": false,
   // Every hour: closes the months that ended (idempotent, cheap). See src/worker/index.ts.
   "triggers": { "crons": ["5 * * * *"] },
+  // The id and creation time of the running version: /api/health shows when it was deployed.
+  "version_metadata": { "binding": "CF_VERSION_METADATA" },
   "d1_databases": [
     {
       "binding": "DB",
