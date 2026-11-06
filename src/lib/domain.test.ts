@@ -5,6 +5,7 @@ import {
   dailyRecap,
   exerciseDescription,
   exerciseEffect,
+  exerciseReceipt,
   normalizeResult,
   parisDay,
   pushupCredit,
@@ -156,6 +157,25 @@ describe('domain', () => {
       { type: 'crunches', count: 10001 },
     ];
     for (const patch of invalid) expect(() => validateExercise(roster, { ...exercise, ...patch })).toThrow();
+  });
+
+  test('once saved, an exercise says what it reduced and what is left', () => {
+    expect(exerciseReceipt('alice', { type: 'crunches', count: 20 }, 15, 5)).toBe(
+      'Exercice enregistré pour alice : 20 abdos. Dette réduite de 10 pompes, il en reste 5.',
+    );
+    expect(exerciseReceipt('alice', { type: 'plank', count: 60 }, 5, 0)).toBe(
+      'Exercice enregistré pour alice : 1 min de gainage. Dette réduite de 5 pompes, il en reste 0. 10 pompes d’avance pour les prochaines défaites.',
+    );
+    expect(exerciseReceipt('alice', { type: 'pushups', count: 3 }, 0, 0)).toBe(
+      'Exercice enregistré pour alice : 3 pompes. Aucune dette à réduire, il en reste 0. 3 pompes d’avance pour les prochaines défaites.',
+    );
+    expect(exerciseReceipt('alice', { type: 'pushups', count: 2 }, 0.5, 0)).toBe(
+      'Exercice enregistré pour alice : 2 pompes. Dette réduite de 0,5 pompe, il en reste 0. 1,5 pompe d’avance pour les prochaines défaites.',
+    );
+    // A defeat received while saving shows in what is left, and leaves nothing ahead.
+    expect(exerciseReceipt('alice', { type: 'pushups', count: 8 }, 5, 5)).toBe(
+      'Exercice enregistré pour alice : 8 pompes. Dette réduite de 5 pompes, il en reste 5.',
+    );
   });
 
   test('an oversized set only announces the debt it really reduces', () => {
