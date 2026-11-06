@@ -1,5 +1,11 @@
 import { Hono } from 'hono';
-import { readLastRankedMatch, readRankTargets, recordObservedRanks, targetRanks } from '../../lib/rank-source';
+import {
+  readLastRankedMatch,
+  readRankSourceHealth,
+  readRankTargets,
+  recordObservedRanks,
+  targetRanks,
+} from '../../lib/rank-source';
 import { secretKeyMatches } from '../../lib/secret-key';
 import type { AppEnv } from '../auth';
 import { invalidRanks, rankReport } from '../inputs';
@@ -22,9 +28,15 @@ rankRoutes.get('/targets', async (c) => {
   return c.json({ targets, lastRankedMatchAt }, 200, noStore);
 });
 
-rankRoutes.get('/activity', async (c) =>
-  c.json({ lastRankedMatchAt: await readLastRankedMatch(c.env.DB) }, 200, noStore),
-);
+// The last reading too, from the database: a source that keeps its schedule in an eventually consistent store
+// can tell from it that a reading already happened.
+rankRoutes.get('/activity', async (c) => {
+  const [lastRankedMatchAt, health] = await Promise.all([
+    readLastRankedMatch(c.env.DB),
+    readRankSourceHealth(c.env.DB),
+  ]);
+  return c.json({ lastRankedMatchAt, lastReadAt: health.lastReadAt }, 200, noStore);
+});
 
 const reportBody = jsonBody(rankReport, {
   invalid: invalidRanks,
