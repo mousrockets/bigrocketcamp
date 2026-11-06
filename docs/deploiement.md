@@ -22,6 +22,17 @@ Dans le Worker, Settings :
 
 `GET /api/health` renvoie `{"status":"ok","commit":"a1b2c3d","deployedAt":"…"}`, et le pied de page du tableau l'affiche. Le commit vient de `WORKERS_CI_COMMIT_SHA`, que Workers Builds fournit à la commande de build (`dev` pour un build local) ; la date est celle de la version du Worker (binding `version_metadata`). Quand l'API annonce un autre commit que celui de la page chargée, le pied de page affiche les deux (« Version 535fe91 · page chargée : 0eb8ca1 · … ») avec un lien « Recharger ». Le tableau se recharge de lui-même dès qu'il est masqué ou laissé 30 secondes sans interaction (une frappe, un défilement ou un appui repoussent le délai), jamais pendant un envoi ni dans les 10 secondes où une série peut être annulée. Le formulaire d'exercice et une déclaration en attente d'envoi sont gardés.
 
+## App installable
+
+L'app s'installe sur l'écran d'accueil (manifeste `public/manifest.webmanifest`, icônes dans `public/icons`). Un service worker écrit à la main (`src/web/sw`, construit en `/sw.js` par `scripts/vite-service-worker.ts`) la fait s'ouvrir avec un réseau faible ou absent :
+
+- **Pages** : le réseau d'abord ; s'il échoue ou met plus de 4 secondes, la copie de l'app, et la réponse tardive remplace la copie pour la fois suivante. Une page rechargée prend donc la version déployée dès que le réseau répond : un ancien service worker ne bloque jamais une version, et le rechargement décrit plus haut garde le formulaire d'exercice.
+- **Fichiers du build** (`/assets/…`, dont le nom change avec le contenu) : copiés à l'installation, lus depuis la copie.
+- **Autres fichiers du site** (icônes, images) : le réseau d'abord, puis la copie.
+- **`/api/*`** : jamais touché ni copié, sessions comprises. Hors ligne, l'app affiche « Club injoignable » et réessaie seule au retour du réseau.
+
+Chaque build qui change un fichier change `/sw.js` : le navigateur installe le nouveau service worker, qui prend la main aussitôt et supprime les anciennes copies. Pour retirer un jour le service worker, il faut publier un `/sw.js` qui se désinscrit, pas supprimer le fichier.
+
 ## Le club et ses membres
 
 Le nom du club et ses membres sont des réglages de l'app, en base : un administrateur les gère dans la page Réglages (lien en bas du tableau). Seuls les membres invités se connectent, avec leur adresse e-mail et un code reçu par mail ; personne ne s'inscrit seul.

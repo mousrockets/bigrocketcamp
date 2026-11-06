@@ -11,6 +11,13 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <!-- Set to the club's name once it is known (src/web/app.tsx). -->
+    <meta name="apple-mobile-web-app-title" content="Le club" />
+    <!-- The colour of the opening screen, before the style sheet arrives: no white flash in the installed app. -->
+    <style>
+      html { background: #060b1d; }
+      html[data-theme='light'] { background: #eef3fb; }
+    </style>
     <!-- The site is private: the manifest request must carry the session cookie. -->
     <link rel="manifest" href="/manifest.webmanifest" crossorigin="use-credentials" />
     <!-- Applies the saved theme before first paint, and keeps the install prompt that browsers fire very early. -->
