@@ -1,6 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react';
 import { useEffect, useRef, useState } from 'react';
-import { clubName, roster } from '../lib/club';
 import {
   dailyRecap,
   exerciseDescription,
@@ -15,6 +14,7 @@ import {
 import { currentSeason, seasonEndLabel, seasonTiming } from '../lib/season';
 import { apiFetch, signOut } from './api';
 import { Brand } from './brand';
+import { clubName, roster } from './club-config';
 import type { MonthlyState } from './monthly-mmr';
 import { MonthlyMmr } from './monthly-mmr';
 import { playerInitials, playerPlatform } from './players';
@@ -189,7 +189,7 @@ function removeStorage(key: string) {
 }
 
 function summarizeStats(state: State, day: string) {
-  return summarize(state.results, state.exercises, day, state.matchRosters || []) as PlayerStats[];
+  return summarize(roster, state.results, state.exercises, day, state.matchRosters || []) as PlayerStats[];
 }
 
 // Generated in the browser: no audio files to host or license.
@@ -576,7 +576,7 @@ export function Dashboard() {
     try {
       const stored = readStorage('rl-pending');
       if (stored) {
-        const restored = validateExercise(JSON.parse(stored)) as Declaration;
+        const restored = validateExercise(roster, JSON.parse(stored)) as Declaration;
         setPending(restored);
         setPlayer(restored.player);
         setType(restored.type);
@@ -900,7 +900,7 @@ export function Dashboard() {
     setCount((current) => Math.min(limit, (Number.isFinite(current) ? current : 0) + amount));
   }
   const recapDay = day || today;
-  const recap = data ? dailyRecap(data.results, recapDay, data.matchRosters || []) : null;
+  const recap = data ? dailyRecap(roster, data.results, recapDay, data.matchRosters || []) : null;
   const recapLabel = new Intl.DateTimeFormat('fr-FR', {
     timeZone: 'Europe/Paris',
     day: 'numeric',
@@ -914,7 +914,7 @@ export function Dashboard() {
   const monday = weekStart(today);
   const weekLength = (Date.parse(`${today}T12:00:00Z`) - Date.parse(`${monday}T12:00:00Z`)) / 86400000 + 1;
   const weekDays = Array.from({ length: weekLength }, (_, index) => shiftDay(monday, index));
-  const weekRecaps = data ? weekDays.map((d) => dailyRecap(data.results, d, data.matchRosters || [])) : [];
+  const weekRecaps = data ? weekDays.map((d) => dailyRecap(roster, data.results, d, data.matchRosters || [])) : [];
   const weekly = roster.map((name) => ({
     name,
     effort: (data?.exercises || [])

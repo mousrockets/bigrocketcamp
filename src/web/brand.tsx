@@ -1,4 +1,4 @@
-import { clubName } from '../lib/club';
+import { clubName } from './club-config';
 
 // The header shows the club name on two lines with its last word standing out ("Les Trois" over "Mousrockets").
 const lastSpace = clubName.lastIndexOf(' ');

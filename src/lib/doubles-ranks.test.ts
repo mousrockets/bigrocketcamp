@@ -1,6 +1,6 @@
 import { env } from 'cloudflare:workers';
 import { expect, test } from 'vitest';
-import { roster } from './club';
+import { roster } from './club-fixture';
 import { doublesRankLabel, normalizeDoublesSkill, rankTargets, readDoublesRanks } from './doubles-ranks';
 
 const [, second = ''] = roster;
@@ -80,12 +80,13 @@ test('non-finite numbers, strings, unknown tiers or divisions and invalid placem
 });
 
 test('a linked identity wins; an ambiguous nickname is blocked; PSN and PS4 are equivalent', () => {
-  expect(secondTarget(rankTargets(rows, [], 'owner')).playerId).toBe('Epic|synthetic|0');
+  expect(secondTarget(rankTargets(roster, rows, [], 'owner')).playerId).toBe('Epic|synthetic|0');
   const ambiguous = [...rows, { name: second, kind: 'match', player_id: 'Epic|other|0' }];
-  expect(secondTarget(rankTargets(ambiguous, [], 'owner')).conflict).toBe(true);
+  expect(secondTarget(rankTargets(roster, ambiguous, [], 'owner')).conflict).toBe(true);
   expect(
     secondTarget(
       rankTargets(
+        roster,
         [{ name: second, kind: 'match', player_id: 'Epic|synthetic|0', source_difference: 'identity' }],
         [],
         'owner',
@@ -93,17 +94,19 @@ test('a linked identity wins; an ambiguous nickname is blocked; PSN and PS4 are 
     ).conflict,
   ).toBe(true);
   expect(
-    secondTarget(rankTargets(ambiguous, [{ slot: second, owner: 'owner', account_id: 'linked' }], 'owner')).playerId,
+    secondTarget(rankTargets(roster, ambiguous, [{ slot: second, owner: 'owner', account_id: 'linked' }], 'owner'))
+      .playerId,
   ).toBe('Epic|linked|0');
   expect(
-    secondTarget(rankTargets(ambiguous, [{ slot: second, owner: 'another-member', account_id: 'linked' }], 'owner'))
-      .playerId,
+    secondTarget(
+      rankTargets(roster, ambiguous, [{ slot: second, owner: 'another-member', account_id: 'linked' }], 'owner'),
+    ).playerId,
   ).toBe('Epic|linked|0');
   const platforms = [
     { name: second, kind: 'match', player_id: 'PSN|synthetic|0' },
     { name: second, kind: 'match', player_id: 'PS4|synthetic|0' },
   ];
-  expect(secondTarget(rankTargets(platforms, [], 'owner')).playerId).toBe('PS4|synthetic|0');
+  expect(secondTarget(rankTargets(roster, platforms, [], 'owner')).playerId).toBe('PS4|synthetic|0');
 });
 
 test('D1: the last rank is kept and marked historical without network access', async () => {
@@ -114,7 +117,7 @@ test('D1: the last rank is kept and marked historical without network access', a
   )
     .bind(second, 'Epic|synthetic|0', 11, 1200, 17, 2, 10, now, now, 'frozen')
     .run();
-  const rank = secondTarget(await readDoublesRanks(env.DB));
+  const rank = secondTarget(await readDoublesRanks(env.DB, roster));
   expect(rank.mmr).toBe(1200);
   expect(rank.label).toBe('Champion II · Division II');
   expect(rank.status).toBe('frozen');

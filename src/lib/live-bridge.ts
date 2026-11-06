@@ -1,4 +1,4 @@
-import { type LiveMatch, matchCapture, parseLiveMatch, statsStream } from './live-stats';
+import { checkLiveMatch, type LiveMatch, matchCapture, statsStream } from './live-stats';
 
 const queueKey = 'rl-live-queue-v1';
 const gameSocket = 'ws://localhost:49124/';
@@ -72,7 +72,7 @@ export function liveBridge({
     if (Array.isArray(saved)) {
       queue = saved.slice(-20).filter((payload) => {
         try {
-          parseLiveMatch(payload, now());
+          checkLiveMatch(payload, now());
           return true;
         } catch {
           return false;
@@ -112,7 +112,7 @@ export function liveBridge({
       while (active && queue.length) {
         const payload = queue[0] as LiveMatch;
         try {
-          parseLiveMatch(payload, now());
+          checkLiveMatch(payload, now());
         } catch {
           queue.shift();
           persist();

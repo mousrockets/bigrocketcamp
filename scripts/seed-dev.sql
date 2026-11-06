@@ -1,9 +1,11 @@
 -- Local development data: the three players of the club the app was born in, with addresses at
 -- example.com, which never delivers mail. npm run db:seed, after npm run db:migrate; running it again changes nothing.
-INSERT INTO members (id, email) VALUES
-  ('member-vincent', 'vincent@example.com'),
-  ('member-dimitri', 'dimitri@example.com'),
-  ('member-kevin', 'kevin@example.com')
+-- Dimitri administers the club; a renamed local club keeps its new name.
+UPDATE club_settings SET name = 'Les Trois Mousrockets' WHERE name = 'Big Rocket Camp';
+INSERT INTO members (id, email, role, duo_pseudo, platform, roster_position) VALUES
+  ('member-vincent', 'vincent@example.com', 'member', 'chat-pris-tea', 'pc', 1),
+  ('member-dimitri', 'dimitri@example.com', 'admin', 'nokouki', 'pc', 2),
+  ('member-kevin', 'kevin@example.com', 'member', 'kevin-74000', 'playstation', 3)
 ON CONFLICT(id) DO NOTHING;
 INSERT INTO player_identities (slot, owner, player_id) VALUES
   ('chat-pris-tea', 'member-vincent', 'Epic|chat-pris-tea-dev|0'),

@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { readClubPlayers, rosterOf } from '../../lib/club';
 import { readDoublesRanks } from '../../lib/doubles-ranks';
 import { collectionPaused } from '../../lib/epic-sync';
 import { readMonthlyMmr } from '../../lib/monthly-mmr';
@@ -11,11 +12,13 @@ export const stateRoutes = new Hono<AppEnv>();
 stateRoutes.get('/', async (c) => {
   const db = c.env.DB;
   const memberId = c.var.member.id;
+  const players = await readClubPlayers(db);
+  const roster = rosterOf(players);
   const [merged, exercises, collectors, doublesRanks, reactions, me, epic, monthly, rankSource] = await Promise.all([
-    readMerged(db),
+    readMerged(db, roster),
     db.prepare('SELECT * FROM exercises ORDER BY created DESC').all<Record<string, unknown>>(),
     db.prepare('SELECT * FROM collectors ORDER BY last_seen DESC').all(),
-    readDoublesRanks(db),
+    readDoublesRanks(db, roster),
     db
       .prepare(
         'SELECT exercise_id, emoji, COUNT(*) AS count, MAX(author = ?) AS mine FROM exercise_reactions GROUP BY exercise_id, emoji',
@@ -33,7 +36,7 @@ stateRoutes.get('/', async (c) => {
         "SELECT slot, 'retired' AS status, last_sync, last_attempt FROM player_identities ORDER BY last_sync DESC",
       )
       .all(),
-    readMonthlyMmr(db, memberId),
+    readMonthlyMmr(db, players, memberId),
     // Only an instance with a rank source can see it stop.
     c.env.RANK_SOURCE_KEY ? readRankSourceHealth(db) : null,
   ]);

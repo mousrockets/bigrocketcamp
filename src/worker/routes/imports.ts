@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
-import { normalizeParticipant, validateExercise } from '../../lib/domain';
+import { readClubPlayers, readRoster } from '../../lib/club';
+import { normalizeParticipant, type RawResult, validateExercise } from '../../lib/domain';
 import { validateMatchRosters } from '../../lib/match-rules';
 import { publicMmrKeyMatches } from '../../lib/public-mmr-auth';
 import { importPublicMmr } from '../../lib/public-ranks';
@@ -40,9 +41,10 @@ importRoutes.post('/ingest', async (c) => {
     ) {
       throw new Error('Envoi invalide.');
     }
-    const rows = data.results.map(normalizeParticipant);
+    const roster = await readRoster(c.env.DB);
+    const rows = data.results.map((result: RawResult) => normalizeParticipant(roster, result));
     const rosters = validateMatchRosters(data.matches, rows);
-    const exercises = data.exercises.map(validateExercise);
+    const exercises = data.exercises.map((exercise: unknown) => validateExercise(roster, exercise));
     const now = new Date().toISOString();
     const db = c.env.DB;
     // Rows saved before observations existed are kept as the "legacy" source, so reconciliation still sees them.
@@ -118,7 +120,11 @@ importRoutes.post('/public-mmr', async (c) => {
   const body = await c.req.text();
   if (body.length > 1_550_000) return c.json({ error: 'Envoi trop volumineux.' }, 413, noStore);
   try {
-    return c.json(await importPublicMmr(c.env.DB, JSON.parse(body).pages), 200, noStore);
+    return c.json(
+      await importPublicMmr(c.env.DB, await readClubPlayers(c.env.DB), JSON.parse(body).pages),
+      200,
+      noStore,
+    );
   } catch {
     return c.json({ error: 'Envoi de profils publics invalide.' }, 400, noStore);
   }

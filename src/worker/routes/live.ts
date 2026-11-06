@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { readRoster } from '../../lib/club';
 import { parseLiveMatch } from '../../lib/live-stats';
 import {
   attributeLivePlayers,
@@ -23,7 +24,7 @@ async function sourceOf(memberId: string): Promise<string> {
 }
 
 liveRoutes.get('/', async (c) => {
-  const accounts = await readPlayerIdentities(c.env.DB, c.var.member.id);
+  const accounts = await readPlayerIdentities(c.env.DB, await readRoster(c.env.DB), c.var.member.id);
   return c.json({ players: accounts.map((account) => account.slot) }, 200, noStore);
 });
 
@@ -34,8 +35,12 @@ liveRoutes.post('/', async (c) => {
   const db = c.env.DB;
   const memberId = c.var.member.id;
   try {
-    const parsed = parseLiveMatch(JSON.parse(body));
-    const [accounts, bindings] = await Promise.all([readPlayerIdentities(db, memberId), readIdentityBindings(db)]);
+    const roster = await readRoster(db);
+    const parsed = parseLiveMatch(roster, JSON.parse(body));
+    const [accounts, bindings] = await Promise.all([
+      readPlayerIdentities(db, roster, memberId),
+      readIdentityBindings(db, roster),
+    ]);
     const containsOwnPlayer = parsed.rows.some((row) =>
       bindings.some(
         (binding) =>
@@ -50,7 +55,7 @@ liveRoutes.post('/', async (c) => {
         noStore,
       );
     }
-    const rows = attributeLivePlayers(parsed.rows, bindings);
+    const rows = attributeLivePlayers(roster, parsed.rows, bindings);
     const now = new Date().toISOString();
     const sourceId = await sourceOf(memberId);
     const writes = await observationWrites(

@@ -1,9 +1,11 @@
 import type { Context, MiddlewareHandler } from 'hono';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
+import type { Role } from '../lib/members';
 
 export interface Member {
   id: string;
   email: string;
+  role: Role;
 }
 
 export type AppEnv = { Bindings: Env; Variables: { member: Member } };
@@ -132,13 +134,18 @@ function writeSessionCookie(c: Context, token: string): void {
   });
 }
 
+/** Forgets the browser's session cookie, once its session is gone from the database. */
+export function clearSessionCookie(c: Context): void {
+  deleteCookie(c, sessionCookie, { path: '/' });
+}
+
 export async function closeSession(c: Context<AppEnv>): Promise<void> {
   const token = getCookie(c, sessionCookie);
   if (token)
     await c.env.DB.prepare('DELETE FROM sessions WHERE token_hash = ?')
       .bind(await sha256(token))
       .run();
-  deleteCookie(c, sessionCookie, { path: '/' });
+  clearSessionCookie(c);
 }
 
 /** Rejects the request with 401 unless it carries a live session; a session in use never expires. */
@@ -147,7 +154,7 @@ export const requireMember: MiddlewareHandler<AppEnv> = async (c, next) => {
   if (!token) return c.json({ error: 'Connexion requise.' }, 401);
   const tokenHash = await sha256(token);
   const session = await c.env.DB.prepare(
-    'SELECT members.id, members.email, sessions.expires FROM sessions JOIN members ON members.id = sessions.member_id WHERE sessions.token_hash = ?',
+    'SELECT members.id, members.email, members.role, sessions.expires FROM sessions JOIN members ON members.id = sessions.member_id WHERE sessions.token_hash = ?',
   )
     .bind(tokenHash)
     .first<Member & { expires: number }>();
@@ -158,6 +165,12 @@ export const requireMember: MiddlewareHandler<AppEnv> = async (c, next) => {
       .run();
     writeSessionCookie(c, token);
   }
-  c.set('member', { id: session.id, email: session.email });
+  c.set('member', { id: session.id, email: session.email, role: session.role });
+  await next();
+};
+
+/** After requireMember: rejects the request with 403 unless the member administers the club. */
+export const requireAdmin: MiddlewareHandler<AppEnv> = async (c, next) => {
+  if (c.var.member.role !== 'admin') return c.json({ error: 'Réservé aux administrateurs du club.' }, 403);
   await next();
 };

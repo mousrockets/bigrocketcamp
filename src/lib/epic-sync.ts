@@ -1,5 +1,5 @@
 // Retired integration. These compatibility entry points never contact Epic or PsyNet.
-import { roster } from './club';
+import type { Roster } from './club';
 import type { Database } from './db';
 import { dailyRecap } from './domain';
 import { readDoublesRanks } from './doubles-ranks';
@@ -11,7 +11,7 @@ interface WithDatabase {
   EPIC_VAULT_KEY?: unknown;
 }
 
-export const slots = ['observer', ...roster];
+export const slotsOf = (roster: Roster): string[] => ['observer', ...roster];
 export const retiredReason = 'Connexion communautaire Epic retirée. Utilise le Direct PC officiel.';
 // Retirement is unconditional; changing an environment flag cannot restore logins.
 export const collectionPaused = () => true;
@@ -32,13 +32,13 @@ export async function autoSync(..._unused: unknown[]) {
   return { ran: false, paused: true, retired: true };
 }
 
-export async function connectionStatus(env: WithDatabase, userId: string) {
-  const identities = await readPlayerIdentities(env.DB);
+export async function connectionStatus(env: WithDatabase, roster: Roster, userId: string) {
+  const identities = await readPlayerIdentities(env.DB, roster);
   const credentialsStored = await env.DB.prepare(
     'SELECT (SELECT COUNT(*) FROM epic_accounts) AS accounts,(SELECT COUNT(*) FROM epic_grants) AS pending',
   ).first();
   return {
-    connections: slots.map((slot) => {
+    connections: slotsOf(roster).map((slot) => {
       const identity = identities.find((candidate) => candidate.slot === slot);
       return {
         slot,
@@ -53,7 +53,7 @@ export async function connectionStatus(env: WithDatabase, userId: string) {
       };
     }),
     pending: [],
-    doublesRanks: await readDoublesRanks(env.DB),
+    doublesRanks: await readDoublesRanks(env.DB, roster),
     configured: false,
     paused: true,
     retired: true,
@@ -64,9 +64,9 @@ export async function connectionStatus(env: WithDatabase, userId: string) {
 
 // An old tab may still ask to disconnect. Forget only its owner's old credentials;
 // keep the non-secret identity required by the official local score collector.
-export async function disconnect(env: WithDatabase, userId: string, slot: unknown) {
-  if (typeof slot !== 'string' || !slots.includes(slot)) throw new Error('Compte inconnu.');
-  const identity = (await readPlayerIdentities(env.DB)).find((candidate) => candidate.slot === slot);
+export async function disconnect(env: WithDatabase, roster: Roster, userId: string, slot: unknown) {
+  if (typeof slot !== 'string' || !slotsOf(roster).includes(slot)) throw new Error('Compte inconnu.');
+  const identity = (await readPlayerIdentities(env.DB, roster)).find((candidate) => candidate.slot === slot);
   if (identity && identity.owner !== userId) throw new Error('Seul le membre associé à cette identité peut la gérer.');
   await env.DB.batch([
     env.DB.prepare('DELETE FROM epic_accounts WHERE slot=? AND owner=?').bind(slot, userId),
@@ -75,12 +75,12 @@ export async function disconnect(env: WithDatabase, userId: string, slot: unknow
   return { ok: true, retired: true };
 }
 
-export async function recapState(env: WithDatabase, day: string) {
-  const merged = await readMerged(env.DB);
+export async function recapState(env: WithDatabase, roster: Roster, day: string) {
+  const merged = await readMerged(env.DB, roster);
   return {
-    ...dailyRecap(merged.rows, day, merged.rosters),
+    ...dailyRecap(roster, merged.rows, day, merged.rosters),
     reliability: merged.reliability,
-    coverage: (await readPlayerIdentities(env.DB)).map((identity) => ({
+    coverage: (await readPlayerIdentities(env.DB, roster)).map((identity) => ({
       slot: identity.slot,
       status: 'retired',
       last_sync: identity.last_sync,
