@@ -7,21 +7,30 @@ const scoreboard = [
   { matchGuid: 'm', playerId: 'Epic|b|0', team: 1, winner: 1, day, score: 100 },
 ];
 
-test('the last-place rule stays disabled until it is switched on', () => {
-  expect(lastPlaceRule.enabled).toBe(false);
-  const rows = scoreboard.map((r) => ({
-    match_guid: r.matchGuid,
-    player_id: r.playerId,
-    name: r.playerId,
+test('on a defeat, the club player with the fewest points of their team pays 5 more', () => {
+  expect(lastPlaceRule.enabled).toBe(true);
+  const day = '2026-11-06';
+  const rows = [
+    { name: 'alice', score: 300, team: 0 },
+    { name: 'bob', score: 120, team: 0 },
+    { name: 'stranger', score: 50, team: 0 },
+    { name: 'opponent', score: 10, team: 1 },
+  ].map((player) => ({
+    match_guid: 'm',
+    player_id: `Epic|${player.name}|0`,
     kind: 'match',
-    ...r,
+    day,
+    winner: 1,
+    ...player,
   }));
-  const matches = matchIndex(rows, [{ match_guid: 'm', expected_players: 2 }]);
-  const loser = rows[0];
-  if (!loser) throw new Error('expected a loser');
-  expect(matches.get('m')?.complete).toBe(true);
-  expect(lastPlaceBonus(loser, matches)).toBe(0);
-  expect(lastPlaceBonus(loser, matches, { ...lastPlaceRule, enabled: true })).toBe(5);
+  const roster = ['alice', 'bob'];
+  const matches = matchIndex(rows);
+  const [alice, bob] = rows;
+  if (!alice || !bob) throw new Error('expected two club players');
+  expect(lastPlaceBonus(bob, matches, roster)).toBe(5);
+  expect(lastPlaceBonus(alice, matches, roster)).toBe(0);
+  expect(lastPlaceBonus(bob, matches, roster, { ...lastPlaceRule, enabled: false })).toBe(0);
+  expect(lastPlaceBonus(bob, matches, ['bob'])).toBe(0);
 });
 
 test('declared rosters must match a coherent scoreboard', () => {

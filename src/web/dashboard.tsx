@@ -7,7 +7,9 @@ import {
   exerciseEffect,
   exerciseTypes,
   formatNumber,
+  lastPlaceBonus,
   lastPlaceRule,
+  matchIndex,
   parisDay,
   pushupCredit,
   summarize,
@@ -955,7 +957,11 @@ export function Dashboard() {
   }
 
   const stats = data ? summarizeStats(roster, data, day) : [];
-  const rows = data?.results.filter((r) => (!day || r.day === day) && (test || r.kind === 'match')) || [];
+  // Only the club's own players: opponents and strangers stay in the stored scoreboard, not in the history.
+  const rows =
+    data?.results.filter((r) => roster.includes(r.name) && (!day || r.day === day) && (test || r.kind === 'match')) ||
+    [];
+  const indexedMatches = data ? matchIndex(data.results, data.matchRosters || []) : new Map();
   const exercises = data?.exercises.filter((e) => !day || e.day === day) || [];
   const draft = pending || { type, count: type === 'plank' ? count * 60 : count };
   const selected = stats.find((p) => p.name === (pending?.player || player));
@@ -1146,7 +1152,7 @@ export function Dashboard() {
           <span>POMPES / DÉFAITE</span>
           <small>
             {lastPlaceRule.enabled
-              ? 'Dernier aux points du match : +5 si défaite'
+              ? 'Le moins de points de l’équipe : +5 si défaite'
               : 'Bonus dernier aux points désactivé'}
           </small>
         </div>
@@ -1561,10 +1567,10 @@ export function Dashboard() {
           </>
         )}
         <p className="small muted">
-          * Comparaison avec tous les joueurs du match, adversaires compris, seulement si le tableau complet est
-          disponible. Les égalités sont indiquées.{' '}
+          * Comparaison entre les joueurs du club d’une même équipe, quand ils sont au moins deux. Les égalités sont
+          indiquées.{' '}
           {lastPlaceRule.enabled
-            ? `Une défaite vaut 5 pompes, avec 5 de plus pour le dernier du match${lastPlaceRule.ties === 'none' ? ' uniquement s’il est seul dernier' : ''}.`
+            ? `Une défaite vaut 5 pompes, avec 5 de plus pour celui du club qui a le moins de points dans l’équipe${lastPlaceRule.ties === 'none' ? ', sauf égalité' : ''}.`
             : 'Le supplément dernier aux points reste désactivé.'}
         </p>
       </section>
@@ -1666,7 +1672,11 @@ export function Dashboard() {
                       </span>
                     </td>
                     <td>{r.score}</td>
-                    <td>{!r.review_required && r.kind === 'match' && r.team !== r.winner ? '+5' : '0'}</td>
+                    <td>
+                      {!r.review_required && r.kind === 'match' && r.team !== r.winner
+                        ? `+${5 + lastPlaceBonus(r, indexedMatches, roster)}`
+                        : '0'}
+                    </td>
                   </tr>
                 ))}
               </tbody>
