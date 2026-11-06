@@ -16,5 +16,5 @@
     "skipLibCheck": true,
     "noEmit": true
   },
-  "include": ["src/web", "vite.config.ts", "vitest.config.ts"]
+  "include": ["src/domain", "src/web", "vite.config.ts", "vitest.config.ts"]
 }
