@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { clubName } from '../lib/club';
 import { Brand } from './brand';
+import { InputOTP, InputOTPGroup, InputOTPSlot } from './components/ui/input-otp';
 
 type Step = 'email' | 'code';
 
@@ -45,13 +46,13 @@ export function SignIn() {
     }
   }
 
-  async function verifyCode() {
+  async function verifyCode(typed: string = code) {
     if (busy) return;
     setBusy(true);
     setError('');
     setNotice('');
     try {
-      const response = await postJson('/api/auth/verify', { email: email.trim(), code });
+      const response = await postJson('/api/auth/verify', { email: email.trim(), code: typed });
       if (!response.ok) throw Error(await errorOf(response, 'Code incorrect ou expiré.'));
       // The session cookie is set: reloading opens the page that was asked for.
       location.reload();
@@ -115,20 +116,27 @@ export function SignIn() {
               verifyCode();
             }}
           >
-            <label>
-              Code à six chiffres
-              <input
-                type="text"
-                autoComplete="one-time-code"
-                inputMode="numeric"
-                pattern="[0-9]{6}"
-                maxLength={6}
-                required
-                value={code}
-                disabled={busy}
-                onChange={(event) => setCode(event.target.value.replace(/\D/g, ''))}
-              />
-            </label>
+            <label htmlFor="sign-in-code">Code à six chiffres</label>
+            <InputOTP
+              id="sign-in-code"
+              maxLength={6}
+              pattern="^[0-9]*$"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              autoFocus
+              value={code}
+              disabled={busy}
+              onChange={setCode}
+              // Typing or pasting the sixth digit signs in, as the user expects from a one-time code.
+              onComplete={(complete: string) => verifyCode(complete)}
+              containerClassName="sign-in-code"
+            >
+              <InputOTPGroup>
+                {[0, 1, 2, 3, 4, 5].map((index) => (
+                  <InputOTPSlot key={index} index={index} className="size-12 text-xl" />
+                ))}
+              </InputOTPGroup>
+            </InputOTP>
             <button type="submit" className="primary" disabled={busy || code.length !== 6}>
               {busy ? 'Vérification…' : 'Me connecter →'}
             </button>

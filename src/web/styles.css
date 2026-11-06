@@ -2620,3 +2620,14 @@ h1 em {
     padding: 18px;
   }
 }
+
+/* Sign-in code: one box per digit (shadcn InputOTP), in the club's dark style. */
+.sign-in-code {
+  margin: 0.5rem 0 1rem;
+}
+.sign-in-code [data-slot="input-otp-slot"] {
+  background: rgb(255 255 255 / 0.05);
+  border-color: rgb(255 255 255 / 0.2);
+  color: inherit;
+  font-weight: 700;
+}
