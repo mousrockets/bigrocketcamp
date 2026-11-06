@@ -1,11 +1,11 @@
 # Relevés publics MMR en fin de mois
 
 Site lié : Les Trois Mousrockets, https://example.chatgpt.site.
-Exécution le dernier jour de chaque mois à 23 h 59, Europe/Paris.
+Première phase de la tâche mensuelle unique, déclenchée le dernier jour de chaque mois à 23 h 59, Europe/Paris. La seconde phase attend 00 h 05 avant d’archiver le mois ; voir `monthly-mmr.md`.
 
 1. Lire `get_monthly_mmr` dans le plugin du Site et vérifier `canImportPublicMmr: true`.
 2. Consulter normalement les trois pages publiques dont les URLs figurent dans `publicSync.profiles`. Le lecteur autonome sans dépendance `scripts/read-public-mmr.py`, dépôt GitHub `vincentmarcone/rlpompes`, branche `main`, peut être récupéré avec le connecteur GitHub et exécuté avec Python standard dans l’environnement cloud. Il produit un JSON `pages` contenant uniquement les instantanés publics et `errors` pour les échecs. Garder le HTML en mémoire de travail ; ne pas l’afficher, l’envoyer à un autre fournisseur ou le publier dans GitHub. Ne pas lire les identifiants internes en base.
 3. Appeler `import_public_mmr` avec `pages` pour transmettre les instantanés au Site. Le serveur vérifie seul les profils, plateformes, saison, dates et MMR 2v2. Ne pas modifier ou fabriquer le HTML, transformer une absence en zéro, inventer une date ou reconstituer un mois avec une observation postérieure à minuit.
-4. Relire `get_monthly_mmr` et vérifier les trois valeurs, sources et dates. Signaler au propriétaire une source indisponible, un environnement de lecture manquant ou un relevé trop ancien, avec le lien du site. La tâche distincte du premier du mois à 00 h 05 archive le résultat et les boissons.
+4. Relire `get_monthly_mmr` et vérifier les trois valeurs, sources et dates. Signaler au propriétaire une source indisponible, un environnement de lecture manquant ou un relevé trop ancien, avec le lien du site. Reprendre ensuite la phase de clôture de la même tâche à 00 h 05 ; ne pas créer de tâche supplémentaire.
 
 Utiliser exclusivement les URLs publiques de pseudonymes et plateformes déjà configurées. Aucun identifiant Epic interne enregistré, jeton, cookie ou mot de passe ne doit être transmis. Ne pas utiliser de login Epic, réintroduire le collecteur retiré, contacter un fournisseur, envoyer un message à un tiers, contourner un refus d’accès ou appeler une API privée. Conserver l’accès réseau ordinaire de l’environnement ; ne pas changer de proxy, d’adresse réseau ou d’identité de navigateur. Ne pas déployer, lire des secrets ou modifier les règles dans cette tâche. En cas d’outils indisponibles, signaler le blocage au propriétaire sans écriture directe de valeurs. Réessai idempotent ; le serveur impose une limite globale de trois minutes entre lots.

@@ -1,7 +1,9 @@
-# Clôture mensuelle Les Trois Mousrockets
+# Relevé et clôture mensuels Les Trois Mousrockets
 
 Site lié : Les Trois Mousrockets, https://example.chatgpt.site.
-Exécution le premier de chaque mois à 00 h 05, Europe/Paris.
+Une seule tâche se déclenche le dernier jour de chaque mois à 23 h 59, Europe/Paris. Elle réalise le relevé public décrit dans `public-mmr-capture.md`, puis la clôture à 00 h 05 le premier du mois, dans la même exécution. Réutiliser la tâche mensuelle liée : le forfait ne permet pas de créer une tâche supplémentaire. Préserver les autres tâches et la collecte Epic retirée désactivée.
+
+Après le relevé, mémoriser l’échéance de minuit du mois visé et attendre son échéance plus cinq minutes. Utiliser l’heure réelle et des attentes d’au plus 45 secondes ; ne pas dépasser dix minutes d’attente totale. Si le déclenchement a pris du retard après minuit le 1er, viser le mois précédent et 00 h 05 de ce jour, jamais l’échéance du mois suivant. Si cette heure est déjà passée, continuer immédiatement. Si l’attente ne peut être menée, signaler le blocage sans prétendre avoir clôturé.
 
 1. Avec les outils du Site lié, appeler `close_monthly_mmr` sans argument. Il clôture les mois terminés selon les bornes Europe/Paris avec les observations déjà importées par la tâche distincte de fin de mois. Il ne consulte aucune source externe et n’ouvre aucune session Epic. L’appel est idempotent et peut être réessayé après une erreur réseau.
 2. Lire `get_monthly_mmr` pour vérifier que le dernier mois terminé est archivé et que les boissons correspondent au résultat. Trois MMR récents sont nécessaires : observations publiques des quinze dernières minutes du mois reçues dans la marge, ou confirmations manuelles du dernier jour. Les observations après minuit ne sont jamais antidatées. Dernier unique : une boisson à chacun des deux autres. Ex æquo au minimum ou relevé manquant : aucune dette automatique. Ne pas inventer, compléter ou modifier les MMR et ne pas rouvrir un résultat archivé.
