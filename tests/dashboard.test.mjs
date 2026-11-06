@@ -219,7 +219,7 @@ test('Le récap affiche chaque joueur et complète le bon jour après une synchr
   insert.run('late-match','p3','adversaire','2026-11-04','match',1,1,300,0,0,0,'2026-11-05T08:00:00Z');
   h.f.db.prepare('INSERT INTO match_rosters VALUES (?,?,?)').run('late-match',3,'2026-11-05T08:00:00Z');
   await action(()=>{for(const tick of h.intervals)tick();});
-  await action(()=>h.root().findByProps({'aria-label':'Date du récap'}).props.onChange({target:{value:'2026-11-04'}}));
+  await action(()=>h.root().findByProps({'aria-label':'Date affichée'}).props.onChange({target:{value:'2026-11-04'}}));
   assert.deepEqual(playerCells()[0].slice(0,4),['chat-pris-tea','1','0','1']);
   assert.match(playerCells()[0][4],/^1 fois/);assert.equal(playerCells()[0][5],'5');
   assert.match(playerCells()[2][4],/Non comparable/);
@@ -227,9 +227,9 @@ test('Le récap affiche chaque joueur et complète le bon jour après une synchr
   h.f.db.prepare('UPDATE results SET score=200,received=? WHERE name=?').run('2026-11-05T09:00:00Z','chat-pris-tea');
   await action(()=>{for(const tick of h.intervals)tick();});
   assert.equal(playerCells()[0][1],'1');assert.match(playerCells()[0][4],/^0 fois/);assert.match(playerCells()[1][4],/^1 fois/);
-  assert.equal(h.root().findByProps({'aria-label':'Date du récap'}).props.value,'2026-11-04');
+  assert.equal(h.root().findByProps({'aria-label':'Date affichée'}).props.value,'2026-11-04');
   // Clearing the date input leaves a valid recap on screen.
-  await action(()=>h.root().findByProps({'aria-label':'Date du récap'}).props.onChange({target:{value:''}}));
-  assert.equal(h.root().findByProps({'aria-label':'Date du récap'}).props.value,'2026-11-04');
+  await action(()=>h.root().findByProps({'aria-label':'Date affichée'}).props.onChange({target:{value:''}}));
+  assert.equal(h.root().findByProps({'aria-label':'Date affichée'}).props.value,'2026-11-04');
  }finally{await h.cleanup();}
 });

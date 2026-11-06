@@ -13,6 +13,9 @@ button:active:not(:disabled){transform:translateY(4px);box-shadow:0 0 0 var(--li
 .quick-counts button{font-size:14px;font-weight:800;padding:12px}
 #team,#history,#recap-title{scroll-margin-top:20px}
 .podium-toggle{display:inline-flex;gap:6px;margin:0 0 16px}.podium-toggle button{padding:6px 12px;font-size:12px}.podium-toggle button[aria-pressed=true]{background:var(--green);color:#fff;border-color:var(--green)}
+.team-info{margin:0 0 6px}.team-info>summary{width:fit-content;cursor:pointer;font-size:12px;color:var(--muted)}.team-info[open]>summary{margin-bottom:4px}
+.fold>summary{display:flex;align-items:baseline;justify-content:space-between;gap:12px;cursor:pointer;list-style:none}.fold>summary::-webkit-details-marker{display:none}.fold>summary h2::after{content:' ▾';font-size:.7em;color:var(--muted)}.fold[open]>summary h2::after{content:' ▴'}.fold>label{display:inline-block;margin:4px 0 8px}
+@media(max-width:620px){.daily-recap table{min-width:0}.daily-recap thead{display:none}.daily-recap tbody tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 14px;padding:12px 0;border-bottom:1px solid var(--line)}.daily-recap td{display:block;padding:0;border:0}.daily-recap td:first-child{grid-column:1/-1}.daily-recap td[data-label]::before{content:attr(data-label);display:block;margin-bottom:2px;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--muted)}}
 .fab{box-shadow:0 5px 0 var(--orange-dark),0 8px 20px #0008;transition:transform .08s;font-style:italic;text-transform:uppercase}.fab:active{transform:translateY(5px);box-shadow:0 0 0 var(--orange-dark)}
 .card{transition:transform .2s,border-color .2s}.card:hover{transform:translateY(-3px);border-color:var(--hover-line)}
 .progress i{transition:width .7s cubic-bezier(.2,.9,.3,1.25)}

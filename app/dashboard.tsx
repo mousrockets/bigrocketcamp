@@ -170,7 +170,7 @@ function SkeletonCards(){
 export default function Dashboard(){
   const [data,setData]=useState<State|null>(null),[error,setError]=useState(''),[notice,setNotice]=useState('');
   const [day,setDay]=useState(parisDay()),[player,setPlayer]=useState(roster[0]),[type,setType]=useState<ExerciseType>('pushups'),[count,setCount]=useState(5);
-  const [recapDay,setRecapDay]=useState(parisDay());
+  const [exerciseVisible,setExerciseVisible]=useState(false);
   const [busy,setBusy]=useState(false),[test,setTest]=useState(false),[pending,setPending]=useState<Declaration|null>(null);
   const [sound,setSound]=useState(true),[cheer,setCheer]=useState<Cheer|null>(null);
   const [theme,setTheme]=useState<Theme|null>(null),[menuOpen,setMenuOpen]=useState(false);
@@ -239,6 +239,16 @@ export default function Dashboard(){
       refreshRequest.current++;
       if(typeof document!=='undefined')document.removeEventListener('visibilitychange',onVisible);
     };
+  },[]);
+
+  // The floating shortcut is useless while the form itself is on screen.
+  useEffect(()=>{
+    if(typeof IntersectionObserver==='undefined'||typeof document==='undefined')return;
+    const form=document.getElementById('exercise');
+    if(!form)return;
+    const observer=new IntersectionObserver(([entry])=>setExerciseVisible(entry.isIntersecting),{threshold:0.15});
+    observer.observe(form);
+    return()=>observer.disconnect();
   },[]);
 
   // Asks the server for an Epic read; the server throttles and checks presence itself.
@@ -439,9 +449,10 @@ export default function Dashboard(){
   const owed=selected?.remaining??0;
   const payoff=Math.min(limit,type==='plank'?Math.ceil(owed/15*4)/4:Math.ceil(type==='crunches'?owed*2:owed));
   function addCount(n:number){setCount(c=>Math.min(limit,(Number.isFinite(c)?c:0)+n));}
+  const recapDay=day||today;
   const recap=data?dailyRecap(data.results,recapDay,data.matchRosters||[]):null;
   const recapLabel=new Intl.DateTimeFormat('fr-FR',{timeZone:'Europe/Paris',day:'numeric',month:'long',year:'numeric'}).format(new Date(`${recapDay}T12:00:00Z`));
-  function yesterday(){setRecapDay(shiftDay(parisDay(),-1));}
+  function yesterday(){setDay(shiftDay(parisDay(),-1));}
 
   const monday=weekStart(today);
   const weekDays=Array.from({length:(Date.parse(`${today}T12:00:00Z`)-Date.parse(`${monday}T12:00:00Z`))/86400000+1},(_,i)=>shiftDay(monday,i));
@@ -503,11 +514,14 @@ export default function Dashboard(){
     {data?.epicPaused&&<aside className="alert" aria-label="Collecte Epic en pause">Collecte Epic suspendue pendant le diagnostic. Les données déjà reçues restent disponibles.</aside>}
 
     <section id="team">
-      <div className="section-title"><h2>Le tableau de l’équipe</h2><div className="filters"><label>Date <input type="date" value={day} onChange={e=>setDay(e.target.value)}/></label><button onClick={()=>setDay('')}>Tout</button><button onClick={()=>setDay(parisDay())}>Aujourd’hui</button></div></div>
+      <div className="section-title"><h2>Le tableau de l’équipe</h2><div className="filters"><label>Date <input type="date" aria-label="Date affichée" value={day} max={today} onChange={e=>{if(e.target.value)setDay(e.target.value);}}/></label><button onClick={()=>setDay(parisDay())}>Aujourd’hui</button><button onClick={yesterday}>Hier</button><button onClick={()=>setDay('')}>Tout</button></div></div>
       <p className="live-status"><span aria-hidden="true"/>Actualisation toutes les 3 secondes · {data?.epicPaused?'Collecte Epic en pause':'Vérification Epic chaque minute'}</p>
-      <p className="muted small">Les compteurs indiquent les parties reçues. L’historique Epic arrive une fois Rocket League fermé, pas après chaque match pendant une session.{data?.epic?.[0]?.last_sync&&<> Dernière réception Epic : {new Date(data.epic[0].last_sync).toLocaleString('fr-FR',{timeZone:'Europe/Paris'})}.</>}</p>
-      <p className="small"><a href="/direct">Configurer le direct depuis un PC ↗</a> · Un onglet sur le PC qui joue ; premier essai à valider.</p>
-      <p className="muted small">Matchs et historique sur la date choisie · Dette et totaux d’exercices cumulés depuis le début.</p>
+      <details className="team-info">
+        <summary>Comment ça marche ?</summary>
+        <p className="muted small">La date choisie s’applique aux cartes, au récap et aux historiques. « Tout » affiche toute la période, avec le récap du jour. Dette et totaux d’exercices restent cumulés depuis le début.</p>
+        <p className="muted small">Les compteurs indiquent les parties reçues. L’historique Epic arrive une fois Rocket League fermé, pas après chaque match pendant une session.{data?.epic?.[0]?.last_sync&&<> Dernière réception Epic : {new Date(data.epic[0].last_sync).toLocaleString('fr-FR',{timeZone:'Europe/Paris'})}.</>}</p>
+        <p className="small"><a href="/direct">Configurer le direct depuis un PC ↗</a> · Un onglet sur le PC qui joue ; premier essai à valider.</p>
+      </details>
       <div className="cards" ref={cardsRef} onScroll={onCardsScroll}>{!data?<SkeletonCards/>:stats.map(p=>{
         const streak=streaks[p.name];
         const all=allStats.find(a=>a.name===p.name)||p;
@@ -555,7 +569,7 @@ export default function Dashboard(){
       {undoable&&<button type="button" className="undo" onClick={()=>undo(undoable,false)}>↶ Annuler cette série</button>}
       <p className="small muted">Déclaration pour aujourd’hui. Le solde reste à zéro minimum ; tous les efforts sont comptabilisés et conservés.</p>
     </section>
-    <a className="fab" href="#exercise">+ Exercice</a>
+    {!exerciseVisible&&<a className="fab" href="#exercise">+ Exercice</a>}
     {cheer&&<div className={`cheer ${cheer.kind}`} key={cheer.id} aria-hidden="true">
       {cheer.pieces.map((style,i)=><i key={i} style={style}/>)}
       {cheer.kind!=='loss'&&<div className={cheer.kind==='finish'?'car-run demo':'car-run'}><span className="boost"/><Car/></div>}
@@ -563,19 +577,11 @@ export default function Dashboard(){
       <p className={`cheer-text ${cheer.kind}`}>{cheer.text}</p>
     </div>}
 
-    <section className="sync-summary">
-      <div><b>Historique vérifié entre les sources</b><p className="small muted">{data?.reliability?`${data.reliability.confirmed} résultat(s) confirmé(s) par les deux sources · ${data.reliability.corrected} corrigé(s) · ${data.reliability.single} reçu(s) d’une seule source`:'Chargement des sources…'}</p>{!!data?.reliability?.review&&<p className="small">{data.reliability.review} résultat(s) à vérifier, exclus du calcul des pompes.</p>}</div>
-      <a href="/connexions">Connecter les comptes Epic →</a>
-    </section>
-
     <section className="daily-recap" aria-labelledby="recap-title">
-      <div className="section-title">
-        <div><p className="eyebrow">LE BILAN DU JOUR</p><h2 id="recap-title">Récap du {recapLabel}</h2></div>
-        <div className="filters"><label>Date du récap <input type="date" aria-label="Date du récap" value={recapDay} max={parisDay()} onChange={e=>{if(e.target.value)setRecapDay(e.target.value);}}/></label><button onClick={()=>setRecapDay(parisDay())}>Ce jour</button><button onClick={yesterday}>Hier</button></div>
-      </div>
-      <p className="small muted">Journée en heure de Paris · {recapDay===parisDay()?'Bilan en cours':'Journée passée'} · Calculé sur les matchs reçus, même s’ils sont synchronisés plus tard.</p>
+      <div><p className="eyebrow">LE BILAN DU JOUR</p><h2 id="recap-title">Récap du {recapLabel}</h2></div>
+      <p className="small muted">Journée en heure de Paris · {recapDay===parisDay()?'Bilan en cours':'Journée passée'} · Date choisie dans le tableau de l’équipe · Calculé sur les matchs reçus, même s’ils sont synchronisés plus tard.</p>
       {!recap?<div className="sk-table" aria-label="Chargement du récap…"><i className="sk sk-line"/><i className="sk sk-line"/><i className="sk sk-line"/></div>:<>
-        <div className="table-wrap"><table aria-label="Récapitulatif quotidien"><thead><tr><th>Joueur</th><th>Parties</th><th>Victoires</th><th>Défaites</th><th>Moins de points du match*</th><th>Pompes générées</th></tr></thead><tbody>{recap.players.map(p=><tr key={p.name}><td><b>{p.name}</b></td><td>{p.played}</td><td className="win">{p.wins}</td><td>{p.losses}</td><td>{p.compared>0?<>{p.lowest} fois<small>sur {p.compared} matchs comparables{p.lowestTies>0?` · dont ${p.lowestTies} ex æquo`:''}</small></>:<span className="muted">Non comparable</span>}{p.unranked>0&&<small>{p.unranked} match{p.unranked>1?'s':''} sans comparaison</small>}</td><td>{p.generated}{p.bonus>0&&<small>dont {p.bonus} de supplément</small>}</td></tr>)}</tbody></table></div>
+        <div className="table-wrap"><table aria-label="Récapitulatif quotidien"><thead><tr><th>Joueur</th><th>Parties</th><th>Victoires</th><th>Défaites</th><th>Moins de points du match*</th><th>Pompes générées</th></tr></thead><tbody>{recap.players.map(p=><tr key={p.name}><td><b>{p.name}</b></td><td data-label="Parties">{p.played}</td><td data-label="Victoires" className="win">{p.wins}</td><td data-label="Défaites">{p.losses}</td><td data-label="Moins de points*">{p.compared>0?<>{p.lowest} fois<small>sur {p.compared} matchs comparables{p.lowestTies>0?` · dont ${p.lowestTies} ex æquo`:''}</small></>:<span className="muted">Non comparable</span>}{p.unranked>0&&<small>{p.unranked} match{p.unranked>1?'s':''} sans comparaison</small>}</td><td data-label="Pompes générées">{p.generated}{p.bonus>0&&<small>dont {p.bonus} de supplément</small>}</td></tr>)}</tbody></table></div>
         {recap.matchCount===0&&<p className="empty">Aucun match reçu pour cette journée. Le récap se complétera après synchronisation.</p>}
       </>}
       <p className="small muted">* Comparaison avec tous les joueurs du match, adversaires compris, seulement si le tableau complet est disponible. Les égalités sont indiquées. {lastPlaceRule.enabled?`Une défaite vaut 5 pompes, avec 5 de plus pour le dernier du match${lastPlaceRule.ties==='none'?' uniquement s’il est seul dernier':''}.`:'Le supplément dernier aux points reste désactivé.'}</p>
@@ -600,17 +606,18 @@ export default function Dashboard(){
     </section>
 
     <div className="histories">
-      <section id="history" className="history">
-        <div className="section-title"><h2>Les derniers matchs</h2><label className="small"><input type="checkbox" checked={test} onChange={e=>setTest(e.target.checked)}/> Inclure les tests bots</label></div>
+      <details id="history" className="history fold">
+        <summary><h2>Les derniers matchs</h2><span className="small muted">{rows.length} sur la période</span></summary>
+        <label className="small"><input type="checkbox" checked={test} onChange={e=>setTest(e.target.checked)}/> Inclure les tests bots</label>
         <div className="table-wrap"><table><thead><tr><th>Date / joueur</th><th>Résultat</th><th>Points</th><th>Pompes</th></tr></thead><tbody>{rows.map(r=><tr key={r.match_guid+r.player_id}>
           <td><b>{r.name}</b><small>{r.day} {r.kind==='test'?'· Test bots':''}</small><small>{r.review_required?'À vérifier':r.verification==='confirmed'?'Confirmé par les deux sources':r.verification==='corrected'?'Corrigé par Epic':r.selected_source==='epic'?'Epic':'Collecteur PC'}</small></td>
           <td><span className={r.review_required?'badge':r.team===r.winner?'badge victory':'badge defeat'}>{r.review_required?'À vérifier':r.team===r.winner?'Victoire':'Défaite'}</span></td>
           <td>{r.score}</td>
           <td>{!r.review_required&&r.kind==='match'&&r.team!==r.winner?'+5':'0'}</td>
         </tr>)}</tbody></table>{!rows.length&&<p className="empty">Aucun match enregistré pour cette période.</p>}</div>
-      </section>
-      <section className="history exercise-history">
-        <h2>Historique des exercices</h2>
+      </details>
+      <details className="history exercise-history fold">
+        <summary><h2>Historique des exercices</h2><span className="small muted">{exercises.length} sur la période</span></summary>
         <p className="small muted">Toutes les séries sont conservées. Leur auteur peut annuler une erreur dans les 24 heures.</p>
         <div className="table-wrap"><table><thead><tr><th>Date / joueur</th><th>Exercice réalisé</th><th>Équiv. pompes</th></tr></thead><tbody>{exercises.map(e=>{
           const canUndo=e.mine&&Date.now()-Date.parse(e.created)<UNDO_WINDOW_MS;
@@ -620,8 +627,12 @@ export default function Dashboard(){
             <td className="win">−{formatNumber(pushupCredit(e))}</td>
           </tr>;
         })}</tbody></table>{!exercises.length&&<p className="empty">Aucun exercice enregistré pour cette période.</p>}</div>
-      </section>
+      </details>
     </div>
-    <footer><span>LES TROIS MOUSROCKETS · {data?.epic?.[0]?.last_sync?'Dernière réception Epic : '+new Date(data.epic[0].last_sync).toLocaleString('fr-FR',{timeZone:'Europe/Paris'}):data?.collectors.length?'Dernière réception PC : '+new Date(data.collectors[0].last_seen).toLocaleString('fr-FR',{timeZone:'Europe/Paris'}):'En attente de la première collecte'}</span><p>{data?.epicPaused?"Collecte Epic en pause. Affichage des données reçues actualisé toutes les 3 secondes.":"Affichage actualisé toutes les 3 secondes et vérification Epic chaque minute lorsque cette page est visible. Matchs récupérés après fermeture de Rocket League. Page fermée : synchronisation horaire."} Tests bots exclus du bilan.</p><a href="/signout-with-chatgpt?return_to=%2F" target="_top">Se déconnecter</a></footer>
+    <section className="sync-summary">
+      <div><b>Historique vérifié entre les sources</b><p className="small muted">{data?.reliability?`${data.reliability.confirmed} résultat(s) confirmé(s) par les deux sources · ${data.reliability.corrected} corrigé(s) · ${data.reliability.single} reçu(s) d’une seule source`:'Chargement des sources…'}</p>{!!data?.reliability?.review&&<p className="small">{data.reliability.review} résultat(s) à vérifier, exclus du calcul des pompes.</p>}</div>
+      <a href="/connexions">Connecter les comptes Epic →</a>
+    </section>
+    <footer><span>LES TROIS MOUSROCKETS · {data?.epic?.[0]?.last_sync?'Dernière réception Epic : '+new Date(data.epic[0].last_sync).toLocaleString('fr-FR',{timeZone:'Europe/Paris'}):data?.collectors.length?'Dernière réception PC : '+new Date(data.collectors[0].last_seen).toLocaleString('fr-FR',{timeZone:'Europe/Paris'}):'En attente de la première collecte'}</span><p>Page fermée : synchronisation horaire. Tests bots exclus du bilan.</p><a href="/signout-with-chatgpt?return_to=%2F" target="_top">Se déconnecter</a></footer>
   </main>;
 }
