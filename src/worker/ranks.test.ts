@@ -53,7 +53,10 @@ describe('the rank source API', () => {
 
   test('lists the game identities whose rank to read', async () => {
     const response = await call('/api/ranks/targets');
-    expect(await response.json()).toEqual({ targets: [{ player: 'bob', kind: 'duo', playerId: 'Epic|bob-test|0' }] });
+    expect(await response.json()).toEqual({
+      targets: [{ player: 'bob', kind: 'duo', playerId: 'Epic|bob-test|0' }],
+      lastRankedMatchAt: null,
+    });
   });
 
   test('stores a rank as ready, and a new entry only when the rating changes', async () => {

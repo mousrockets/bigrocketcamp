@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { readRankTargets, recordObservedRanks, targetRanks } from '../../lib/rank-source';
+import { readLastRankedMatch, readRankTargets, recordObservedRanks, targetRanks } from '../../lib/rank-source';
 import { secretKeyMatches } from '../../lib/secret-key';
 import type { AppEnv } from '../auth';
 import { invalidRanks, rankReport } from '../inputs';
@@ -16,7 +16,15 @@ rankRoutes.use(async (c, next) => {
   await next();
 });
 
-rankRoutes.get('/targets', async (c) => c.json({ targets: await readRankTargets(c.env.DB) }, 200, noStore));
+// The time of the last ranked match also tells a source that this app gives it, and that it may ask /activity.
+rankRoutes.get('/targets', async (c) => {
+  const [targets, lastRankedMatchAt] = await Promise.all([readRankTargets(c.env.DB), readLastRankedMatch(c.env.DB)]);
+  return c.json({ targets, lastRankedMatchAt }, 200, noStore);
+});
+
+rankRoutes.get('/activity', async (c) =>
+  c.json({ lastRankedMatchAt: await readLastRankedMatch(c.env.DB) }, 200, noStore),
+);
 
 const reportBody = jsonBody(rankReport, {
   invalid: invalidRanks,
