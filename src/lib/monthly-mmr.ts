@@ -226,11 +226,10 @@ export async function settleDrink(
   db: Database,
   roster: Roster,
   userId: string,
-  id: unknown,
+  id: string,
   undo = false,
   now: number = Date.now(),
 ) {
-  if (typeof id !== 'string' || id.length > 160) throw new Error('Dette invalide.');
   const debt = await db.prepare('SELECT * FROM drink_debts WHERE id=?').bind(id).first<StoredDebt>();
   if (!debt) throw withStatus('Dette introuvable.', 404);
   const own = (await readPlayerIdentities(db, roster, userId)).map((identity) => identity.slot);

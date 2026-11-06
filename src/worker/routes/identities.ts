@@ -8,8 +8,10 @@ import {
   readPlayerIdentities,
   unassignedPrefix,
 } from '../../lib/player-identities';
-import { type AppEnv, sameOrigin } from '../auth';
+import { type AppEnv, sameOriginOnly } from '../auth';
+import { identityChange, invalidIdentity } from '../inputs';
 import { failure } from '../respond';
+import { jsonBody } from '../validate';
 
 export const identityRoutes = new Hono<AppEnv>();
 
@@ -64,17 +66,15 @@ identityRoutes.get('/', async (c) => {
   );
 });
 
-identityRoutes.post('/', async (c) => {
-  if (!sameOrigin(c)) return c.json({ error: 'Origine refusée.' }, 403, noStore);
-  const body = await c.req.text();
-  if (body.length > 2000) return c.json({ error: 'Envoi trop volumineux.' }, 413, noStore);
+const identityBody = jsonBody(identityChange, { invalid: invalidIdentity, tooLarge: 'Envoi trop volumineux.' });
+
+identityRoutes.post('/', sameOriginOnly, ...identityBody, async (c) => {
   const db = c.env.DB;
   const memberId = c.var.member.id;
   try {
-    const { slot, playerId: rawId, action = 'confirm' } = JSON.parse(body);
+    const { slot, playerId: rawId, action } = c.req.valid('json');
     const roster = await readRoster(db);
-    if (!roster.includes(slot) || typeof rawId !== 'string' || rawId.length > 256)
-      throw new Error('Identifiant invalide.');
+    if (!roster.includes(slot)) throw new Error(invalidIdentity);
     const playerId = canonicalPlayerId(rawId);
     const identity = (await readPlayerIdentities(db, roster, memberId)).find((candidate) => candidate.slot === slot);
     if (!identity) {
@@ -88,7 +88,7 @@ identityRoutes.post('/', async (c) => {
         .run();
       return c.json({ ok: true }, 200, noStore);
     }
-    if (action !== 'confirm' || !gamePlayerId.test(playerId)) throw new Error('Identifiant invalide.');
+    if (!gamePlayerId.test(playerId)) throw new Error(invalidIdentity);
     await prepareBoard(db);
     const seenInAMatch = (await readStoredResults(db, playerId)).some(
       (row) => row.kind === 'match' && !row.review_required && canonicalPlayerId(row.player_id) === playerId,

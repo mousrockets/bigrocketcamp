@@ -40,16 +40,16 @@ function randomCode(): string {
   return value < 4_294_000_000 ? String(value % 1_000_000).padStart(6, '0') : randomCode();
 }
 
-export function normalizeEmail(input: unknown): string | null {
-  if (typeof input !== 'string') return null;
-  const email = input.trim().toLowerCase();
-  return email.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : null;
-}
-
 /** Every mutating request must come from the app's own pages. */
 export function sameOrigin(c: Context): boolean {
   return c.req.header('origin') === new URL(c.req.url).origin;
 }
+
+/** Refuses a request from another site before reading anything it sent. */
+export const sameOriginOnly: MiddlewareHandler<AppEnv> = async (c, next) => {
+  if (!sameOrigin(c)) return c.json({ error: 'Origine refusée.' }, 403, { 'Cache-Control': 'no-store' });
+  await next();
+};
 
 export async function sendSignInCode(env: Env, email: string, requestUrl: string): Promise<'sent' | 'too-soon'> {
   const db = orm(env.DB);

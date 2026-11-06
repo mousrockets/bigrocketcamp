@@ -8,6 +8,7 @@ import {
   type RosterSize,
   teamPlace,
 } from './match-rules';
+import { parseOrThrow, says, z } from './validation';
 
 export { lastPlaceBonus, lastPlaceRule, matchIndex } from './match-rules';
 
@@ -149,23 +150,26 @@ export interface Exercise {
   day: string;
 }
 
+const invalidExercise = 'Déclaration invalide.';
+
+/** An exercise as the page declares it; whether the player is in the club is checked against the roster. */
+export const exerciseInput = z
+  .object({
+    id: z.string(says(invalidExercise)).check(z.regex(/^[a-zA-Z0-9-]{16,80}$/, says(invalidExercise))),
+    player: z.string(says(invalidExercise)),
+    type: z._default(z.enum(exerciseTypes, says(invalidExercise)), 'pushups'),
+    // Repetitions, or whole seconds for the plank.
+    count: z.int(says(invalidExercise)).check(z.gte(1, says(invalidExercise))),
+    day: z.string(says(invalidExercise)).check(z.refine(validDay, says(invalidExercise))),
+  })
+  .check(
+    z.refine((exercise) => exercise.count <= (exercise.type === 'plank' ? 60_000 : 10_000), says(invalidExercise)),
+  );
+
 export function validateExercise(roster: Roster, input: unknown): Exercise {
-  // biome-ignore lint/suspicious/noExplicitAny: validated field by field.
-  const x = input as Record<string, any> | null;
-  const type = x ? exerciseType(x) : undefined;
-  if (
-    !x ||
-    typeof x.id !== 'string' ||
-    !/^[a-zA-Z0-9-]{16,80}$/.test(x.id) ||
-    !roster.includes(x.player) ||
-    !exerciseTypes.includes(type as ExerciseType) ||
-    !bounded(x.count, type === 'plank' ? 60_000 : 10_000) ||
-    x.count === 0 ||
-    !validDay(x.day)
-  ) {
-    throw new Error('Déclaration invalide.');
-  }
-  return { id: x.id, player: x.player, type: type as ExerciseType, count: x.count, day: x.day };
+  const exercise = parseOrThrow(exerciseInput, input, invalidExercise);
+  if (!roster.includes(exercise.player)) throw new Error(invalidExercise);
+  return { id: exercise.id, player: exercise.player, type: exercise.type, count: exercise.count, day: exercise.day };
 }
 
 export interface StoredExercise extends CountedExercise {

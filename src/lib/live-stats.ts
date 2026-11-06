@@ -1,6 +1,7 @@
 import type { Roster } from './club';
 import { normalizeParticipant, parisDay, type ReceivedResult } from './domain';
 import { type ReceivedRoster, validateMatchRosters } from './match-rules';
+import { parseOrThrow, says, z } from './validation';
 
 // Official local Stats API. Public matchmaking playlists only; unknown, private,
 // training and bot playlists fail closed. Count is the full standard scoreboard.
@@ -52,77 +53,199 @@ export interface LiveMatch {
   seenIds: unknown[];
 }
 
-export function parseLiveMatch(
-  roster: Roster,
-  input: unknown,
-  now: number = Date.now(),
-): { rows: ReceivedResult[]; rosters: ReceivedRoster[] } {
-  // biome-ignore lint/suspicious/noExplicitAny: the browser's payload is checked field by field below.
-  const { state, end, startedAt, endedAt } = (input || {}) as Record<string, any>;
-  const game = state?.Game;
-  const guid = state?.MatchGuid;
-  if (
-    typeof guid !== 'string' ||
-    !guid.trim() ||
-    guid.length > 128 ||
-    end?.MatchGuid !== guid ||
-    ![0, 1].includes(end?.WinnerTeamNum)
-  ) {
-    throw new Error('Fin de match absente ou incohérente.');
-  }
-  if (
-    !Number.isSafeInteger(startedAt) ||
-    !Number.isSafeInteger(endedAt) ||
-    startedAt > endedAt ||
-    endedAt - startedAt > 10_800_000 ||
-    endedAt > now + 30_000 ||
-    endedAt < now - 86_400_000
-  ) {
-    throw new Error('Date du match invalide.');
-  }
-  const count = playerCounts.get(game?.PlaylistId);
+const finished = 'Fin de match absente ou incohérente.';
+const dated = 'Date du match invalide.';
+const publicMatch = 'Match public terminé requis.';
+const finalTeams = 'Équipes finales invalides.';
+const winnerDiffers = 'Gagnant du tableau différent de la fin de match.';
+const invalidBoard = 'Tableau final invalide.';
+const nobody = 'Aucun joueur identifié dans le tableau final.';
+const ambiguous = 'Participants du tableau ambigus.';
+const unbalanced = 'Tableau des équipes invalide.';
+const invalidResult = 'Résultat invalide.';
+const invalidStats = 'Statistiques invalides.';
+const nameless = 'Nom du joueur invalide.';
+const primaryId = /^(Epic|Steam|PS4|PSN|XboxOne|Switch|PsyNet)\|[^\s|]{1,128}\|0$/;
+const identified = (player: LivePlayer) => typeof player.PrimaryId === 'string' && primaryId.test(player.PrimaryId);
+const statistic = z.int(says(invalidStats)).check(z.gte(0, says(invalidStats)), z.lte(1_000_000, says(invalidStats)));
+const notBlank = (message: string) => z.refine<string>((text) => text.trim() !== '', says(message));
+
+/**
+ * A finished public match as the collector sends it. The checks run in stages, each with its own message,
+ * so that a scoreboard is refused for the first thing wrong with it. `now` dates the reception.
+ * Players who left (a forfeit, a quit) are missing, and bots have no platform ID: neither is counted, so the
+ * accepted scoreboard keeps only the identified players.
+ */
+export function liveMatchInput(now: () => number = Date.now) {
+  const ended = z
+    .looseObject(
+      {
+        state: z.looseObject(
+          { MatchGuid: z.string(says(finished)).check(z.maxLength(128, says(finished)), notBlank(finished)) },
+          says(finished),
+        ),
+        end: z.looseObject(
+          { MatchGuid: z.string(says(finished)), WinnerTeamNum: z.literal([0, 1], says(finished)) },
+          says(finished),
+        ),
+      },
+      says(finished),
+    )
+    .check(z.refine((match) => match.end.MatchGuid === match.state.MatchGuid, says(finished)));
+  const timed = z
+    .looseObject({ startedAt: z.int(says(dated)), endedAt: z.int(says(dated)) })
+    .check(
+      z.refine(
+        ({ startedAt, endedAt }) =>
+          startedAt <= endedAt &&
+          endedAt - startedAt <= 10_800_000 &&
+          endedAt <= now() + 30_000 &&
+          endedAt >= now() - 86_400_000,
+        says(dated),
+      ),
+    );
   // MatchEnded names the winner. A forfeit can end the match before the scoreboard says so, so bHasWinner
   // and Winner only have to agree with it when they are set.
-  if (!count || game?.bReplay !== false) throw new Error('Match public terminé requis.');
-  if (
-    !Array.isArray(game.Teams) ||
-    game.Teams.length !== 2 ||
-    new Set(game.Teams.map((team: LiveTeam) => team.TeamNum)).size !== 2 ||
-    !game.Teams.every(
-      (team: LiveTeam) =>
-        [0, 1].includes(team.TeamNum as number) &&
-        typeof team.Name === 'string' &&
-        team.Name &&
-        Number.isSafeInteger(team.Score) &&
-        (team.Score as number) >= 0,
-    )
-  ) {
-    throw new Error('Équipes finales invalides.');
-  }
-  const winner = game.Teams.find((team: LiveTeam) => team.TeamNum === end.WinnerTeamNum);
-  if (typeof game.Winner === 'string' && game.Winner && game.Winner !== winner.Name)
-    throw new Error('Gagnant du tableau différent de la fin de match.');
-  // Players who left (a forfeit, a quit) are missing, and bots have no platform id: both are simply not counted.
-  if (!Array.isArray(state.Players) || state.Players.length > count) {
-    throw new Error('Tableau final invalide.');
-  }
-  const players = state.Players.filter(
-    (player: LivePlayer) =>
-      typeof player.PrimaryId === 'string' &&
-      /^(Epic|Steam|PS4|PSN|XboxOne|Switch|PsyNet)\|[^\s|]{1,128}\|0$/.test(player.PrimaryId),
+  const publicGame = z.looseObject({
+    state: z.looseObject({
+      Game: z.looseObject(
+        {
+          PlaylistId: z.number(says(publicMatch)).check(z.refine((id) => playerCounts.has(id), says(publicMatch))),
+          bReplay: z.literal(false, says(publicMatch)),
+        },
+        says(publicMatch),
+      ),
+    }),
+  });
+  const team = z.looseObject(
+    {
+      TeamNum: z.literal([0, 1], says(finalTeams)),
+      Name: z.string(says(finalTeams)).check(z.minLength(1, says(finalTeams))),
+      Score: z.int(says(finalTeams)).check(z.gte(0, says(finalTeams))),
+    },
+    says(finalTeams),
   );
-  if (!players.length) throw new Error('Aucun joueur identifié dans le tableau final.');
-  const ids = players.map((player: LivePlayer) => canonical(player.PrimaryId));
-  if (new Set(ids).size !== ids.length) throw new Error('Participants du tableau ambigus.');
-  if (![0, 1].every((team) => players.filter((player: LivePlayer) => player.TeamNum === team).length <= count / 2)) {
-    throw new Error('Tableau des équipes invalide.');
-  }
+  const teams = z.looseObject({
+    state: z.looseObject({
+      Game: z.looseObject({
+        Teams: z.array(team, says(finalTeams)).check(
+          z.length(2, says(finalTeams)),
+          z.refine((both) => new Set(both.map((side) => side.TeamNum)).size === 2, says(finalTeams)),
+        ),
+      }),
+    }),
+  });
+  const winner = z
+    .looseObject({
+      end: z.looseObject({ WinnerTeamNum: z.number() }),
+      state: z.looseObject({
+        Game: z.looseObject({
+          Teams: z.array(z.looseObject({ TeamNum: z.number(), Name: z.string() })),
+          Winner: z.unknown(),
+        }),
+      }),
+    })
+    .check(
+      z.refine(({ end, state }) => {
+        const named = state.Game.Winner;
+        return (
+          typeof named !== 'string' ||
+          !named ||
+          named === state.Game.Teams.find((side) => side.TeamNum === end.WinnerTeamNum)?.Name
+        );
+      }, says(winnerDiffers)),
+    );
+  const board = z
+    .looseObject({
+      state: z.looseObject({
+        Players: z.array(z.unknown(), says(invalidBoard)),
+        Game: z.looseObject({ PlaylistId: z.number() }),
+      }),
+    })
+    .check(
+      z.refine(
+        ({ state }) => state.Players.length <= (playerCounts.get(state.Game.PlaylistId) ?? 0),
+        says(invalidBoard),
+      ),
+    );
+  const onlyIdentified = z.pipe(
+    z.looseObject({ state: z.looseObject({ Players: z.array(z.unknown()) }) }),
+    z.transform((match) => ({
+      ...match,
+      state: {
+        ...match.state,
+        Players: match.state.Players.filter(
+          (player) => typeof player === 'object' && player !== null && identified(player as LivePlayer),
+        ),
+      },
+    })),
+  );
+  const someone = z
+    .looseObject({ state: z.looseObject({ Players: z.array(z.unknown()) }) })
+    .check(z.refine(({ state }) => state.Players.length > 0, says(nobody)));
+  const distinct = z
+    .looseObject({ state: z.looseObject({ Players: z.array(z.looseObject({ PrimaryId: z.string() })) }) })
+    .check(
+      z.refine(({ state }) => {
+        const ids = state.Players.map((player) => canonical(player.PrimaryId));
+        return new Set(ids).size === ids.length;
+      }, says(ambiguous)),
+    );
+  const balanced = z
+    .looseObject({
+      state: z.looseObject({
+        Players: z.array(z.looseObject({ TeamNum: z.unknown() })),
+        Game: z.looseObject({ PlaylistId: z.number() }),
+      }),
+    })
+    .check(
+      z.refine(({ state }) => {
+        const half = (playerCounts.get(state.Game.PlaylistId) ?? 0) / 2;
+        return [0, 1].every((side) => state.Players.filter((player) => player.TeamNum === side).length <= half);
+      }, says(unbalanced)),
+    );
+  const participants = z.looseObject({
+    state: z.looseObject({
+      Players: z.array(
+        z.looseObject({
+          TeamNum: z.literal([0, 1], says(invalidResult)),
+          Score: statistic,
+          Goals: statistic,
+          Assists: statistic,
+          Saves: statistic,
+          Name: z.string(says(nameless)).check(z.maxLength(128, says(nameless)), notBlank(nameless)),
+        }),
+      ),
+    }),
+  });
+  // Each stage receives what the stage before it accepted: a stage only reads what earlier stages checked.
+  const stages = [
+    ended,
+    timed,
+    publicGame,
+    teams,
+    winner,
+    board,
+    onlyIdentified,
+    someone,
+    distinct,
+    balanced,
+    participants,
+  ];
+  return stages
+    .map((stage) => stage as unknown as z.ZodMiniType<unknown, unknown>)
+    .reduce((checked, stage) => z.pipe(checked, stage)) as unknown as z.ZodMiniType<LiveMatch, unknown>;
+}
+
+/** The match's lines, once `liveMatchInput` accepted it, named after the club's players. */
+export function liveMatchRows(roster: Roster, match: LiveMatch): { rows: ReceivedResult[]; rosters: ReceivedRoster[] } {
+  const { state, end, startedAt } = match;
   // Epic groups its history by RecordStartTimestamp. Use the observed start,
   // including matches that finish after Paris midnight, to keep that convention.
   const day = parisDay(new Date(startedAt));
-  const rows = players.map((player: LivePlayer) =>
+  const rows = state.Players.map((player: LivePlayer) =>
     normalizeParticipant(roster, {
-      MatchGuid: guid.trim().toLowerCase(),
+      MatchGuid: state.MatchGuid.trim().toLowerCase(),
       PlayerId: canonical(player.PrimaryId),
       Name: player.Name,
       Day: day,
@@ -135,8 +258,23 @@ export function parseLiveMatch(
       Saves: player.Saves,
     }),
   );
-  const rosters = validateMatchRosters([{ MatchGuid: rows[0].matchGuid, PlayerCount: rows.length }], rows);
+  const rosters = validateMatchRosters([{ MatchGuid: rows[0]?.matchGuid, PlayerCount: rows.length }], rows);
   return { rows, rosters };
+}
+
+export function parseLiveMatch(
+  roster: Roster,
+  input: unknown,
+  now: number = Date.now(),
+): { rows: ReceivedResult[]; rosters: ReceivedRoster[] } {
+  return liveMatchRows(
+    roster,
+    parseOrThrow(
+      liveMatchInput(() => now),
+      input,
+      'Envoi invalide.',
+    ),
+  );
 }
 
 /** Checks a scoreboard before keeping or sending it; the API names the club's players when it arrives. */

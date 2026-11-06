@@ -1,40 +1,41 @@
 import { and, eq } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { readRoster } from '../../lib/club';
-import { parisDay, validateExercise } from '../../lib/domain';
+import { exerciseInput, parisDay } from '../../lib/domain';
 import { orm } from '../../lib/orm';
 import { exerciseReactions, exercises } from '../../lib/schema';
-import { type AppEnv, sameOrigin } from '../auth';
+import { type AppEnv, sameOriginOnly } from '../auth';
+import { exerciseToUndo, invalidReaction, reaction, unknownExercise } from '../inputs';
 import { failure } from '../respond';
+import { jsonBody } from '../validate';
+
+const invalidExercise = 'Déclaration invalide.';
 
 export const exerciseRoutes = new Hono<AppEnv>();
 export const reactionRoutes = new Hono<AppEnv>();
 
-const exerciseId = /^[a-zA-Z0-9-]{16,80}$/;
 const undoWindow = 24 * 60 * 60 * 1000;
-const reactionEmojis = ['💪', '🔥', '😂'];
 
-async function smallJson(text: Promise<string>): Promise<unknown> {
-  const input = await text;
-  if (input.length > 2000) return null;
-  try {
-    return JSON.parse(input);
-  } catch {
-    return null;
-  }
-}
+exerciseRoutes.use(sameOriginOnly);
+reactionRoutes.use(sameOriginOnly);
 
-exerciseRoutes.post('/', async (c) => {
-  if (!sameOrigin(c)) return c.json({ error: 'Origine refusée.' }, 403);
+exerciseRoutes.post('/', ...jsonBody(exerciseInput, { invalid: invalidExercise }), async (c) => {
   try {
-    const input = await c.req.text();
-    if (input.length > 2000) throw new Error('Déclaration invalide.');
-    const exercise = validateExercise(await readRoster(c.env.DB), JSON.parse(input));
+    const exercise = c.req.valid('json');
+    if (!(await readRoster(c.env.DB)).includes(exercise.player)) throw new Error(invalidExercise);
     if (exercise.day > parisDay()) throw new Error('La déclaration ne peut pas être datée dans le futur.');
     const db = orm(c.env.DB);
     await db
       .insert(exercises)
-      .values({ ...exercise, created: new Date().toISOString(), author: c.var.member.id })
+      .values({
+        id: exercise.id,
+        player: exercise.player,
+        type: exercise.type,
+        count: exercise.count,
+        day: exercise.day,
+        created: new Date().toISOString(),
+        author: c.var.member.id,
+      })
       .onConflictDoNothing({ target: exercises.id });
     // The id is chosen by the client so that a retry never counts twice; a different exercise under it is a conflict.
     const [saved] = await db
@@ -52,15 +53,12 @@ exerciseRoutes.post('/', async (c) => {
     }
     return c.json({ ok: true });
   } catch (error) {
-    return failure(c, error, 'Déclaration invalide.');
+    return failure(c, error, invalidExercise);
   }
 });
 
-exerciseRoutes.delete('/', async (c) => {
-  if (!sameOrigin(c)) return c.json({ error: 'Origine refusée.' }, 403);
-  const body = (await smallJson(c.req.text())) as { id?: unknown } | null;
-  const id = body?.id;
-  if (typeof id !== 'string' || !exerciseId.test(id)) return c.json({ error: 'Série inconnue.' }, 400);
+exerciseRoutes.delete('/', ...jsonBody(exerciseToUndo, { invalid: unknownExercise }), async (c) => {
+  const { id } = c.req.valid('json');
   const db = orm(c.env.DB);
   const [saved] = await db
     .select({ author: exercises.author, created: exercises.created })
@@ -78,14 +76,8 @@ exerciseRoutes.delete('/', async (c) => {
   return c.json({ ok: true });
 });
 
-reactionRoutes.post('/', async (c) => {
-  if (!sameOrigin(c)) return c.json({ error: 'Origine refusée.' }, 403);
-  const body = (await smallJson(c.req.text())) as { exerciseId?: unknown; emoji?: unknown } | null;
-  const id = body?.exerciseId;
-  const emoji = body?.emoji;
-  if (typeof id !== 'string' || !exerciseId.test(id) || typeof emoji !== 'string' || !reactionEmojis.includes(emoji)) {
-    return c.json({ error: 'Réaction invalide.' }, 400);
-  }
+reactionRoutes.post('/', ...jsonBody(reaction, { invalid: invalidReaction }), async (c) => {
+  const { exerciseId: id, emoji } = c.req.valid('json');
   const db = orm(c.env.DB);
   if (!(await db.$count(exercises, eq(exercises.id, id)))) return c.json({ error: 'Série introuvable.' }, 404);
   // A second tap on the same emoji takes the reaction back.

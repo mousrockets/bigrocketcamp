@@ -1,5 +1,5 @@
 import { and, asc, eq, ne, sql } from 'drizzle-orm';
-import { isPlatform, type Platform } from './club';
+import type { Platform } from './club';
 import type { Database } from './db';
 import { orm } from './orm';
 import { clubSettings, collectorDevices, collectorPairingCodes, members, sessions, signInCodes } from './schema';
@@ -8,8 +8,6 @@ import { clubSettings, collectorDevices, collectorPairingCodes, members, session
 
 export const roles = ['admin', 'member'] as const;
 export type Role = (typeof roles)[number];
-
-export const isRole = (value: unknown): value is Role => roles.includes(value as Role);
 
 export interface Profile {
   id: string;
@@ -27,32 +25,6 @@ export interface OwnProfile extends Profile {
 
 /** An error the API answers with its own HTTP status. */
 const withStatus = (message: string, status: number) => Object.assign(new Error(message), { status });
-
-// "observer" is the slot of the retired Epic integration's spectator account.
-const reservedSlots = ['observer'];
-
-export function normalizeDuoPseudo(input: unknown): string {
-  const pseudo = typeof input === 'string' ? input.trim().toLowerCase() : '';
-  if (!/^[\p{L}\p{N}][\p{L}\p{N} ._-]{1,31}$/u.test(pseudo) || reservedSlots.includes(pseudo)) {
-    throw withStatus('Pseudo duo : de 2 à 32 lettres, chiffres, espaces, points ou tirets.', 400);
-  }
-  return pseudo;
-}
-
-export function normalizeSoloPseudo(input: unknown): string | null {
-  if (input === null || input === undefined) return null;
-  const pseudo = typeof input === 'string' ? input.trim() : null;
-  if (pseudo === '') return null;
-  if (pseudo === null || !/^[^\p{C}]{1,32}$/u.test(pseudo))
-    throw withStatus('Pseudo solo : 32 caractères au plus.', 400);
-  return pseudo;
-}
-
-export function normalizeClubName(input: unknown): string {
-  const name = typeof input === 'string' ? input.trim().replace(/\s+/g, ' ') : '';
-  if (!/^[^\p{C}]{2,60}$/u.test(name)) throw withStatus('Nom du club : de 2 à 60 caractères.', 400);
-  return name;
-}
 
 const profileColumns = {
   id: members.id,
@@ -91,11 +63,17 @@ export async function readOwnProfile(db: Database, memberId: string): Promise<Ow
   return { ...row, duoPseudoLocked: row.duoPseudo !== null && (await slotHasHistory(db, row.duoPseudo)) };
 }
 
-export async function saveOwnProfile(db: Database, memberId: string, input: unknown): Promise<OwnProfile> {
-  const fields = (input ?? {}) as Record<string, unknown>;
-  const duoPseudo = normalizeDuoPseudo(fields.duoPseudo);
-  const soloPseudo = normalizeSoloPseudo(fields.soloPseudo);
-  if (!isPlatform(fields.platform)) throw withStatus('Choisis ta plateforme.', 400);
+export interface ProfileInput {
+  duoPseudo: string;
+  soloPseudo: string | null;
+  platform: Platform;
+}
+
+export async function saveOwnProfile(
+  db: Database,
+  memberId: string,
+  { duoPseudo, soloPseudo, platform }: ProfileInput,
+): Promise<OwnProfile> {
   const current = await readOwnProfile(db, memberId);
   if (current.duoPseudoLocked && current.duoPseudo !== duoPseudo) {
     throw withStatus('Ton pseudo duo a déjà un historique : il ne peut plus changer.', 409);
@@ -113,7 +91,7 @@ export async function saveOwnProfile(db: Database, memberId: string, input: unkn
       .set({
         duoPseudo,
         soloPseudo,
-        platform: fields.platform,
+        platform,
         rosterPosition: sql`COALESCE(${members.rosterPosition}, (SELECT COALESCE(MAX(${members.rosterPosition}), 0) + 1 FROM ${members}))`,
       })
       .where(eq(members.id, memberId));
@@ -136,8 +114,7 @@ export async function listMembers(db: Database): Promise<Profile[]> {
     );
 }
 
-export async function inviteMember(db: Database, email: string, role: unknown): Promise<Profile> {
-  if (!isRole(role)) throw withStatus('Rôle invalide.', 400);
+export async function inviteMember(db: Database, email: string, role: Role): Promise<Profile> {
   const [added] = await orm(db)
     .insert(members)
     .values({ id: crypto.randomUUID(), email, role })
@@ -163,8 +140,7 @@ async function forgetMember(db: Database, memberId: string) {
   ]);
 }
 
-export async function removeMember(db: Database, adminId: string, memberId: unknown): Promise<void> {
-  if (typeof memberId !== 'string') throw withStatus('Membre inconnu.', 400);
+export async function removeMember(db: Database, adminId: string, memberId: string): Promise<void> {
   if (memberId === adminId) throw withStatus('Pour quitter le club, supprime ton compte depuis ton profil.', 400);
   if (!(await orm(db).$count(members, eq(members.id, memberId)))) throw withStatus('Membre introuvable.', 404);
   await forgetMember(db, memberId);
@@ -173,9 +149,7 @@ export async function removeMember(db: Database, adminId: string, memberId: unkn
 const otherAdmins = (db: Database, memberId: string) =>
   orm(db).$count(members, and(eq(members.role, 'admin'), ne(members.id, memberId)));
 
-export async function setMemberRole(db: Database, memberId: unknown, role: unknown): Promise<void> {
-  if (typeof memberId !== 'string') throw withStatus('Membre inconnu.', 400);
-  if (!isRole(role)) throw withStatus('Rôle invalide.', 400);
+export async function setMemberRole(db: Database, memberId: string, role: Role): Promise<void> {
   if (role === 'member' && (await otherAdmins(db, memberId)) === 0) {
     throw withStatus('Le club garde au moins un administrateur.', 409);
   }
@@ -197,8 +171,7 @@ export async function deleteOwnAccount(db: Database, memberId: string): Promise<
   await forgetMember(db, memberId);
 }
 
-export async function saveClubName(db: Database, input: unknown): Promise<string> {
-  const name = normalizeClubName(input);
+export async function saveClubName(db: Database, name: string): Promise<string> {
   await orm(db)
     .insert(clubSettings)
     .values({ id: 1, name })
