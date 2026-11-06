@@ -57,6 +57,18 @@ describe('the rank source API', () => {
     expect(await env.DB.prepare('SELECT COUNT(*) AS n FROM mmr_entries').first('n')).toBe(2);
   });
 
+  test('stores the ranked matches played when the source sends them', async () => {
+    await post([{ ...rank(1180), matches: 395 }]);
+    expect(
+      await env.DB.prepare("SELECT matches_played FROM player_ranks WHERE player = 'nokouki'").first('matches_played'),
+    ).toBe(395);
+    await post([rank(1180)]);
+    expect(
+      await env.DB.prepare("SELECT matches_played FROM player_ranks WHERE player = 'nokouki'").first('matches_played'),
+    ).toBe(395);
+    expect((await post([{ ...rank(1180), matches: -1 }])).status).toBe(400);
+  });
+
   test('refuses a rank for an unknown identity or out of range', async () => {
     expect((await post([{ ...rank(1180), playerId: 'Epic|someone-else|0' }])).status).toBe(400);
     expect((await post([rank(20_000)])).status).toBe(400);

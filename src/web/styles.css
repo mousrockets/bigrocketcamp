@@ -910,6 +910,29 @@ main>header>a,
   margin: 8px 0 0;
 }
 
+.rank-body {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.rank-icon {
+  flex: none;
+  width: 56px;
+  height: 56px;
+}
+
+/* Epic's logo, unaltered: the mask keeps its shape, the theme only picks white or ink. */
+.rl-logo {
+  display: inline-block;
+  width: 52px;
+  height: 26px;
+  vertical-align: middle;
+  background: var(--text);
+  -webkit-mask: url(/rocket-league/logo.svg) center / contain no-repeat;
+  mask: url(/rocket-league/logo.svg) center / contain no-repeat;
+}
+
 .rank-panel>.small {
   margin-bottom: 0;
 }

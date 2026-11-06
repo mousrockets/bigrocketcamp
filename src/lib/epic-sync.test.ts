@@ -60,18 +60,9 @@ describe('retired Epic sync', () => {
         'friend-one',
         `Epic|${accountId}|0`,
       ),
-      env.DB.prepare('INSERT INTO player_ranks VALUES (?,?,?,?,?,?,?,?,?,?)').bind(
-        second,
-        'Epic|synthetic|0',
-        11,
-        1200,
-        17,
-        2,
-        10,
-        '2026-11-05T12:00:00Z',
-        '2026-11-05T12:00:00Z',
-        'frozen',
-      ),
+      env.DB.prepare(
+        'INSERT INTO player_ranks (player,player_id,playlist,mmr,tier,division,placement_matches,fetched_at,last_attempt,status) VALUES (?,?,?,?,?,?,?,?,?,?)',
+      ).bind(second, 'Epic|synthetic|0', 11, 1200, 17, 2, 10, '2026-11-05T12:00:00Z', '2026-11-05T12:00:00Z', 'frozen'),
       env.DB.prepare('INSERT INTO results VALUES (?,?,?,?,?,?,?,?,?,?,?,?)').bind(
         'synthetic-old-match',
         'Epic|synthetic|0',
