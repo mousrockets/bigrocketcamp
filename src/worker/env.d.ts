@@ -4,10 +4,6 @@ interface Env {
   RESEND_API_KEY?: string;
   /** Sender of the sign-in e-mails, e.g. `Les Trois Mousrockets <hello@example.com>`. */
   MAIL_FROM?: string;
-  /** Shared secret of the legacy PC collector (`Authorization: Bearer …`). */
-  INGEST_KEY?: string;
-  /** Secret of the monthly public MMR import (`X-RL-Public-Mmr-Key`). */
-  PUBLIC_MMR_IMPORT_KEY?: string;
   /** Key of the instance's rank source (`X-Rank-Source-Key`), at least 32 characters. */
   RANK_SOURCE_KEY?: string;
 }

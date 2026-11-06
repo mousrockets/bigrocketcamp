@@ -19,7 +19,6 @@ const tables = [
   'player_identity_aliases',
   'monthly_mmr_policy',
   'mmr_entries',
-  'public_mmr_sync',
   'monthly_mmr_results',
   'drink_debts',
 ];
@@ -35,6 +34,12 @@ function sqlValue(value: unknown): string {
   return `'${String(value).replaceAll("'", "''")}'`;
 }
 
+// The app no longer keeps the prototype's RLStats readings (migration 0014).
+const obsolete: Record<string, (row: Record<string, unknown>) => boolean> = {
+  mmr_entries: (row) => row.source === 'rlstats',
+  player_ranks: (row) => row.status === 'public',
+};
+
 const directory = process.argv[2];
 if (!directory) throw new Error('Usage: node scripts/import-prototype.ts <export-directory>');
 
@@ -45,7 +50,9 @@ for (const table of tables) {
     console.error(`skipped ${table}: no ${file}`);
     continue;
   }
-  const rows: Record<string, unknown>[] = JSON.parse(readFileSync(file, 'utf8'));
+  const rows = (JSON.parse(readFileSync(file, 'utf8')) as Record<string, unknown>[]).filter(
+    (row) => !obsolete[table]?.(row),
+  );
   // The migrations already insert some rows (the monthly policy): the export replaces them.
   statements.push(`DELETE FROM ${table};`);
   for (const row of rows) {

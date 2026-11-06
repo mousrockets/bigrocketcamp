@@ -61,7 +61,6 @@ type DoublesRank = {
   fetchedAt: string | null;
 };
 type Reaction = { exercise_id: string; emoji: string; count: number; mine: number };
-type EpicConnection = { slot: string; status: string; last_sync: string | null; last_attempt: string | null };
 type State = {
   results: Result[];
   exercises: Exercise[];
@@ -71,9 +70,6 @@ type State = {
   doublesRanks?: DoublesRank[];
   reactions?: Reaction[];
   me?: string | null;
-  epic?: EpicConnection[];
-  epicPaused?: boolean;
-  epicRetired?: boolean;
   monthly?: MonthlyState;
   rankSource?: { lastReadAt: string | null; stale: boolean } | null;
 };
@@ -398,9 +394,6 @@ function DoublesRankPanel({ player, rank }: { player: string; rank: DoublesRank 
         </p>
       )}
       {rank?.status === 'unavailable' && <p className="rank-meta">Actualisation du classement indisponible.</p>}
-      {rank?.status === 'frozen' && <p className="rank-meta">Dernier MMR conservé · connexion Epic retirée.</p>}
-      {rank?.status === 'manual' && <p className="rank-meta">MMR déclaré par le joueur · sans connexion Epic.</p>}
-      {rank?.status === 'public' && <p className="rank-meta">MMR du profil public RLStats.net.</p>}
     </div>
   );
 }
@@ -511,18 +504,6 @@ function SkeletonCards() {
   );
 }
 
-function collectionLabel(state: State, connection: EpicConnection | undefined) {
-  if (state.epicRetired)
-    return connection ? 'Identité de jeu conservée · accès Epic retiré.' : 'En attente du Direct PC.';
-  if (connection?.status === 'reconnect') return 'Autorisation Epic à renouveler.';
-  if (connection?.status === 'error') return 'Lecture Epic indisponible.';
-  if (connection?.status === 'waiting_offline') return 'Historique en attente : joueur en ligne ou présence inconnue.';
-  if (!connection) return 'Compte Epic à connecter.';
-  if (!connection.last_sync) return 'Historique pas encore récupéré.';
-  if (connection.status === 'partial') return 'Historique reçu partiellement.';
-  return 'Fenêtre récente Epic reçue.';
-}
-
 function matchSource(result: Result) {
   if (result.review_required) return 'À vérifier';
   if (result.verification === 'confirmed') return 'Confirmé par les deux sources';
@@ -533,8 +514,6 @@ function matchSource(result: Result) {
 function lastReception(state: State | null) {
   const collector = state?.collectors[0];
   if (collector) return `Dernière réception PC : ${parisDateTime(collector.last_seen)}`;
-  const epicSync = state?.epic?.[0]?.last_sync;
-  if (epicSync) return `Dernier historique Epic conservé : ${parisDateTime(epicSync)}`;
   return 'En attente de la première collecte';
 }
 
@@ -1188,12 +1167,6 @@ export function Dashboard() {
           Préviens la personne qui gère l’instance : l’observateur des rangs est peut-être en panne.
         </aside>
       )}
-      {data?.epicRetired && (
-        <aside className="alert" aria-label="Connexion Epic retirée">
-          Connexion communautaire Epic retirée. L’application ne se connecte plus à Rocket League à votre place.{' '}
-          <a href="/direct">Utiliser le Direct PC</a>.
-        </aside>
-      )}
 
       <section id="team">
         <div className="section-title">
@@ -1233,8 +1206,7 @@ export function Dashboard() {
             le récap du jour. Dette et totaux d’exercices restent cumulés depuis le début.
           </p>
           <p className="muted small">
-            Les compteurs indiquent les parties reçues. Les anciennes données Epic restent disponibles ; leur collecte
-            est retirée. Le MMR affiche le dernier relevé ou la dernière déclaration du joueur.
+            Les compteurs indiquent les parties reçues. Le MMR affiche le dernier relevé de la source de rangs.
           </p>
           <p className="small">
             <a href="/direct">Configurer le direct depuis un PC ↗</a> · Un onglet sur le PC qui joue ; premier essai à
@@ -1249,8 +1221,7 @@ export function Dashboard() {
             stats.map((p) => {
               const streak = streakOfPlayer(p.name);
               const all = allStats.find((a) => a.name === p.name) || p;
-              const connection = data.epic?.find((c) => c.slot === p.name);
-              const historyPending = p.played === 0 && !connection?.last_sync;
+              const historyPending = p.played === 0;
               return (
                 <article className={p.name === recognized ? 'card me' : 'card'} key={p.name}>
                   <div className="card-top">
@@ -1276,11 +1247,7 @@ export function Dashboard() {
                       <b>{historyPending ? '—' : p.losses}</b> défaites
                     </span>
                   </div>
-                  {/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: same markup as before the migration. */}
-                  <p className="small muted" aria-label={`Collecte de ${p.name}`}>
-                    {collectionLabel(data, connection)}
-                    {connection?.last_sync && <> Dernière lecture : {parisDateTime(connection.last_sync)}.</>}
-                  </p>
+                  {historyPending && <p className="small muted">En attente du Direct PC.</p>}
                   <div className="debt">
                     <strong>
                       <Odometer value={formatNumber(p.remaining)} />
@@ -1790,10 +1757,7 @@ export function Dashboard() {
         <span>
           {clubName.toUpperCase()} · {lastReception(data)}
         </span>
-        <p>
-          Aucun accès aux sessions Epic. Le Direct nécessite un onglet ouvert sur un PC qui joue. Tests bots exclus du
-          bilan.
-        </p>
+        <p>Le Direct nécessite un onglet ouvert sur un PC qui joue. Tests bots exclus du bilan.</p>
         <p>
           Des parties des supports utilisés sont des marques déposées et/ou des travaux soumis aux droits d’auteur
           d’Epic Games, Inc. Tous droits réservés par Epic. Ce produit n’est pas officiel et n’a pas l’approbation

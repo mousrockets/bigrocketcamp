@@ -34,12 +34,6 @@ export function Connections() {
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: loads the page once.
   useEffect(() => {
-    try {
-      // Leftover of the retired Epic sign-in flow.
-      sessionStorage.removeItem('rl-epic-pending-public');
-    } catch {
-      // Nothing to clean without storage.
-    }
     refresh();
   }, []);
 
@@ -78,11 +72,11 @@ export function Connections() {
         </a>
       </header>
       <section>
-        <p className="eyebrow">SCORES LOCAUX · AUCUN ACCÈS EPIC</p>
+        <p className="eyebrow">IDENTITÉS DE JEU</p>
         <h1>Nos joueurs</h1>
         <p className="muted">
-          La connexion communautaire Epic est retirée. Les identifiants de jeu sont conservés pour reconnaître vos
-          tableaux du Direct, sans mot de passe ni jeton Epic.
+          Chaque joueur confirme son identifiant de jeu à partir d’un tableau reçu : c’est lui qui rattache les tableaux
+          du Direct au bon joueur.
         </p>
         <a href="/direct">Configurer le Direct PC →</a>
       </section>
@@ -147,20 +141,6 @@ export function Connections() {
             )}
           </article>
         ))}
-      </section>
-      <section className="daily-recap">
-        <h2>Les anciennes autorisations Epic</h2>
-        <p className="muted">
-          Les copies conservées par cette application sont supprimées. Cela ne révoque pas automatiquement les
-          autorisations chez Epic. Pour éviter d’interrompre une partie, aucune déconnexion générale n’est lancée ici.
-        </p>
-        <p className="small muted">
-          Lorsque vous aurez fermé Rocket League, vous pourrez gérer les autorisations dans les paramètres Epic, onglet
-          Applications. Ne confondez pas une autorisation d’application avec la liaison de votre compte PlayStation.
-        </p>
-        <a href="https://www.epicgames.com/account/connections#apps" target="_blank" rel="noopener noreferrer">
-          Gérer les autorisations chez Epic ↗
-        </a>
       </section>
     </main>
   );

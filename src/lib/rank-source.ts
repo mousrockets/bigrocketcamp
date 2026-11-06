@@ -85,7 +85,7 @@ export async function recordObservedRanks(db: Database, ranks: ObservedRank[]): 
   for (const rank of ranks) {
     const latest = await db
       .prepare(
-        "SELECT mmr, tier, division FROM mmr_entries WHERE player = ? ORDER BY CASE WHEN source='rlstats' THEN source_at ELSE recorded_at END DESC, recorded_at DESC, rowid DESC LIMIT 1",
+        'SELECT mmr, tier, division FROM mmr_entries WHERE player = ? ORDER BY recorded_at DESC, rowid DESC LIMIT 1',
       )
       .bind(rank.player)
       .first<{ mmr: number; tier: number | null; division: number | null }>();
