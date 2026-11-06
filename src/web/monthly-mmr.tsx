@@ -140,8 +140,8 @@ export function MonthlyMmr({ data, onRefresh }: { data: MonthlyState; onRefresh:
         </span>
       </div>
       <p className="monthly-rule">
-        Le dernier doit <b>une boisson à chacun des deux autres joueurs</b>, soft ou alcool au choix. Ex æquo à la
-        dernière place : aucune dette pour ce mois.
+        Le dernier doit <b>une boisson à chacun des autres joueurs</b>, soft ou alcool au choix. Ex æquo à la dernière
+        place : aucune dette pour ce mois.
       </p>
       <p className="small muted">
         Clôture le <b>{dateLabel(data.current.cutoffAt)}</b>, heure de Paris. Le classement reste provisoire jusque-là ;
@@ -206,7 +206,7 @@ export function MonthlyMmr({ data, onRefresh }: { data: MonthlyState; onRefresh:
             <p>
               {result.status === 'final' ? (
                 <>
-                  <b>{result.losers?.[0]}</b> termine dernier : une boisson à chacun des deux autres.
+                  <b>{result.losers?.[0]}</b> termine dernier : une boisson à chacun des autres.
                 </>
               ) : result.status === 'tied' ? (
                 'Ex æquo à la dernière place : aucune dette.'
