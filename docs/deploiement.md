@@ -15,7 +15,7 @@ Cloudflare déploie ensuite chaque commit de `main` lui-même : aucun jeton Clou
 Dans le Worker, Settings :
 
 - **Build → Variables** (lues au build, visibles dans l'app) : `VITE_CLUB_NAME` (nom du club) et `VITE_CLUB_ROSTER` (pseudos des joueurs, en minuscules, séparés par des virgules) et `VITE_CLUB_PLATFORMS` (joueurs sur console, par exemple `kevin-74000:PS5`). Sans elles, l'app prend les valeurs de `.env`.
-- **Variables and Secrets** (lues par l'API) : `MAIL_FROM` (expéditeur des codes, par exemple `Les Trois Mousrockets <connexion@mousrockets.com>`), et en secrets `RESEND_API_KEY`, `INGEST_KEY` (ancien collecteur PC) et `PUBLIC_MMR_IMPORT_KEY` (relevé mensuel du MMR), ces deux derniers seulement s'ils servent.
+- **Variables and Secrets** (lues par l'API) : `MAIL_FROM` (expéditeur des codes, par exemple `Les Trois Mousrockets <connexion@mousrockets.com>`), et en secrets `RESEND_API_KEY`, `INGEST_KEY` (ancien collecteur PC) et `PUBLIC_MMR_IMPORT_KEY` (relevé mensuel du MMR), ces deux derniers seulement s'ils servent ; `RANK_SOURCE_KEY` (au moins 32 caractères) si une source de rangs alimente le MMR 2v2 (`GET /api/ranks/targets`, `POST /api/ranks`, en-tête `X-Rank-Source-Key`).
 - **Build → Deploy command** : `npm run deploy`. Il applique les migrations de la base avant de déployer.
 - `wrangler.jsonc` : l'identifiant de la base D1 de production (`database_id`).
 

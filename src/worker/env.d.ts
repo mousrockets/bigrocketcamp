@@ -8,4 +8,6 @@ interface Env {
   INGEST_KEY?: string;
   /** Secret of the monthly public MMR import (`X-RL-Public-Mmr-Key`). */
   PUBLIC_MMR_IMPORT_KEY?: string;
+  /** Key of the instance's rank source (`X-Rank-Source-Key`), at least 32 characters. */
+  RANK_SOURCE_KEY?: string;
 }

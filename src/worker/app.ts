@@ -7,6 +7,7 @@ import { identityRoutes } from './routes/identities';
 import { importRoutes } from './routes/imports';
 import { liveRoutes } from './routes/live';
 import { monthlyRoutes } from './routes/monthly';
+import { rankRoutes } from './routes/ranks';
 import { stateRoutes } from './routes/state';
 
 export const app = new Hono<AppEnv>().basePath('/api');
@@ -14,6 +15,7 @@ export const app = new Hono<AppEnv>().basePath('/api');
 app.get('/health', (c) => c.json({ status: 'ok' }));
 app.route('/auth', authRoutes);
 app.route('/', importRoutes);
+app.route('/ranks', rankRoutes);
 
 // Everything below needs a signed-in member.
 app.use('/state', requireMember);
