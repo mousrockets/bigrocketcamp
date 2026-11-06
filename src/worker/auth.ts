@@ -70,6 +70,7 @@ export async function sendSignInCode(env: Env, email: string, requestUrl: string
 
 async function deliver(env: Env, email: string, code: string, requestUrl: string): Promise<void> {
   const host = new URL(requestUrl).hostname;
+  if (!env.MAIL_FROM && env.RESEND_API_KEY) throw new Error('MAIL_FROM is not set.');
   if (!env.RESEND_API_KEY) {
     if (host === '127.0.0.1' || host === 'localhost') {
       console.log(`Sign-in code for ${email}: ${code}`);
@@ -87,7 +88,11 @@ async function deliver(env: Env, email: string, code: string, requestUrl: string
       text: `Ton code de connexion est ${code}. Il expire dans 10 minutes.\n\nSi tu n'as rien demandé, ignore ce message.`,
     }),
   });
-  if (!response.ok) throw new Error(`Resend answered ${response.status}.`);
+  if (!response.ok) {
+    // Resend explains a refusal in its body (a missing sender, an unverified domain): keep it for the logs.
+    const reason = await response.text().catch(() => '');
+    throw new Error(`Resend answered ${response.status}: ${reason.slice(0, 300)}`);
+  }
 }
 
 export async function verifySignInCode(c: Context<AppEnv>, email: string, code: string): Promise<boolean> {
