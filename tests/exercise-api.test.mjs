@@ -8,7 +8,7 @@ test('État : 304 sans contenu si rien n’a changé, nouvelle version après un
  try{
   f.db.prepare("INSERT INTO epic_accounts (slot,owner,account_id,tokens,status,coverage,last_attempt) VALUES ('nokouki','current-user','synthetic-account','sealed','waiting_offline','recent_only','2026-11-06T10:00:00.000Z')").run();
   const first=await f.readState(),etag=first.headers.get('etag'),state=await first.json();
-  assert.deepEqual(state.epic,[{player:'nokouki',status:'waiting_offline',checkedAt:'2026-11-06T10:00:00.000Z'}]);
+  assert.deepEqual(state.epic,[{slot:'nokouki',status:'waiting_offline',last_sync:null,last_attempt:'2026-11-06T10:00:00.000Z'}]);
   assert.ok(!JSON.stringify(state).includes('synthetic-account'));
   const ask=()=>f.readState(new Request('https://rl.example/api/state',{headers:{'if-none-match':etag}}));
   const unchanged=await ask();assert.equal(unchanged.status,304);assert.equal(await unchanged.text(),'');
