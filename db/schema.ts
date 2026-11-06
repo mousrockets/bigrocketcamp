@@ -2,6 +2,7 @@
 // Add Drizzle tables here when the site actually needs a database.
 // See examples/d1/db/schema.ts for an opt-in example.
 import { sqliteTable, text, integer, primaryKey } from 'drizzle-orm/sqlite-core';
+import {sql} from 'drizzle-orm';
 export const results = sqliteTable('results', {
  matchGuid:text('match_guid').notNull(), playerId:text('player_id').notNull(), name:text('name').notNull(), day:text('day').notNull(), kind:text('kind').notNull(), team:integer('team').notNull(), winner:integer('winner').notNull(), score:integer('score').notNull(), goals:integer('goals').notNull(), assists:integer('assists').notNull(), saves:integer('saves').notNull(), received:text('received').notNull(),
 },t=>[primaryKey({columns:[t.matchGuid,t.playerId]})]);
@@ -17,3 +18,7 @@ export const playerRanks=sqliteTable('player_ranks',{player:text('player').prima
 // Public game identifiers only. No OAuth token or game session is retained here.
 export const playerIdentities=sqliteTable('player_identities',{slot:text('slot').primaryKey(),owner:text('owner').notNull(),playerId:text('player_id').notNull().unique(),lastSync:text('last_sync'),lastAttempt:text('last_attempt'),coverage:text('coverage').notNull().default('recent_only')});
 export const playerIdentityAliases=sqliteTable('player_identity_aliases',{playerId:text('player_id').primaryKey(),slot:text('slot').notNull(),confirmedBy:text('confirmed_by').notNull(),confirmedAt:text('confirmed_at').notNull()});
+export const monthlyMmrPolicy=sqliteTable('monthly_mmr_policy',{id:integer('id').primaryKey(),startsMonth:text('starts_month').notNull()});
+export const mmrEntries=sqliteTable('mmr_entries',{id:text('id').primaryKey(),player:text('player').notNull(),mmr:integer('mmr').notNull(),tier:integer('tier'),division:integer('division'),author:text('author').notNull(),recordedAt:text('recorded_at').notNull().default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ','now'))`)});
+export const monthlyMmrResults=sqliteTable('monthly_mmr_results',{month:text('month').primaryKey(),cutoffAt:text('cutoff_at').notNull(),closedAt:text('closed_at').notNull(),status:text('status').notNull(),snapshot:text('snapshot').notNull()});
+export const drinkDebts=sqliteTable('drink_debts',{id:text('id').primaryKey(),month:text('month').notNull(),payer:text('payer').notNull(),recipient:text('recipient').notNull(),paidAt:text('paid_at'),paidBy:text('paid_by')});

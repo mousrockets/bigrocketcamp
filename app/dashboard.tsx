@@ -3,6 +3,8 @@ import {useEffect,useRef,useState} from 'react';
 import type {CSSProperties} from 'react';
 import {roster,parisDay,summarize,dailyRecap,lastPlaceRule,validateExercise,pushupCredit,exerciseEffect,exerciseDescription,formatNumber} from '../lib/domain.mjs';
 import {currentSeason,seasonTiming,seasonEndLabel} from '../lib/season.mjs';
+import MonthlyMmr from './monthly-mmr';
+import type {MonthlyState} from './monthly-mmr';
 
 type ExerciseType='pushups'|'plank'|'crunches';
 type Declaration={id:string;player:string;type:ExerciseType;count:number;day:string};
@@ -23,6 +25,7 @@ type State={
   epic?:{slot:string;status:string;last_sync:string|null;last_attempt:string|null}[];
   epicPaused?:boolean;
   epicRetired?:boolean;
+  monthly?:MonthlyState;
 };
 type CheerKind='cheer'|'finish'|'badge'|'loss';
 type Cheer={id:number;text:string;kind:CheerKind;pieces:CSSProperties[]};
@@ -145,6 +148,7 @@ function DoublesRankPanel({player,rank}:{player:string;rank?:DoublesRank}){
     {rank?.fetchedAt&&<p className="rank-meta">{rank.status!=='ready'?'Dernière valeur connue · ':''}{new Date(rank.fetchedAt).toLocaleString('fr-FR',{timeZone:'Europe/Paris',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</p>}
     {rank?.status==='unavailable'&&<p className="rank-meta">Actualisation du classement indisponible.</p>}
     {rank?.status==='frozen'&&<p className="rank-meta">Dernier MMR conservé · connexion Epic retirée.</p>}
+    {rank?.status==='manual'&&<p className="rank-meta">MMR déclaré par le joueur · sans connexion Epic.</p>}
   </div>;
 }
 
@@ -470,7 +474,7 @@ export default function Dashboard(){
   }));
   const podium=[...weekly].sort((a,b)=>b.effort-a.effort);
   const debtor=[...weekly].sort((a,b)=>b.generated-a.generated)[0];
-  const mmrPodium=roster.map(name=>{const r=data?.doublesRanks?.find(x=>x.player===name);return {name,mmr:r?.mmr??null,label:r?.label||''};}).sort((a,b)=>(b.mmr??-1)-(a.mmr??-1));
+  const mmrPodium=roster.map(name=>{const r=data?.monthly?.current.rows.find(x=>x.player===name);return {name,mmr:r?.mmr??null,label:'MMR déclaré ce mois'};}).sort((a,b)=>(b.mmr??-1)-(a.mmr??-1));
   const podiumRows=podiumMode==='mmr'
     ?mmrPodium.map(p=>({name:p.name,title:p.label,value:p.mmr!=null?<>{formatNumber(p.mmr)} <small>MMR</small></>:<small>MMR non reçu</small>}))
     :podium.map(p=>({name:p.name,title:'',value:<>{formatNumber(p.effort)} <small>équiv.</small></>}));
@@ -503,6 +507,7 @@ export default function Dashboard(){
             <a href="#exercise">Déclarer un exercice</a>
             <a href="#recap-title">Récap du jour</a>
             <a href="#week">La semaine</a>
+            <a href="#monthly-mmr">MMR du mois et boissons</a>
             <a href="#history">Derniers matchs</a>
             <a href="/connexions">Identités des joueurs</a>
             <a href="/direct">Direct depuis le PC · à tester</a>
@@ -525,7 +530,7 @@ export default function Dashboard(){
       <details className="team-info">
         <summary>Comment ça marche ?</summary>
         <p className="muted small">La date choisie s’applique aux cartes, au récap et aux historiques. « Tout » affiche toute la période, avec le récap du jour. Dette et totaux d’exercices restent cumulés depuis le début.</p>
-        <p className="muted small">Les compteurs indiquent les parties reçues. Les anciennes données Epic restent disponibles ; leur collecte est retirée. Le MMR affiche la dernière valeur reçue.</p>
+        <p className="muted small">Les compteurs indiquent les parties reçues. Les anciennes données Epic restent disponibles ; leur collecte est retirée. Le MMR affiche le dernier relevé ou la dernière déclaration du joueur.</p>
         <p className="small"><a href="/direct">Configurer le direct depuis un PC ↗</a> · Un onglet sur le PC qui joue ; premier essai à valider.</p>
       </details>
       <SeasonCountdown/>
@@ -551,6 +556,8 @@ export default function Dashboard(){
       })}</div>
       {data&&<div className="card-dots" role="group" aria-label="Choisir un joueur">{stats.map((p,i)=><button type="button" key={p.name} className={i===activeCard?'dot active':'dot'} aria-label={`Voir la carte de ${p.name}`} aria-current={i===activeCard} onClick={()=>scrollToCard(i)}/>)}</div>}
     </section>
+
+    {data?.monthly&&<MonthlyMmr data={data.monthly} onRefresh={refresh}/>}
 
     <section id="exercise" className="exercise">
       <p className="eyebrow">À TOI DE JOUER</p><h2>Déclarer un exercice</h2><p className="muted">Choisis ton effort pour réduire ta dette.</p>
@@ -595,20 +602,20 @@ export default function Dashboard(){
     </section>
 
     <section id="week" className="week" aria-labelledby="week-title">
-      <p className="eyebrow">{podiumMode==='mmr'?'2V2 CLASSÉ · DERNIER RELEVÉ':'DEPUIS LUNDI'}</p><h2 id="week-title">{podiumMode==='mmr'?'Le podium MMR 2v2':'Le podium de la semaine'}</h2>
+      <p className="eyebrow">{podiumMode==='mmr'?'2V2 CLASSÉ · MOIS EN COURS':'DEPUIS LUNDI'}</p><h2 id="week-title">{podiumMode==='mmr'?'Le podium MMR mensuel':'Le podium de la semaine'}</h2>
       <div className="podium-toggle" role="group" aria-label="Classer le podium par">
         <button type="button" aria-pressed={podiumMode==='effort'} onClick={()=>choosePodium('effort')}>Efforts</button>
         <button type="button" aria-pressed={podiumMode==='mmr'} onClick={()=>choosePodium('mmr')}>MMR 2v2</button>
       </div>
       {podiumMode==='mmr'&&<SeasonCountdown/>}
       {!data?<div className="sk-table"><i className="sk sk-big"/></div>:<>
-        <ol className="podium">{[podiumRows[1],podiumRows[0],podiumRows[2]].map(p=>{const rank=podiumRows.indexOf(p)+1;return <li key={p.name} className={`step step-${rank}`} title={p.title}>
+        {podiumMode==='mmr'&&mmrPodium.some(p=>p.mmr===null)?<p className="empty small">Les trois MMR du mois sont nécessaires pour afficher le podium.</p>:<ol className="podium">{[podiumRows[1],podiumRows[0],podiumRows[2]].map(p=>{const rank=podiumRows.indexOf(p)+1;return <li key={p.name} className={`step step-${rank}`} title={p.title}>
           <span className="step-name">{p.name}</span>
           <span className="step-value">{p.value}</span>
           <span className="step-block">{rank}</span>
-        </li>;})}</ol>
+        </li>;})}</ol>}
         <p className="small muted">{podiumMode==='mmr'
-          ?<>{mmrPodium[0].mmr!=null?`${mmrPodium[0].name} a le meilleur MMR 2v2${mmrPodium[0].label?` (${mmrPodium[0].label})`:''}.`:'Aucun MMR 2v2 reçu pour l’instant.'} Dernier relevé Epic, indépendant de la semaine.</>
+          ?<>{mmrPodium[0].mmr!=null?`${mmrPodium[0].name} a le meilleur MMR 2v2 déclaré ce mois.`:'Les MMR du mois restent à renseigner.'} Classement provisoire ; les boissons sont attribuées seulement après clôture. <a href="#monthly-mmr">Voir le défi du mois</a>.</>
           :<>{podium[0].effort>0?`${podium[0].name} mène la semaine.`:'Personne n’a encore bougé cette semaine…'}{debtor.generated>0?` Lanterne rouge : ${debtor.name} avec ${debtor.generated} pompes générées.`:''}</>}</p>
       </>}
     </section>

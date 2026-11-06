@@ -1,19 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
 import React,{act} from 'react';
 import {create} from 'react-test-renderer';
-import {transpileModule,ModuleKind,JsxEmit} from 'typescript';
 import {fixture} from './helpers/exercise-fixture.mjs';
+import {Dashboard} from './helpers/react-component.mjs';
 
-// Compile the actual TSX component, keeping real React state, effects and event handlers.
-const source=readFileSync(new URL('../app/dashboard.tsx',import.meta.url),'utf8');
-const compiled=transpileModule(source,{compilerOptions:{module:ModuleKind.ESNext,jsx:JsxEmit.ReactJSX}}).outputText
- .replaceAll('"react/jsx-runtime"',JSON.stringify(import.meta.resolve('react/jsx-runtime')))
- .replaceAll("'react'",JSON.stringify(import.meta.resolve('react')))
- .replaceAll("'../lib/domain.mjs'",JSON.stringify(new URL('../lib/domain.mjs',import.meta.url).href))
- .replaceAll("'../lib/season.mjs'",JSON.stringify(new URL('../lib/season.mjs',import.meta.url).href));
-const {default:Dashboard}=await import(`data:text/javascript;base64,${Buffer.from(compiled).toString('base64')}`);
 const content=node=>typeof node==='string'?node:node.children?.map(content).join('')||'';
 const deferred=()=>{let resolve,reject;const promise=new Promise((yes,no)=>{resolve=yes;reject=no;});return {promise,resolve,reject};};
 // State reads are asynchronous (hashed ETag): wait until they settle, then let React apply them.
@@ -38,6 +29,7 @@ async function harness(debt,{visibility=false}={}){
    return response;
   }
   if(url==='/api/epic'){network.autoSyncs=(network.autoSyncs||0)+1;return Response.json({ran:false});}
+  if(url==='/api/monthly')return f.monthly(JSON.parse(options.body));
   assert.equal(url,'/api/state');
   network.stateGets++;
   const read=f.readState();reads.add(read);

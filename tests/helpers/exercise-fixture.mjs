@@ -6,6 +6,7 @@ import {validateMatchRosters} from '../../lib/match-rules.mjs';
 import {observationWrites,readMerged} from '../../lib/reconcile.mjs';
 import {readDoublesRanks} from '../../lib/doubles-ranks.mjs';
 import {collectionPaused} from '../../lib/epic-sync.mjs';
+import {recordMmr,closeMonthlyMmr,settleDrink,readMonthlyMmr} from '../../lib/monthly-mmr.mjs';
 
 const journal=JSON.parse(readFileSync(new URL('../../drizzle/meta/_journal.json',import.meta.url),'utf8'));
 const initial=readFileSync(new URL('../../drizzle/0000_real_rattler.sql',import.meta.url),'utf8');
@@ -36,10 +37,12 @@ export async function fixture({legacy=true,beforeRetirement}={}){
   return bound();
  }}};
  // Execute the real API routes; replace only Cloudflare D1 and authenticated identity.
- const context={env,getChatGPTUser:async()=>actor.user,validateExercise,parisDay,normalizeParticipant,validateMatchRosters,observationWrites,readMerged,readDoublesRanks,collectionPaused};
+ const context={env,getChatGPTUser:async()=>actor.user,validateExercise,parisDay,normalizeParticipant,validateMatchRosters,observationWrites,readMerged,readDoublesRanks,collectionPaused,recordMmr,closeMonthlyMmr,settleDrink,readMonthlyMmr};
  const {POST}=await loadRoute('../../app/api/exercise/route.ts',context);
  const {GET}=await loadRoute('../../app/api/state/route.ts',context);
  const {POST:INGEST}=await loadRoute('../../app/api/ingest/route.ts',context);
+ const {POST:MONTHLY,GET:readMonthly}=await loadRoute('../../app/api/monthly/route.ts',context);
+ const monthly=(body,origin='https://rl.example')=>MONTHLY(new Request('https://rl.example/api/monthly',{method:'POST',headers:{'Content-Type':'application/json',origin},body:JSON.stringify(body)}));
  const ingest=(body,key='test-ingest-key')=>INGEST(new Request('https://rl.example/api/ingest',{method:'POST',headers:{'Content-Type':'application/json',authorization:`Bearer ${key}`},body:JSON.stringify(body)}));
  const post=(body,origin='https://rl.example')=>POST(new Request('https://rl.example/api/exercise',{method:'POST',headers:{'Content-Type':'application/json',origin},body:JSON.stringify(body)}));
  const readState=request=>GET(request);
@@ -52,5 +55,5 @@ export async function fixture({legacy=true,beforeRetirement}={}){
   for(let i=0;i<due/5;i++)insert.run(`loss-${i}`,'player-1','nokouki',parisDay(),'match',0,1,10,0,0,0,'now');
   if(due>remaining)db.prepare('INSERT INTO exercises (id,player,count,day,created,author,type) VALUES (?,?,?,?,?,?,?)').run('baseline-exercise-1','nokouki',(due-remaining)*4,parisDay(),'2026-11-04T12:00:00Z','current-user','plank');
  }
- return {db,env,actor,post,ingest,readState,input,stats,resetDebt};
+ return {db,env,actor,post,ingest,readState,input,stats,resetDebt,monthly,readMonthly};
 }

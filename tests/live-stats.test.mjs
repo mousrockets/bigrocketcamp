@@ -85,12 +85,13 @@ test('Vraie route direct : réception visible par tous, identité liée renommé
 });
 test('Onglet réel : panne après sauvegarde, file locale reprise sans perdre ni doubler la partie',async()=>{
  const f=await server();const storage=new Map(),timers=new Map(),sockets=[],statuses=[];let nextTimer=0,fail=true,posts=0;
+ let markFailure,markReceived;const failed=new Promise(resolve=>{markFailure=resolve;}),received=new Promise(resolve=>{markReceived=resolve;});
  class Socket{constructor(url){assert.equal(url,'ws://localhost:49124/');sockets.push(this);}close(){}emit(message){this.onmessage({data:JSON.stringify(message)});}}
- const config={WebSocketType:Socket,storage:{getItem:k=>storage.get(k),setItem:(k,v)=>storage.set(k,v)},schedule:(fn,delay)=>{timers.set(++nextTimer,{fn,delay});return nextTimer;},cancel:id=>timers.delete(id),now:()=>now,onStatus:patch=>statuses.push(patch),fetcher:async(url,options)=>{assert.equal(url,'/api/live');assert.equal(options.headers.Authorization,undefined);posts++;const r=await f.post(options.body);if(fail){fail=false;throw Error('Synthetic connection lost after commit');}return r;}};
+ const config={WebSocketType:Socket,storage:{getItem:k=>storage.get(k),setItem:(k,v)=>storage.set(k,v)},schedule:(fn,delay)=>{timers.set(++nextTimer,{fn,delay});return nextTimer;},cancel:id=>timers.delete(id),now:()=>now,onStatus:patch=>{statuses.push(patch);if(patch.message==='Envoi en attente de connexion Internet.')markFailure();if(patch.lastReceived)markReceived();},fetcher:async(url,options)=>{assert.equal(url,'/api/live');assert.equal(options.headers.Authorization,undefined);posts++;const r=await f.post(options.body);if(fail){fail=false;throw Error('Synthetic connection lost after commit');}return r;}};
  let bridge=liveBridge(config);try{
   bridge.start();sockets[0].onopen();const p=payload();sockets[0].emit(packet('MatchCreated',{MatchGuid:p.state.MatchGuid}));for(const m of [packet('UpdateState',p.state),packet('MatchEnded',p.end),packet('UpdateState',p.state),packet('UpdateState',p.state)])sockets[0].emit(m);
-  await new Promise(done=>setTimeout(done,20));assert.equal(posts,1);assert.equal(f.db.prepare('SELECT COUNT(*) n FROM result_observations').get().n,6);assert.equal(JSON.parse(storage.get('rl-live-queue-v1')).length,1);
-  bridge.stop();assert.equal(timers.size,0);bridge=liveBridge(config);bridge.start();await new Promise(done=>setTimeout(done,20));assert.equal(posts,2);assert.equal(JSON.parse(storage.get('rl-live-queue-v1')).length,0);assert.equal(f.db.prepare('SELECT COUNT(*) n FROM result_observations').get().n,6);assert.ok(statuses.some(s=>s.lastReceived===now));
+  await failed;assert.equal(posts,1);assert.equal(f.db.prepare('SELECT COUNT(*) n FROM result_observations').get().n,6);assert.equal(JSON.parse(storage.get('rl-live-queue-v1')).length,1);
+  bridge.stop();assert.equal(timers.size,0);bridge=liveBridge(config);bridge.start();await received;assert.equal(posts,2);assert.equal(JSON.parse(storage.get('rl-live-queue-v1')).length,0);assert.equal(f.db.prepare('SELECT COUNT(*) n FROM result_observations').get().n,6);assert.ok(statuses.some(s=>s.lastReceived===now));
   const merged=await readMerged(f.env.DB);assert.deepEqual(summarize(merged.rows,[],'',merged.rosters).map(p=>p.played),[1,1,1]);
  }finally{bridge.stop();f.db.close();}
 });
