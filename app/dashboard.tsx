@@ -2,6 +2,7 @@
 import {useEffect,useRef,useState} from 'react';
 import type {CSSProperties} from 'react';
 import {roster,parisDay,summarize,dailyRecap,lastPlaceRule,validateExercise,pushupCredit,exerciseEffect,exerciseDescription,formatNumber} from '../lib/domain.mjs';
+import {currentSeason,seasonTiming,seasonEndLabel} from '../lib/season.mjs';
 
 type ExerciseType='pushups'|'plank'|'crunches';
 type Declaration={id:string;player:string;type:ExerciseType;count:number;day:string};
@@ -21,6 +22,7 @@ type State={
   me?:string|null;
   epic?:{slot:string;status:string;last_sync:string|null;last_attempt:string|null}[];
   epicPaused?:boolean;
+  epicRetired?:boolean;
 };
 type CheerKind='cheer'|'finish'|'badge'|'loss';
 type Cheer={id:number;text:string;kind:CheerKind;pieces:CSSProperties[]};
@@ -112,6 +114,29 @@ function speak(text:string){
   }catch{}
 }
 
+function SeasonCountdown(){
+  const [now,setNow]=useState<number|null>(null);
+  useEffect(()=>{
+    const update=()=>{if(typeof document==='undefined'||!document.hidden)setNow(Date.now());};
+    update();const timer=setInterval(update,currentSeason.confirmedEndAt?1000:60000);
+    if(typeof document!=='undefined')document.addEventListener('visibilitychange',update);
+    return()=>{clearInterval(timer);if(typeof document!=='undefined')document.removeEventListener('visibilitychange',update);};
+  },[]);
+  const timing=now===null?null:seasonTiming(now);
+  const precise=!!currentSeason.confirmedEndAt;
+  return <aside className="season-countdown" aria-label={`Fin de la saison ${currentSeason.number}`}>
+    <div className="season-copy"><p className="eyebrow">FIN DE SAISON {currentSeason.number} <span className="season-status">{precise?'DATE ANNONCÉE':'ESTIMATION'}</span></p>
+      <p className="season-date"><time dateTime={currentSeason.confirmedEndAt||currentSeason.estimatedEndDay}>{seasonEndLabel()}</time></p>
+      <p className="season-note">{precise?'Heure de Paris · France métropolitaine':'Date indicative · heure française de fin du compétitif non annoncée.'}</p>
+      <p className="season-sources">{!precise&&<><a href={currentSeason.estimateSource} target="_blank" rel="noopener noreferrer">Calendrier communautaire</a><span aria-hidden="true"> · </span></>}<a href={currentSeason.officialSource} target="_blank" rel="noopener noreferrer">Infos officielles ↗</a></p>
+    </div>
+    <div className="season-clock" role="timer" aria-live="off">
+      <strong>{!timing?'—':timing.exact?(timing.ended?'Terminée':`${timing.days} j ${String(timing.hours).padStart(2,'0')}:${String(timing.minutes).padStart(2,'0')}:${String(timing.seconds).padStart(2,'0')}`):timing.estimateReached?'À confirmer':`J−${timing.days}`}</strong>
+      <span>{precise?(timing?.ended?'Échéance annoncée atteinte':'avant la fin annoncée'):timing?.estimateReached?'Date indicative atteinte · annonce à vérifier':'jours avant la date estimée'}</span>
+    </div>
+  </aside>;
+}
+
 function DoublesRankPanel({player,rank}:{player:string;rank?:DoublesRank}){
   return <div className="rank-panel" aria-label={`Classement 2v2 de ${player}`}>
     <span className="rank-mode">2V2 CLASSÉ · DERNIER RELEVÉ</span>
@@ -119,6 +144,7 @@ function DoublesRankPanel({player,rank}:{player:string;rank?:DoublesRank}){
     {rank?.mmr!=null?<strong className="rank-mmr">{formatNumber(rank.mmr)} <span>MMR</span></strong>:<p className="small muted">MMR non reçu</p>}
     {rank?.fetchedAt&&<p className="rank-meta">{rank.status!=='ready'?'Dernière valeur connue · ':''}{new Date(rank.fetchedAt).toLocaleString('fr-FR',{timeZone:'Europe/Paris',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</p>}
     {rank?.status==='unavailable'&&<p className="rank-meta">Actualisation du classement indisponible.</p>}
+    {rank?.status==='frozen'&&<p className="rank-meta">Dernier MMR conservé · connexion Epic retirée.</p>}
   </div>;
 }
 
@@ -249,26 +275,6 @@ export default function Dashboard(){
     const observer=new IntersectionObserver(([entry])=>setExerciseVisible(entry.isIntersecting),{threshold:0.15});
     observer.observe(form);
     return()=>observer.disconnect();
-  },[]);
-
-  // Asks the server for an Epic read; the server throttles and checks presence itself.
-  useEffect(()=>{
-    let running=false,stopped=false;
-    const autoSync=async()=>{
-      if(stopped||running||(typeof document!=='undefined'&&document.hidden))return;
-      running=true;
-      try{
-        const r=await fetch('/api/epic',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'auto'})});
-        const j=r.ok?await r.json() as {synced?:number;ranksUpdated?:number}:null;
-        if(!stopped&&(j?.synced||j?.ranksUpdated))await refresh();
-      }catch{}
-      finally{running=false;}
-    };
-    autoSync();
-    const t=setInterval(autoSync,60000);
-    const onVisible=()=>{if(!document.hidden)autoSync();};
-    if(typeof document!=='undefined')document.addEventListener('visibilitychange',onVisible);
-    return()=>{stopped=true;clearInterval(t);if(typeof document!=='undefined')document.removeEventListener('visibilitychange',onVisible);};
   },[]);
 
   useEffect(()=>{
@@ -498,7 +504,7 @@ export default function Dashboard(){
             <a href="#recap-title">Récap du jour</a>
             <a href="#week">La semaine</a>
             <a href="#history">Derniers matchs</a>
-            <a href="/connexions">Connecter les comptes Epic</a>
+            <a href="/connexions">Identités des joueurs</a>
             <a href="/direct">Direct depuis le PC · à tester</a>
             <a href="/signout-with-chatgpt?return_to=%2F" target="_top">Se déconnecter</a>
           </nav>
@@ -511,23 +517,24 @@ export default function Dashboard(){
       <div className="rule"><strong>5</strong><span>POMPES / DÉFAITE</span><small>{lastPlaceRule.enabled?'Dernier aux points du match : +5 si défaite':'Bonus dernier aux points désactivé'}</small></div>
     </section>
     {error&&<p className="alert" role="alert">{error} <button onClick={refresh}>Actualiser</button></p>}
-    {data?.epicPaused&&<aside className="alert" aria-label="Collecte Epic en pause">Collecte Epic suspendue pendant le diagnostic. Les données déjà reçues restent disponibles.</aside>}
+    {data?.epicRetired&&<aside className="alert" aria-label="Connexion Epic retirée">Connexion communautaire Epic retirée. L’application ne se connecte plus à Rocket League à votre place. <a href="/direct">Utiliser le Direct PC</a>.</aside>}
 
     <section id="team">
       <div className="section-title"><h2>Le tableau de l’équipe</h2><div className="filters"><label>Date <input type="date" aria-label="Date affichée" value={day} max={today} onChange={e=>{if(e.target.value)setDay(e.target.value);}}/></label><button onClick={()=>setDay(parisDay())}>Aujourd’hui</button><button onClick={yesterday}>Hier</button><button onClick={()=>setDay('')}>Tout</button></div></div>
-      <p className="live-status"><span aria-hidden="true"/>Actualisation toutes les 3 secondes · {data?.epicPaused?'Collecte Epic en pause':'Vérification Epic chaque minute'}</p>
+      <p className="live-status"><span aria-hidden="true"/>Actualisation toutes les 3 secondes · scores reçus par le Direct PC</p>
       <details className="team-info">
         <summary>Comment ça marche ?</summary>
         <p className="muted small">La date choisie s’applique aux cartes, au récap et aux historiques. « Tout » affiche toute la période, avec le récap du jour. Dette et totaux d’exercices restent cumulés depuis le début.</p>
-        <p className="muted small">Les compteurs indiquent les parties reçues. L’historique Epic arrive une fois Rocket League fermé, pas après chaque match pendant une session.{data?.epic?.[0]?.last_sync&&<> Dernière réception Epic : {new Date(data.epic[0].last_sync).toLocaleString('fr-FR',{timeZone:'Europe/Paris'})}.</>}</p>
+        <p className="muted small">Les compteurs indiquent les parties reçues. Les anciennes données Epic restent disponibles ; leur collecte est retirée. Le MMR affiche la dernière valeur reçue.</p>
         <p className="small"><a href="/direct">Configurer le direct depuis un PC ↗</a> · Un onglet sur le PC qui joue ; premier essai à valider.</p>
       </details>
+      <SeasonCountdown/>
       <div className="cards" ref={cardsRef} onScroll={onCardsScroll}>{!data?<SkeletonCards/>:stats.map(p=>{
         const streak=streaks[p.name];
         const all=allStats.find(a=>a.name===p.name)||p;
         const connection=data.epic?.find(c=>c.slot===p.name);
         const historyPending=p.played===0&&!connection?.last_sync;
-        const collectionLabel=connection?.status==='reconnect'?'Autorisation Epic à renouveler.':connection?.status==='error'?'Lecture Epic indisponible.':connection?.status==='waiting_offline'?'Historique en attente : joueur en ligne ou présence inconnue.':!connection?'Compte Epic à connecter.':!connection.last_sync?'Historique pas encore récupéré.':connection.status==='partial'?'Historique reçu partiellement.':'Fenêtre récente Epic reçue.';
+        const collectionLabel=data.epicRetired?(connection?'Identité de jeu conservée · accès Epic retiré.':'En attente du Direct PC.'):connection?.status==='reconnect'?'Autorisation Epic à renouveler.':connection?.status==='error'?'Lecture Epic indisponible.':connection?.status==='waiting_offline'?'Historique en attente : joueur en ligne ou présence inconnue.':!connection?'Compte Epic à connecter.':!connection.last_sync?'Historique pas encore récupéré.':connection.status==='partial'?'Historique reçu partiellement.':'Fenêtre récente Epic reçue.';
         return <article className={p.name===recognized?'card me':'card'} key={p.name}>
           <div className="card-top"><span className="avatar">{players[p.name]?.initials??p.name.slice(0,2).toUpperCase()}</span>{p.name===recognized&&<span className="you">TOI</span>}{streak.current>0&&<span className="streak" title={`${streak.current} jour(s) d’affilée avec un exercice`}>🔥 {streak.current} j</span>}<span className="platform">{players[p.name]?.platform??'PC'}</span></div>
           <h3>{p.name}</h3>
@@ -593,6 +600,7 @@ export default function Dashboard(){
         <button type="button" aria-pressed={podiumMode==='effort'} onClick={()=>choosePodium('effort')}>Efforts</button>
         <button type="button" aria-pressed={podiumMode==='mmr'} onClick={()=>choosePodium('mmr')}>MMR 2v2</button>
       </div>
+      {podiumMode==='mmr'&&<SeasonCountdown/>}
       {!data?<div className="sk-table"><i className="sk sk-big"/></div>:<>
         <ol className="podium">{[podiumRows[1],podiumRows[0],podiumRows[2]].map(p=>{const rank=podiumRows.indexOf(p)+1;return <li key={p.name} className={`step step-${rank}`} title={p.title}>
           <span className="step-name">{p.name}</span>
@@ -631,8 +639,8 @@ export default function Dashboard(){
     </div>
     <section className="sync-summary">
       <div><b>Historique vérifié entre les sources</b><p className="small muted">{data?.reliability?`${data.reliability.confirmed} résultat(s) confirmé(s) par les deux sources · ${data.reliability.corrected} corrigé(s) · ${data.reliability.single} reçu(s) d’une seule source`:'Chargement des sources…'}</p>{!!data?.reliability?.review&&<p className="small">{data.reliability.review} résultat(s) à vérifier, exclus du calcul des pompes.</p>}</div>
-      <a href="/connexions">Connecter les comptes Epic →</a>
+      <a href="/connexions">Identités des joueurs →</a>
     </section>
-    <footer><span>LES TROIS MOUSROCKETS · {data?.epic?.[0]?.last_sync?'Dernière réception Epic : '+new Date(data.epic[0].last_sync).toLocaleString('fr-FR',{timeZone:'Europe/Paris'}):data?.collectors.length?'Dernière réception PC : '+new Date(data.collectors[0].last_seen).toLocaleString('fr-FR',{timeZone:'Europe/Paris'}):'En attente de la première collecte'}</span><p>Page fermée : synchronisation horaire. Tests bots exclus du bilan.</p><a href="/signout-with-chatgpt?return_to=%2F" target="_top">Se déconnecter</a></footer>
+    <footer><span>LES TROIS MOUSROCKETS · {data?.collectors.length?'Dernière réception PC : '+new Date(data.collectors[0].last_seen).toLocaleString('fr-FR',{timeZone:'Europe/Paris'}):data?.epic?.[0]?.last_sync?'Dernier historique Epic conservé : '+new Date(data.epic[0].last_sync).toLocaleString('fr-FR',{timeZone:'Europe/Paris'}):'En attente de la première collecte'}</span><p>Aucun accès aux sessions Epic. Le Direct nécessite un onglet ouvert sur un PC qui joue. Tests bots exclus du bilan.</p><a href="/signout-with-chatgpt?return_to=%2F" target="_top">Se déconnecter</a></footer>
   </main>;
 }

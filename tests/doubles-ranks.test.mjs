@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {normalizeDoublesSkill,doublesRankLabel,rankTargets,readDoublesRanks,refreshDoublesRanks} from '../lib/doubles-ranks.mjs';
+import {normalizeDoublesSkill,doublesRankLabel,rankTargets,readDoublesRanks} from '../lib/doubles-ranks.mjs';
 import {fixture} from './helpers/exercise-fixture.mjs';
 const skill={Playlist:11,Mu:55,MMR:55,Tier:17,Division:1,PlacementMatchesPlayed:10};
 const response=s=>({Skills:[{...skill,Playlist:10,Mu:80,Tier:22},s,{...skill,Playlist:13,Mu:20,Tier:10}]});
@@ -32,17 +32,9 @@ test('Identité liée prioritaire ; pseudonyme ambigu bloqué ; équivalence PSN
  assert.equal(rankTargets(ambiguous,[{slot:'nokouki',owner:'another-member',account_id:'linked'}],'owner')[1].playerId,'Epic|linked|0');
  assert.equal(rankTargets([{...rows[0],player_id:'PSN|synthetic|0'},{...rows[0],player_id:'PS4|synthetic|0'}],[],'owner')[1].playerId,'PS4|synthetic|0');
 });
-test('D1 et vraie API : lecture publique du rang via observer, dernier relevé conservé en cas d’échec',async()=>{
+test('D1 : dernier rang conservé et identifié comme historique sans accès réseau',async()=>{
  const f=await fixture({legacy:false});try{
-  const calls=[],accounts=[{slot:'nokouki',owner:'current-user',account_id:'synthetic-account'}];let broken=false;
-  const observer={async request(service,params){calls.push({service,params});if(broken)throw Error('Synthetic unavailable');return response(skill);}};
-  assert.equal(await refreshDoublesRanks(f.env.DB,observer,accounts,'current-user'),1);
-  const state=await (await f.readState()).json(),rank=state.doublesRanks[1];assert.equal(rank.mmr,1200);assert.equal(rank.label,'Champion II · Division II');assert.equal(rank.status,'ready');assert.ok(rank.fetchedAt);assert.ok(!JSON.stringify(state.doublesRanks).includes('synthetic-account'));
-  assert.deepEqual(calls,[{service:'Skills/GetPlayerSkill v1',params:{PlayerID:'Epic|synthetic-account|0'}}]);
-  assert.equal(state.doublesRanks[0].mmr,null);
-  broken=true;assert.equal(await refreshDoublesRanks(f.env.DB,observer,accounts,'current-user'),0);
-  const old=(await readDoublesRanks(f.env.DB))[1];assert.equal(old.mmr,1200);assert.equal(old.status,'unavailable');assert.equal(old.fetchedAt,rank.fetchedAt);
-  // A different identity cannot retain the previous account's rank after a failed lookup.
-  accounts[0].account_id='new-account';await refreshDoublesRanks(f.env.DB,observer,accounts,'current-user');const changed=(await readDoublesRanks(f.env.DB))[1];assert.equal(changed.mmr,null);assert.equal(changed.fetchedAt,null);
+  const now=new Date().toISOString();f.db.prepare('INSERT INTO player_ranks VALUES (?,?,?,?,?,?,?,?,?,?)').run('nokouki','Epic|synthetic|0',11,1200,17,2,10,now,now,'frozen');
+  const rank=(await readDoublesRanks(f.env.DB))[1];assert.equal(rank.mmr,1200);assert.equal(rank.label,'Champion II · Division II');assert.equal(rank.status,'frozen');assert.equal(rank.fetchedAt,now);
  }finally{f.db.close();}
 });

@@ -5,6 +5,7 @@ import {liveBridge} from '../lib/live-bridge.mjs';
 import {fixture,loadRoute} from './helpers/exercise-fixture.mjs';
 import {roster,summarize} from '../lib/domain.mjs';
 import {readMerged,observationWrites} from '../lib/reconcile.mjs';
+import {readPlayerIdentities,readIdentityBindings,attributeLivePlayers,canonicalPlayerId} from '../lib/player-identities.mjs';
 import React,{act} from 'react';
 import {create} from 'react-test-renderer';
 import {readFileSync} from 'node:fs';
@@ -55,8 +56,9 @@ test('Minuit Paris : le direct utilise le début du match comme l’historique E
  assert.equal(parseLiveMatch(p,p.endedAt).rows[0].day,'2026-11-05');
 });
 async function server(){
- const f=await fixture({legacy:false});f.db.prepare("INSERT INTO epic_accounts (slot,owner,account_id,tokens,status) VALUES ('chat-pris-tea','current-user',?,'synthetic-unread','ready')").run(account);
- const context={env:f.env,getChatGPTUser:async()=>f.actor.user,roster,parseLiveMatch,observationWrites};
+ const f=await fixture({legacy:false});
+ for(const [slot,owner,id] of [['chat-pris-tea','current-user',`Epic|${account}|0`],['nokouki','friend-one',`Epic|${'c'.repeat(32)}|0`],['kevin-74000','friend-two','PS4|222222|0']]){f.db.prepare('INSERT INTO player_identities (slot,owner,player_id) VALUES (?,?,?)').run(slot,owner,id);f.db.prepare('INSERT INTO player_identity_aliases VALUES (?,?,?,?)').run(id,slot,owner,'synthetic');}
+ const context={env:f.env,getChatGPTUser:async()=>f.actor.user,roster,parseLiveMatch,observationWrites,readPlayerIdentities,readIdentityBindings,attributeLivePlayers,canonicalPlayerId};
  const route=await loadRoute('../../app/api/live/route.ts',context);
  const post=(body,origin='https://club.example')=>route.POST(new Request('https://club.example/api/live',{method:'POST',headers:{origin,'Content-Type':'application/json'},body:typeof body==='string'?body:JSON.stringify(body)}));
  return {...f,route,post};
@@ -68,7 +70,7 @@ test('Vraie route direct : auth, origine et identité liée contrôlées ; aucun
   const other=structuredClone(p);other.state.Players[0].PrimaryId=`Epic|${'1'.repeat(32)}|0`;other.seenIds[0]=other.state.Players[0].PrimaryId;assert.equal((await f.post(other)).status,403);
   const broken=structuredClone(p);broken.end.WinnerTeamNum=2;assert.equal((await f.post(broken)).status,400);
   f.actor.user=null;assert.equal((await f.post(p)).status,401);assert.equal((await f.route.GET()).status,401);
-  assert.equal(f.db.prepare('SELECT COUNT(*) n FROM result_observations').get().n,0);assert.equal(f.db.prepare('SELECT tokens FROM epic_accounts').get().tokens,'synthetic-unread');
+  assert.equal(f.db.prepare('SELECT COUNT(*) n FROM result_observations').get().n,0);assert.equal(f.db.prepare('SELECT COUNT(*) n FROM epic_accounts').get().n,0);
  }finally{f.db.close();}
 });
 test('Vraie route direct : réception visible par tous, identité liée renommée, répétition et confirmation Epic sans doublon',async()=>{

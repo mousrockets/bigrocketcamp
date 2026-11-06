@@ -3,12 +3,12 @@ import assert from 'node:assert/strict';
 import {parisDay,summarize} from '../lib/domain.mjs';
 import {fixture} from './helpers/exercise-fixture.mjs';
 
-test('État : 304 sans contenu si rien n’a changé, nouvelle version après une série, présence Epic sans identifiant',async()=>{
+test('État : 304 sans contenu si rien n’a changé, nouvelle version après une série, ancienne collecte retirée sans identifiant',async()=>{
  const f=await fixture();
  try{
-  f.db.prepare("INSERT INTO epic_accounts (slot,owner,account_id,tokens,status,coverage,last_attempt) VALUES ('nokouki','current-user','synthetic-account','sealed','waiting_offline','recent_only','2026-11-06T10:00:00.000Z')").run();
+  f.db.prepare("INSERT INTO player_identities (slot,owner,player_id,last_attempt) VALUES ('nokouki','current-user','Epic|synthetic-account|0','2026-11-06T10:00:00.000Z')").run();
   const first=await f.readState(),etag=first.headers.get('etag'),state=await first.json();
-  assert.deepEqual(state.epic,[{slot:'nokouki',status:'waiting_offline',last_sync:null,last_attempt:'2026-11-06T10:00:00.000Z'}]);
+  assert.deepEqual(state.epic,[{slot:'nokouki',status:'retired',last_sync:null,last_attempt:'2026-11-06T10:00:00.000Z'}]);assert.equal(state.epicRetired,true);
   assert.ok(!JSON.stringify(state).includes('synthetic-account'));
   const ask=()=>f.readState(new Request('https://rl.example/api/state',{headers:{'if-none-match':etag}}));
   const unchanged=await ask();assert.equal(unchanged.status,304);assert.equal(await unchanged.text(),'');
