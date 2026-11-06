@@ -1,7 +1,8 @@
 import { env } from 'cloudflare:workers';
-import { describe, expect, test } from 'vitest';
+import { afterEach, describe, expect, test } from 'vitest';
 import { players, roster } from './club-fixture';
 import { closeMonthlyMmr, monthBounds, monthlyRanking, readMonthlyMmr, settleDrink } from './monthly-mmr';
+import { type ObservedRank, type RankTarget, recordObservedRanks } from './rank-source';
 
 const [first = '', second = '', third = ''] = roster;
 const finalDay = '2026-11-30T21:00:00.000Z';
@@ -16,9 +17,15 @@ function declarations(values: (number | null)[] = [1200, 1100, 1000], at = final
 
 async function reset() {
   await env.DB.batch(
-    ['mmr_entries', 'player_ranks', 'monthly_mmr_results', 'drink_debts', 'player_identities'].map((table) =>
-      env.DB.prepare(`DELETE FROM ${table}`),
-    ),
+    [
+      'mmr_entries',
+      'player_ranks',
+      'solo_mmr_entries',
+      'solo_ranks',
+      'monthly_mmr_results',
+      'drink_debts',
+      'player_identities',
+    ].map((table) => env.DB.prepare(`DELETE FROM ${table}`)),
   );
 }
 
@@ -113,6 +120,157 @@ describe('monthly MMR ranking', () => {
     expect(stale.status).toBe('incomplete');
     expect(stale.missing.length).toBe(3);
     expect(stale.debts.length).toBe(0);
+  });
+});
+
+describe('the best of the duo and solo accounts', () => {
+  const lastDay = '2026-11-30T20:00:00.000Z';
+  const earlier = '2026-11-20T20:00:00.000Z';
+  const entry = (player: string, mmr: number, account: 'duo' | 'solo', recorded_at = lastDay) => ({
+    player,
+    mmr,
+    account,
+    recorded_at,
+  });
+  const duo = [entry(first, 1200, 'duo'), entry(second, 1100, 'duo'), entry(third, 1000, 'duo')];
+
+  test('a better solo account counts, and the ranking says which account', () => {
+    const result = monthlyRanking(roster, [...duo, entry(third, 1250, 'solo')], '2026-11');
+    expect(result.rows.map((row) => [row.player, row.mmr, row.account])).toEqual([
+      [third, 1250, 'solo'],
+      [first, 1200, 'duo'],
+      [second, 1100, 'duo'],
+    ]);
+    expect(result.status).toBe('final');
+    expect(result.losers).toEqual([second]);
+  });
+
+  test('a better duo account counts, and the duo one wins a tie', () => {
+    const result = monthlyRanking(roster, [...duo, entry(first, 1150, 'solo'), entry(second, 1100, 'solo')], '2026-11');
+    expect(result.rows.map((row) => [row.player, row.mmr, row.account])).toEqual([
+      [first, 1200, 'duo'],
+      [second, 1100, 'duo'],
+      [third, 1000, 'duo'],
+    ]);
+  });
+
+  test('a solo account never read, or not read on the last day, does not hold the month back', () => {
+    const result = monthlyRanking(roster, [...duo, entry(third, 1500, 'solo', earlier)], '2026-11');
+    expect(result.status).toBe('final');
+    expect(result.rows.find((row) => row.player === third)).toMatchObject({ mmr: 1000, account: 'duo' });
+    expect(result.debts.every((debt) => debt.payer === third)).toBe(true);
+  });
+
+  test('either account read on the last day confirms the player', () => {
+    const readings = [entry(first, 1200, 'duo'), entry(second, 1100, 'duo')];
+    readings.push(entry(third, 1000, 'duo', earlier), entry(third, 990, 'solo'));
+    const result = monthlyRanking(roster, readings, '2026-11');
+    expect(result.status).toBe('final');
+    expect(result.rows.find((row) => row.player === third)).toMatchObject({ mmr: 990, account: 'solo' });
+  });
+
+  test('the live ranking shows the best latest reading of each player', () => {
+    const result = monthlyRanking(roster, [...duo, entry(second, 1300, 'solo', earlier)], '2026-11', { live: true });
+    expect(result.rows[0]).toMatchObject({ player: second, mmr: 1300, account: 'solo', confirmedForClose: false });
+  });
+});
+
+describe('closing with the rank source readings', () => {
+  const targets: RankTarget[] = roster.flatMap((player, i): RankTarget[] => [
+    { player, kind: 'duo', playerId: `Epic|synthetic-${i}|0` },
+    { player, kind: 'solo', name: `${player} solo`, playerId: `Epic|${String(i).repeat(32)}|0` },
+  ]);
+  const reading = (player: string, kind: 'duo' | 'solo', mmr: number, observedAt: string): ObservedRank => ({
+    player,
+    kind,
+    playerId: targets.find((target) => target.player === player && target.kind === kind)?.playerId ?? '',
+    mmr,
+    tier: 16,
+    division: 2,
+    matches: null,
+    observedAt,
+  });
+  const startsIn = (month: string) =>
+    env.DB.prepare(
+      'INSERT INTO monthly_mmr_policy (id, starts_month) VALUES (1, ?1) ON CONFLICT(id) DO UPDATE SET starts_month = ?1',
+    )
+      .bind(month)
+      .run();
+  // The other tests close November from a policy that starts there.
+  afterEach(() => startsIn('2026-11'));
+  const record = (ranks: ObservedRank[]) => recordObservedRanks(env.DB, { ranks, unresolved: [], ignored: 0 }, targets);
+
+  test('a rating unchanged on the last day is still confirmed by that day’s reading', async () => {
+    await reset();
+    await startsIn('2026-11');
+    const values = [1200, 1100, 1000];
+    await record(roster.map((player, i) => reading(player, 'duo', values[i] ?? 0, '2026-11-28T18:00:00.000Z')));
+    await record([reading(third, 'solo', 1150, '2026-11-28T18:00:00.000Z')]);
+    // Several unchanged readings on the last day: one confirmation entry per account, not one per reading.
+    for (const at of ['2026-11-30T08:00:00.000Z', '2026-11-30T21:00:00.000Z']) {
+      await record([
+        ...roster.map((player, i) => reading(player, 'duo', values[i] ?? 0, at)),
+        reading(third, 'solo', 1150, at),
+      ]);
+    }
+    expect(await count('SELECT COUNT(*) AS n FROM mmr_entries')).toBe(6);
+    expect(await count('SELECT COUNT(*) AS n FROM solo_mmr_entries')).toBe(2);
+    await closeMonthlyMmr(env.DB, roster, closure);
+    const closed = await env.DB.prepare(
+      "SELECT status, snapshot FROM monthly_mmr_results WHERE month = '2026-11'",
+    ).first<{
+      status: string;
+      snapshot: string;
+    }>();
+    expect(closed?.status).toBe('final');
+    const snapshot = JSON.parse(closed?.snapshot ?? '{}') as {
+      losers: string[];
+      rows: { player: string; account: string }[];
+    };
+    expect(snapshot.losers).toEqual([second]);
+    expect(snapshot.rows.find((row) => row.player === third)?.account).toBe('solo');
+    expect((await debts()).map((debt) => debt.recipient).sort()).toEqual([first, third].sort());
+  });
+
+  test('a closed month and its drinks keep their values when solo readings arrive afterwards', async () => {
+    await reset();
+    // A month closed before solo accounts counted: its rows name no account.
+    const snapshot = JSON.stringify({
+      month: '2026-10',
+      status: 'final',
+      losers: [third],
+      rows: roster.map((player, i) => ({
+        player,
+        mmr: 1200 - i * 100,
+        recordedAt: '2026-10-31T21:00:00.000Z',
+        confirmedForClose: true,
+      })),
+    });
+    await startsIn('2026-10');
+    await env.DB.batch([
+      env.DB.prepare(
+        "INSERT INTO monthly_mmr_results (month, cutoff_at, closed_at, status, snapshot) VALUES ('2026-10', '2026-10-31T23:00:00.000Z', '2026-10-31T23:05:00.000Z', 'final', ?)",
+      ).bind(snapshot),
+      ...[first, second].map((recipient) =>
+        env.DB.prepare('INSERT INTO drink_debts (id, month, payer, recipient) VALUES (?, ?, ?, ?)').bind(
+          `2026-10:${third}:${recipient}`,
+          '2026-10',
+          third,
+          recipient,
+        ),
+      ),
+    ]);
+    const before = await env.DB.batch([
+      env.DB.prepare('SELECT * FROM monthly_mmr_results'),
+      env.DB.prepare('SELECT * FROM drink_debts ORDER BY id'),
+    ]);
+    await record([reading(third, 'solo', 1900, '2026-10-31T21:30:00.000Z')]);
+    await closeMonthlyMmr(env.DB, roster, closure);
+    const after = await env.DB.batch([
+      env.DB.prepare("SELECT * FROM monthly_mmr_results WHERE month = '2026-10'"),
+      env.DB.prepare("SELECT * FROM drink_debts WHERE month = '2026-10' ORDER BY id"),
+    ]);
+    expect(after.map((answer) => answer.results)).toEqual(before.map((answer) => answer.results));
   });
 });
 

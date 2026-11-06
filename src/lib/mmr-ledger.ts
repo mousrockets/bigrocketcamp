@@ -1,7 +1,12 @@
 import type { Database, Statement } from './db';
 
+/** The duo account is the player slot's; the solo one, the account named by the profile's solo pseudo. */
+export type MmrAccount = 'duo' | 'solo';
+
 export interface MmrEntry {
   sequence?: number;
+  /** Duo when absent. */
+  account?: MmrAccount;
   id?: string;
   player: string;
   mmr: number;

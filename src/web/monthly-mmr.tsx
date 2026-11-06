@@ -7,7 +7,11 @@ type MonthlyRow = {
   mmr: number | null;
   recordedAt: string | null;
   confirmedForClose: boolean;
+  /** The account the player counts with; absent from months closed before solo accounts counted. */
+  account?: 'duo' | 'solo' | null;
 };
+
+const accountLabels = { duo: 'compte duo', solo: 'compte solo' } as const;
 type MonthResult = {
   month: string;
   cutoffAt: string;
@@ -158,7 +162,10 @@ export function MonthlyMmr({ data, onRefresh }: { data: MonthlyState; onRefresh:
                 <td>
                   <b>{row.player}</b>
                 </td>
-                <td>{row.mmr ?? 'Pas encore relevé'}</td>
+                <td>
+                  {row.mmr ?? 'Pas encore relevé'}
+                  {row.account && <small>{accountLabels[row.account]}</small>}
+                </td>
                 <td>
                   {row.recordedAt ? (
                     <>
@@ -175,9 +182,10 @@ export function MonthlyMmr({ data, onRefresh }: { data: MonthlyState; onRefresh:
         </table>
       </div>
       <p className="small muted">
-        Les MMR 2v2 sont relevés automatiquement par la source de rangs du club. Le résultat utilise le dernier relevé
-        de chaque joueur avant la clôture, et il doit dater du dernier jour du mois (
-        {data.current.lastDay.split('-').reverse().join('/')}) : sinon, aucune dette automatique n’est créée.
+        Les MMR 2v2 sont relevés automatiquement par la source de rangs du club, sur le compte duo et sur le compte solo
+        de chaque joueur. Le résultat retient le meilleur des deux, d’après le dernier relevé de chaque compte avant la
+        clôture, qui doit dater du dernier jour du mois ({data.current.lastDay.split('-').reverse().join('/')}) : un
+        joueur sans aucun relevé ce jour-là bloque les dettes automatiques du mois.
       </p>
       {error && (
         <p className="alert" role="alert">
@@ -208,7 +216,12 @@ export function MonthlyMmr({ data, onRefresh }: { data: MonthlyState; onRefresh:
             </p>
             <p className="small muted">Classement arrêté au {dateLabel(result.cutoffAt)}, heure de Paris.</p>
             <p className="small muted">
-              {result.rows.map((row) => `${row.player} : ${row.mmr ?? 'non renseigné'}`).join(' · ')}
+              {result.rows
+                .map(
+                  (row) =>
+                    `${row.player} : ${row.mmr ?? 'non renseigné'}${row.account ? ` (${accountLabels[row.account]})` : ''}`,
+                )
+                .join(' · ')}
             </p>
             {data.debts
               .filter((debt) => debt.month === result.month)

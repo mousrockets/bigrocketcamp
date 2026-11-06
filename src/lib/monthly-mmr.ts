@@ -1,7 +1,7 @@
 import { type ClubPlayer, type Roster, rosterOf } from './club';
 import type { Database } from './db';
 import { parisDay } from './domain';
-import type { MmrEntry } from './mmr-ledger';
+import type { MmrAccount, MmrEntry } from './mmr-ledger';
 import { readPlayerIdentities } from './player-identities';
 
 export const monthCloseGraceMs = 300_000;
@@ -71,6 +71,8 @@ export function monthBounds(month: string) {
   };
 }
 
+const accounts: readonly MmrAccount[] = ['duo', 'solo'];
+
 export interface DrinkDebt {
   id: string;
   month: string;
@@ -85,24 +87,39 @@ export function monthlyRanking(
   { live = false }: { live?: boolean } = {},
 ) {
   const bounds = monthBounds(month);
-  // Only a reading from the month's last day confirms the player's rating at the close.
+  // Only a reading from the month's last day confirms the account's rating at the close.
   const admissible = (entry: MmrEntry) => entry.recorded_at >= bounds.lastDayStartAt;
   const rows = roster
     .map((player) => {
-      const candidates = entries
-        .filter(
-          (entry) =>
-            entry.player === player && entry.recorded_at >= bounds.startAt && entry.recorded_at < bounds.cutoffAt,
-        )
-        .sort(
-          (a, b) => a.recorded_at.localeCompare(b.recorded_at) || Number(a.sequence ?? 0) - Number(b.sequence ?? 0),
-        );
-      const latest = (live ? null : candidates.filter(admissible).at(-1)) || candidates.at(-1);
+      // Each account's reading at the close: its last one of the last day, else its latest one of the month.
+      const readings = accounts.flatMap((account) => {
+        const candidates = entries
+          .filter(
+            (entry) =>
+              entry.player === player &&
+              (entry.account ?? 'duo') === account &&
+              entry.recorded_at >= bounds.startAt &&
+              entry.recorded_at < bounds.cutoffAt,
+          )
+          .sort(
+            (a, b) => a.recorded_at.localeCompare(b.recorded_at) || Number(a.sequence ?? 0) - Number(b.sequence ?? 0),
+          );
+        const latest = (live ? null : candidates.filter(admissible).at(-1)) || candidates.at(-1);
+        return latest ? [{ entry: latest, account, confirmed: admissible(latest) }] : [];
+      });
+      // At the close, the player counts with the best of their accounts read on the last day; an account not
+      // read that day does not hold the others back. Live, the best latest reading shows. The duo account wins a tie.
+      const confirmed = readings.filter((reading) => reading.confirmed);
+      const best = (!live && confirmed.length ? confirmed : readings).reduce<(typeof readings)[number] | null>(
+        (top, reading) => (top && top.entry.mmr >= reading.entry.mmr ? top : reading),
+        null,
+      );
       return {
         player,
-        mmr: latest?.mmr ?? null,
-        recordedAt: latest?.recorded_at ?? null,
-        confirmedForClose: Boolean(latest) && admissible(latest as MmrEntry),
+        mmr: best?.entry.mmr ?? null,
+        recordedAt: best?.entry.recorded_at ?? null,
+        confirmedForClose: Boolean(best?.confirmed),
+        account: best?.account ?? null,
       };
     })
     .sort((a, b) => (b.mmr ?? -1) - (a.mmr ?? -1) || roster.indexOf(a.player) - roster.indexOf(b.player));
@@ -153,30 +170,45 @@ async function policy(db: Database, now: number) {
   return read();
 }
 
-/** The month's readings of each player, oldest first: only what one month's ranking needs. */
+// Duo and solo readings live in their own tables; a ranking reads both, each tagged with its account.
+const ledgers = [
+  ['duo', 'mmr_entries'],
+  ['solo', 'solo_mmr_entries'],
+] as const;
+
+/** The month's readings of each player's accounts, oldest first: only what one month's ranking needs. */
 const monthEntries = (db: Database, roster: Roster, month: string) => {
   const bounds = monthBounds(month);
   return db
     .prepare(
-      `SELECT rowid AS sequence,id,player,mmr,tier,division,recorded_at FROM mmr_entries
-        WHERE player IN (SELECT value FROM json_each(?1)) AND recorded_at >= ?2 AND recorded_at < ?3
-        ORDER BY recorded_at,rowid`,
+      ledgers
+        .map(
+          ([account, table]) =>
+            `SELECT rowid AS sequence,'${account}' AS account,id,player,mmr,tier,division,recorded_at FROM ${table}
+              WHERE player IN (SELECT value FROM json_each(?1)) AND recorded_at >= ?2 AND recorded_at < ?3`,
+        )
+        .join(' UNION ALL '),
     )
     .bind(JSON.stringify(roster), bounds.startAt, bounds.cutoffAt)
     .all<MmrEntry>();
 };
 
-/** Each player's latest reading of the month: all the live ranking shows. */
+/** The latest reading of the month of each player's accounts: all the live ranking shows. */
 const latestEntries = (db: Database, roster: Roster, month: string) => {
   const bounds = monthBounds(month);
   return db
     .prepare(
-      `SELECT entry.rowid AS sequence,entry.id,entry.player,entry.mmr,entry.tier,entry.division,entry.recorded_at
-        FROM json_each(?1) AS slot
-        JOIN mmr_entries AS entry ON entry.rowid = (
-          SELECT rowid FROM mmr_entries WHERE player = slot.value AND recorded_at >= ?2 AND recorded_at < ?3
-          ORDER BY recorded_at DESC, rowid DESC LIMIT 1
-        )`,
+      ledgers
+        .map(
+          ([account, table]) =>
+            `SELECT entry.rowid AS sequence,'${account}' AS account,entry.id,entry.player,entry.mmr,entry.tier,entry.division,entry.recorded_at
+              FROM json_each(?1) AS slot
+              JOIN ${table} AS entry ON entry.rowid = (
+                SELECT rowid FROM ${table} WHERE player = slot.value AND recorded_at >= ?2 AND recorded_at < ?3
+                ORDER BY recorded_at DESC, rowid DESC LIMIT 1
+              )`,
+        )
+        .join(' UNION ALL '),
     )
     .bind(JSON.stringify(roster), bounds.startAt, bounds.cutoffAt)
     .all<MmrEntry>();
