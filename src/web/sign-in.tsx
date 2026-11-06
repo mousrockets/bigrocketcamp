@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Brand } from './brand';
-import { clubName } from './club-config';
+import { errorOf, useClubName } from './club';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from './components/ui/input-otp';
 
 type Step = 'email' | 'code';
@@ -9,16 +9,8 @@ async function postJson(path: string, body: Record<string, string>) {
   return fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
 }
 
-async function errorOf(response: Response, fallback: string) {
-  try {
-    const result = (await response.json()) as { error?: string };
-    return result.error || fallback;
-  } catch {
-    return fallback;
-  }
-}
-
 export function SignIn() {
+  const clubName = useClubName() || 'ce club';
   const [step, setStep] = useState<Step>('email');
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
