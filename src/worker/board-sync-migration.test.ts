@@ -14,11 +14,15 @@ const migration = () => {
   return found.queries;
 };
 
-/** Brings the schema back to what 0015 left. */
+/** Brings the schema back to what 0015 left; later migrations' triggers would move a counter that is gone. */
 async function undoMigration() {
-  const names = (pattern: RegExp) => migration().flatMap((query) => [...query.matchAll(pattern)].map((m) => m[1]));
+  const names = (pattern: RegExp, queries = migration()) =>
+    queries.flatMap((query) => [...query.matchAll(pattern)].map((m) => m[1]));
+  const sinceBoardSync = env.TEST_MIGRATIONS.filter((candidate) => candidate.name >= '0016_').flatMap(
+    (candidate) => candidate.queries,
+  );
   await db.batch([
-    ...names(/CREATE TRIGGER `([^`]+)`/g).map((name) => db.prepare(`DROP TRIGGER \`${name}\``)),
+    ...names(/CREATE TRIGGER `([^`]+)`/g, sinceBoardSync).map((name) => db.prepare(`DROP TRIGGER \`${name}\``)),
     ...names(/CREATE INDEX `([^`]+)`/g).map((name) => db.prepare(`DROP INDEX \`${name}\``)),
     ...['sync_state', 'match_results', 'match_builds', 'sync_removals'].map((table) =>
       db.prepare(`DROP TABLE \`${table}\``),

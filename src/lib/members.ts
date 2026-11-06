@@ -2,7 +2,15 @@ import { and, asc, eq, ne, sql } from 'drizzle-orm';
 import type { Platform } from './club';
 import type { Database } from './db';
 import { orm } from './orm';
-import { clubSettings, collectorDevices, collectorPairingCodes, members, sessions, signInCodes } from './schema';
+import {
+  clubSettings,
+  collectorDevices,
+  collectorPairingCodes,
+  members,
+  sessions,
+  signInCodes,
+  soloRanks,
+} from './schema';
 
 // Members join by invitation only, from an administrator, and fill in their own profile.
 
@@ -47,6 +55,8 @@ export async function slotHasHistory(db: Database, slot: string): Promise<boolea
         OR EXISTS (SELECT 1 FROM exercises WHERE player = ?1)
         OR EXISTS (SELECT 1 FROM mmr_entries WHERE player = ?1)
         OR EXISTS (SELECT 1 FROM player_ranks WHERE player = ?1)
+        OR EXISTS (SELECT 1 FROM solo_ranks WHERE player = ?1 AND mmr IS NOT NULL)
+        OR EXISTS (SELECT 1 FROM solo_mmr_entries WHERE player = ?1)
         OR EXISTS (SELECT 1 FROM player_identities WHERE slot = ?1)
         OR EXISTS (SELECT 1 FROM player_identity_aliases WHERE slot = ?1)
         OR EXISTS (SELECT 1 FROM drink_debts WHERE payer = ?1 OR recipient = ?1)
@@ -83,18 +93,30 @@ export async function saveOwnProfile(
     .from(members)
     .where(and(eq(members.duoPseudo, duoPseudo), ne(members.id, memberId)));
   if (holder) throw withStatus('Ce pseudo duo est déjà celui d’un autre membre.', 409);
+  // Another solo pseudo or platform may name another account: the rank source looks it up again.
+  const soloAccountChanged =
+    current.soloPseudo?.toLowerCase() !== soloPseudo?.toLowerCase() ||
+    current.platform !== platform ||
+    current.duoPseudo !== duoPseudo;
   // A pseudo with history may be chosen: a new player finds their matches under it. Its game identity
   // (player_identities.owner) never follows on its own: only an administrator hands it over.
   try {
-    await orm(db)
+    const query = orm(db);
+    const update = query
       .update(members)
       .set({
         duoPseudo,
         soloPseudo,
         platform,
+        ...(soloAccountChanged ? { soloPlayerId: null } : {}),
         rosterPosition: sql`COALESCE(${members.rosterPosition}, (SELECT COALESCE(MAX(${members.rosterPosition}), 0) + 1 FROM ${members}))`,
       })
       .where(eq(members.id, memberId));
+    if (soloAccountChanged && current.duoPseudo !== null) {
+      await query.batch([update, query.delete(soloRanks).where(eq(soloRanks.player, current.duoPseudo))]);
+    } else {
+      await update;
+    }
   } catch (error) {
     if (isUniqueViolation(error)) throw withStatus('Ce pseudo duo est déjà celui d’un autre membre.', 409);
     throw error;

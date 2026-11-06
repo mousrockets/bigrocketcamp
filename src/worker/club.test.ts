@@ -44,6 +44,7 @@ beforeEach(async () => {
     env.DB.prepare('DELETE FROM members'),
     env.DB.prepare('DELETE FROM exercises'),
     env.DB.prepare('DELETE FROM player_identities'),
+    env.DB.prepare('DELETE FROM solo_ranks'),
     env.DB.prepare("UPDATE club_settings SET name = 'Le Club Fictif'"),
     env.DB.prepare(
       "INSERT INTO members (id, email, role, duo_pseudo, platform, roster_position) VALUES ('member-alice', 'alice@example.com', 'admin', 'alice', 'pc', 1), ('member-bob', 'bob@example.com', 'member', 'bob', 'xbox', 2)",
@@ -119,6 +120,33 @@ describe('the profile', () => {
       platform: 'playstation',
     });
     expect(otherFields.status).toBe(200);
+  });
+
+  test('another solo pseudo or platform forgets the solo account found, so the rank source looks it up again', async () => {
+    const epicId = `Epic|${'b'.repeat(32)}|0`;
+    const save = (soloPseudo: string, platform = 'pc') =>
+      call('/api/profile', member, 'PUT', { duoPseudo: 'bob', soloPseudo, platform });
+    const found = async () => {
+      await env.DB.batch([
+        env.DB.prepare("UPDATE members SET solo_player_id = ? WHERE id = 'member-bob'").bind(epicId),
+        env.DB.prepare(
+          "INSERT INTO solo_ranks (player, player_id, mmr, status) VALUES ('bob', ?, 1320, 'ready') ON CONFLICT(player) DO NOTHING",
+        ).bind(epicId),
+      ]);
+    };
+    const kept = async () => ({
+      id: await env.DB.prepare("SELECT solo_player_id FROM members WHERE id = 'member-bob'").first('solo_player_id'),
+      ranks: await count("SELECT COUNT(*) AS n FROM solo_ranks WHERE player = 'bob'"),
+    });
+    expect((await save('Bob Solo')).status).toBe(200);
+    await found();
+    expect((await save('BOB SOLO')).status).toBe(200);
+    expect(await kept()).toEqual({ id: epicId, ranks: 1 });
+    expect((await save('Bob Other')).status).toBe(200);
+    expect(await kept()).toEqual({ id: null, ranks: 0 });
+    await found();
+    expect((await save('Bob Other', 'playstation')).status).toBe(200);
+    expect(await kept()).toEqual({ id: null, ranks: 0 });
   });
 
   test('choosing a pseudo with history never hands over its game identity', async () => {
