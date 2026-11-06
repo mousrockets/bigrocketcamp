@@ -12,6 +12,7 @@ export default defineConfig(async () => {
         miniflare: { bindings: { TEST_MIGRATIONS: migrations } },
       }),
     ],
+    define: { __APP_COMMIT__: JSON.stringify('test') },
     test: { setupFiles: ['./src/test-setup.ts'] },
   };
 });

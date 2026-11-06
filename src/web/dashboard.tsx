@@ -5,6 +5,7 @@ import {
   dailyRecap,
   exerciseDescription,
   exerciseEffect,
+  exerciseTypes,
   formatNumber,
   lastPlaceRule,
   parisDay,
@@ -13,12 +14,14 @@ import {
   validateExercise,
 } from '../lib/domain';
 import { currentSeason, seasonEndLabel, seasonTiming } from '../lib/season';
+import { versionLabel } from '../lib/version';
 import { apiFetch, signOut } from './api';
 import { Brand } from './brand';
 import { playerPlatform, useClub } from './club';
 import type { MonthlyState } from './monthly-mmr';
 import { MonthlyMmr } from './monthly-mmr';
 import { playerInitials } from './players';
+import { loadedCommit, useDeployedVersion } from './version';
 
 type ExerciseType = 'pushups' | 'plank' | 'crunches';
 type Declaration = { id: string; player: string; type: ExerciseType; count: number; day: string };
@@ -190,6 +193,50 @@ function removeStorage(key: string) {
     // See readStorage.
   }
 }
+
+// The exercise form survives a reload to a newer version: sessionStorage lasts as long as the tab.
+const draftKey = 'rl-draft';
+type Draft = { player: string; type: ExerciseType; count: number; playerTouched: boolean };
+
+function saveDraft(draft: Draft) {
+  try {
+    sessionStorage.setItem(draftKey, JSON.stringify(draft));
+  } catch {
+    // See readStorage.
+  }
+}
+
+function takeDraft(roster: Roster): Draft | null {
+  try {
+    const stored = sessionStorage.getItem(draftKey);
+    sessionStorage.removeItem(draftKey);
+    const draft = stored ? (JSON.parse(stored) as Partial<Draft>) : null;
+    if (!draft || !roster.includes(draft.player ?? '') || !exerciseTypes.includes(draft.type as ExerciseType)) {
+      return null;
+    }
+    return {
+      player: draft.player as string,
+      type: draft.type as ExerciseType,
+      count: typeof draft.count === 'number' ? draft.count : Number.NaN,
+      playerTouched: draft.playerTouched === true,
+    };
+  } catch {
+    return null;
+  }
+}
+
+const isEditingField = () => {
+  const field = document.activeElement;
+  return (
+    field instanceof HTMLInputElement ||
+    field instanceof HTMLTextAreaElement ||
+    field instanceof HTMLSelectElement ||
+    (field instanceof HTMLElement && field.isContentEditable)
+  );
+};
+
+// How long a visible page must stay untouched before it reloads to a newer version.
+const idleBeforeReload = 30_000;
 
 function summarizeStats(roster: Roster, state: State, day: string) {
   return summarize(roster, state.results, state.exercises, day, state.matchRosters || []) as PlayerStats[];
@@ -578,6 +625,13 @@ export function Dashboard() {
     const savedMe = readStorage('rl-me');
     if (savedMe && roster.includes(savedMe)) setChosenMe(savedMe);
     if (readStorage('rl-podium') === 'mmr') setPodiumMode('mmr');
+    const draft = takeDraft(roster);
+    if (draft) {
+      setPlayer(draft.player);
+      setType(draft.type);
+      setCount(draft.count);
+      playerTouched.current = draft.playerTouched;
+    }
     try {
       const stored = readStorage('rl-pending');
       if (stored) {
@@ -597,6 +651,40 @@ export function Dashboard() {
       document.removeEventListener('visibilitychange', onVisible);
     };
   }, []);
+
+  const deployed = useDeployedVersion();
+  const outdated = deployed !== null && deployed.commit !== loadedCommit;
+  // A declaration being sent, waiting to be resent or still undoable, or an open menu, keeps the page as it is.
+  const reloadHeld = busy || pending !== null || undoable !== null || menuOpen || installHelp;
+  const formDraft = useRef<Draft | null>(null);
+  formDraft.current = { player, type, count, playerTouched: playerTouched.current };
+
+  // A newer version answers: reload once the page is hidden, or untouched for a while, keeping the form as it is.
+  useEffect(() => {
+    if (!outdated || reloadHeld) return;
+    let timer = 0;
+    const reloadWhenIdle = () => {
+      clearTimeout(timer);
+      timer = window.setTimeout(reloadIfSafe, document.hidden ? 0 : idleBeforeReload);
+    };
+    function reloadIfSafe() {
+      if (submissionInFlight.current || (!document.hidden && isEditingField())) {
+        timer = window.setTimeout(reloadIfSafe, idleBeforeReload);
+        return;
+      }
+      if (formDraft.current) saveDraft(formDraft.current);
+      location.reload();
+    }
+    const activity = ['pointerdown', 'keydown', 'input', 'wheel', 'touchstart'] as const;
+    for (const event of activity) window.addEventListener(event, reloadWhenIdle, { passive: true });
+    document.addEventListener('visibilitychange', reloadWhenIdle);
+    reloadWhenIdle();
+    return () => {
+      clearTimeout(timer);
+      for (const event of activity) window.removeEventListener(event, reloadWhenIdle);
+      document.removeEventListener('visibilitychange', reloadWhenIdle);
+    };
+  }, [outdated, reloadHeld]);
 
   // The floating shortcut is useless while the form itself is on screen.
   useEffect(() => {
@@ -1716,6 +1804,7 @@ export function Dashboard() {
           {me.role === 'admin' && <a href="/reglages">Réglages du club</a>}
           <SignOutLink />
         </nav>
+        <p className="small muted">{versionLabel(deployed ?? { commit: loadedCommit, deployedAt: null })}</p>
       </footer>
     </main>
   );
