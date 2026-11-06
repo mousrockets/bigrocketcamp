@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactNode } from 'react';
 import { useEffect, useRef, useState } from 'react';
+import type { Roster } from '../lib/club';
 import {
   dailyRecap,
   exerciseDescription,
@@ -14,10 +15,10 @@ import {
 import { currentSeason, seasonEndLabel, seasonTiming } from '../lib/season';
 import { apiFetch, signOut } from './api';
 import { Brand } from './brand';
-import { clubName, roster } from './club-config';
+import { playerPlatform, useClub } from './club';
 import type { MonthlyState } from './monthly-mmr';
 import { MonthlyMmr } from './monthly-mmr';
-import { playerInitials, playerPlatform } from './players';
+import { playerInitials } from './players';
 
 type ExerciseType = 'pushups' | 'plank' | 'crunches';
 type Declaration = { id: string; player: string; type: ExerciseType; count: number; day: string };
@@ -85,21 +86,23 @@ type InstallPrompt = Event & { prompt: () => Promise<void>; userChoice: Promise<
 type InstallWindow = Window & { __rlInstall?: InstallPrompt | null };
 type BadgeRule = { id: string; emoji: string; label: string; earned: (player: PlayerStats, streak: Streak) => boolean };
 
-const clubShortName = clubName.split(' ').at(-1) ?? clubName;
-const cheers = [
-  'Vas-y champion !',
-  'Allez, encore une ! Comme en prolongation !',
-  'Boost à 100 % !',
-  'What a save… de pompes !',
-  'Calculated.',
-  'Les bras en béton armé !',
-  'Même le ballon est impressionné.',
-  'Tu pousses plus fort qu’un kickoff !',
-  `${clubShortName} un jour, ${clubShortName} toujours !`,
-  'Respect. Le coach est fier.',
-  'Ça c’est du Grand Champion !',
-  'Et le muscle, il se lève tout seul ?',
-];
+const cheersFor = (clubName: string) => {
+  const clubShortName = clubName.split(' ').at(-1) ?? clubName;
+  return [
+    'Vas-y champion !',
+    'Allez, encore une ! Comme en prolongation !',
+    'Boost à 100 % !',
+    'What a save… de pompes !',
+    'Calculated.',
+    'Les bras en béton armé !',
+    'Même le ballon est impressionné.',
+    'Tu pousses plus fort qu’un kickoff !',
+    `${clubShortName} un jour, ${clubShortName} toujours !`,
+    'Respect. Le coach est fier.',
+    'Ça c’est du Grand Champion !',
+    'Et le muscle, il se lève tout seul ?',
+  ];
+};
 const finishers = [
   'Dette réglée ! Free-play mérité.',
   'Zéro pompe due. Champion du monde !',
@@ -131,7 +134,7 @@ const badgeRules: BadgeRule[] = [
 ];
 
 const pick = (list: readonly string[]) => list[Math.floor(Math.random() * list.length)] ?? '';
-const isLoss = (r: Result) =>
+const isLossIn = (roster: Roster) => (r: Result) =>
   r.kind === 'match' && !r.review_required && r.team !== r.winner && roster.includes(r.name);
 const isStandalone = () =>
   matchMedia('(display-mode: standalone)').matches ||
@@ -188,7 +191,7 @@ function removeStorage(key: string) {
   }
 }
 
-function summarizeStats(state: State, day: string) {
+function summarizeStats(roster: Roster, state: State, day: string) {
   return summarize(roster, state.results, state.exercises, day, state.matchRosters || []) as PlayerStats[];
 }
 
@@ -443,6 +446,7 @@ function Car() {
 }
 
 function SkeletonCards() {
+  const { roster } = useClub();
   return (
     <>
       <p className="sr-only">Chargement de l’équipe…</p>
@@ -488,6 +492,7 @@ function lastReception(state: State | null) {
 }
 
 export function Dashboard() {
+  const { name: clubName, roster, players, me } = useClub();
   const [data, setData] = useState<State | null>(null);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -689,7 +694,7 @@ export function Dashboard() {
   }, [data, recognized]);
 
   const today = parisDay();
-  const allStats = data ? summarizeStats(data, '') : [];
+  const allStats = data ? summarizeStats(roster, data, '') : [];
   const streaks = new Map(
     roster.map((name) => [
       name,
@@ -703,7 +708,7 @@ export function Dashboard() {
   // biome-ignore lint/correctness/useExhaustiveDependencies: only a new server state can bring a new defeat or badge.
   useEffect(() => {
     if (!data) return;
-    const losses = data.results.filter(isLoss);
+    const losses = data.results.filter(isLossIn(roster));
     const keys = losses.map((r) => `${r.match_guid}:${r.player_id}`);
     const seen = seenLosses.current;
     if (seen) {
@@ -771,7 +776,7 @@ export function Dashboard() {
 
   function celebrate(kind: CheerKind, custom?: string) {
     const id = Date.now() + Math.random();
-    const text = custom || (kind === 'finish' ? pick(finishers) : pick(cheers));
+    const text = custom || (kind === 'finish' ? pick(finishers) : pick(cheersFor(clubName)));
     const amount = kind === 'loss' ? 0 : kind === 'cheer' ? 30 : 60;
     const pieces = Array.from({ length: amount }, (_, index) => ({
       key: `${id}-${index}`,
@@ -827,7 +832,9 @@ export function Dashboard() {
       setUndoable(payload);
       setTimeout(() => setUndoable((current) => (current?.id === payload.id ? null : current)), UNDO_DELAY_MS);
       const state = await refresh();
-      const updated = state ? summarizeStats(state, '').find((stats) => stats.name === payload.player) : undefined;
+      const updated = state
+        ? summarizeStats(roster, state, '').find((stats) => stats.name === payload.player)
+        : undefined;
       if (updated) {
         setNotice(
           `Exercice enregistré pour ${payload.player} : ${exerciseDescription(payload)}. Solde restant : ${formatNumber(updated.remaining)} pompes.`,
@@ -880,7 +887,7 @@ export function Dashboard() {
     }
   }
 
-  const stats = data ? summarizeStats(data, day) : [];
+  const stats = data ? summarizeStats(roster, data, day) : [];
   const rows = data?.results.filter((r) => (!day || r.day === day) && (test || r.kind === 'match')) || [];
   const exercises = data?.exercises.filter((e) => !day || e.day === day) || [];
   const draft = pending || { type, count: type === 'plank' ? count * 60 : count };
@@ -1166,7 +1173,7 @@ export function Dashboard() {
                         🔥 {streak.current} j
                       </span>
                     )}
-                    <span className="platform">{playerPlatform(p.name)}</span>
+                    <span className="platform">{playerPlatform(players, p.name)}</span>
                   </div>
                   <h3>{p.name}</h3>
                   <DoublesRankPanel player={p.name} rank={data.doublesRanks?.find((r) => r.player === p.name)} />
@@ -1704,7 +1711,11 @@ export function Dashboard() {
           d’Epic Games, Inc. Tous droits réservés par Epic. Ce produit n’est pas officiel et n’a pas l’approbation
           d’Epic.
         </p>
-        <SignOutLink />
+        <nav className="footer-links" aria-label="Mon compte">
+          <a href="/profil">Mon profil</a>
+          {me.role === 'admin' && <a href="/reglages">Réglages du club</a>}
+          <SignOutLink />
+        </nav>
       </footer>
     </main>
   );

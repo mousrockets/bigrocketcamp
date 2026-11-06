@@ -14,26 +14,27 @@ Cloudflare déploie ensuite chaque commit de `main` lui-même : aucun jeton Clou
 
 Dans le Worker, Settings :
 
-- **Build → Variables** (lues au build, visibles dans l'app) : `VITE_CLUB_NAME` (nom du club) et `VITE_CLUB_ROSTER` (pseudos des joueurs, en minuscules, séparés par des virgules) et `VITE_CLUB_PLATFORMS` (joueurs sur console, par exemple `kevin-74000:PS5`). Sans elles, l'app prend les valeurs de `.env`.
 - **Variables and Secrets** (lues par l'API) : `MAIL_FROM` (expéditeur des codes, par exemple `Les Trois Mousrockets <connexion@mousrockets.com>`), et en secrets `RESEND_API_KEY`, `INGEST_KEY` (ancien collecteur PC) et `PUBLIC_MMR_IMPORT_KEY` (relevé mensuel du MMR), ces deux derniers seulement s'ils servent ; `RANK_SOURCE_KEY` (au moins 32 caractères) si une source de rangs alimente le MMR 2v2 (`GET /api/ranks/targets`, `POST /api/ranks`, en-tête `X-Rank-Source-Key`).
 - **Build → Deploy command** : `npm run deploy`. Il applique les migrations de la base avant de déployer.
 - `wrangler.jsonc` : l'identifiant de la base D1 de production (`database_id`).
 
-## Les membres
+## Le club et ses membres
 
-Seuls les membres se connectent, avec leur adresse e-mail et un code reçu par mail. On en ajoute un ainsi :
+Le nom du club et ses membres sont des réglages de l'app, en base : un administrateur les gère dans la page Réglages (lien en bas du tableau). Seuls les membres invités se connectent, avec leur adresse e-mail et un code reçu par mail ; personne ne s'inscrit seul.
+
+Chaque membre remplit son profil : pseudo duo, pseudo solo et plateforme. Le pseudo duo est son emplacement de joueur : les matchs, exercices et rangs y sont rattachés, et les joueurs du tableau sont les membres qui en ont un, dans l'ordre d'arrivée. Il se change tant qu'aucune donnée de jeu n'y est liée, puis il est figé.
+
+Une nouvelle instance n'a encore aucun membre : on crée le premier administrateur une fois, puis il invite les autres depuis l'app.
 
 ```sh
-npx wrangler d1 execute bigrocketcamp --remote --command "INSERT INTO members (id, email) VALUES ('<id>', '<adresse>')"
+npx wrangler d1 execute bigrocketcamp --remote --command "INSERT INTO members (id, email, role) VALUES (lower(hex(randomblob(16))), '<adresse>', 'admin')"
 ```
-
-L'`id` relie le membre à ses données : pour une instance venue du prototype, c'est l'identifiant ChatGPT du membre, visible dans la colonne `owner` de `player_identities`.
 
 ## Reprendre les données du prototype
 
 1. Exporter chaque table du prototype en JSON (un tableau par table, fichier `<table>.json`), hors du dépôt.
 2. `node scripts/import-prototype.ts <dossier> > import.sql`
-3. `npx wrangler d1 execute bigrocketcamp --remote --file import.sql`, puis ajouter les membres.
+3. `npx wrangler d1 execute bigrocketcamp --remote --file import.sql`, puis créer le premier administrateur (voir plus haut).
 4. Supprimer l'export et `import.sql` : ils contiennent des données personnelles.
 
 ## Côté GitHub
