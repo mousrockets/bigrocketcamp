@@ -22,8 +22,8 @@ Les limites qui comptent : 100 000 requêtes par jour, 10 ms de CPU par requête
 
 ## Mises à jour
 
-On utilise toujours les versions les plus récentes possibles.
+On utilise toujours les versions les plus récentes possibles, chacune testée par la CI.
 
-- **Dépendances** : Renovate ouvre chaque lundi une PR groupée pour les versions mineures, et une PR par version majeure. Elles fusionnent seules si la CI passe. Une faille connue déclenche aussitôt une PR de Dependabot, fusionnée de la même façon.
-- **Node** : la dernière LTS, dans `.node-version`, utilisée par la CI et par les builds Cloudflare. Renovate la monte quand une nouvelle version devient LTS. `engines` garde l'ancienne LTS en minimum, pour les contributeurs pas encore à jour.
-- **Moteur des Workers** : il ne suit pas Node, mais le `compatibility_date` de `wrangler.jsonc`, que Renovate ne touche pas. Après chaque montée de `wrangler` ou de `@cloudflare/vitest-plugin`, avancer cette date à celle du plus ancien `workerd` installé (`npm ls workerd` : la version `1.AAAAMMJJ.x` donne la date), lire les [changements de compatibilité](https://developers.cloudflare.com/workers/configuration/compatibility-flags/) intervenus entre les deux dates, lancer `npm run types` puis `npm run check`.
+- **Dépendances et actions GitHub** : Dependabot ouvre chaque lundi une PR groupée pour les versions mineures, et une PR par version majeure. Une faille connue déclenche aussitôt une PR de sécurité. Toutes fusionnent seules si la CI passe.
+- **Node** : la dernière LTS, dans `.node-version`, utilisée par la CI et par les builds Cloudflare. Dependabot ne la suit pas : chaque nouvelle LTS (fin octobre) se monte à la main. `engines` garde l'ancienne LTS en minimum, pour les contributeurs pas encore à jour.
+- **Moteur des Workers** : il ne suit pas Node, mais le `compatibility_date` de `wrangler.jsonc`, que Dependabot ne touche pas. Après chaque montée de `wrangler` ou de `@cloudflare/vitest-plugin`, avancer cette date à celle du plus ancien `workerd` installé (`npm ls workerd` : la version `1.AAAAMMJJ.x` donne la date), lire les [changements de compatibilité](https://developers.cloudflare.com/workers/configuration/compatibility-flags/) intervenus entre les deux dates, lancer `npm run types` puis `npm run check`.
