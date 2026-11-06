@@ -1,0 +1,4 @@
+# Only what can break production or the rules of the project waits for a maintainer.
+/.github/ @dimitridepardieu
+/wrangler.jsonc @dimitridepardieu
+/AGENTS.md @dimitridepardieu
