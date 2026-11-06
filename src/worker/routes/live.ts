@@ -29,7 +29,8 @@ liveRoutes.get('/', async (c) => {
 });
 
 liveRoutes.post('/', async (c) => {
-  if (!sameOrigin(c)) return c.json({ error: 'Origine refusée.' }, 403, noStore);
+  // A paired collector is a native client, without an Origin; the browser must come from the app's own pages.
+  if (!c.var.collector && !sameOrigin(c)) return c.json({ error: 'Origine refusée.' }, 403, noStore);
   const body = await c.req.text();
   if (body.length > 64000) return c.json({ error: 'Envoi trop volumineux.' }, 413, noStore);
   const db = c.env.DB;

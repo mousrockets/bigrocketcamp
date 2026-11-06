@@ -2743,6 +2743,15 @@ h1 em {
   color: var(--muted);
 }
 
+.pairing-code {
+  margin: 10px 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  user-select: all;
+}
+
 .footer-links {
   display: flex;
   flex-wrap: wrap;
