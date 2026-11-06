@@ -142,23 +142,29 @@ const liveCases: [string, (match: LiveMatch) => void, string][] = [
   ['a replay', (m) => (m.state.Game.bReplay = true), 'Match public terminé requis.'],
   ['one team', (m) => m.state.Game.Teams.pop(), 'Équipes finales invalides.'],
   ['another winner', (m) => (m.state.Game.Winner = 'Orange'), 'Gagnant du tableau différent de la fin de match.'],
-  ['a missing player', (m) => m.state.Players.pop(), 'Tableau final incomplet : aucune dette ajoutée.'],
+  [
+    'one player too many',
+    (m) =>
+      m.state.Players.push({
+        ...(m.state.Players[0] as LiveMatch['state']['Players'][number]),
+        PrimaryId: 'Steam|76561190000000009|0',
+      }),
+    'Tableau final invalide.',
+  ],
+  [
+    'only bots',
+    (m) => {
+      for (const player of m.state.Players) player.PrimaryId = 'Bot|1|0';
+    },
+    'Aucun joueur identifié dans le tableau final.',
+  ],
   [
     'a player seen twice',
     (m) => {
       const [first, second] = m.state.Players;
       if (first && second) second.PrimaryId = first.PrimaryId;
     },
-    'Participants du tableau incomplets ou ambigus.',
-  ],
-  [
-    'a bot',
-    (m) => {
-      const [first] = m.state.Players;
-      if (first) first.PrimaryId = 'Bot|1|0';
-      m.seenIds[0] = 'Bot|1|0';
-    },
-    'Identité de joueur manquante ou bot.',
+    'Participants du tableau ambigus.',
   ],
   [
     'three players in a team',
@@ -166,7 +172,15 @@ const liveCases: [string, (match: LiveMatch) => void, string][] = [
       const [, , third] = m.state.Players;
       if (third) third.TeamNum = 0;
     },
-    'Tableau des équipes incomplet.',
+    'Tableau des équipes invalide.',
+  ],
+  [
+    'a player in no team',
+    (m) => {
+      const [, , third] = m.state.Players;
+      if (third) third.TeamNum = 2;
+    },
+    'Résultat invalide.',
   ],
   [
     'a negative score',

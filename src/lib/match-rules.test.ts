@@ -40,7 +40,7 @@ test('declared rosters must match a coherent scoreboard', () => {
   ]);
   for (const invalid of [
     'not-a-list',
-    [{ MatchGuid: 'm', PlayerCount: 1 }],
+    [{ MatchGuid: 'm', PlayerCount: 0 }],
     [{ MatchGuid: 'm', PlayerCount: 17 }],
     [
       { MatchGuid: 'm', PlayerCount: 2 },
@@ -52,8 +52,13 @@ test('declared rosters must match a coherent scoreboard', () => {
   expect(() => validateMatchRosters([{ MatchGuid: 'm', PlayerCount: 3 }], scoreboard)).toThrow(
     'Tableau des scores incomplet ou incohérent.',
   );
+  // After a forfeit, the losers may all have left: a single team remains on the scoreboard.
   const sameTeam = scoreboard.map((r) => ({ ...r, team: 0 }));
-  expect(() => validateMatchRosters([{ MatchGuid: 'm', PlayerCount: 2 }], sameTeam)).toThrow(
+  expect(validateMatchRosters([{ MatchGuid: 'm', PlayerCount: 2 }], sameTeam)).toEqual([
+    { matchGuid: 'm', playerCount: 2 },
+  ]);
+  const unknownTeam = scoreboard.map((r) => ({ ...r, team: 2 }));
+  expect(() => validateMatchRosters([{ MatchGuid: 'm', PlayerCount: 2 }], unknownTeam)).toThrow(
     'Tableau des scores incomplet ou incohérent.',
   );
 });
