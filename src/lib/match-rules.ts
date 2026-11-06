@@ -23,6 +23,8 @@ export interface RosterSize {
 export interface IndexedMatch<Row extends MatchRow> {
   players: Map<string, Row>;
   complete: boolean;
+  /** How many players a source reported on the scoreboard it sent whole; null when none did. */
+  expected: number | null;
 }
 
 export interface LastPlaceRule {
@@ -48,7 +50,8 @@ export function matchIndex<Row extends MatchRow>(
     if (row.kind !== 'match' || row.review_required || typeof id !== 'string' || !id) continue;
     let match = matches.get(id);
     if (!match) {
-      match = { players: new Map(), complete: false };
+      const count = expected.get(id);
+      match = { players: new Map(), complete: false, expected: typeof count === 'number' ? count : null };
       matches.set(id, match);
     }
     const key = identity(row);

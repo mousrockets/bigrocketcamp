@@ -20,6 +20,12 @@ const playerCounts = new Map([
   [34, 6],
 ]);
 
+/** Ranked Doubles: the only playlist whose matches change the 2v2 rating. */
+export const rankedDoublesPlaylist = 11;
+
+/** Whether a received match can have changed its players' ranked 2v2 rating. */
+export const isRankedDoubles = (match: LiveMatch) => match.state.Game.PlaylistId === rankedDoublesPlaylist;
+
 const canonical = (id: unknown) =>
   String(id)
     .replace(/^PSN\|/, 'PS4|')

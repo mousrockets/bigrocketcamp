@@ -6,6 +6,7 @@ import {
   dailyRecap,
   exerciseDescription,
   exerciseEffect,
+  exerciseReceipt,
   exerciseTypes,
   formatNumber,
   lastPlaceBonus,
@@ -953,6 +954,7 @@ export function Dashboard() {
         day: parisDay(),
       };
       setPending(payload);
+      const debtBefore = stats.find((line) => line.name === payload.player)?.remaining ?? 0;
       // A storage restriction must not prevent saving the exercise on the server.
       writeStorage('rl-pending', JSON.stringify(payload));
       const response = await apiFetch('/api/exercise', {
@@ -972,9 +974,7 @@ export function Dashboard() {
         ? summarizeStats(roster, state, '').find((stats) => stats.name === payload.player)
         : undefined;
       if (updated) {
-        setNotice(
-          `Exercice enregistré pour ${payload.player} : ${exerciseDescription(payload)}. Solde restant : ${formatNumber(updated.remaining)} pompes.`,
-        );
+        setNotice(exerciseReceipt(payload.player, payload, debtBefore, updated.remaining));
         celebrate(updated.remaining === 0 ? 'finish' : 'cheer');
       } else celebrate('cheer');
     } catch (e) {
@@ -1727,6 +1727,7 @@ export function Dashboard() {
                   <small>
                     {matchWhen(match.day, match.received)}
                     {match.kind === 'test' ? ' · Test bots' : ''}
+                    {match.left ? ' · Un joueur est parti' : ''}
                   </small>
                 </div>
                 <ul className="match-players">

@@ -30,9 +30,21 @@ export interface HistoryMatch<Row extends HistoryRow> {
   review: boolean;
   /** For the club: club players in both teams make a match between members. */
   outcome: 'victory' | 'defeat' | 'between-members' | 'review';
+  /**
+   * A player left before the end (a forfeit, a quit, a bot in their place): the scoreboard, received whole,
+   * has fewer players on one side. It still counts like any other match.
+   */
+  left: boolean;
   /** Goals of the club's team first, as received; null when the scoreboard holds no goals. */
   score: [number, number] | null;
   players: HistoryPlayer<Row>[];
+}
+
+/** Only a scoreboard a source sent whole tells who is missing: older ones may hold the club's rows alone. */
+function someoneLeft(rows: readonly HistoryRow[], expected: number | null | undefined): boolean {
+  if (expected !== rows.length || rows.some((row) => row.kind !== 'match')) return false;
+  const sides = [0, 1].map((team) => rows.filter((row) => row.team === team).length);
+  return sides[0] !== sides[1];
 }
 
 const goalsOf = (rows: readonly HistoryRow[], team: number) =>
@@ -85,6 +97,7 @@ export function matchHistory<Row extends HistoryRow>(
       kind: first.kind,
       review,
       outcome,
+      left: someoneLeft(all, matches.get(guid)?.expected),
       score: hasGoals ? [goalsOf(all, ours), goalsOf(all, 1 - ours)] : null,
       players: rows.map((row) => {
         const counted = !row.review_required && row.kind === 'match' && row.team !== row.winner;
