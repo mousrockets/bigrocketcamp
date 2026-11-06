@@ -457,6 +457,95 @@ td small {
   margin-top: 5px;
 }
 
+.match-list {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0 0;
+  display: grid;
+  gap: 10px;
+}
+
+.match-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+
+.match-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.match-score {
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+}
+
+.match-head small,
+.match-source {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.match-head small {
+  margin-left: auto;
+}
+
+.match-players {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0 8px;
+  display: grid;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.match-players li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto 4ch;
+  align-items: baseline;
+  gap: 2px 12px;
+}
+
+.match-players b {
+  overflow-wrap: anywhere;
+}
+
+.match-points {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.match-pushups {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.match-pushups.owed {
+  color: var(--loss);
+  font-weight: 600;
+}
+
+.match-players small {
+  grid-column: 1 / -1;
+  color: var(--loss);
+  font-size: 11px;
+}
+
+@media (max-width:620px) {
+  .match-card {
+    padding: 12px;
+  }
+
+  .match-head small {
+    margin-left: 0;
+    width: 100%;
+  }
+}
+
 .badge {
   font-size: 11px;
   padding: 6px 9px;

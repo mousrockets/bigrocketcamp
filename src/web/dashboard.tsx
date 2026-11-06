@@ -16,6 +16,7 @@ import {
   summarize,
   validateExercise,
 } from '../lib/domain';
+import { matchHistory } from '../lib/match-history';
 import { currentSeason, seasonEndLabel, seasonTiming } from '../lib/season';
 import { versionLabel } from '../lib/version';
 import { apiFetch, signOut } from './api';
@@ -39,6 +40,8 @@ type Result = {
   team: number;
   winner: number;
   score: number;
+  goals?: number;
+  received?: string;
   review_required?: boolean;
   verification?: string;
   selected_source?: string;
@@ -572,6 +575,33 @@ function SkeletonCards() {
   );
 }
 
+const outcomeLabel = {
+  victory: 'Victoire',
+  defeat: 'Défaite',
+  'between-members': 'Entre membres',
+  review: 'À vérifier',
+} as const;
+const outcomeClass = {
+  victory: 'badge victory',
+  defeat: 'badge defeat',
+  'between-members': 'badge',
+  review: 'badge',
+} as const;
+const matchDay = new Intl.DateTimeFormat('fr-FR', {
+  timeZone: 'Europe/Paris',
+  weekday: 'short',
+  day: 'numeric',
+  month: 'short',
+});
+const matchTime = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit' });
+
+/** "ven. 6 nov. · 22:30": the match's day, and when it was received when known. */
+function matchWhen(day: string, received: string | null) {
+  const date = matchDay.format(new Date(`${day}T12:00:00Z`));
+  const at = received ? new Date(received) : null;
+  return at && !Number.isNaN(at.getTime()) ? `${date} · ${matchTime.format(at)}` : date;
+}
+
 function matchSource(result: Result) {
   if (result.review_required) return 'À vérifier';
   if (result.verification === 'confirmed') return 'Confirmé par les deux sources';
@@ -999,6 +1029,7 @@ export function Dashboard() {
     data?.results.filter((r) => roster.includes(r.name) && (!day || r.day === day) && (test || r.kind === 'match')) ||
     [];
   const indexedMatches = data ? matchIndex(data.results, data.matchRosters || []) : new Map();
+  const history = data ? matchHistory(rows, data.results, indexedMatches, roster) : [];
   const exercises = data?.exercises.filter((e) => !day || e.day === day) || [];
   const draft = pending || { type, count: type === 'plank' ? count * 60 : count };
   const selected = stats.find((p) => p.name === (pending?.player || player));
@@ -1675,51 +1706,46 @@ export function Dashboard() {
         <details id="history" className="history fold">
           <summary>
             <h2>Les derniers matchs</h2>
-            <span className="small muted">{rows.length} sur la période</span>
+            <span className="small muted">
+              {history.length} match{history.length > 1 ? 's' : ''} sur la période
+            </span>
           </summary>
           <label className="small">
             <input type="checkbox" checked={test} onChange={(event) => setTest(event.target.checked)} /> Inclure les
             tests bots
           </label>
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Date / joueur</th>
-                  <th>Résultat</th>
-                  <th>Points</th>
-                  <th>Pompes</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((r) => (
-                  <tr key={r.match_guid + r.player_id}>
-                    <td>
-                      <b>{r.name}</b>
-                      <small>
-                        {r.day} {r.kind === 'test' ? '· Test bots' : ''}
-                      </small>
-                      <small>{matchSource(r)}</small>
-                    </td>
-                    <td>
-                      <span
-                        className={r.review_required ? 'badge' : r.team === r.winner ? 'badge victory' : 'badge defeat'}
-                      >
-                        {r.review_required ? 'À vérifier' : r.team === r.winner ? 'Victoire' : 'Défaite'}
+          <ol className="match-list">
+            {history.map((match) => (
+              <li key={match.guid} className="match-card">
+                <div className="match-head">
+                  <span className={outcomeClass[match.outcome]}>{outcomeLabel[match.outcome]}</span>
+                  {match.score && (
+                    <b className="match-score" title="Buts de l’équipe du club, puis des adversaires">
+                      {match.score[0]} – {match.score[1]}
+                    </b>
+                  )}
+                  <small>
+                    {matchWhen(match.day, match.received)}
+                    {match.kind === 'test' ? ' · Test bots' : ''}
+                  </small>
+                </div>
+                <ul className="match-players">
+                  {match.players.map(({ row, pushups, lastPlace }) => (
+                    <li key={row.player_id}>
+                      <b>{row.name}</b>
+                      <span className="match-points">{formatNumber(row.score)} pts</span>
+                      <span className={pushups ? 'match-pushups owed' : 'match-pushups'}>
+                        {pushups ? `+${pushups}` : '0'}
                       </span>
-                    </td>
-                    <td>{r.score}</td>
-                    <td>
-                      {!r.review_required && r.kind === 'match' && r.team !== r.winner
-                        ? `+${5 + lastPlaceBonus(r, indexedMatches, roster)}`
-                        : '0'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {!rows.length && <p className="empty">Aucun match enregistré pour cette période.</p>}
-          </div>
+                      {lastPlace && <small>Moins de points de l’équipe : +5</small>}
+                    </li>
+                  ))}
+                </ul>
+                {match.players[0] && <small className="match-source">{matchSource(match.players[0].row)}</small>}
+              </li>
+            ))}
+          </ol>
+          {!history.length && <p className="empty">Aucun match enregistré pour cette période.</p>}
         </details>
         <details className="history exercise-history fold">
           <summary>
