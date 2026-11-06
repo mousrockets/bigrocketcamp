@@ -10,6 +10,32 @@ L'app tourne sur Cloudflare, dans les limites du plan gratuit. Une fusion dans `
 
 Cloudflare déploie ensuite chaque commit de `main` lui-même : aucun jeton Cloudflare n'est stocké dans GitHub.
 
+## Réglages de l'instance
+
+Dans le Worker, Settings :
+
+- **Build → Variables** (lues au build, visibles dans l'app) : `VITE_CLUB_NAME` (nom du club) et `VITE_CLUB_ROSTER` (pseudos des joueurs, en minuscules, séparés par des virgules) et `VITE_CLUB_PLATFORMS` (joueurs sur console, par exemple `kevin-74000:PS5`). Sans elles, l'app prend les valeurs de `.env`.
+- **Variables and Secrets** (lues par l'API) : `MAIL_FROM` (expéditeur des codes, par exemple `Les Trois Mousrockets <connexion@mousrockets.com>`), et en secrets `RESEND_API_KEY`, `INGEST_KEY` (ancien collecteur PC) et `PUBLIC_MMR_IMPORT_KEY` (relevé mensuel du MMR), ces deux derniers seulement s'ils servent.
+- **Build → Deploy command** : `npm run deploy`. Il applique les migrations de la base avant de déployer.
+- `wrangler.jsonc` : l'identifiant de la base D1 de production (`database_id`).
+
+## Les membres
+
+Seuls les membres se connectent, avec leur adresse e-mail et un code reçu par mail. On en ajoute un ainsi :
+
+```sh
+npx wrangler d1 execute bigrocketcamp --remote --command "INSERT INTO members (id, email) VALUES ('<id>', '<adresse>')"
+```
+
+L'`id` relie le membre à ses données : pour une instance venue du prototype, c'est l'identifiant ChatGPT du membre, visible dans la colonne `owner` de `player_identities`.
+
+## Reprendre les données du prototype
+
+1. Exporter chaque table du prototype en JSON (un tableau par table, fichier `<table>.json`), hors du dépôt.
+2. `node scripts/import-prototype.ts <dossier> > import.sql`
+3. `npx wrangler d1 execute bigrocketcamp --remote --file import.sql`, puis ajouter les membres.
+4. Supprimer l'export et `import.sql` : ils contiennent des données personnelles.
+
 ## Côté GitHub
 
 - Dépôt public : la protection de `main` n'existe pas pour les dépôts privés du plan gratuit.

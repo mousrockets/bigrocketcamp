@@ -1,0 +1,11 @@
+// Secrets and settings set in the Cloudflare dashboard, absent from wrangler.jsonc.
+interface Env {
+  /** Resend API key: sends the sign-in codes. Without it, local development prints them in the console. */
+  RESEND_API_KEY?: string;
+  /** Sender of the sign-in e-mails, e.g. `Les Trois Mousrockets <hello@example.com>`. */
+  MAIL_FROM?: string;
+  /** Shared secret of the legacy PC collector (`Authorization: Bearer …`). */
+  INGEST_KEY?: string;
+  /** Secret of the monthly public MMR import (`X-RL-Public-Mmr-Key`). */
+  PUBLIC_MMR_IMPORT_KEY?: string;
+}

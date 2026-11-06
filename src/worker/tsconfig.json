@@ -4,5 +4,6 @@
     "lib": ["ES2023"],
     "types": ["@cloudflare/vitest-plugin/types"]
   },
-  "include": ["."]
+  "include": [".", "../lib/**/*.test.ts", "../test-setup.ts", "../test-env.d.ts", "../vite-env.d.ts"],
+  "exclude": []
 }

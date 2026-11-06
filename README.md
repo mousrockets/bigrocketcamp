@@ -16,9 +16,13 @@ Il faut [Node.js](https://nodejs.org) 24 ou plus.
 
 ```sh
 npm install
-npm run dev     # l'app et l'API sur http://127.0.0.1:10071
-npm run check   # lint, types et tests
+npm run db:migrate   # crée la base locale
+npm run db:seed      # membres et joueurs fictifs
+npm run dev          # l'app et l'API sur http://127.0.0.1:10071
+npm run check        # lint, types et tests
 ```
+
+Pour se connecter en local : `vincent@example.com`, `dimitri@example.com` ou `kevin@example.com`. Le code s'affiche dans le terminal de `npm run dev`.
 
 ## Le code
 
