@@ -15,7 +15,7 @@ test('MCP réel : découverte sans données, outils personnels protégés et ré
  const f=await fixture({legacy:false});try{
   const route=await loadRoute('../../app/mcp/route.ts',{env:f.env,getChatGPTUser:async()=>f.actor.user,connectionStatus,syncHistories,recapState,parisDay,readMonthlyMmr,closeMonthlyMmr});
   const call=(method,params)=>route.POST(new Request('https://rl.example/mcp',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method,params})}));
-  const discovery=await (await call('server/discover')).json();assert.deepEqual(discovery.result.supportedVersions,['2026-07-28']);const list=await (await call('tools/list')).json();assert.equal(list.result.tools.length,5);
+  const discovery=await (await call('server/discover')).json();assert.deepEqual(discovery.result.supportedVersions,['2026-07-28']);const list=await (await call('tools/list')).json();assert.equal(list.result.tools.length,6);
   f.actor.user=null;assert.equal((await call('tools/call',{name:'sync_epic_histories'})).status,401);f.actor.user={userId:'current-user'};
   const recap=await (await call('tools/call',{name:'get_daily_recap',arguments:{day:'2026-11-04'}})).json();assert.equal(JSON.parse(recap.result.content[0].text).players.length,3);
   const invalid=await (await call('tools/call',{name:'get_daily_recap',arguments:{day:'2026-02-31'}})).json();assert.equal(invalid.result.isError,true);

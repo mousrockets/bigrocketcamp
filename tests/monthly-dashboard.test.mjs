@@ -7,7 +7,7 @@ import {MonthlyMmr} from './helpers/react-component.mjs';
 import {closeMonthlyMmr} from '../lib/monthly-mmr.mjs';
 import {roster} from '../lib/domain.mjs';
 import {publicProfiles} from '../lib/public-ranks.mjs';
-import {publicProfileHtml} from './helpers/public-profile.mjs';
+import {publicProfileHtml,publicStamp} from './helpers/public-profile.mjs';
 const content=node=>typeof node==='string'?node:node.children?.map(content).join('')||'';
 
 async function harness({owned=true,history=false,publicReadings=false}={}){
@@ -32,7 +32,7 @@ async function harness({owned=true,history=false,publicReadings=false}={}){
  const enter=mmr=>action(()=>root().findByProps({type:'number'}).props.onChange({target:{value:String(mmr)}}));
  const submit=(times=1)=>action(()=>{const fn=form().props.onSubmit;for(let i=0;i<times;i++)fn({preventDefault(){}});});
  const cleanup=async()=>{try{await action(()=>renderer.unmount());}finally{console.error=originalError;for(const [name,descriptor] of saved){if(descriptor)Object.defineProperty(globalThis,name,descriptor);else delete globalThis[name];}f.db.close();}};
- return {f,storage,network,root,form,enter,submit,action,cleanup,intervals};
+ return {f,storage,network,root,form,enter,submit,action,cleanup,intervals,refresh};
 }
 test('MMR déclaré dans le vrai formulaire : propre joueur uniquement, tableau et rang actualisés',async()=>{
  const h=await harness();try{const players=h.form().findAllByType('select')[0].findAllByType('option');assert.deepEqual(players.map(p=>p.children[0]),[roster[0]]);
@@ -60,11 +60,12 @@ test('Sans identité associée : expliquer la connexion locale, aucun formulaire
  const h=await harness({owned:false});try{assert.equal(h.root().findAllByType('form').length,0);assert.match(content(h.root()),/ton identité de joueur/);assert.match(content(h.root()),/aucune dette automatique/);
  }finally{await h.cleanup();}
 });
-test('Relevé public dans le vrai formulaire : remplir les trois MMR et les cartes sans saisir de valeur',async()=>{
+test('Relevé public importé par l’agent : remplir les trois MMR et les cartes sans saisir de valeur',async()=>{
  const h=await harness({publicReadings:true});try{
-  await h.action(()=>h.root().findAllByType('button').find(b=>content(b)==='Actualiser les MMR publics').props.onClick());
+  const response=await h.f.importPublic(publicProfiles.map((p,i)=>({player:p.player,html:publicProfileHtml(p,{mmr:1500-i*100,stamp:publicStamp()})})));assert.equal(response.status,200);
+  await h.action(()=>h.refresh());
   const table=content(h.root().findByProps({'aria-label':'Classement MMR mensuel'}));for(const mmr of [1500,1400,1300])assert.ok(table.includes(String(mmr)));
   assert.ok(table.includes('RLStats.net'));assert.equal(h.network.records.length,0);
-  const state=await (await h.f.readState()).json();assert.ok(state.doublesRanks.every(r=>r.status==='public'));assert.equal(state.monthly.publicSync.status,'ready');assert.equal(h.root().findAllByType('button').find(b=>content(b)==='Actualiser les MMR publics').props.disabled,true);
+  const state=await (await h.f.readState()).json();assert.ok(state.doublesRanks.every(r=>r.status==='public'));assert.equal(state.monthly.publicSync.status,'ready');assert.equal(h.root().findAllByType('button').filter(b=>content(b)==='Actualiser les MMR publics').length,0);
  }finally{await h.cleanup();}
 });

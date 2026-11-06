@@ -3,7 +3,7 @@
 Site lié : Les Trois Mousrockets, https://example.chatgpt.site.
 Exécution le premier de chaque mois à 00 h 05, Europe/Paris.
 
-1. Avec les outils du Site lié, appeler `close_monthly_mmr` sans argument. Il relève les MMR 2v2 depuis les trois URLs publiques RLStats.net configurées, puis clôture les mois terminés selon les bornes Europe/Paris. Il n’envoie aucun identifiant Epic interne, cookie ou jeton au fournisseur et n’ouvre aucune session Epic. L’appel est idempotent et peut être réessayé après une erreur réseau ; une limite globale de trois minutes évite de multiplier les lectures.
+1. Avec les outils du Site lié, appeler `close_monthly_mmr` sans argument. Il clôture les mois terminés selon les bornes Europe/Paris avec les observations déjà importées par la tâche distincte de fin de mois. Il ne consulte aucune source externe et n’ouvre aucune session Epic. L’appel est idempotent et peut être réessayé après une erreur réseau.
 2. Lire `get_monthly_mmr` pour vérifier que le dernier mois terminé est archivé et que les boissons correspondent au résultat. Trois MMR récents sont nécessaires : observations publiques des quinze dernières minutes du mois reçues dans la marge, ou confirmations manuelles du dernier jour. Les observations après minuit ne sont jamais antidatées. Dernier unique : une boisson à chacun des deux autres. Ex æquo au minimum ou relevé manquant : aucune dette automatique. Ne pas inventer, compléter ou modifier les MMR et ne pas rouvrir un résultat archivé.
 3. Signaler au propriétaire un échec ou les MMR manquants, avec le lien du Site. Aucune sollicitation des autres joueurs, aucun email ni message à un tiers. Ne pas confondre absence de relevé et absence de partie jouée.
 

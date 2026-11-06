@@ -7,12 +7,14 @@ import {observationWrites,readMerged} from '../../lib/reconcile.mjs';
 import {readDoublesRanks} from '../../lib/doubles-ranks.mjs';
 import {collectionPaused} from '../../lib/epic-sync.mjs';
 import {recordMmr,closeMonthlyMmr,settleDrink,readMonthlyMmr} from '../../lib/monthly-mmr.mjs';
-import {syncPublicMmr} from '../../lib/public-ranks.mjs';
+import {syncPublicMmr,importPublicMmr,publicProfiles} from '../../lib/public-ranks.mjs';
+import {publicMmrKeyMatches,canImportPublicMmr} from '../../lib/public-mmr-auth.mjs';
 
 const journal=JSON.parse(readFileSync(new URL('../../drizzle/meta/_journal.json',import.meta.url),'utf8'));
 const initial=readFileSync(new URL('../../drizzle/0000_real_rattler.sql',import.meta.url),'utf8');
 let sequence=0;
 export async function loadRoute(path,context){
+ context={publicProfiles,importPublicMmr,canImportPublicMmr,publicMmrKeyMatches,...context};
  const source=readFileSync(new URL(path,import.meta.url),'utf8');
  globalThis.__exerciseFixture=context;
  const compiled=transpileModule(source.replace(/^import .*;\s*$/gm,''),{compilerOptions:{module:ModuleKind.ESNext}}).outputText;
@@ -26,7 +28,7 @@ export async function fixture({legacy=true,beforeRetirement}={}){
  if(legacy)db.prepare('INSERT INTO exercises VALUES (?,?,?,?,?,?)').run('legacy-exercise-1','nokouki',5,'2026-11-04','2026-11-04T12:00:00Z','old-user');
  for(const entry of journal.entries.slice(1)){if(entry.tag.startsWith('0006_'))beforeRetirement?.(db);db.exec(readFileSync(new URL(`../../drizzle/${entry.tag}.sql`,import.meta.url),'utf8'));}
  const actor={user:{userId:'current-user'}};
- const env={INGEST_KEY:'test-ingest-key',DB:{async batch(writes){db.exec('BEGIN');try{const results=writes.map(w=>w.execute());db.exec('COMMIT');return results;}catch(e){db.exec('ROLLBACK');throw e;}},prepare(sql){
+ const env={INGEST_KEY:'test-ingest-key',PUBLIC_MMR_IMPORT_KEY:'synthetic-mmr-import-key-1234567890',MMR_UPDATER_USER_ID:'current-user',DB:{async batch(writes){db.exec('BEGIN');try{const results=writes.map(w=>w.execute());db.exec('COMMIT');return results;}catch(e){db.exec('ROLLBACK');throw e;}},prepare(sql){
   const statement=db.prepare(sql);
   const bound=(values=[])=>({
    bind(...parameters){return bound(parameters);},
@@ -43,6 +45,8 @@ export async function fixture({legacy=true,beforeRetirement}={}){
  const {GET}=await loadRoute('../../app/api/state/route.ts',context);
  const {POST:INGEST}=await loadRoute('../../app/api/ingest/route.ts',context);
  const {POST:MONTHLY,GET:readMonthly}=await loadRoute('../../app/api/monthly/route.ts',context);
+ const {POST:IMPORT}=await loadRoute('../../app/api/public-mmr/route.ts',context);
+ const importPublic=(pages,key=env.PUBLIC_MMR_IMPORT_KEY)=>IMPORT(new Request('https://rl.example/api/public-mmr',{method:'POST',headers:{'Content-Type':'application/json','X-RL-Public-Mmr-Key':key},body:JSON.stringify({pages})}));
  const monthly=(body,origin='https://rl.example')=>MONTHLY(new Request('https://rl.example/api/monthly',{method:'POST',headers:{'Content-Type':'application/json',origin},body:JSON.stringify(body)}));
  const ingest=(body,key='test-ingest-key')=>INGEST(new Request('https://rl.example/api/ingest',{method:'POST',headers:{'Content-Type':'application/json',authorization:`Bearer ${key}`},body:JSON.stringify(body)}));
  const post=(body,origin='https://rl.example')=>POST(new Request('https://rl.example/api/exercise',{method:'POST',headers:{'Content-Type':'application/json',origin},body:JSON.stringify(body)}));
@@ -56,5 +60,5 @@ export async function fixture({legacy=true,beforeRetirement}={}){
   for(let i=0;i<due/5;i++)insert.run(`loss-${i}`,'player-1','nokouki',parisDay(),'match',0,1,10,0,0,0,'now');
   if(due>remaining)db.prepare('INSERT INTO exercises (id,player,count,day,created,author,type) VALUES (?,?,?,?,?,?,?)').run('baseline-exercise-1','nokouki',(due-remaining)*4,parisDay(),'2026-11-04T12:00:00Z','current-user','plank');
  }
- return {db,env,actor,post,ingest,readState,input,stats,resetDebt,monthly,readMonthly};
+ return {db,env,actor,post,ingest,readState,input,stats,resetDebt,monthly,readMonthly,importPublic};
 }

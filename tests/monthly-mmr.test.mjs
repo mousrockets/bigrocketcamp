@@ -96,7 +96,7 @@ test('Routes et MCP : authentification, origine, limite de taille, clôture sans
   const route=await loadRoute('../../app/mcp/route.ts',{env:f.env,getChatGPTUser:async()=>f.actor.user,connectionStatus,syncHistories,recapState,parisDay,readMonthlyMmr,closeMonthlyMmr,syncPublicMmr});
   const call=async(name,args={})=>(await (await route.POST(new Request('https://rl.example/mcp',{method:'POST',body:JSON.stringify({jsonrpc:'2.0',id:1,method:'tools/call',params:{name,arguments:args}})}))).json()).result;
   const read=JSON.parse((await call('get_monthly_mmr')).content[0].text);assert.equal(read.allowedPlayers[0],roster[0]);
-  const close=JSON.parse((await call('close_monthly_mmr',{now:'2099-01-01',month:'2098-12'})).content[0].text);assert.equal(close.month,parisDay().slice(0,7));assert.equal(close.ok,true);assert.equal(external,3);assert.equal(close.publicMmr.status,'unavailable');
+  const close=JSON.parse((await call('close_monthly_mmr',{now:'2099-01-01',month:'2098-12'})).content[0].text);assert.equal(close.month,parisDay().slice(0,7));assert.equal(close.ok,true);assert.equal(external,0);
   f.actor.user=null;assert.equal((await call('get_monthly_mmr')),undefined);
  }finally{globalThis.fetch=original;f.db.close();}
 });

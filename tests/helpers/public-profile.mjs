@@ -1,4 +1,5 @@
 // Synthetic HTML only. No player page or live ratings are stored in the repo.
+export function publicStamp(time=Date.now()) {const d=new Date(time),month=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getUTCMonth()];return `${month}/${d.getUTCDate()}/${d.getUTCFullYear()} ${d.toISOString().slice(11,19)} GMT`;}
 export function publicProfileHtml(profile,{mmr=1500,tier=17,division='II',stamp='Nov/30/2026 22:59:00 GMT',handle=profile.handle,platform=profile.platform,url=profile.url,season=24,duplicate=false}={}){
  const table=`<table><tr><th>1v1 Duel</th><th>2v2 Doubles</th><th>3v3 Standard</th></tr>
  <tr><td>Bronze I</td><td>Champion II</td><td>Or I</td></tr>
