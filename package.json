@@ -2,6 +2,7 @@
   "name": "bigrocketcamp",
   "private": true,
   "type": "module",
+  "packageManager": "npm@11.20.0",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

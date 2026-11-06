@@ -5,7 +5,7 @@ L'app tourne sur Cloudflare, dans les limites du plan gratuit. Une fusion dans `
 ## Une seule fois, par un mainteneur
 
 1. Dans le tableau de bord Cloudflare, Workers & Pages : créer un Worker à partir du dépôt GitHub (Workers Builds), branche de production `main`.
-2. Commande de build : `npm ci && npm run build`. Commande de déploiement : `npx wrangler deploy`.
+2. Dossier racine `/`. Commande de build : `npm run build` (Cloudflare installe les dépendances avant). Commande de déploiement : `npx wrangler deploy`. Node et npm suivent `.node-version` et `packageManager`.
 3. Rattacher le domaine de l'instance au Worker (Custom Domains).
 
 Cloudflare déploie ensuite chaque commit de `main` lui-même : aucun jeton Cloudflare n'est stocké dans GitHub.
