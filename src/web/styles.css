@@ -910,16 +910,13 @@ main>header>a,
   margin: 8px 0 0;
 }
 
-.rank-body {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
+/* A discreet hint next to the rank name, not a badge. */
 .rank-icon {
-  flex: none;
-  width: 56px;
-  height: 56px;
+  width: 18px;
+  height: 18px;
+  margin-right: 6px;
+  vertical-align: -4px;
+  opacity: .85;
 }
 
 /* Epic's logo, unaltered: the mask keeps its shape, the theme only picks white or ink. */

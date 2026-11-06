@@ -317,21 +317,19 @@ function DoublesRankPanel({ player, rank }: { player: string; rank: DoublesRank 
     // biome-ignore lint/a11y/useAriaPropsSupportedByRole: same markup as before the migration.
     <div className="rank-panel" aria-label={`Classement 2v2 de ${player}`}>
       <span className="rank-mode">2V2 CLASSÉ · DERNIER RELEVÉ</span>
-      <div className="rank-body">
+      <p className="rank-name">
         {rank?.tier != null && (
-          <img className="rank-icon" src={`/rocket-league/ranks/${rank.tier}.png`} alt="" width={56} height={56} />
+          <img className="rank-icon" src={`/rocket-league/ranks/${rank.tier}.png`} alt="" width={18} height={18} />
         )}
-        <div>
-          <p className="rank-name">{rank?.label || 'Classement non reçu'}</p>
-          {rank?.mmr != null ? (
-            <strong className="rank-mmr">
-              {formatNumber(rank.mmr)} <span>MMR</span>
-            </strong>
-          ) : (
-            <p className="small muted">MMR non reçu</p>
-          )}
-        </div>
-      </div>
+        {rank?.label || 'Classement non reçu'}
+      </p>
+      {rank?.mmr != null ? (
+        <strong className="rank-mmr">
+          {formatNumber(rank.mmr)} <span>MMR</span>
+        </strong>
+      ) : (
+        <p className="small muted">MMR non reçu</p>
+      )}
       {rank?.matchesPlayed != null && (
         <p className="rank-meta">
           {formatNumber(rank.matchesPlayed)} {rank.matchesPlayed > 1 ? 'matchs classés' : 'match classé'} en 2v2
