@@ -10,7 +10,10 @@
     "test": "vitest run",
     "check": "biome check . && tsc --noEmit -p tsconfig.json && tsc --noEmit -p src/worker/tsconfig.json && vitest run",
     "fmt": "biome check --write .",
-    "types": "wrangler types src/worker/runtime.d.ts"
+    "types": "wrangler types src/worker/runtime.d.ts",
+    "deploy": "wrangler d1 migrations apply bigrocketcamp --remote --config wrangler.jsonc && wrangler deploy",
+    "db:migrate": "wrangler d1 migrations apply bigrocketcamp --local --config wrangler.jsonc",
+    "db:seed": "wrangler d1 execute bigrocketcamp --local --config wrangler.jsonc --file scripts/seed-dev.sql"
   },
   "devDependencies": {
     "@biomejs/biome": "2.6.5",

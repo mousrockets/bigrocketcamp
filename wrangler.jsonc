@@ -5,5 +5,14 @@
   "compatibility_date": "2026-11-01",
   // The worker answers /api/*; every other path is the web app, served as static files.
   "assets": { "not_found_handling": "single-page-application", "run_worker_first": ["/api/*"] },
-  "observability": { "enabled": true }
+  "observability": { "enabled": true },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "bigrocketcamp",
+      // Not a secret: the ID only names the database inside the owner's Cloudflare account.
+      "database_id": "422b85f6-379f-48ee-bc41-d832ff3727dc",
+      "migrations_dir": "migrations"
+    }
+  ]
 }

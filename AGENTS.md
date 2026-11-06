@@ -16,7 +16,8 @@ Règles pour tout agent IA qui travaille sur ce dépôt. Elles valent aussi pour
 ## Commandes
 
 - `npm install` : installe les dépendances (Node, voir `.node-version`).
-- `npm run dev` : lance l'app et l'API sur http://127.0.0.1:10071.
+- `npm run db:migrate` puis `npm run db:seed` : crée la base locale et ses données fictives.
+- `npm run dev` : lance l'app et l'API sur http://127.0.0.1:10071 (codes de connexion affichés dans le terminal).
 - `npm run check` : lint, types et tests. Doit passer avant toute PR.
 - `npm run fmt` : formate le code.
 - `npm run types` : régénère les types du Worker après un changement de `wrangler.jsonc`.
