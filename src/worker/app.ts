@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { isoDate } from '../lib/version';
 import { type AppEnv, requireAdmin, requireMember } from './auth';
 import { requireMemberOrCollector } from './collectors';
 import { noStore } from './respond';
@@ -21,7 +22,7 @@ export const app = new Hono<AppEnv>().basePath('/api');
 // Which build answers, and since when: the web app reloads itself when it no longer matches.
 app.get('/health', (c) =>
   c.json(
-    { status: 'ok', commit: __APP_COMMIT__, deployedAt: c.env.CF_VERSION_METADATA.timestamp || null },
+    { status: 'ok', commit: __APP_COMMIT__, deployedAt: isoDate(c.env.CF_VERSION_METADATA.timestamp) },
     200,
     noStore,
   ),
