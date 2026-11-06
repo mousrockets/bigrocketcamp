@@ -1,0 +1,6 @@
+# LF everywhere, Windows included: Biome and the CI compare files byte for byte.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.webp binary
+*.woff2 binary
