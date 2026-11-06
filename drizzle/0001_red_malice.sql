@@ -1,1 +1,0 @@
-ALTER TABLE `exercises` ADD `type` text DEFAULT 'pushups' NOT NULL;
