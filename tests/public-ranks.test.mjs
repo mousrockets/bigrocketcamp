@@ -69,3 +69,9 @@ test('Un relevé public hors fenêtre finale ne masque pas une confirmation manu
  const closed=monthlyRanking([...manual,publicOld],'2026-11');assert.equal(closed.status,'final');assert.equal(closed.rows.find(r=>r.player===roster[0]).mmr,1500);assert.equal(closed.debts[0].payer,roster[2]);
  const live=monthlyRanking([...manual,publicOld],'2026-11',{live:true});assert.equal(live.rows.find(r=>r.player===roster[0]).mmr,1000);
 });
+test('Redirection publique : mode compatible Workers, aucun suivi vers une autre adresse',async()=>{
+ const f=await fixture({legacy:false});try{owners(f);const urls=[];
+  const result=await syncPublicMmr(f.env.DB,{now,fetcher:async(url,options)=>{assert.equal(options.redirect,'manual');urls.push(url);return new Response(publicProfileHtml(publicProfiles.find(p=>p.url===url)),{status:302,headers:{'location':'https://another.example/profile','content-type':'text/html'}});}});
+  assert.deepEqual(urls,publicProfiles.map(p=>p.url));assert.equal(result.updated.length,0);assert.equal(rows(f).length,0);assert.ok(result.errors.every(e=>e.error.includes('302')));
+ }finally{f.db.close();}
+});
