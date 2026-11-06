@@ -1,6 +1,13 @@
 import { Hono } from 'hono';
 import { type AppEnv, sameOrigin } from '../auth';
-import { createPairingCode, listCollectors, pairCollector, requireCollector, revokeCollector } from '../collectors';
+import {
+  createPairingCode,
+  listCollectors,
+  pairCollector,
+  readCollectorPlayer,
+  requireCollector,
+  revokeCollector,
+} from '../collectors';
 import { failure, noStore, smallJson } from '../respond';
 
 /** What the Windows collector calls: pairing without a session, then its own token. */
@@ -15,12 +22,9 @@ collectorRoutes.post('/pair', async (c) => {
   }
 });
 
-collectorRoutes.get('/status', requireCollector, async (c) => {
-  const member = await c.env.DB.prepare('SELECT duo_pseudo FROM members WHERE id = ?')
-    .bind(c.var.member.id)
-    .first<{ duo_pseudo: string | null }>();
-  return c.json({ player: member?.duo_pseudo ?? '' }, 200, noStore);
-});
+collectorRoutes.get('/status', requireCollector, async (c) =>
+  c.json({ player: await readCollectorPlayer(c.env.DB, c.var.member.id) }, 200, noStore),
+);
 
 /** What the member manages from their profile: pairing codes and paired collectors. */
 export const collectorDeviceRoutes = new Hono<AppEnv>();

@@ -1,0 +1,344 @@
+import { sql } from 'drizzle-orm';
+import { check, index, integer, primaryKey, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+
+// The database, as Drizzle reads it and as drizzle-kit generates its migrations from (npm run db:generate).
+// Migrations 0000 to 0016 were written before this file; the next ones come from the difference with it.
+// Triggers live in the migrations only: drizzle-kit does not know them. Dates are ISO text unless noted.
+
+const isoNow = sql`(strftime('%Y-%m-%dT%H:%M:%fZ','now'))`;
+
+// The club
+
+/** Members sign in with their e-mail address and a one-time code; their duo pseudo is their player slot. */
+export const members = sqliteTable(
+  'members',
+  {
+    id: text('id').primaryKey(),
+    email: text('email').notNull().unique(),
+    created: text('created').notNull().default(isoNow),
+    role: text('role', { enum: ['admin', 'member'] })
+      .notNull()
+      .default('member'),
+    /** Every game record of the player is keyed by it. */
+    duoPseudo: text('duo_pseudo'),
+    soloPseudo: text('solo_pseudo'),
+    platform: text('platform', { enum: ['pc', 'playstation', 'xbox', 'switch'] }),
+    /** Players are listed in the order they joined the club. */
+    rosterPosition: integer('roster_position'),
+  },
+  (table) => [
+    uniqueIndex('members_duo_pseudo').on(table.duoPseudo),
+    check('members_role', sql`${table.role} IN ('admin', 'member')`),
+    check('members_platform', sql`${table.platform} IN ('pc', 'playstation', 'xbox', 'switch')`),
+  ],
+);
+
+export const clubSettings = sqliteTable(
+  'club_settings',
+  {
+    id: integer('id').primaryKey(),
+    name: text('name').notNull(),
+  },
+  (table) => [check('club_settings_single_row', sql`${table.id} = 1`)],
+);
+
+/** Only a hash of the code is stored. Times in milliseconds. */
+export const signInCodes = sqliteTable('sign_in_codes', {
+  email: text('email').primaryKey(),
+  codeHash: text('code_hash').notNull(),
+  expires: integer('expires').notNull(),
+  attempts: integer('attempts').notNull().default(0),
+  sent: integer('sent').notNull(),
+});
+
+/** Only a hash of the session token is stored. Expiry in milliseconds. */
+export const sessions = sqliteTable(
+  'sessions',
+  {
+    tokenHash: text('token_hash').primaryKey(),
+    memberId: text('member_id')
+      .notNull()
+      .references(() => members.id, { onDelete: 'cascade' }),
+    expires: integer('expires').notNull(),
+  },
+  (table) => [index('sessions_member').on(table.memberId)],
+);
+
+// The Windows collector, paired with a one-time code. Times in milliseconds.
+
+export const collectorPairingCodes = sqliteTable('collector_pairing_codes', {
+  codeHash: text('code_hash').primaryKey(),
+  memberId: text('member_id')
+    .notNull()
+    .unique()
+    .references(() => members.id, { onDelete: 'cascade' }),
+  expires: integer('expires').notNull(),
+  attempts: integer('attempts').notNull().default(0),
+});
+
+export const collectorDevices = sqliteTable(
+  'collector_devices',
+  {
+    id: text('id').primaryKey(),
+    tokenHash: text('token_hash').notNull().unique(),
+    memberId: text('member_id')
+      .notNull()
+      .references(() => members.id, { onDelete: 'cascade' }),
+    created: integer('created').notNull(),
+    lastSeen: integer('last_seen'),
+  },
+  (table) => [index('collector_devices_member').on(table.memberId)],
+);
+
+/**
+ * The last contact of each live source: a member's collector or /direct page, under an anonymous name
+ * (`live-` and a hash of the member). Written with every match received.
+ */
+export const collectors = sqliteTable('collectors', {
+  id: text('id').primaryKey(),
+  lastSeen: text('last_seen').notNull(),
+});
+
+// Game identities
+
+/** The main game ID of each player slot, and the member who owns it. */
+export const playerIdentities = sqliteTable(
+  'player_identities',
+  {
+    slot: text('slot').primaryKey(),
+    owner: text('owner').notNull(),
+    playerId: text('player_id').notNull(),
+    lastSync: text('last_sync'),
+    lastAttempt: text('last_attempt'),
+    coverage: text('coverage').notNull().default('recent_only'),
+  },
+  (table) => [uniqueIndex('player_identities_player_id_unique').on(table.playerId)],
+);
+
+/** Every game ID a member confirmed as theirs, the main one included. */
+export const playerIdentityAliases = sqliteTable('player_identity_aliases', {
+  playerId: text('player_id').primaryKey(),
+  slot: text('slot').notNull(),
+  confirmedBy: text('confirmed_by').notNull(),
+  confirmedAt: text('confirmed_at').notNull(),
+});
+
+// Matches: what the sources sent, and what the board shows
+
+/** One player's line of a match, as one source saw it (`payload`: the line as JSON). */
+export const resultObservations = sqliteTable(
+  'result_observations',
+  {
+    id: text('id').primaryKey(),
+    matchGuid: text('match_guid').notNull(),
+    playerId: text('player_id').notNull(),
+    sourceId: text('source_id').notNull(),
+    sourceType: text('source_type').notNull(),
+    payload: text('payload').notNull(),
+    received: text('received').notNull(),
+  },
+  (table) => [index('result_observations_match').on(table.matchGuid)],
+);
+
+/** A source's full scoreboard of a match (`players`: JSON), which confirms who played it. */
+export const sourceReports = sqliteTable(
+  'source_reports',
+  {
+    id: text('id').primaryKey(),
+    matchGuid: text('match_guid').notNull(),
+    sourceId: text('source_id').notNull(),
+    sourceType: text('source_type').notNull(),
+    expectedPlayers: integer('expected_players').notNull(),
+    players: text('players').notNull(),
+    received: text('received').notNull(),
+  },
+  (table) => [index('source_reports_match').on(table.matchGuid)],
+);
+
+/** Results imported from the prototype, never written since. */
+export const results = sqliteTable(
+  'results',
+  {
+    matchGuid: text('match_guid').notNull(),
+    playerId: text('player_id').notNull(),
+    name: text('name').notNull(),
+    day: text('day').notNull(),
+    kind: text('kind').notNull(),
+    team: integer('team').notNull(),
+    winner: integer('winner').notNull(),
+    score: integer('score').notNull(),
+    goals: integer('goals').notNull(),
+    assists: integer('assists').notNull(),
+    saves: integer('saves').notNull(),
+    received: text('received').notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.matchGuid, table.playerId] }),
+    index('results_match_key').on(sql`lower(trim(${table.matchGuid}))`),
+  ],
+);
+
+/** Complete scoreboards imported from the prototype, never written since. */
+export const matchRosters = sqliteTable(
+  'match_rosters',
+  {
+    matchGuid: text('match_guid').primaryKey(),
+    expectedPlayers: integer('expected_players').notNull(),
+    received: text('received').notNull(),
+  },
+  (table) => [index('match_rosters_match_key').on(sql`lower(trim(${table.matchGuid}))`)],
+);
+
+/** Each match's results reconciled from its sources: what the board shows. */
+export const matchResults = sqliteTable(
+  'match_results',
+  {
+    matchGuid: text('match_guid').notNull(),
+    playerId: text('player_id').notNull(),
+    name: text('name').notNull(),
+    day: text('day').notNull(),
+    kind: text('kind').notNull(),
+    team: integer('team').notNull(),
+    winner: integer('winner').notNull(),
+    score: integer('score').notNull(),
+    goals: integer('goals').notNull(),
+    assists: integer('assists').notNull(),
+    saves: integer('saves').notNull(),
+    received: text('received').notNull(),
+    reviewRequired: integer('review_required').notNull(),
+    verification: text('verification').notNull(),
+    /** Comma-separated. */
+    sourceTypes: text('source_types').notNull(),
+    selectedSource: text('selected_source').notNull(),
+    sourceDifference: text('source_difference'),
+    /** Set on every row of a match whose full scoreboard a source confirmed. */
+    expectedPlayers: integer('expected_players'),
+    seq: integer('seq').notNull().default(0),
+  },
+  (table) => [primaryKey({ columns: [table.matchGuid, table.playerId] }), index('match_results_seq').on(table.seq)],
+);
+
+/** Each source received moves a match's revision; its stored results reflect `builtRevision`. */
+export const matchBuilds = sqliteTable(
+  'match_builds',
+  {
+    matchGuid: text('match_guid').primaryKey(),
+    revision: integer('revision').notNull(),
+    builtRevision: integer('built_revision'),
+  },
+  (table) => [index('match_builds_pending').on(table.matchGuid).where(sql`built_revision IS NOT revision`)],
+);
+
+// Exercises
+
+export const exercises = sqliteTable(
+  'exercises',
+  {
+    id: text('id').primaryKey(),
+    player: text('player').notNull(),
+    count: integer('count').notNull(),
+    day: text('day').notNull(),
+    created: text('created').notNull(),
+    /** The member who declared it: private, a member only learns which exercises are theirs. */
+    author: text('author').notNull(),
+    type: text('type').notNull().default('pushups'),
+    seq: integer('seq').notNull().default(0),
+  },
+  (table) => [index('exercises_seq').on(table.seq), index('exercises_author').on(table.author)],
+);
+
+export const exerciseReactions = sqliteTable(
+  'exercise_reactions',
+  {
+    exerciseId: text('exercise_id').notNull(),
+    author: text('author').notNull(),
+    emoji: text('emoji').notNull(),
+    created: text('created').notNull(),
+    seq: integer('seq').notNull().default(0),
+  },
+  (table) => [
+    primaryKey({ columns: [table.exerciseId, table.author, table.emoji] }),
+    index('exercise_reactions_seq').on(table.seq),
+  ],
+);
+
+// Ranks and the monthly 2v2 MMR challenge
+
+/** The ranked 2v2 rank on each player's card. */
+export const playerRanks = sqliteTable('player_ranks', {
+  player: text('player').primaryKey(),
+  playerId: text('player_id').notNull(),
+  playlist: integer('playlist').notNull().default(11),
+  mmr: integer('mmr'),
+  tier: integer('tier'),
+  division: integer('division'),
+  placementMatches: integer('placement_matches'),
+  fetchedAt: text('fetched_at'),
+  lastAttempt: text('last_attempt').notNull(),
+  status: text('status').notNull(),
+  matchesPlayed: integer('matches_played'),
+});
+
+/** Each change of a player's rating, as the rank source read it. */
+export const mmrEntries = sqliteTable(
+  'mmr_entries',
+  {
+    id: text('id').primaryKey(),
+    player: text('player').notNull(),
+    mmr: integer('mmr').notNull(),
+    tier: integer('tier'),
+    division: integer('division'),
+    author: text('author').notNull(),
+    recordedAt: text('recorded_at').notNull().default(isoNow),
+    source: text('source').notNull().default('manual'),
+    sourceAt: text('source_at'),
+    sourceUrl: text('source_url'),
+  },
+  (table) => [index('mmr_entries_player_recorded').on(table.player, table.recordedAt)],
+);
+
+export const monthlyMmrPolicy = sqliteTable('monthly_mmr_policy', {
+  id: integer('id').primaryKey(),
+  startsMonth: text('starts_month').notNull(),
+});
+
+/** Closed months: frozen, they never change (`snapshot`: the ranking as JSON). */
+export const monthlyMmrResults = sqliteTable('monthly_mmr_results', {
+  month: text('month').primaryKey(),
+  cutoffAt: text('cutoff_at').notNull(),
+  closedAt: text('closed_at').notNull(),
+  status: text('status').notNull(),
+  snapshot: text('snapshot').notNull(),
+});
+
+/** The drinks the month's last player owes the others. */
+export const drinkDebts = sqliteTable('drink_debts', {
+  id: text('id').primaryKey(),
+  month: text('month').notNull(),
+  payer: text('payer').notNull(),
+  recipient: text('recipient').notNull(),
+  paidAt: text('paid_at'),
+  paidBy: text('paid_by'),
+});
+
+// Following the board (see src/lib/board.ts)
+
+/** One counter, moved by triggers with every change the board shows. */
+export const syncState = sqliteTable(
+  'sync_state',
+  {
+    id: integer('id').primaryKey(),
+    version: integer('version').notNull(),
+    /** The roster and confirmed game IDs the stored match results were built with. */
+    matchBasis: text('match_basis'),
+  },
+  (table) => [check('sync_state_single_row', sql`${table.id} = 1`)],
+);
+
+/** What left the board, and at which version. */
+export const syncRemovals = sqliteTable('sync_removals', {
+  seq: integer('seq').primaryKey(),
+  collection: text('collection').notNull(),
+  key: text('key').notNull(),
+  subkey: text('subkey'),
+});

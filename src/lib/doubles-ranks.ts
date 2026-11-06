@@ -1,7 +1,8 @@
 import type { Roster } from './club';
 import type { Database } from './db';
+import { orm } from './orm';
+import { playerRanks } from './schema';
 
-export const doublesPlaylist = 11;
 const roman = ['I', 'II', 'III', 'IV'];
 const tiers = [
   'Non classé',
@@ -11,35 +12,15 @@ const tiers = [
   'Légende supersonique',
 ];
 
-export function doublesRankLabel(rank: {
-  tier: number;
-  division: number | null;
-  placementMatches: number | null;
-}): string {
-  if (rank.tier === 0 || (rank.placementMatches !== null && rank.placementMatches < 10)) {
-    return rank.placementMatches !== null && rank.placementMatches < 10
-      ? `Non classé · Placement ${rank.placementMatches}/10`
-      : 'Non classé';
-  }
+/** The rank's official name; the rank source reads no placement matches, so an unranked player is "Non classé". */
+export function doublesRankLabel(rank: { tier: number; division: number | null }): string {
+  if (rank.tier === 0) return 'Non classé';
   const name = tiers[rank.tier];
   return name ? name + (rank.division ? ` · Division ${roman[rank.division - 1]}` : '') : 'Classement non reçu';
 }
 
-interface StoredRank {
-  player: string;
-  mmr: number | null;
-  tier: number | null;
-  division: number | null;
-  placement_matches: number | null;
-  matches_played: number | null;
-  fetched_at: string | null;
-  last_attempt: string | null;
-  status: string;
-}
-
 export interface PlayerDoublesRank {
   player: string;
-  playlist: number;
   mmr: number | null;
   label: string;
   /** Shown as the rank icon; null while no rank was read. */
@@ -51,51 +32,35 @@ export interface PlayerDoublesRank {
 }
 
 export async function readDoublesRanks(db: Database, roster: Roster): Promise<PlayerDoublesRank[]> {
-  const stored = (
-    await db
-      .prepare(
-        'SELECT player,mmr,tier,division,placement_matches,matches_played,fetched_at,last_attempt,status FROM player_ranks WHERE playlist=11',
-      )
-      .all<StoredRank>()
-  ).results;
+  const stored = await orm(db)
+    .select({
+      player: playerRanks.player,
+      mmr: playerRanks.mmr,
+      tier: playerRanks.tier,
+      division: playerRanks.division,
+      matchesPlayed: playerRanks.matchesPlayed,
+      fetchedAt: playerRanks.fetchedAt,
+      lastAttempt: playerRanks.lastAttempt,
+      status: playerRanks.status,
+    })
+    .from(playerRanks);
   return roster.map((player) => {
     const rank = stored.find((candidate) => candidate.player === player);
     if (!rank || rank.mmr === null) {
       return {
         player,
-        playlist: doublesPlaylist,
         mmr: null,
         label: rank?.status === 'identity_conflict' ? 'Compte à vérifier' : 'Classement non reçu',
         tier: null,
         matchesPlayed: null,
         status: rank?.status || 'waiting',
         fetchedAt: null,
-        lastAttempt: rank?.last_attempt || null,
-      };
-    }
-    if (rank.tier === null) {
-      return {
-        player,
-        playlist: doublesPlaylist,
-        mmr: rank.mmr,
-        label: 'Rang non renseigné',
-        tier: null,
-        matchesPlayed: rank.matches_played,
-        status: rank.status,
-        fetchedAt: rank.fetched_at,
-        lastAttempt: rank.last_attempt,
+        lastAttempt: rank?.lastAttempt || null,
       };
     }
     return {
-      player,
-      playlist: doublesPlaylist,
-      mmr: rank.mmr,
-      label: doublesRankLabel({ tier: rank.tier, division: rank.division, placementMatches: rank.placement_matches }),
-      tier: rank.tier,
-      matchesPlayed: rank.matches_played,
-      status: rank.status,
-      fetchedAt: rank.fetched_at,
-      lastAttempt: rank.last_attempt,
+      ...rank,
+      label: rank.tier === null ? 'Rang non renseigné' : doublesRankLabel({ tier: rank.tier, division: rank.division }),
     };
   });
 }

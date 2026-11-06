@@ -1,5 +1,8 @@
+import { and, asc, eq, gte, lt, sql } from 'drizzle-orm';
 import type { MiddlewareHandler } from 'hono';
 import type { Database } from '../lib/db';
+import { orm } from '../lib/orm';
+import { collectorDevices, collectorPairingCodes, members } from '../lib/schema';
 import { type AppEnv, type Member, randomToken, requireMember, sha256 } from './auth';
 
 // The Windows collector cannot hold the browser's session cookie: a member pairs it once with a short
@@ -42,22 +45,24 @@ export function normalizePairingCode(input: unknown): string | null {
   return code.length === codeLength && [...code].every((char) => codeAlphabet.includes(char)) ? code : null;
 }
 
+const duoPseudoOf = async (db: Database, memberId: string) => {
+  const [member] = await orm(db).select({ duoPseudo: members.duoPseudo }).from(members).where(eq(members.id, memberId));
+  return member?.duoPseudo ?? null;
+};
+
 /** A new code replaces the member's previous one. */
 export async function createPairingCode(db: Database, memberId: string): Promise<PairingCode> {
-  const member = await db
-    .prepare('SELECT duo_pseudo FROM members WHERE id = ?')
-    .bind(memberId)
-    .first<{ duo_pseudo: string | null }>();
-  if (!member?.duo_pseudo) throw withStatus('Choisis d’abord ton pseudo duo.', 409);
+  if (!(await duoPseudoOf(db, memberId))) throw withStatus('Choisis d’abord ton pseudo duo.', 409);
   const code = randomCode();
   const now = Date.now();
-  await db.batch([
-    db.prepare('DELETE FROM collector_pairing_codes WHERE expires < ?').bind(now),
-    db
-      .prepare(
-        'INSERT INTO collector_pairing_codes (code_hash, member_id, expires, attempts) VALUES (?, ?, ?, 0) ON CONFLICT(member_id) DO UPDATE SET code_hash = excluded.code_hash, expires = excluded.expires, attempts = 0',
-      )
-      .bind(await sha256(code), memberId, now + codeLifetime),
+  const query = orm(db);
+  const pending = { codeHash: await sha256(code), expires: now + codeLifetime, attempts: 0 };
+  await query.batch([
+    query.delete(collectorPairingCodes).where(lt(collectorPairingCodes.expires, now)),
+    query
+      .insert(collectorPairingCodes)
+      .values({ memberId, ...pending })
+      .onConflictDoUpdate({ target: collectorPairingCodes.memberId, set: pending }),
   ]);
   return { code, expires: new Date(now + codeLifetime).toISOString() };
 }
@@ -67,54 +72,58 @@ export async function pairCollector(db: Database, input: unknown): Promise<{ tok
   const code = normalizePairingCode(input);
   if (!code) throw withStatus('Le code d’association fait 8 caractères.', 400);
   const now = Date.now();
-  const claimed = await db
-    .prepare(
-      'DELETE FROM collector_pairing_codes WHERE code_hash = ? AND expires >= ? AND attempts < ? RETURNING member_id',
+  const query = orm(db);
+  const [claimed] = await query
+    .delete(collectorPairingCodes)
+    .where(
+      and(
+        eq(collectorPairingCodes.codeHash, await sha256(code)),
+        gte(collectorPairingCodes.expires, now),
+        lt(collectorPairingCodes.attempts, codeAttempts),
+      ),
     )
-    .bind(await sha256(code), now, codeAttempts)
-    .first<{ member_id: string }>();
+    .returning({ memberId: collectorPairingCodes.memberId });
   if (!claimed) {
     // A wrong guess cannot be traced to the code it aimed at: it counts against every pending code,
     // so no code takes more than five guesses in its ten minutes.
-    await db.prepare('UPDATE collector_pairing_codes SET attempts = attempts + 1 WHERE expires >= ?').bind(now).run();
+    await query
+      .update(collectorPairingCodes)
+      .set({ attempts: sql`${collectorPairingCodes.attempts} + 1` })
+      .where(gte(collectorPairingCodes.expires, now));
     throw withStatus('Code inconnu, expiré ou déjà utilisé : génère un nouveau code dans ton profil.', 401);
   }
   const token = randomToken();
-  await db
-    .prepare('INSERT INTO collector_devices (id, token_hash, member_id, created) VALUES (?, ?, ?, ?)')
-    .bind(crypto.randomUUID(), await sha256(token), claimed.member_id, now)
-    .run();
-  const member = await db
-    .prepare('SELECT duo_pseudo FROM members WHERE id = ?')
-    .bind(claimed.member_id)
-    .first<{ duo_pseudo: string | null }>();
-  return { token, player: member?.duo_pseudo ?? '' };
+  await query
+    .insert(collectorDevices)
+    .values({ id: crypto.randomUUID(), tokenHash: await sha256(token), memberId: claimed.memberId, created: now });
+  return { token, player: (await duoPseudoOf(db, claimed.memberId)) ?? '' };
 }
 
 export async function listCollectors(db: Database, memberId: string): Promise<CollectorDevice[]> {
-  const rows = await db
-    .prepare('SELECT id, created, last_seen FROM collector_devices WHERE member_id = ? ORDER BY created, id')
-    .bind(memberId)
-    .all<{ id: string; created: number; last_seen: number | null }>();
-  return rows.results.map((row) => ({
+  const rows = await orm(db)
+    .select({ id: collectorDevices.id, created: collectorDevices.created, lastSeen: collectorDevices.lastSeen })
+    .from(collectorDevices)
+    .where(eq(collectorDevices.memberId, memberId))
+    .orderBy(asc(collectorDevices.created), asc(collectorDevices.id));
+  return rows.map((row) => ({
     id: row.id,
     created: new Date(row.created).toISOString(),
-    lastSeen: row.last_seen === null ? null : new Date(row.last_seen).toISOString(),
+    lastSeen: row.lastSeen === null ? null : new Date(row.lastSeen).toISOString(),
   }));
 }
 
 export async function revokeCollector(db: Database, memberId: string, deviceId: unknown): Promise<void> {
   if (typeof deviceId !== 'string') throw withStatus('Collecteur inconnu.', 400);
-  const removed = await db
-    .prepare('DELETE FROM collector_devices WHERE id = ? AND member_id = ?')
-    .bind(deviceId, memberId)
-    .run();
-  if (!Number(removed.meta?.changes ?? removed.changes)) throw withStatus('Collecteur introuvable.', 404);
+  const removed = await orm(db)
+    .delete(collectorDevices)
+    .where(and(eq(collectorDevices.id, deviceId), eq(collectorDevices.memberId, memberId)))
+    .returning({ id: collectorDevices.id });
+  if (!removed.length) throw withStatus('Collecteur introuvable.', 404);
 }
 
-interface CollectorRow extends Member {
-  device: string;
-  last_seen: number | null;
+/** The player slot of the member a collector is paired with, empty until they choose a duo pseudo. */
+export async function readCollectorPlayer(db: Database, memberId: string): Promise<string> {
+  return (await duoPseudoOf(db, memberId)) ?? '';
 }
 
 /** Rejects the request with 401 unless it carries the token of a paired collector, and records its contact. */
@@ -122,20 +131,25 @@ export const requireCollector: MiddlewareHandler<AppEnv> = async (c, next) => {
   const token = /^Bearer (\S+)$/.exec(c.req.header('authorization') ?? '')?.[1];
   const rejected = () => c.json({ error: 'Collecteur non associé : associe-le depuis ton profil.' }, 401);
   if (!token) return rejected();
-  const db = c.env.DB;
-  const found = await db
-    .prepare(
-      'SELECT collector_devices.id AS device, collector_devices.last_seen, members.id, members.email, members.role FROM collector_devices JOIN members ON members.id = collector_devices.member_id WHERE collector_devices.token_hash = ?',
-    )
-    .bind(await sha256(token))
-    .first<CollectorRow>();
+  const db = orm(c.env.DB);
+  const [found] = await db
+    .select({
+      device: collectorDevices.id,
+      lastSeen: collectorDevices.lastSeen,
+      id: members.id,
+      email: members.email,
+      role: members.role,
+    })
+    .from(collectorDevices)
+    .innerJoin(members, eq(members.id, collectorDevices.memberId))
+    .where(eq(collectorDevices.tokenHash, await sha256(token)));
   if (!found) return rejected();
   const now = Date.now();
   // Once a minute is precise enough for "last contact", and spares a write per request.
-  if (found.last_seen === null || now - found.last_seen >= lastSeenPrecision) {
-    await db.prepare('UPDATE collector_devices SET last_seen = ? WHERE id = ?').bind(now, found.device).run();
+  if (found.lastSeen === null || now - found.lastSeen >= lastSeenPrecision) {
+    await db.update(collectorDevices).set({ lastSeen: now }).where(eq(collectorDevices.id, found.device));
   }
-  c.set('member', { id: found.id, email: found.email, role: found.role });
+  c.set('member', { id: found.id, email: found.email, role: found.role } satisfies Member);
   c.set('collector', found.device);
   await next();
 };

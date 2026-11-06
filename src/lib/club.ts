@@ -1,4 +1,7 @@
+import { asc, isNotNull } from 'drizzle-orm';
 import type { Database } from './db';
+import { orm } from './orm';
+import { members } from './schema';
 
 // The club's identity is data, edited in the app by its administrators: its name, and its players,
 // who are the members that chose a duo pseudo. A duo pseudo is the player slot every game record uses.
@@ -19,17 +22,19 @@ export type Roster = readonly string[];
 export const rosterOf = (players: readonly ClubPlayer[]): Roster => players.map((player) => player.slot);
 
 export async function readClubName(db: Database): Promise<string> {
-  const settings = await db.prepare('SELECT name FROM club_settings WHERE id = 1').first<{ name: string }>();
+  const settings = await orm(db).query.clubSettings.findFirst({
+    columns: { name: true },
+    where: (settings, { eq }) => eq(settings.id, 1),
+  });
   return settings?.name ?? 'Big Rocket Camp';
 }
 
 export async function readClubPlayers(db: Database): Promise<ClubPlayer[]> {
-  const members = await db
-    .prepare(
-      'SELECT duo_pseudo AS slot, platform FROM members WHERE duo_pseudo IS NOT NULL ORDER BY roster_position, created, id',
-    )
-    .all<ClubPlayer>();
-  return members.results;
+  return orm(db)
+    .select({ slot: members.duoPseudo, platform: members.platform })
+    .from(members)
+    .where(isNotNull(members.duoPseudo))
+    .orderBy(asc(members.rosterPosition), asc(members.created), asc(members.id)) as Promise<ClubPlayer[]>;
 }
 
 export async function readRoster(db: Database): Promise<Roster> {

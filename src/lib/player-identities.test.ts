@@ -89,9 +89,7 @@ test('identities and bindings are read per owner and limited to the roster', asy
   ]);
   expect((await readPlayerIdentities(env.DB, roster)).map((i) => i.slot).sort()).toEqual([first, third].sort());
   const owned = await readPlayerIdentities(env.DB, roster, 'current-user');
-  expect(owned.map((i) => [i.slot, i.player_id, i.coverage])).toEqual([
-    [third, 'Epic|synthetic-console-account|0', 'recent_only'],
-  ]);
+  expect(owned.map((i) => [i.slot, i.player_id])).toEqual([[third, 'Epic|synthetic-console-account|0']]);
   expect((await readIdentityBindings(env.DB, roster)).map((b) => b.slot).sort()).toEqual([first, third].sort());
 });
 

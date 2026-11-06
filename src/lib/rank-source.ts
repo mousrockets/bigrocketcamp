@@ -94,9 +94,7 @@ export async function recordObservedRanks(db: Database, ranks: ObservedRank[]): 
     if (unchanged) {
       writes.push(
         db
-          .prepare(
-            "UPDATE player_ranks SET fetched_at = ?, last_attempt = ?, status = 'ready' WHERE player = ? AND playlist = 11",
-          )
+          .prepare("UPDATE player_ranks SET fetched_at = ?, last_attempt = ?, status = 'ready' WHERE player = ?")
           .bind(rank.observedAt, rank.observedAt, rank.player),
       );
       continue;
@@ -115,9 +113,7 @@ export async function recordObservedRanks(db: Database, ranks: ObservedRank[]): 
   for (const rank of ranks) {
     if (rank.matches === null) continue;
     writes.push(
-      db
-        .prepare('UPDATE player_ranks SET matches_played = ? WHERE player = ? AND playlist = 11')
-        .bind(rank.matches, rank.player),
+      db.prepare('UPDATE player_ranks SET matches_played = ? WHERE player = ?').bind(rank.matches, rank.player),
     );
   }
   if (writes.length) await db.batch(writes);
@@ -135,7 +131,7 @@ export interface RankSourceHealth {
 /** Only the rank source marks a rank `ready`: its newest one tells when the source last reported. */
 export async function readRankSourceHealth(db: Database, now: number = Date.now()): Promise<RankSourceHealth> {
   const row = await db
-    .prepare("SELECT MAX(fetched_at) AS last FROM player_ranks WHERE playlist = 11 AND status = 'ready'")
+    .prepare("SELECT MAX(fetched_at) AS last FROM player_ranks WHERE status = 'ready'")
     .first<{ last: string | null }>();
   const lastReadAt = row?.last ?? null;
   return { lastReadAt, stale: rankSourceStale(lastReadAt, now) };

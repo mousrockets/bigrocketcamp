@@ -3,6 +3,7 @@ import type { Database, Statement } from './db';
 import {
   type Alias,
   type CompleteRoster,
+  compareResults,
   type MergedResult,
   mergeSources,
   type Observation,
@@ -252,4 +253,17 @@ export async function buildPendingMatches(
     await buildMatches(db, roster, aliases, pending);
   }
   return (await pendingMatches(db, 1)).length > 0;
+}
+
+/**
+ * The stored match results, newest first; with a game ID, only the rows that may be that player's
+ * (the comparison ignores case, as canonical game IDs do).
+ */
+export async function readStoredResults(db: Database, playerId?: string): Promise<BuiltResult[]> {
+  const select = `SELECT ${columns.join(', ')} FROM match_results`;
+  const rows =
+    playerId === undefined
+      ? await db.prepare(select).all<StoredRow>()
+      : await db.prepare(`${select} WHERE lower(player_id) = lower(?)`).bind(playerId).all<StoredRow>();
+  return rows.results.map(builtResult).sort(compareResults);
 }
