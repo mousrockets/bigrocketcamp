@@ -934,6 +934,22 @@ main>header>a,
   margin-bottom: 0;
 }
 
+/* The solo account, under the duo one: same layout, a step quieter. */
+.rank-solo {
+  border-top: 1px solid var(--line);
+  margin-top: 12px;
+  padding-top: 12px;
+}
+
+.rank-solo .rank-name {
+  font-size: 13px;
+  margin: 6px 0;
+}
+
+.rank-solo .rank-mmr {
+  font-size: 19px;
+}
+
 header {
   gap: 18px;
   min-height: 96px;

@@ -54,6 +54,16 @@ type PlayerStats = {
   crunches: number;
   remaining: number;
 };
+type SeasonPeak = { mmr: number; label: string; tier: number | null };
+type SoloRank = {
+  mmr: number | null;
+  label: string;
+  tier: number | null;
+  matchesPlayed: number | null;
+  status: string;
+  fetchedAt: string | null;
+  peak: SeasonPeak | null;
+};
 type DoublesRank = {
   player: string;
   mmr: number | null;
@@ -62,6 +72,9 @@ type DoublesRank = {
   matchesPlayed: number | null;
   status: string;
   fetchedAt: string | null;
+  /** Absent from an API older than the season peaks. */
+  peak?: SeasonPeak | null;
+  solo?: SoloRank | null;
 };
 type Reaction = { exercise_id: string; emoji: string; count: number; mine: number };
 type State = {
@@ -361,16 +374,86 @@ function SeasonCountdown() {
   );
 }
 
+const readingTime = (date: string) =>
+  new Date(date).toLocaleString('fr-FR', {
+    timeZone: 'Europe/Paris',
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+
+function RankName({ tier, label }: { tier: number | null; label: string }) {
+  return (
+    <>
+      {tier != null && (
+        <img className="rank-icon" src={`/rocket-league/ranks/${tier}.png`} alt="" width={18} height={18} />
+      )}
+      {label}
+    </>
+  );
+}
+
+function RankDetails({ matchesPlayed, peak }: { matchesPlayed: number | null; peak: SeasonPeak | null | undefined }) {
+  return (
+    <>
+      {matchesPlayed != null && (
+        <p className="rank-meta">
+          {formatNumber(matchesPlayed)} {matchesPlayed > 1 ? 'matchs classés' : 'match classé'} en 2v2
+        </p>
+      )}
+      {peak && (
+        <p className="rank-meta">
+          Pic de la saison : {formatNumber(peak.mmr)} MMR · <RankName tier={peak.tier} label={peak.label} />
+        </p>
+      )}
+    </>
+  );
+}
+
+/** What keeps a solo account from showing a fresh rank, said so the player knows what to do. */
+const soloProblems: Record<string, string> = {
+  waiting: 'En attente du prochain relevé.',
+  not_found: 'Aucun compte Epic n’a exactement ce nom : pseudo solo à vérifier dans le profil.',
+  needs_player_id:
+    'Aucun compte Epic n’a ce nom. Sur console, le pseudo solo doit être le nom d’affichage Epic du compte lié à Epic.',
+  lookup_unavailable: 'Recherche du compte indisponible pour l’instant : nouvel essai demain.',
+  read_failed: 'Le jeu n’a pas répondu pour ce compte lors du dernier relevé.',
+};
+
+function SoloRankBlock({ rank }: { rank: SoloRank }) {
+  const notFound = rank.status === 'not_found' || rank.status === 'needs_player_id';
+  const problem = rank.status === 'ready' ? null : (soloProblems[rank.status] ?? soloProblems.waiting);
+  return (
+    <div className="rank-solo">
+      <span className="rank-mode">SOLO</span>
+      <p className="rank-name">
+        {notFound ? 'Compte solo introuvable' : <RankName tier={rank.tier} label={rank.label} />}
+      </p>
+      {rank.mmr != null && !notFound && (
+        <strong className="rank-mmr">
+          {formatNumber(rank.mmr)} <span>MMR</span>
+        </strong>
+      )}
+      {!notFound && <RankDetails matchesPlayed={rank.matchesPlayed} peak={rank.peak} />}
+      {problem && <p className="rank-meta">{problem}</p>}
+      {rank.fetchedAt && rank.mmr != null && !notFound && (
+        <p className="rank-meta">
+          {rank.status !== 'ready' ? 'Dernière valeur connue · ' : ''}
+          {readingTime(rank.fetchedAt)}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function DoublesRankPanel({ player, rank }: { player: string; rank: DoublesRank | undefined }) {
   return (
     // biome-ignore lint/a11y/useAriaPropsSupportedByRole: same markup as before the migration.
     <div className="rank-panel" aria-label={`Classement 2v2 de ${player}`}>
       <span className="rank-mode">2V2 CLASSÉ · DERNIER RELEVÉ</span>
       <p className="rank-name">
-        {rank?.tier != null && (
-          <img className="rank-icon" src={`/rocket-league/ranks/${rank.tier}.png`} alt="" width={18} height={18} />
-        )}
-        {rank?.label || 'Classement non reçu'}
+        <RankName tier={rank?.tier ?? null} label={rank?.label || 'Classement non reçu'} />
       </p>
       {rank?.mmr != null ? (
         <strong className="rank-mmr">
@@ -379,24 +462,15 @@ function DoublesRankPanel({ player, rank }: { player: string; rank: DoublesRank 
       ) : (
         <p className="small muted">MMR non reçu</p>
       )}
-      {rank?.matchesPlayed != null && (
-        <p className="rank-meta">
-          {formatNumber(rank.matchesPlayed)} {rank.matchesPlayed > 1 ? 'matchs classés' : 'match classé'} en 2v2
-        </p>
-      )}
+      <RankDetails matchesPlayed={rank?.matchesPlayed ?? null} peak={rank?.peak} />
       {rank?.fetchedAt && (
         <p className="rank-meta">
           {rank.status !== 'ready' ? 'Dernière valeur connue · ' : ''}
-          {new Date(rank.fetchedAt).toLocaleString('fr-FR', {
-            timeZone: 'Europe/Paris',
-            day: '2-digit',
-            month: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit',
-          })}
+          {readingTime(rank.fetchedAt)}
         </p>
       )}
       {rank?.status === 'unavailable' && <p className="rank-meta">Actualisation du classement indisponible.</p>}
+      {rank?.solo && <SoloRankBlock rank={rank.solo} />}
     </div>
   );
 }
