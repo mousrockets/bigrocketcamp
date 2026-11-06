@@ -261,8 +261,8 @@ async function linkIdentities() {
       'player_identity_aliases',
       'result_observations',
       'source_reports',
-      'results',
-      'match_rosters',
+      'prototype_results',
+      'prototype_match_rosters',
     ].map((table) => env.DB.prepare(`DELETE FROM ${table}`)),
   );
   const identities: [string, string, string][] = [

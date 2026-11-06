@@ -120,6 +120,20 @@
       "when": 1793998800016,
       "tag": "0016_board_sync",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "6",
+      "when": 1794002684674,
+      "tag": "0017_drop_prototype_columns",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1794002710735,
+      "tag": "0018_rename_prototype_tables",
+      "breakpoints": true
     }
   ]
 }

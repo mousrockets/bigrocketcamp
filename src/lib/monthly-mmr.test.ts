@@ -37,11 +37,10 @@ async function owners() {
 async function seed(values?: (number | null)[], at = finalDay) {
   await env.DB.batch(
     declarations(values, at).map((entry) =>
-      env.DB.prepare('INSERT INTO mmr_entries (id,player,mmr,author,recorded_at) VALUES (?,?,?,?,?)').bind(
+      env.DB.prepare('INSERT INTO mmr_entries (id,player,mmr,recorded_at) VALUES (?,?,?,?)').bind(
         crypto.randomUUID(),
         entry.player,
         entry.mmr,
-        'synthetic-author',
         entry.recorded_at,
       ),
     ),
@@ -117,14 +116,13 @@ describe('monthly MMR ranking', () => {
 });
 
 describe('monthly MMR storage', () => {
-  test('the live ranking reads the rank source entries, without revealing their author', async () => {
+  test('the live ranking reads the rank source entries', async () => {
     await reset();
     await owners();
     await seed([1200, 1100, 1000]);
     const monthly = await readMonthlyMmr(env.DB, players, 'current-user', Date.parse(finalDay));
     expect(monthly.allowedPlayers).toEqual([first]);
     expect(monthly.current.rows.map((row) => row.mmr)).toEqual([1200, 1100, 1000]);
-    expect(JSON.stringify(monthly)).not.toContain('synthetic-author');
     expect('debts' in monthly.current).toBe(false);
     expect('publicSync' in monthly).toBe(false);
   });
@@ -157,9 +155,13 @@ describe('monthly MMR storage', () => {
       await reset();
       await env.DB.batch(
         roster.map((player, i) =>
-          env.DB.prepare(
-            'INSERT INTO player_ranks (player,player_id,playlist,mmr,status,last_attempt) VALUES (?,?,11,?,?,?)',
-          ).bind(player, 'public-synthetic', 1200 - i * 100, 'frozen', '2026-11-01T12:00:00Z'),
+          env.DB.prepare('INSERT INTO player_ranks (player,player_id,mmr,status,last_attempt) VALUES (?,?,?,?,?)').bind(
+            player,
+            'public-synthetic',
+            1200 - i * 100,
+            'frozen',
+            '2026-11-01T12:00:00Z',
+          ),
         ),
       );
       await seed(values, stale ? '2026-11-01T12:00:00.000Z' : finalDay);

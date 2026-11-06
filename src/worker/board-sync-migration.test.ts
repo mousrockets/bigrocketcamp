@@ -1,32 +1,11 @@
-import { env } from 'cloudflare:workers';
 import { expect, test } from 'vitest';
 import { prepareBoard, readFullBoard } from '../lib/board';
 import { joinTestClub, players, roster } from '../lib/club-fixture';
 import { observationWrites, readMerged } from '../lib/reconcile';
+import { databaseBefore, runMigration, runMigrationsFrom } from './migration-history';
 
 // Replays migration 0016 on data shaped like production's: closed months and drinks keep their values,
 // existing rows get distinct versions, and every match already received is built on the first visit.
-
-const db = env.DB;
-const migration = () => {
-  const found = env.TEST_MIGRATIONS.find((candidate) => candidate.name.startsWith('0016_'));
-  if (!found) throw new Error('migration 0016 not found');
-  return found.queries;
-};
-
-/** Brings the schema back to what 0015 left. */
-async function undoMigration() {
-  const names = (pattern: RegExp) => migration().flatMap((query) => [...query.matchAll(pattern)].map((m) => m[1]));
-  await db.batch([
-    ...names(/CREATE TRIGGER `([^`]+)`/g).map((name) => db.prepare(`DROP TRIGGER \`${name}\``)),
-    ...names(/CREATE INDEX `([^`]+)`/g).map((name) => db.prepare(`DROP INDEX \`${name}\``)),
-    ...['sync_state', 'match_results', 'match_builds', 'sync_removals'].map((table) =>
-      db.prepare(`DROP TABLE \`${table}\``),
-    ),
-    db.prepare('ALTER TABLE `exercises` DROP COLUMN `seq`'),
-    db.prepare('ALTER TABLE `exercise_reactions` DROP COLUMN `seq`'),
-  ]);
-}
 
 const closedSnapshot = JSON.stringify({
   month: '2026-10',
@@ -39,7 +18,7 @@ const closedSnapshot = JSON.stringify({
 });
 
 test('the board migration keeps every value and builds every match already received', async () => {
-  await undoMigration();
+  const db = await databaseBefore('0016_');
   await joinTestClub(db);
   const game = { day: '2026-11-04', kind: 'match', winner: 0, goals: 1, assists: 0, saves: 2 };
   const writes = await observationWrites(
@@ -76,9 +55,7 @@ test('the board migration keeps every value and builds every match already recei
       "INSERT INTO drink_debts VALUES ('2026-10:carla:alice', '2026-10', 'carla', 'alice', '2026-11-02T10:00:00.000Z', 'member-carla')",
     ),
   ]);
-  const before = await readMerged(db, roster);
-
-  for (const query of migration()) await db.prepare(query).run();
+  await runMigration(db, '0016_');
 
   const months = await db.prepare('SELECT * FROM monthly_mmr_results').all();
   expect(months.results).toEqual([
@@ -111,9 +88,12 @@ test('the board migration keeps every value and builds every match already recei
   const builds = await db.prepare('SELECT match_guid FROM match_builds ORDER BY match_guid').all();
   expect(builds.results).toEqual([{ match_guid: 'live-match' }, { match_guid: 'old-match' }]);
 
+  // The app reads the tables as the later migrations left them.
+  await runMigrationsFrom(db, '0017_');
   await prepareBoard(db);
   const board = await readFullBoard({ db, memberId: 'member-alice', hasRankSource: false }, players);
-  expect(board.results).toEqual(before.rows);
+  expect(board.results).toEqual((await readMerged(db, roster)).rows);
+  expect(board.results.map((row) => row.match_guid).sort()).toEqual(['live-match', 'live-match', 'old-match']);
   expect(board.exercises.map((exercise) => [exercise.id, exercise.mine])).toEqual([
     ['old-exercise-00000002', true],
     ['old-exercise-00000001', false],

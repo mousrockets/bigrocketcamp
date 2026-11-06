@@ -15,8 +15,8 @@ const [first = '', second = '', third = ''] = roster;
 
 async function setup() {
   await env.DB.batch(
-    ['player_identities', 'player_identity_aliases', 'result_observations', 'source_reports', 'results'].map((table) =>
-      env.DB.prepare(`DELETE FROM ${table}`),
+    ['player_identities', 'player_identity_aliases', 'result_observations', 'source_reports', 'prototype_results'].map(
+      (table) => env.DB.prepare(`DELETE FROM ${table}`),
     ),
   );
   const identities: [string, string, string][] = [

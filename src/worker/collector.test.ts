@@ -94,8 +94,8 @@ beforeEach(async () => {
       'player_identity_aliases',
       'result_observations',
       'source_reports',
-      'results',
-      'match_rosters',
+      'prototype_results',
+      'prototype_match_rosters',
       'members',
     ].map((table) => env.DB.prepare(`DELETE FROM ${table}`)),
   );

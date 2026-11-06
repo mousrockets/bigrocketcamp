@@ -123,9 +123,7 @@ async function seedEvenings(evenings: number, matchesPerEvening = 12) {
       for (const player of ['alice', 'bob']) {
         writes.push(
           db
-            .prepare(
-              "INSERT INTO mmr_entries (id, player, mmr, author, recorded_at, source) VALUES (?, ?, ?, 'rank-source', ?, 'observer')",
-            )
+            .prepare('INSERT INTO mmr_entries (id, player, mmr, recorded_at) VALUES (?, ?, ?, ?)')
             .bind(`mmr-${guid}-${player}`, player, 1000 + evening + match, received),
         );
       }
