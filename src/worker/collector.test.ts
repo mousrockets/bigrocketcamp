@@ -2,10 +2,10 @@ import { env, exports } from 'cloudflare:workers';
 import { beforeEach, describe, expect, test } from 'vitest';
 import { joinTestClub } from '../lib/club-fixture';
 import { sha256 } from './auth';
+import { alicePlayerId, livePayload } from './live-fixture';
 
 const origin = 'http://localhost';
 const memberId = 'member-alice';
-const alicePlayerId = `Epic|${'b'.repeat(32)}|0`;
 
 function call(path: string, init: { method?: string; body?: unknown; cookie?: string; token?: string } = {}) {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -46,47 +46,10 @@ async function pairedToken(): Promise<string> {
   return body.token;
 }
 
-function livePayload() {
-  const now = Date.now();
-  const players = [
-    ['alice', alicePlayerId],
-    ['Opponent 1', `Epic|${'d'.repeat(32)}|0`],
-    ['Opponent 2', `Epic|${'e'.repeat(32)}|0`],
-    ['Opponent 3', `Epic|${'f'.repeat(32)}|0`],
-  ].map(([Name, PrimaryId], i) => ({
-    Name,
-    PrimaryId,
-    TeamNum: i < 2 ? 0 : 1,
-    Score: 100,
-    Goals: 0,
-    Assists: 0,
-    Saves: 0,
-  }));
-  return {
-    startedAt: now - 360_000,
-    endedAt: now - 1000,
-    seenIds: players.map((player) => player.PrimaryId),
-    end: { MatchGuid: 'synthetic-collector-match', WinnerTeamNum: 0 },
-    state: {
-      MatchGuid: 'synthetic-collector-match',
-      Players: players,
-      Game: {
-        PlaylistId: 11,
-        Teams: [
-          { Name: 'Blue', TeamNum: 0, Score: 2 },
-          { Name: 'Orange', TeamNum: 1, Score: 1 },
-        ],
-        bHasWinner: true,
-        bReplay: false,
-        Winner: 'Blue',
-      },
-    },
-  };
-}
-
 beforeEach(async () => {
   await env.DB.batch(
     [
+      'collectors',
       'collector_devices',
       'collector_pairing_codes',
       'sessions',
@@ -233,5 +196,44 @@ describe('sending with the collector token', () => {
     expect((await call('/api/profile', { method: 'DELETE', cookie })).status).toBe(204);
     expect(await env.DB.prepare('SELECT COUNT(*) AS n FROM collector_devices').first('n')).toBe(0);
     expect((await call('/api/collector/status', { token })).status).toBe(401);
+  });
+});
+
+describe('telling the rank source a ranked match ended', () => {
+  const rankKey = 'k'.repeat(40);
+
+  async function lastRankedMatch(): Promise<string | null> {
+    (env as { RANK_SOURCE_KEY?: string }).RANK_SOURCE_KEY = rankKey;
+    const response = await exports.default.fetch(`${origin}/api/ranks/activity`, {
+      headers: { 'X-Rank-Source-Key': rankKey },
+    });
+    expect(response.status).toBe(200);
+    return (await response.json<{ lastRankedMatchAt: string | null }>()).lastRankedMatchAt;
+  }
+
+  const send = async (token: string, body: unknown) =>
+    expect((await call('/api/live', { method: 'POST', token, body })).status).toBe(200);
+
+  test('only a ranked 2v2 match moves the time the source reads, and another playlist keeps it', async () => {
+    expect(await lastRankedMatch()).toBeNull();
+    const token = await pairedToken();
+    await send(token, livePayload({ guid: 'synthetic-casual-match', playlist: 2 }));
+    expect(await lastRankedMatch()).toBeNull();
+
+    await send(token, livePayload());
+    const ranked = await lastRankedMatch();
+    expect(Date.parse(ranked ?? '')).toBeGreaterThan(Date.now() - 60_000);
+    await send(token, livePayload({ guid: 'synthetic-casual-match-2', playlist: 2 }));
+    expect(await lastRankedMatch()).toBe(ranked);
+
+    const targets = await exports.default.fetch(`${origin}/api/ranks/targets`, {
+      headers: { 'X-Rank-Source-Key': rankKey },
+    });
+    expect(await targets.json()).toMatchObject({ lastRankedMatchAt: ranked });
+  });
+
+  test('the time is only for the rank source', async () => {
+    (env as { RANK_SOURCE_KEY?: string }).RANK_SOURCE_KEY = rankKey;
+    expect((await exports.default.fetch(`${origin}/api/ranks/activity`)).status).toBe(401);
   });
 });

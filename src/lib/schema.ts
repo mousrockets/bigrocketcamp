@@ -100,6 +100,8 @@ export const collectorDevices = sqliteTable(
 export const collectors = sqliteTable('collectors', {
   id: text('id').primaryKey(),
   lastSeen: text('last_seen').notNull(),
+  /** When it last sent a ranked 2v2 match: the only one that changes the rating the rank source reads. */
+  lastRankedAt: text('last_ranked_at'),
 });
 
 // Game identities

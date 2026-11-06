@@ -1,0 +1,1 @@
+ALTER TABLE `collectors` ADD `last_ranked_at` text;

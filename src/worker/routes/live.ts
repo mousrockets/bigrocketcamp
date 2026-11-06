@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { readRoster } from '../../lib/club';
-import { liveMatchInput, liveMatchRows } from '../../lib/live-stats';
+import { isRankedDoubles, liveMatchInput, liveMatchRows } from '../../lib/live-stats';
 import { buildMatches } from '../../lib/match-builds';
 import {
   attributeLivePlayers,
@@ -50,7 +50,8 @@ liveRoutes.post(
     const memberId = c.var.member.id;
     try {
       const roster = await readRoster(db);
-      const parsed = liveMatchRows(roster, c.req.valid('json'));
+      const match = c.req.valid('json');
+      const parsed = liveMatchRows(roster, match);
       const [accounts, bindings] = await Promise.all([
         readPlayerIdentities(db, roster, memberId),
         readIdentityBindings(db, roster),
@@ -80,9 +81,11 @@ liveRoutes.post(
       writes.push(
         db
           .prepare(
-            'INSERT INTO collectors (id, last_seen) VALUES (?, ?) ON CONFLICT(id) DO UPDATE SET last_seen = excluded.last_seen',
+            `INSERT INTO collectors (id, last_seen, last_ranked_at) VALUES (?1, ?2, ?3)
+              ON CONFLICT(id) DO UPDATE SET last_seen = excluded.last_seen,
+                last_ranked_at = COALESCE(excluded.last_ranked_at, collectors.last_ranked_at)`,
           )
-          .bind(sourceId, now),
+          .bind(sourceId, now, isRankedDoubles(match) ? now : null),
       );
       await db.batch(writes as D1PreparedStatement[]);
       // The board shows the match as soon as it is rebuilt; a match another collector is sending at the same

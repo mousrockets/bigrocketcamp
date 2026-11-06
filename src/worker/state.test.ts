@@ -1,7 +1,9 @@
 import { env, exports } from 'cloudflare:workers';
-import { beforeAll, expect, test } from 'vitest';
+import { beforeAll, describe, expect, test } from 'vitest';
+import type { BoardChanges } from '../lib/board';
 import { joinTestClub } from '../lib/club-fixture';
 import { sha256 } from './auth';
+import { alicePlayerId, livePayload } from './live-fixture';
 
 let cookie = '';
 
@@ -66,4 +68,78 @@ test('a malformed version is refused', async () => {
   const answer = await board('?since=-1');
   expect(answer.status).toBe(400);
   expect(await answer.json()).toEqual({ error: 'Version du tableau invalide.' });
+});
+
+describe('an open board follows what the collector and the rank source send, without a reload', () => {
+  const rankKey = 'k'.repeat(40);
+
+  beforeAll(async () => {
+    (env as { RANK_SOURCE_KEY?: string }).RANK_SOURCE_KEY = rankKey;
+    await env.DB.batch([
+      env.DB.prepare('INSERT OR REPLACE INTO player_identities (slot, owner, player_id) VALUES (?, ?, ?)').bind(
+        'alice',
+        'member-alice',
+        alicePlayerId,
+      ),
+      env.DB.prepare('INSERT OR REPLACE INTO player_identity_aliases VALUES (?, ?, ?, ?)').bind(
+        alicePlayerId,
+        'alice',
+        'member-alice',
+        'synthetic',
+      ),
+    ]);
+  });
+
+  async function openBoard(): Promise<number> {
+    return (await (await board('?since=0')).json<{ version: number }>()).version;
+  }
+
+  async function changesSince(version: number): Promise<BoardChanges> {
+    const answer = await board(`?since=${version}&wait=0`);
+    expect(answer.status).toBe(200);
+    return answer.json<BoardChanges>();
+  }
+
+  const reading = (mmr: number, matches: number, observedAt: string) =>
+    exports.default.fetch('https://app.test/api/ranks', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Rank-Source-Key': rankKey },
+      body: JSON.stringify({
+        ranks: [{ player: 'alice', playerId: alicePlayerId, mmr, tier: 15, division: 2, matches, observedAt }],
+      }),
+    });
+
+  test('a match: its result, so the history, the recap and the pushups due', async () => {
+    const version = await openBoard();
+    const sent = await exports.default.fetch('https://app.test/api/live', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Cookie: cookie, Origin: 'https://app.test' },
+      body: JSON.stringify(livePayload({ guid: 'synthetic-state-match' })),
+    });
+    expect(sent.status).toBe(200);
+    const changes = await changesSince(version);
+    expect(changes.results).toContainEqual(
+      expect.objectContaining({ match_guid: 'synthetic-state-match', name: 'alice', team: 0, winner: 0 }),
+    );
+  });
+
+  test('a reading: rank, rating, season peak, matches played and the month standings', async () => {
+    const version = await openBoard();
+    const first = new Date().toISOString();
+    expect((await reading(1234, 321, first)).status).toBe(200);
+    const changes = await changesSince(version);
+    expect(changes.doublesRanks.find((rank) => rank.player === 'alice')).toMatchObject({
+      mmr: 1234,
+      matchesPlayed: 321,
+      fetchedAt: first,
+      peak: { mmr: 1234 },
+    });
+    expect(changes.monthly.current.rows.find((row) => row.player === 'alice')).toMatchObject({ mmr: 1234 });
+
+    // An unchanged rating still tells the board when it was last read.
+    const again = new Date(Date.parse(first) + 60_000).toISOString();
+    expect((await reading(1234, 321, again)).status).toBe(200);
+    const unchanged = await changesSince(changes.version);
+    expect(unchanged.doublesRanks.find((rank) => rank.player === 'alice')).toMatchObject({ fetchedAt: again });
+  });
 });
