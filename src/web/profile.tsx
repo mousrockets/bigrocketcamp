@@ -114,6 +114,10 @@ export function Profile() {
               disabled={busy}
               onChange={(event) => setSoloPseudo(event.target.value)}
             />
+            <p className="small muted">
+              Le nom d’affichage Epic de ton compte solo, même sur console si ce compte est lié à Epic : son rang 2v2
+              s’affiche sous ton rang duo.
+            </p>
           </div>
           <div className="settings-field">
             <Label htmlFor="platform">Plateforme</Label>
