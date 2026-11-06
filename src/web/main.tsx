@@ -1,7 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { clubName } from '../lib/club';
 import { App } from './app';
+import { clubName } from './club-config';
 import './styles.css';
 
 // index.html carries the name when VITE_CLUB_NAME is set at build time; this also covers builds without it.

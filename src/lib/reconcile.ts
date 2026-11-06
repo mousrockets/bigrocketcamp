@@ -1,4 +1,4 @@
-import { roster } from './club';
+import type { Roster } from './club';
 import type { Database, Statement } from './db';
 import type { ReceivedRoster } from './match-rules';
 
@@ -82,6 +82,7 @@ function choose(a: Candidate, b: Candidate): Candidate {
 }
 
 export function reconcile(
+  roster: Roster,
   legacy: StoredResult[],
   observations: Observation[] = [],
   legacyRosters: CompleteRoster[] = [],
@@ -310,7 +311,7 @@ export async function observationWrites(
   return writes;
 }
 
-export async function readMerged(db: Database) {
+export async function readMerged(db: Database, roster: Roster) {
   const [legacy, observations, rosters, reports, aliases] = await Promise.all([
     db.prepare('SELECT * FROM results ORDER BY day DESC,received DESC,rowid DESC').all<StoredResult>(),
     db.prepare('SELECT * FROM result_observations ORDER BY received').all<Observation & { payload: string }>(),
@@ -341,5 +342,5 @@ export async function readMerged(db: Database) {
       return report;
     }
   });
-  return reconcile(legacy.results.map(assign), mappedObservations, rosters.results, mappedReports);
+  return reconcile(roster, legacy.results.map(assign), mappedObservations, rosters.results, mappedReports);
 }

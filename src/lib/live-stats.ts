@@ -1,3 +1,4 @@
+import type { Roster } from './club';
 import { normalizeParticipant, parisDay, type ReceivedResult } from './domain';
 import { type ReceivedRoster, validateMatchRosters } from './match-rules';
 
@@ -52,6 +53,7 @@ export interface LiveMatch {
 }
 
 export function parseLiveMatch(
+  roster: Roster,
   input: unknown,
   now: number = Date.now(),
 ): { rows: ReceivedResult[]; rosters: ReceivedRoster[] } {
@@ -131,7 +133,7 @@ export function parseLiveMatch(
   // including matches that finish after Paris midnight, to keep that convention.
   const day = parisDay(new Date(startedAt));
   const rows = state.Players.map((player: LivePlayer) =>
-    normalizeParticipant({
+    normalizeParticipant(roster, {
       MatchGuid: guid.trim().toLowerCase(),
       PlayerId: canonical(player.PrimaryId),
       Name: player.Name,
@@ -147,6 +149,11 @@ export function parseLiveMatch(
   );
   const rosters = validateMatchRosters([{ MatchGuid: rows[0].matchGuid, PlayerCount: count }], rows);
   return { rows, rosters };
+}
+
+/** Checks a scoreboard before keeping or sending it; the API names the club's players when it arrives. */
+export function checkLiveMatch(input: unknown, now: number): void {
+  parseLiveMatch([], input, now);
 }
 
 export interface StatsMessage {
@@ -298,7 +305,7 @@ export function matchCapture(onComplete: (payload: LiveMatch) => void, now: () =
         seenIds: [...current.seen],
       };
       try {
-        parseLiveMatch(payload, now());
+        checkLiveMatch(payload, now());
       } catch {
         current.candidate = null;
         return;

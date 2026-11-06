@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
+import { readClubPlayers, readRoster } from '../../lib/club';
 import { closeMonthlyMmr, readMonthlyMmr, recordMmr, settleDrink } from '../../lib/monthly-mmr';
 import { type AppEnv, sameOrigin } from '../auth';
 
@@ -7,7 +8,9 @@ export const monthlyRoutes = new Hono<AppEnv>();
 
 const noStore = { 'Cache-Control': 'no-store' };
 
-monthlyRoutes.get('/', async (c) => c.json(await readMonthlyMmr(c.env.DB, c.var.member.id), 200, noStore));
+monthlyRoutes.get('/', async (c) =>
+  c.json(await readMonthlyMmr(c.env.DB, await readClubPlayers(c.env.DB), c.var.member.id), 200, noStore),
+);
 
 monthlyRoutes.post('/', async (c) => {
   if (!sameOrigin(c)) return c.json({ error: 'Origine refusée.' }, 403, noStore);
@@ -17,10 +20,11 @@ monthlyRoutes.post('/', async (c) => {
   const memberId = c.var.member.id;
   try {
     const input = JSON.parse(body);
-    if (input.action === 'record') return c.json(await recordMmr(db, memberId, input), 200, noStore);
-    if (input.action === 'refresh') return c.json(await closeMonthlyMmr(db), 200, noStore);
+    const roster = await readRoster(db);
+    if (input.action === 'record') return c.json(await recordMmr(db, roster, memberId, input), 200, noStore);
+    if (input.action === 'refresh') return c.json(await closeMonthlyMmr(db, roster), 200, noStore);
     if (input.action === 'settle' || input.action === 'undo') {
-      return c.json(await settleDrink(db, memberId, input.id, input.action === 'undo'), 200, noStore);
+      return c.json(await settleDrink(db, roster, memberId, input.id, input.action === 'undo'), 200, noStore);
     }
     throw new Error('Action inconnue.');
   } catch (error) {

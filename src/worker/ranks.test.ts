@@ -1,5 +1,6 @@
 import { env, exports } from 'cloudflare:workers';
 import { beforeEach, describe, expect, test } from 'vitest';
+import { joinTestClub } from '../lib/club-fixture';
 import { readRankSourceHealth } from '../lib/rank-source';
 
 const key = 'k'.repeat(40);
@@ -16,8 +17,8 @@ function post(ranks: unknown) {
 }
 
 const rank = (mmr: number, observedAt = new Date().toISOString()) => ({
-  player: 'nokouki',
-  playerId: 'Epic|nokouki-test|0',
+  player: 'bob',
+  playerId: 'Epic|bob-test|0',
   mmr,
   tier: 16,
   division: 3,
@@ -26,12 +27,13 @@ const rank = (mmr: number, observedAt = new Date().toISOString()) => ({
 
 beforeEach(async () => {
   (env as { RANK_SOURCE_KEY?: string }).RANK_SOURCE_KEY = key;
+  await joinTestClub(env.DB);
   await env.DB.batch([
     env.DB.prepare('DELETE FROM mmr_entries'),
     env.DB.prepare('DELETE FROM player_ranks'),
     env.DB.prepare('DELETE FROM player_identities'),
     env.DB.prepare(
-      "INSERT INTO player_identities (slot, owner, player_id) VALUES ('nokouki', 'member-dimitri', 'Epic|nokouki-test|0')",
+      "INSERT INTO player_identities (slot, owner, player_id) VALUES ('bob', 'member-bob', 'Epic|bob-test|0')",
     ),
   ]);
 });
@@ -43,7 +45,7 @@ describe('the rank source API', () => {
 
   test('lists the game identities whose rank to read', async () => {
     const response = await call('/api/ranks/targets');
-    expect(await response.json()).toEqual({ targets: [{ player: 'nokouki', playerId: 'Epic|nokouki-test|0' }] });
+    expect(await response.json()).toEqual({ targets: [{ player: 'bob', playerId: 'Epic|bob-test|0' }] });
   });
 
   test('stores a rank as ready, and a new entry only when the rating changes', async () => {
@@ -51,7 +53,7 @@ describe('the rank source API', () => {
     expect(await (await post([rank(1180)])).json()).toEqual({ ok: true, changed: 0 });
     expect(await (await post([rank(1195)])).json()).toEqual({ ok: true, changed: 1 });
     const stored = await env.DB.prepare(
-      "SELECT mmr, tier, division, status FROM player_ranks WHERE player = 'nokouki'",
+      "SELECT mmr, tier, division, status FROM player_ranks WHERE player = 'bob'",
     ).first();
     expect(stored).toEqual({ mmr: 1195, tier: 16, division: 3, status: 'ready' });
     expect(await env.DB.prepare('SELECT COUNT(*) AS n FROM mmr_entries').first('n')).toBe(2);
@@ -60,11 +62,11 @@ describe('the rank source API', () => {
   test('stores the ranked matches played when the source sends them', async () => {
     await post([{ ...rank(1180), matches: 395 }]);
     expect(
-      await env.DB.prepare("SELECT matches_played FROM player_ranks WHERE player = 'nokouki'").first('matches_played'),
+      await env.DB.prepare("SELECT matches_played FROM player_ranks WHERE player = 'bob'").first('matches_played'),
     ).toBe(395);
     await post([rank(1180)]);
     expect(
-      await env.DB.prepare("SELECT matches_played FROM player_ranks WHERE player = 'nokouki'").first('matches_played'),
+      await env.DB.prepare("SELECT matches_played FROM player_ranks WHERE player = 'bob'").first('matches_played'),
     ).toBe(395);
     expect((await post([{ ...rank(1180), matches: -1 }])).status).toBe(400);
   });
@@ -93,7 +95,7 @@ describe('the rank source health', () => {
 
   test('ignores ranks the players entered themselves', async () => {
     await env.DB.prepare(
-      "INSERT INTO player_ranks (player, player_id, playlist, mmr, fetched_at, last_attempt, status) VALUES ('nokouki', 'Epic|nokouki-test|0', 11, 1180, ?1, ?1, 'manual')",
+      "INSERT INTO player_ranks (player, player_id, playlist, mmr, fetched_at, last_attempt, status) VALUES ('bob', 'Epic|bob-test|0', 11, 1180, ?1, ?1, 'manual')",
     )
       .bind(new Date().toISOString())
       .run();

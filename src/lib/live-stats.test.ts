@@ -1,6 +1,6 @@
 import { env } from 'cloudflare:workers';
 import { describe, expect, test } from 'vitest';
-import { roster } from './club';
+import { roster } from './club-fixture';
 import { summarize } from './domain';
 import { liveBridge } from './live-bridge';
 import { matchCapture, parseLiveMatch, statsStream } from './live-stats';
@@ -130,7 +130,7 @@ describe('live stats', () => {
     expect(received.length).toBe(0);
     capture.handle(packet('UpdateState', final));
     expect(received.length).toBe(1);
-    expect(parseLiveMatch(received[0], now).rows[0]?.score).toBe(250);
+    expect(parseLiveMatch(roster, received[0], now).rows[0]?.score).toBe(250);
     finish(capture, p);
     expect(received.length).toBe(1);
   });
@@ -157,7 +157,7 @@ describe('live stats', () => {
     const forfeited = payload();
     const blue = forfeited.state.Game.Teams[0];
     if (blue) blue.Score = 5;
-    expect(parseLiveMatch(forfeited, now).rows.length).toBe(6);
+    expect(parseLiveMatch(roster, forfeited, now).rows.length).toBe(6);
     const player = (p: LivePayload, index: number) => {
       const found = p.state.Players[index];
       if (!found) throw new Error('missing synthetic player');
@@ -210,7 +210,7 @@ describe('live stats', () => {
     for (const mutate of mutations) {
       const p = payload();
       mutate(p);
-      expect(() => parseLiveMatch(p, now)).toThrow();
+      expect(() => parseLiveMatch(roster, p, now)).toThrow();
     }
   });
 
@@ -218,7 +218,7 @@ describe('live stats', () => {
     const p = payload();
     p.startedAt = Date.parse('2026-11-05T22:58:00Z');
     p.endedAt = Date.parse('2026-11-05T23:05:00Z');
-    expect(parseLiveMatch(p, p.endedAt).rows[0]?.day).toBe('2026-11-05');
+    expect(parseLiveMatch(roster, p, p.endedAt).rows[0]?.day).toBe('2026-11-05');
   });
 });
 
@@ -249,8 +249,8 @@ async function linkIdentities() {
 // What the live route does with an accepted payload, without its session and origin checks.
 async function receive(body: string): Promise<Response> {
   try {
-    const parsed = parseLiveMatch(JSON.parse(body));
-    const rows = attributeLivePlayers(parsed.rows, await readIdentityBindings(env.DB));
+    const parsed = parseLiveMatch(roster, JSON.parse(body));
+    const rows = attributeLivePlayers(roster, parsed.rows, await readIdentityBindings(env.DB, roster));
     const writes = await observationWrites(
       env.DB,
       { rows, rosters: parsed.rosters, sourceId: 'live-synthetic', sourceType: 'collector' },
@@ -268,8 +268,8 @@ async function observationCount() {
 }
 
 async function mergedStats() {
-  const merged = await readMerged(env.DB);
-  return { merged, stats: summarize(merged.rows, [], '', merged.rosters) };
+  const merged = await readMerged(env.DB, roster);
+  return { merged, stats: summarize(roster, merged.rows, [], '', merged.rosters) };
 }
 
 describe('live reception', () => {
@@ -287,7 +287,7 @@ describe('live reception', () => {
     expect(merged.rosters.length).toBe(1);
     expect(await observationCount()).toBe(6);
 
-    const parsed = parseLiveMatch(p);
+    const parsed = parseLiveMatch(roster, p);
     const renamed = parsed.rows.map((row, i) => ({ ...row, name: i === 0 ? first : row.name, winner: 0 }));
     const writes = await observationWrites(
       env.DB,

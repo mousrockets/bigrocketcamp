@@ -1,4 +1,4 @@
-import { roster } from './club';
+import { type ClubPlayer, type Roster, rosterOf } from './club';
 import type { Database } from './db';
 import { parisDay } from './domain';
 import { type MmrEntry, mmrObservedAt, projectMmrRankWrite, publicCloseFreshMs } from './mmr-ledger';
@@ -78,7 +78,12 @@ export interface DrinkDebt {
   recipient: string;
 }
 
-export function monthlyRanking(entries: MmrEntry[], month: string, { live = false }: { live?: boolean } = {}) {
+export function monthlyRanking(
+  roster: Roster,
+  entries: MmrEntry[],
+  month: string,
+  { live = false }: { live?: boolean } = {},
+) {
   const bounds = monthBounds(month);
   const admissible = (entry: MmrEntry) =>
     entry.source === 'rlstats'
@@ -155,7 +160,7 @@ export interface MmrInput {
   division: number | null;
 }
 
-export function validateMmrEntry(input: unknown): MmrInput {
+export function validateMmrEntry(roster: Roster, input: unknown): MmrInput {
   const { id, player, mmr, tier = null, division = null } = (input ?? {}) as Record<string, unknown>;
   if (
     typeof id !== 'string' ||
@@ -204,9 +209,11 @@ type SavedEntry = { player: string; mmr: number; tier: number | null; division: 
 const sameEntry = (saved: SavedEntry, value: MmrInput) =>
   (['player', 'mmr', 'tier', 'division'] as const).every((key) => saved[key] === value[key]);
 
-export async function recordMmr(db: Database, userId: string, input: unknown) {
-  const value = validateMmrEntry(input);
-  const identity = (await readPlayerIdentities(db, userId)).find((candidate) => candidate.slot === value.player);
+export async function recordMmr(db: Database, roster: Roster, userId: string, input: unknown) {
+  const value = validateMmrEntry(roster, input);
+  const identity = (await readPlayerIdentities(db, roster, userId)).find(
+    (candidate) => candidate.slot === value.player,
+  );
   if (!identity) throw withStatus('Chaque joueur doit renseigner son propre MMR.', 403);
   const old = await db
     .prepare('SELECT player,mmr,tier,division,author FROM mmr_entries WHERE id=?')
@@ -232,7 +239,7 @@ export async function recordMmr(db: Database, userId: string, input: unknown) {
   return { ok: true, player: value.player };
 }
 
-export async function closeMonthlyMmr(db: Database, now: number = Date.now()) {
+export async function closeMonthlyMmr(db: Database, roster: Roster, now: number = Date.now()) {
   const config = await policy(db, now);
   const all = (await entries(db)).results;
   const current = parisMonth(now);
@@ -243,7 +250,7 @@ export async function closeMonthlyMmr(db: Database, now: number = Date.now()) {
   for (let month = config?.starts_month ?? current; month < current && closed < 24; month = nextMonth(month)) {
     const bounds = monthBounds(month);
     if (now < Date.parse(bounds.cutoffAt) + monthCloseGraceMs || existing.includes(month)) continue;
-    const snapshot = monthlyRanking(all, month);
+    const snapshot = monthlyRanking(roster, all, month);
     const payload = JSON.stringify(snapshot);
     const closedAt = new Date(now).toISOString();
     const writes = [
@@ -273,11 +280,18 @@ interface StoredDebt extends DrinkDebt {
   paid_by: string | null;
 }
 
-export async function settleDrink(db: Database, userId: string, id: unknown, undo = false, now: number = Date.now()) {
+export async function settleDrink(
+  db: Database,
+  roster: Roster,
+  userId: string,
+  id: unknown,
+  undo = false,
+  now: number = Date.now(),
+) {
   if (typeof id !== 'string' || id.length > 160) throw new Error('Dette invalide.');
   const debt = await db.prepare('SELECT * FROM drink_debts WHERE id=?').bind(id).first<StoredDebt>();
   if (!debt) throw withStatus('Dette introuvable.', 404);
-  const own = (await readPlayerIdentities(db, userId)).map((identity) => identity.slot);
+  const own = (await readPlayerIdentities(db, roster, userId)).map((identity) => identity.slot);
   if (!own.includes(debt.payer) && !own.includes(debt.recipient)) {
     throw withStatus('Seuls les deux joueurs concernés peuvent confirmer la boisson.', 403);
   }
@@ -298,20 +312,26 @@ export async function settleDrink(db: Database, userId: string, id: unknown, und
   return { ok: true };
 }
 
-export async function readMonthlyMmr(db: Database, userId: string, now: number = Date.now()) {
+export async function readMonthlyMmr(
+  db: Database,
+  players: readonly ClubPlayer[],
+  userId: string,
+  now: number = Date.now(),
+) {
+  const roster = rosterOf(players);
   const [all, closed, debts, identities, config, publicSync] = await Promise.all([
     entries(db),
     db
       .prepare('SELECT month,cutoff_at,closed_at,status,snapshot FROM monthly_mmr_results ORDER BY month DESC')
       .all<{ month: string; closed_at: string; snapshot: string }>(),
     db.prepare('SELECT * FROM drink_debts ORDER BY month DESC,payer,recipient').all<StoredDebt>(),
-    readPlayerIdentities(db, userId),
+    readPlayerIdentities(db, roster, userId),
     db.prepare('SELECT starts_month FROM monthly_mmr_policy WHERE id=1').first<{ starts_month: string }>(),
-    readPublicMmrStatus(db),
+    readPublicMmrStatus(db, players),
   ]);
   const allowedPlayers = identities.map((identity) => identity.slot);
   const month = parisMonth(now);
-  const { debts: _preview, losers: _last, ...live } = monthlyRanking(all.results, month, { live: true });
+  const { debts: _preview, losers: _last, ...live } = monthlyRanking(roster, all.results, month, { live: true });
   return {
     startsMonth: config?.starts_month ?? month,
     current: { ...live, status: 'live' as const },

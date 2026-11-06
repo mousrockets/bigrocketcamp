@@ -1,6 +1,6 @@
 import { env } from 'cloudflare:workers';
 import { expect, test } from 'vitest';
-import { roster } from './club';
+import { roster } from './club-fixture';
 import { summarize } from './domain';
 import {
   attributeLivePlayers,
@@ -48,13 +48,13 @@ async function setup() {
 }
 
 async function thirdPlayerDue() {
-  const merged = await readMerged(env.DB);
-  return { merged, due: summarize(merged.rows, [], '')[2]?.due };
+  const merged = await readMerged(env.DB, roster);
+  return { merged, due: summarize(roster, merged.rows, [], '')[2]?.due };
 }
 
 test('an opponent nickname stays unassigned until the owner confirms its platform ID', async () => {
   await setup();
-  const mapped = attributeLivePlayers([{ playerId: 'Epic|unknown|0', name: second }], []);
+  const mapped = attributeLivePlayers(roster, [{ playerId: 'Epic|unknown|0', name: second }], []);
   expect(mapped[0]?.name).toBe(unassignedPrefix + second);
   expect((await thirdPlayerDue()).due).toBe(0);
 
@@ -87,12 +87,12 @@ test('identities and bindings are read per owner and limited to the roster', asy
       'synthetic',
     ),
   ]);
-  expect((await readPlayerIdentities(env.DB)).map((i) => i.slot).sort()).toEqual([first, third].sort());
-  const owned = await readPlayerIdentities(env.DB, 'current-user');
+  expect((await readPlayerIdentities(env.DB, roster)).map((i) => i.slot).sort()).toEqual([first, third].sort());
+  const owned = await readPlayerIdentities(env.DB, roster, 'current-user');
   expect(owned.map((i) => [i.slot, i.player_id, i.coverage])).toEqual([
     [third, 'Epic|synthetic-console-account|0', 'recent_only'],
   ]);
-  expect((await readIdentityBindings(env.DB)).map((b) => b.slot).sort()).toEqual([first, third].sort());
+  expect((await readIdentityBindings(env.DB, roster)).map((b) => b.slot).sort()).toEqual([first, third].sort());
 });
 
 test('live players are attributed through canonical platform IDs', () => {
@@ -104,7 +104,7 @@ test('live players are attributed through canonical platform IDs', () => {
     { playerId: 'Epic|other|0', name: second },
     { playerId: 'Epic|stranger|0', name: 'Stranger' },
   ];
-  expect(attributeLivePlayers(rows, bindings).map((r) => r.name)).toEqual([
+  expect(attributeLivePlayers(roster, rows, bindings).map((r) => r.name)).toEqual([
     first,
     unassignedPrefix + second,
     'Stranger',

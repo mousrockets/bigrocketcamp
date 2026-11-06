@@ -1,4 +1,4 @@
-import { roster } from './club';
+import type { Roster } from './club';
 import type { Database } from './db';
 import { playerKey } from './reconcile';
 
@@ -75,6 +75,7 @@ export function doublesRankLabel(rank: {
 }
 
 export function rankTargets(
+  roster: Roster,
   rows: { name: string; kind: string; player_id: string; source_difference?: string | null }[],
   accounts: { slot: string; account_id: string; owner?: string }[],
   _owner?: string,
@@ -121,7 +122,7 @@ export interface PlayerDoublesRank {
   lastAttempt: string | null;
 }
 
-export async function readDoublesRanks(db: Database): Promise<PlayerDoublesRank[]> {
+export async function readDoublesRanks(db: Database, roster: Roster): Promise<PlayerDoublesRank[]> {
   const stored = (
     await db
       .prepare(

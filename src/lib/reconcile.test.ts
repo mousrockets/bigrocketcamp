@@ -1,6 +1,6 @@
 import { env } from 'cloudflare:workers';
 import { describe, expect, test } from 'vitest';
-import { roster } from './club';
+import { roster } from './club-fixture';
 import { dailyRecap, normalizeParticipant, parisDay, summarize } from './domain';
 import { validateMatchRosters } from './match-rules';
 import { observationWrites, readMerged, reconcile } from './reconcile';
@@ -52,49 +52,51 @@ describe('reconcile', () => {
   test('history union: common matches once, old matches outside the window kept', () => {
     const legacy = [row, { ...row, match_guid: 'old-only' }];
     const epic = [observation(row), observation({ ...row, match_guid: 'new-only' })];
-    const result = reconcile(legacy, epic);
+    const result = reconcile(roster, legacy, epic);
     expect(result.rows.length).toBe(3);
     expect(result.rows.find((r) => r.match_guid === 'm')?.verification).toBe('confirmed');
-    expect(only(summarize(result.rows, [], ''), 1).due).toBe(15);
+    expect(only(summarize(roster, result.rows, [], ''), 1).due).toBe(15);
   });
 
   test('an Epic correction takes result and stats from the same snapshot', () => {
     const epic = { ...row, winner: 0, score: 100, goals: 0, assists: 0, saves: 3 };
-    const merged = reconcile([row], [observation(epic)]);
+    const merged = reconcile(roster, [row], [observation(epic)]);
     const chosen = only(merged.rows);
     expect([chosen.winner, chosen.score, chosen.goals, chosen.assists, chosen.saves]).toEqual([0, 100, 0, 0, 3]);
     expect(chosen.verification).toBe('corrected');
-    expect(only(summarize(merged.rows, [], ''), 1).due).toBe(0);
+    expect(only(summarize(roster, merged.rows, [], ''), 1).due).toBe(0);
   });
 
   test('two contradictory PC results need review, with no debt and no false win', () => {
-    const merged = reconcile([row], [observation({ ...row, winner: 0 }, 'collector', 'other')]);
+    const merged = reconcile(roster, [row], [observation({ ...row, winner: 0 }, 'collector', 'other')]);
     expect(only(merged.rows).review_required).toBe(true);
-    expect(only(summarize(merged.rows, [], ''), 1).played).toBe(0);
-    expect(only(dailyRecap(merged.rows, row.day).players, 1).generated).toBe(0);
+    expect(only(summarize(roster, merged.rows, [], ''), 1).played).toBe(0);
+    expect(only(dailyRecap(roster, merged.rows, row.day).players, 1).generated).toBe(0);
   });
 
   test('a contradiction from the same collector is kept; a test upgraded to a match stays valid', () => {
     const contradiction = reconcile(
+      roster,
       [],
       [observation(row, 'collector'), observation({ ...row, winner: 0 }, 'collector')],
     );
     expect(only(contradiction.rows).review_required).toBe(true);
-    expect(only(reconcile([{ ...row, kind: 'test' }], [observation(row, 'collector')]).rows).review_required).toBe(
-      false,
-    );
+    expect(
+      only(reconcile(roster, [{ ...row, kind: 'test' }], [observation(row, 'collector')]).rows).review_required,
+    ).toBe(false);
   });
 
   test('PSN and PS4 are deduplicated; different IDs are never merged by nickname', () => {
     const platforms = reconcile(
+      roster,
       [{ ...row, player_id: 'PSN|synthetic|0' }],
       [observation({ ...row, player_id: 'PS4|synthetic|0' })],
     );
     expect(platforms.rows.length).toBe(1);
-    const result = reconcile([row], [observation({ ...row, player_id: 'Epic|other|0' })]);
+    const result = reconcile(roster, [row], [observation({ ...row, player_id: 'Epic|other|0' })]);
     expect(result.rows.length).toBe(1);
     expect(only(result.rows).source_difference).toBe('identity');
-    expect(only(summarize(result.rows, [], ''), 1).due).toBe(0);
+    expect(only(summarize(roster, result.rows, [], ''), 1).due).toBe(0);
   });
 
   test('a scoreboard is complete only when a coherent report matches every kept row', () => {
@@ -106,9 +108,10 @@ describe('reconcile', () => {
       received: 'now',
       players: JSON.stringify([row, opponent]),
     };
-    const complete = reconcile([], [observation(row), observation(opponent)], [], [report]);
+    const complete = reconcile(roster, [], [observation(row), observation(opponent)], [], [report]);
     expect(complete.rosters.length).toBe(1);
     const changed = reconcile(
+      roster,
       [],
       [observation({ ...row, score: 250 }), observation(opponent)],
       [{ match_guid: 'm', expected_players: 2 }],
@@ -133,7 +136,7 @@ describe('reconcile', () => {
       Saves: 0,
     };
     const send = async (input: typeof player) => {
-      const rows = [input].map(normalizeParticipant).filter((r) => r !== null);
+      const rows = [input].map((row) => normalizeParticipant(roster, row)).filter((r) => r !== null);
       const writes = await observationWrites(
         env.DB,
         { rows, rosters: [], sourceId: 'synthetic', sourceType: 'collector' },
@@ -144,7 +147,7 @@ describe('reconcile', () => {
     await send(player);
     await send({ ...player, Score: 250, Goals: 0, Saves: 3 });
     await send({ ...player, Score: 250, Goals: 0, Saves: 3 });
-    const merged = await readMerged(env.DB);
+    const merged = await readMerged(env.DB, roster);
     expect(merged.rows.length).toBe(1);
     expect(only(merged.rows).goals).toBe(0);
     expect(only(merged.rows).saves).toBe(3);
@@ -179,7 +182,7 @@ describe('collector rosters', () => {
   const matches = [{ MatchGuid: base.MatchGuid, PlayerCount: 2 }];
 
   async function ingest(input: typeof results, declaredMatches: unknown) {
-    const rows = input.map(normalizeParticipant).filter((r) => r !== null);
+    const rows = input.map((row) => normalizeParticipant(roster, row)).filter((r) => r !== null);
     const rosters = validateMatchRosters(declaredMatches, rows);
     const writes = await observationWrites(
       env.DB,
@@ -193,13 +196,16 @@ describe('collector rosters', () => {
     await clearSources();
     await ingest(results, matches);
     await ingest(results, matches);
-    const merged = await readMerged(env.DB);
+    const merged = await readMerged(env.DB, roster);
     expect(merged.rows.length).toBe(2);
     expect(merged.rosters.length).toBe(1);
     expect(merged.rows.some((r) => r.name === 'opponent')).toBe(true);
     const player = only(
-      dailyRecap(merged.rows, parisDay(), merged.rosters, { enabled: true, effectiveFrom: '2026-11-05', ties: 'none' })
-        .players,
+      dailyRecap(roster, merged.rows, parisDay(), merged.rosters, {
+        enabled: true,
+        effectiveFrom: '2026-11-05',
+        ties: 'none',
+      }).players,
     );
     expect([player.played, player.losses, player.lowest, player.generated]).toEqual([1, 1, 0, 5]);
   });
@@ -207,9 +213,9 @@ describe('collector rosters', () => {
   test('a legacy collector stays compatible, but the ranking is unknown without a complete scoreboard', async () => {
     await clearSources();
     await ingest([base], undefined);
-    const merged = await readMerged(env.DB);
+    const merged = await readMerged(env.DB, roster);
     expect(merged.rosters.length).toBe(0);
-    expect(only(dailyRecap(merged.rows, parisDay(), merged.rosters).players).unranked).toBe(1);
+    expect(only(dailyRecap(roster, merged.rows, parisDay(), merged.rosters).players).unranked).toBe(1);
   });
 
   test('a scoreboard announced complete with a missing player is refused before any write', async () => {

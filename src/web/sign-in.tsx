@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { clubName } from '../lib/club';
 import { Brand } from './brand';
+import { clubName } from './club-config';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from './components/ui/input-otp';
 
 type Step = 'email' | 'code';

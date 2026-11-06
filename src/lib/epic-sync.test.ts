@@ -1,6 +1,6 @@
 import { env } from 'cloudflare:workers';
 import { afterEach, describe, expect, test, vi } from 'vitest';
-import { roster } from './club';
+import { roster } from './club-fixture';
 import {
   autoSync,
   collectionPaused,
@@ -8,7 +8,7 @@ import {
   disconnect,
   recapState,
   retiredReason,
-  slots,
+  slotsOf,
   syncHistories,
 } from './epic-sync';
 
@@ -78,12 +78,12 @@ describe('retired Epic sync', () => {
         'synthetic',
       ),
     ]);
-    const state = await connectionStatus({ DB: env.DB }, 'current-user');
+    const state = await connectionStatus({ DB: env.DB }, roster, 'current-user');
     expect(state.retired).toBe(true);
     expect(state.configured).toBe(false);
     expect(state.vaultConfigured).toBe(false);
     expect(state.credentialsStored?.accounts).toBe(0);
-    expect(state.connections.map((c) => c.slot)).toEqual(slots);
+    expect(state.connections.map((c) => c.slot)).toEqual(slotsOf(roster));
     expect(state.connections.length).toBe(roster.length + 1);
     const identity = state.connections.find((c) => c.slot === second);
     expect(identity?.identityKnown).toBe(true);
@@ -93,7 +93,7 @@ describe('retired Epic sync', () => {
     expect(JSON.stringify(state)).not.toContain(accountId);
     expect(JSON.stringify(state)).not.toContain('tokens');
 
-    const recap = await recapState({ DB: env.DB }, '2026-11-05');
+    const recap = await recapState({ DB: env.DB }, roster, '2026-11-05');
     expect(recap.players[1]?.played).toBe(1);
     expect(recap.players[1]?.generated).toBe(5);
     expect(recap.coverage).toEqual([
@@ -111,9 +111,9 @@ describe('retired Epic sync', () => {
     )
       .bind(first, 'current-user', accountId)
       .run();
-    await expect(disconnect({ DB: env.DB }, 'someone-else', first)).rejects.toThrow(/Seul/);
-    await expect(disconnect({ DB: env.DB }, 'current-user', 'unknown-slot')).rejects.toThrow('Compte inconnu.');
-    expect(await disconnect({ DB: env.DB }, 'current-user', first)).toEqual({ ok: true, retired: true });
+    await expect(disconnect({ DB: env.DB }, roster, 'someone-else', first)).rejects.toThrow(/Seul/);
+    await expect(disconnect({ DB: env.DB }, roster, 'current-user', 'unknown-slot')).rejects.toThrow('Compte inconnu.');
+    expect(await disconnect({ DB: env.DB }, roster, 'current-user', first)).toEqual({ ok: true, retired: true });
     const identities = await env.DB.prepare('SELECT COUNT(*) AS n FROM player_identities').first<{ n: number }>();
     expect(identities?.n).toBe(1);
     const accounts = await env.DB.prepare('SELECT COUNT(*) AS n FROM epic_accounts').first<{ n: number }>();

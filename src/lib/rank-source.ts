@@ -1,4 +1,4 @@
-import { roster } from './club';
+import { readRoster } from './club';
 import type { Database, Statement } from './db';
 import { projectMmrRankWrite } from './mmr-ledger';
 
@@ -25,9 +25,10 @@ const integerIn = (value: unknown, min: number, max: number): value is number =>
   typeof value === 'number' && Number.isSafeInteger(value) && value >= min && value <= max;
 
 export async function readRankTargets(db: Database): Promise<RankTarget[]> {
-  const identities = await db
-    .prepare('SELECT slot, player_id FROM player_identities')
-    .all<{ slot: string; player_id: string }>();
+  const [roster, identities] = await Promise.all([
+    readRoster(db),
+    db.prepare('SELECT slot, player_id FROM player_identities').all<{ slot: string; player_id: string }>(),
+  ]);
   return identities.results
     .filter((identity) => roster.includes(identity.slot))
     .map((identity) => ({ player: identity.slot, playerId: identity.player_id }));

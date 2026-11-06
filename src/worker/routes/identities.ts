@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { roster } from '../../lib/club';
+import { readRoster } from '../../lib/club';
 import {
   canonicalPlayerId,
   readIdentityBindings,
@@ -16,10 +16,11 @@ const gamePlayerId = /^(Epic|Steam|PS4|XboxOne|Switch|PsyNet)\|[^\s|]{1,128}\|0$
 
 identityRoutes.get('/', async (c) => {
   const db = c.env.DB;
+  const roster = await readRoster(db);
   const [identities, aliases, merged] = await Promise.all([
-    readPlayerIdentities(db),
-    readIdentityBindings(db),
-    readMerged(db),
+    readPlayerIdentities(db, roster),
+    readIdentityBindings(db, roster),
+    readMerged(db, roster),
   ]);
   const isBound = (playerId: string) =>
     aliases.some((alias) => canonicalPlayerId(alias.player_id) === canonicalPlayerId(playerId));
@@ -68,10 +69,11 @@ identityRoutes.post('/', async (c) => {
   const memberId = c.var.member.id;
   try {
     const { slot, playerId: rawId, action = 'confirm' } = JSON.parse(body);
+    const roster = await readRoster(db);
     if (!roster.includes(slot) || typeof rawId !== 'string' || rawId.length > 256)
       throw new Error('Identifiant invalide.');
     const playerId = canonicalPlayerId(rawId);
-    const identity = (await readPlayerIdentities(db, memberId)).find((candidate) => candidate.slot === slot);
+    const identity = (await readPlayerIdentities(db, roster, memberId)).find((candidate) => candidate.slot === slot);
     if (!identity) {
       return c.json({ error: 'Seul le membre associé à ce joueur peut confirmer son identifiant.' }, 403, noStore);
     }
@@ -84,7 +86,7 @@ identityRoutes.post('/', async (c) => {
       return c.json({ ok: true }, 200, noStore);
     }
     if (action !== 'confirm' || !gamePlayerId.test(playerId)) throw new Error('Identifiant invalide.');
-    const merged = await readMerged(db);
+    const merged = await readMerged(db, roster);
     const seenInAMatch = merged.rows.some(
       (row) => row.kind === 'match' && !row.review_required && canonicalPlayerId(row.player_id) === playerId,
     );

@@ -1,10 +1,37 @@
-// The club's identity is configuration, never code: set VITE_CLUB_NAME and VITE_CLUB_ROSTER
-// (comma-separated player names, lowercase) at build time. Both the API and the web app read them.
-const configuredRoster = import.meta.env.VITE_CLUB_ROSTER ?? 'alice,bob,carla';
+import type { Database } from './db';
 
-export const clubName: string = import.meta.env.VITE_CLUB_NAME ?? 'Big Rocket Camp';
+// The club's identity is data, edited in the app by its administrators: its name, and its players,
+// who are the members that chose a duo pseudo. A duo pseudo is the player slot every game record uses.
 
-export const roster: readonly string[] = configuredRoster
-  .split(',')
-  .map((name: string) => name.trim().toLowerCase())
-  .filter(Boolean);
+export const platforms = ['pc', 'playstation', 'xbox', 'switch'] as const;
+export type Platform = (typeof platforms)[number];
+
+export const isPlatform = (value: unknown): value is Platform => platforms.includes(value as Platform);
+
+export interface ClubPlayer {
+  slot: string;
+  platform: Platform | null;
+}
+
+/** The player slots, in the order the players joined the club. */
+export type Roster = readonly string[];
+
+export const rosterOf = (players: readonly ClubPlayer[]): Roster => players.map((player) => player.slot);
+
+export async function readClubName(db: Database): Promise<string> {
+  const settings = await db.prepare('SELECT name FROM club_settings WHERE id = 1').first<{ name: string }>();
+  return settings?.name ?? 'Big Rocket Camp';
+}
+
+export async function readClubPlayers(db: Database): Promise<ClubPlayer[]> {
+  const members = await db
+    .prepare(
+      'SELECT duo_pseudo AS slot, platform FROM members WHERE duo_pseudo IS NOT NULL ORDER BY roster_position, created, id',
+    )
+    .all<ClubPlayer>();
+  return members.results;
+}
+
+export async function readRoster(db: Database): Promise<Roster> {
+  return rosterOf(await readClubPlayers(db));
+}

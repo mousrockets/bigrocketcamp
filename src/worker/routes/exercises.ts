@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { readRoster } from '../../lib/club';
 import { parisDay, validateExercise } from '../../lib/domain';
 import { type AppEnv, sameOrigin } from '../auth';
 
@@ -24,7 +25,7 @@ exerciseRoutes.post('/', async (c) => {
   try {
     const input = await c.req.text();
     if (input.length > 2000) throw new Error('Déclaration invalide.');
-    const exercise = validateExercise(JSON.parse(input));
+    const exercise = validateExercise(await readRoster(c.env.DB), JSON.parse(input));
     if (exercise.day > parisDay()) throw new Error('La déclaration ne peut pas être datée dans le futur.');
     const db = c.env.DB;
     await db

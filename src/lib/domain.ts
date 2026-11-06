@@ -1,4 +1,4 @@
-import { roster } from './club';
+import type { Roster } from './club';
 import {
   type LastPlaceRule,
   lastPlaceBonus,
@@ -8,7 +8,6 @@ import {
   type RosterSize,
 } from './match-rules';
 
-export { roster } from './club';
 export { lastPlaceRule } from './match-rules';
 
 export const parisDay = (date: Date = new Date()): string =>
@@ -19,7 +18,7 @@ export const parisDay = (date: Date = new Date()): string =>
     day: '2-digit',
   }).format(date);
 
-export const playerName = (name: unknown): string | null =>
+export const playerName = (roster: Roster, name: unknown): string | null =>
   roster.find((player) => player === String(name).trim().toLowerCase()) ?? null;
 
 const validDay = (day: unknown): day is string =>
@@ -46,9 +45,9 @@ export interface ReceivedResult {
 }
 
 // biome-ignore lint/suspicious/noExplicitAny: the collector's payload is validated field by field below.
-type RawResult = Record<string, any> | null | undefined;
+export type RawResult = Record<string, any> | null | undefined;
 
-function normalize(raw: RawResult, includeOthers: boolean): ReceivedResult | null {
+function normalize(roster: Roster, raw: RawResult, includeOthers: boolean): ReceivedResult | null {
   if (
     !raw ||
     typeof raw.MatchGuid !== 'string' ||
@@ -71,7 +70,7 @@ function normalize(raw: RawResult, includeOthers: boolean): ReceivedResult | nul
   if (![raw.Score, raw.Goals, raw.Assists, raw.Saves].every((value) => bounded(value)))
     throw new Error('Statistiques invalides.');
   const name =
-    playerName(raw.Name) ??
+    playerName(roster, raw.Name) ??
     (includeOthers && typeof raw.Name === 'string' && raw.Name.trim().length > 0 && raw.Name.length <= 128
       ? raw.Name.trim()
       : null);
@@ -95,13 +94,13 @@ function normalize(raw: RawResult, includeOthers: boolean): ReceivedResult | nul
 }
 
 /** A club member's result; anybody else's is dropped. */
-export function normalizeResult(raw: RawResult): ReceivedResult | null {
-  return normalize(raw, false);
+export function normalizeResult(roster: Roster, raw: RawResult): ReceivedResult | null {
+  return normalize(roster, raw, false);
 }
 
 /** Any participant of the match, club member or not. */
-export function normalizeParticipant(raw: RawResult): ReceivedResult {
-  return normalize(raw, true) as ReceivedResult;
+export function normalizeParticipant(roster: Roster, raw: RawResult): ReceivedResult {
+  return normalize(roster, raw, true) as ReceivedResult;
 }
 
 export const exerciseTypes = ['pushups', 'plank', 'crunches'] as const;
@@ -149,7 +148,7 @@ export interface Exercise {
   day: string;
 }
 
-export function validateExercise(input: unknown): Exercise {
+export function validateExercise(roster: Roster, input: unknown): Exercise {
   // biome-ignore lint/suspicious/noExplicitAny: validated field by field.
   const x = input as Record<string, any> | null;
   const type = x ? exerciseType(x) : undefined;
@@ -174,6 +173,7 @@ export interface StoredExercise extends CountedExercise {
 }
 
 export function summarize<Row extends MatchRow>(
+  roster: Roster,
   rows: Row[],
   exercises: StoredExercise[],
   day: string,
@@ -210,6 +210,7 @@ export function summarize<Row extends MatchRow>(
 }
 
 export function dailyRecap<Row extends MatchRow>(
+  roster: Roster,
   rows: Row[],
   day: string,
   rosters: RosterSize[] = [],

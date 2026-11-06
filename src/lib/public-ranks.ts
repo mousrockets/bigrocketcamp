@@ -1,4 +1,4 @@
-import { roster } from './club';
+import { type ClubPlayer, type Platform, rosterOf } from './club';
 import type { Database, Statement } from './db';
 import { type HtmlNode, parseHtml } from './html-tree';
 import { projectMmrRankWrite, publicCloseFreshMs } from './mmr-ledger';
@@ -43,34 +43,27 @@ export interface PublicPage {
   html: string;
 }
 
-// Each player's public profile is club configuration: VITE_CLUB_PUBLIC_PROFILES lists
-// `player:Platform:handle` entries (comma-separated). Without an entry, a player is read as an
-// Epic profile named like the player. Entries for players outside the roster are ignored.
-function configuredProfiles(): Map<string, { platform: string; handle: string }> {
-  const configured: unknown = import.meta.env.VITE_CLUB_PUBLIC_PROFILES;
-  const profiles = new Map<string, { platform: string; handle: string }>();
-  if (typeof configured !== 'string') return profiles;
-  for (const entry of configured.split(',')) {
-    if (!entry.trim()) continue;
-    const [player = '', platform = '', ...handleParts] = entry.split(':').map((part) => part.trim());
-    const handle = handleParts.join(':');
-    // A malformed entry would silently read someone else's page: fail at startup instead.
-    if (!player || !/^[^\s/]+$/.test(platform) || !/^[^\s/]+$/.test(handle)) {
-      throw Error(`Invalid VITE_CLUB_PUBLIC_PROFILES entry: ${entry}`);
-    }
-    profiles.set(player.toLowerCase(), { platform, handle });
-  }
-  return profiles;
+// rlstats.net names a profile by the platform's account and the player's name on it.
+const profilePlatforms: Record<Platform, string> = {
+  pc: 'Epic',
+  playstation: 'PS4',
+  xbox: 'XboxOne',
+  switch: 'Switch',
+};
+
+// Deliberately fixed PUBLIC profile URLs, built from the club's settings: the player's duo pseudo on their
+// platform. No stored Epic ID, login, cookie or token is ever sent to this provider.
+export function publicProfiles(players: readonly ClubPlayer[]): PublicProfile[] {
+  return players.map(({ slot: player, platform }) => {
+    const profilePlatform = profilePlatforms[platform ?? 'pc'];
+    return {
+      player,
+      platform: profilePlatform,
+      handle: player,
+      url: `https://rlstats.net/profile/${profilePlatform}/${encodeURIComponent(player)}`,
+    };
+  });
 }
-
-const overrides = configuredProfiles();
-
-// Deliberately fixed PUBLIC profile URLs. No stored Epic ID, login, cookie or
-// token is ever sent to this provider. Never infer a player from a match nickname.
-export const publicProfiles: PublicProfile[] = roster.map((player) => {
-  const { platform, handle } = overrides.get(player) ?? { platform: 'Epic', handle: player };
-  return { player, platform, handle, url: `https://rlstats.net/profile/${platform}/${handle}` };
-});
 
 const retryMs = 180000;
 const maxBytes = 512000;
@@ -291,7 +284,7 @@ interface PublicMmrSyncRow {
   detail: string | null;
 }
 
-export async function readPublicMmrStatus(db: Database): Promise<PublicMmrStatus> {
+export async function readPublicMmrStatus(db: Database, players: readonly ClubPlayer[]): Promise<PublicMmrStatus> {
   const row = await db
     .prepare('SELECT last_attempt,next_attempt,status,detail FROM public_mmr_sync WHERE id=1')
     .first<PublicMmrSyncRow>();
@@ -299,7 +292,7 @@ export async function readPublicMmrStatus(db: Database): Promise<PublicMmrStatus
   // The column only ever holds what syncPublicMmr wrote (or '{}' before its first run).
   const summary = typeof detail === 'object' && detail !== null ? (detail as Partial<PublicMmrStatus>) : {};
   return {
-    profiles: publicProfiles,
+    profiles: publicProfiles(players),
     lastAttempt: row?.last_attempt ?? null,
     nextAttempt: row?.next_attempt ?? null,
     status: row?.status ?? 'waiting',
@@ -320,6 +313,7 @@ async function entryId(rank: PublicRank): Promise<string> {
 
 export async function syncPublicMmr(
   db: Database,
+  players: readonly ClubPlayer[],
   { now = Date.now(), fetcher = globalThis.fetch }: { now?: number; fetcher?: PublicFetcher } = {},
 ): Promise<PublicMmrStatus & { ok: true; ran: boolean }> {
   const at = new Date(now).toISOString();
@@ -335,13 +329,14 @@ export async function syncPublicMmr(
     .bind(next, at, at)
     .run();
   if (Number(claim.meta?.changes ?? claim.changes) !== 1)
-    return { ok: true, ran: false, ...(await readPublicMmrStatus(db)) };
+    return { ok: true, ran: false, ...(await readPublicMmrStatus(db, players)) };
 
-  const identities = await readPlayerIdentities(db);
+  const profiles = publicProfiles(players);
+  const identities = await readPlayerIdentities(db, rosterOf(players));
   const updated: string[] = [];
   const errors: PublicMmrError[] = [];
   const writes: Statement[] = [];
-  const targets = publicProfiles.map((profile) => ({
+  const targets = profiles.map((profile) => ({
     profile,
     identity: identities.find((identity) => identity.slot === profile.player),
   }));
@@ -373,22 +368,20 @@ export async function syncPublicMmr(
     writes.push(projectMmrRankWrite(db, { playerId: identity.player_id, id, author, player: rank.player }));
     updated.push(rank.player);
   }
-  const status = updated.length === publicProfiles.length ? 'ready' : updated.length ? 'partial' : 'unavailable';
+  const status = updated.length === profiles.length ? 'ready' : updated.length ? 'partial' : 'unavailable';
   writes.push(
     db
       .prepare('UPDATE public_mmr_sync SET status=?,detail=? WHERE id=1')
       .bind(status, JSON.stringify({ updated, errors })),
   );
   await db.batch(writes);
-  return { ok: true, ran: true, ...(await readPublicMmrStatus(db)) };
+  return { ok: true, ran: true, ...(await readPublicMmrStatus(db, players)) };
 }
 
-function isPublicPage(page: unknown): page is PublicPage {
+function isPublicPage(profiles: PublicProfile[], page: unknown): page is PublicPage {
   if (typeof page !== 'object' || page === null) return false;
   const { player, html } = page as { player?: unknown; html?: unknown };
-  return (
-    publicProfiles.some((profile) => profile.player === player) && typeof html === 'string' && html.length <= maxBytes
-  );
+  return profiles.some((profile) => profile.player === player) && typeof html === 'string' && html.length <= maxBytes;
 }
 
 const pagePlayer = (page: unknown): unknown =>
@@ -398,23 +391,25 @@ const pagePlayer = (page: unknown): unknown =>
 // browsing access; this path parses snapshots and NEVER fetches the provider.
 export async function importPublicMmr(
   db: Database,
+  players: readonly ClubPlayer[],
   pages: unknown,
   { now = Date.now() }: { now?: number } = {},
 ): Promise<PublicMmrStatus & { ok: true; ran: boolean }> {
+  const profiles = publicProfiles(players);
   if (
     !Array.isArray(pages) ||
     !pages.length ||
-    pages.length > publicProfiles.length ||
+    pages.length > profiles.length ||
     new Set(pages.map(pagePlayer)).size !== pages.length ||
-    !pages.every(isPublicPage)
+    !pages.every((page) => isPublicPage(profiles, page))
   ) {
     throw Error('Envoi de profils publics invalide.');
   }
   const snapshots: PublicPage[] = pages;
-  return syncPublicMmr(db, {
+  return syncPublicMmr(db, players, {
     now,
     fetcher: async (url) => {
-      const profile = publicProfiles.find((candidate) => candidate.url === url);
+      const profile = profiles.find((candidate) => candidate.url === url);
       const page = snapshots.find((snapshot) => snapshot.player === profile?.player);
       if (!page) throw Error('Relevé public non reçu.');
       return new Response(page.html, { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
