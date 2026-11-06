@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { fetchWithin } from '../lib/timeout';
 import { Brand } from './brand';
 import { errorOf, useClubName } from './club';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from './components/ui/input-otp';
@@ -6,7 +7,11 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from './components/ui/input-otp
 type Step = 'email' | 'code';
 
 async function postJson(path: string, body: Record<string, string>) {
-  return fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  return fetchWithin(fetch, path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
 }
 
 export function SignIn() {

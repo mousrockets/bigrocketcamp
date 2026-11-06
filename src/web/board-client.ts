@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import type { BoardChanges, FullBoard } from '../lib/board';
 import { applyChanges, boardView, emptyBoard } from '../lib/board-sync';
 import type { Roster } from '../lib/club';
+import { defaultTimeoutMs } from '../lib/timeout';
 import { apiFetch } from './api';
 import { loadBoard, saveBoard } from './board-store';
 
@@ -12,6 +13,7 @@ import { loadBoard, saveBoard } from './board-store';
 const waitSeconds = 25;
 /** An API that answers at once, as older ones do, is asked at most this often. */
 const minIntervalMs = 3000;
+const restoreTimeoutMs = 2000;
 /** The board is kept in the browser this long after its last change, not at every one. */
 const saveDelayMs = 2000;
 /** Time alone changes a few things shown (a rank source gone quiet, an undo window closed). */
@@ -22,7 +24,7 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, Math.
 const isChanges = (body: unknown): body is BoardChanges =>
   typeof (body as BoardChanges | null)?.version === 'number' && Array.isArray((body as BoardChanges).removed?.results);
 
-class BoardClient {
+export class BoardClient {
   private board = emptyBoard();
   /** The whole board, from an API older than page-by-page reading. */
   private whole: FullBoard | null = null;
@@ -37,11 +39,19 @@ class BoardClient {
   roster: Roster;
   private readonly onBoard: (board: FullBoard) => void;
   private readonly onError: (message: string) => void;
+  /** How long a request may take beyond the time it asked the API to wait. */
+  private readonly timeoutMs: number;
 
-  constructor(roster: Roster, onBoard: (board: FullBoard) => void, onError: (message: string) => void) {
+  constructor(
+    roster: Roster,
+    onBoard: (board: FullBoard) => void,
+    onError: (message: string) => void,
+    { timeoutMs = defaultTimeoutMs }: { timeoutMs?: number } = {},
+  ) {
     this.roster = roster;
     this.onBoard = onBoard;
     this.onError = onError;
+    this.timeoutMs = timeoutMs;
   }
 
   view(): FullBoard | null {
@@ -64,6 +74,8 @@ class BoardClient {
       const response = await apiFetch(
         `/api/state?since=${this.board.version}${holding ? `&wait=${waitSeconds}` : ''}`,
         { cache: 'no-store', signal },
+        // A held request answers within its wait; past it, the connection is gone.
+        { timeoutMs: (holding ? waitSeconds * 1000 : 0) + this.timeoutMs },
       );
       if (response.status === 204) return changed;
       if (!response.ok) throw Error(loadError);
@@ -98,7 +110,9 @@ class BoardClient {
 
   /** Shows the board kept from the last visit at once; the first exchange then brings what changed since. */
   private restore(): Promise<void> {
-    this.restored ??= loadBoard().then((board) => {
+    // A browser database that does not answer is skipped: the board then reads everything from the API.
+    const kept = Promise.race([loadBoard(), delay(restoreTimeoutMs).then(() => null)]);
+    this.restored ??= kept.then((board) => {
       if (!board || this.synced) return;
       this.board = board;
       this.synced = true;

@@ -1,6 +1,7 @@
 import { createContext, useContext } from 'react';
 import type { ClubPlayer, Platform, Roster } from '../lib/club';
 import type { OwnProfile } from '../lib/members';
+import { fetchWithin } from '../lib/timeout';
 import { apiFetch } from './api';
 
 // The club comes from the API once signed in (GET /api/club); before that, only its name (GET /api/club/name).
@@ -39,7 +40,7 @@ export async function fetchClub(): Promise<Club | null> {
 
 export async function fetchClubName(): Promise<string> {
   try {
-    const response = await fetch('/api/club/name', { cache: 'no-store' });
+    const response = await fetchWithin(fetch, '/api/club/name', { cache: 'no-store' });
     if (response.ok) return ((await response.json()) as { name: string }).name;
   } catch {
     // Offline: the page still works without the name.

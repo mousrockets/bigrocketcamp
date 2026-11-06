@@ -1,3 +1,4 @@
+import { defaultTimeoutMs, fetchWithin } from '../lib/timeout';
 import { forgetBoard } from './board-store';
 
 // Any /api/* call can answer 401 once the session cookie is missing or expired. The pages keep their own
@@ -5,8 +6,13 @@ import { forgetBoard } from './board-store';
 let signInRequired = false;
 const listeners = new Set<() => void>();
 
-export async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
-  const response = await fetch(path, init);
+/** A call to the API, given up after `timeoutMs` (15 s by default) so that no request freezes the page. */
+export async function apiFetch(
+  path: string,
+  init?: RequestInit,
+  { timeoutMs = defaultTimeoutMs }: { timeoutMs?: number } = {},
+): Promise<Response> {
+  const response = await fetchWithin(fetch, path, init, timeoutMs);
   if (response.status === 401 && !signInRequired) {
     signInRequired = true;
     for (const listener of listeners) listener();
@@ -28,7 +34,7 @@ export function isSignInRequired(): boolean {
 export async function signOut(): Promise<void> {
   try {
     await forgetBoard();
-    await fetch('/api/auth/logout', { method: 'POST' });
+    await fetchWithin(fetch, '/api/auth/logout', { method: 'POST' });
   } finally {
     // Reloading shows the sign-in screen, or the same page if the request did not reach the server.
     location.reload();
