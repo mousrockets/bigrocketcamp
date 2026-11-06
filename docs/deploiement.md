@@ -20,7 +20,7 @@ Dans le Worker, Settings :
 
 ## Version déployée
 
-`GET /api/health` renvoie `{"status":"ok","commit":"a1b2c3d","deployedAt":"…"}`, et le pied de page du tableau l'affiche. Le commit vient de `WORKERS_CI_COMMIT_SHA`, que Workers Builds fournit à la commande de build (`dev` pour un build local) ; la date est celle de la version du Worker (binding `version_metadata`). Quand l'API annonce un autre commit que celui de la page chargée, le tableau se recharge dès qu'il est masqué ou laissé 30 secondes sans interaction, jamais pendant un envoi ni avec un champ en cours de saisie, et garde le formulaire d'exercice.
+`GET /api/health` renvoie `{"status":"ok","commit":"a1b2c3d","deployedAt":"…"}`, et le pied de page du tableau l'affiche. Le commit vient de `WORKERS_CI_COMMIT_SHA`, que Workers Builds fournit à la commande de build (`dev` pour un build local) ; la date est celle de la version du Worker (binding `version_metadata`). Quand l'API annonce un autre commit que celui de la page chargée, le pied de page affiche les deux (« Version 535fe91 · page chargée : 0eb8ca1 · … ») avec un lien « Recharger ». Le tableau se recharge de lui-même dès qu'il est masqué ou laissé 30 secondes sans interaction (une frappe, un défilement ou un appui repoussent le délai), jamais pendant un envoi ni dans les 10 secondes où une série peut être annulée. Le formulaire d'exercice et une déclaration en attente d'envoi sont gardés.
 
 ## Le club et ses membres
 

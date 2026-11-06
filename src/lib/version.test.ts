@@ -18,6 +18,18 @@ describe('the deployed version label', () => {
   });
 });
 
+describe('a page loaded from another build', () => {
+  test('names the build it runs next to the deployed one', () => {
+    expect(versionLabel({ commit: '535fe91', deployedAt: '2026-11-06T20:04:59Z' }, '0eb8ca1')).toBe(
+      'Version 535fe91 · page chargée : 0eb8ca1 · Déployée le 6 nov. 2026 à 21 h 04',
+    );
+    expect(versionLabel({ commit: '535fe91', deployedAt: null }, '0eb8ca1')).toBe(
+      'Version 535fe91 · page chargée : 0eb8ca1',
+    );
+    expect(versionLabel({ commit: '535fe91', deployedAt: null }, '535fe91')).toBe('Version 535fe91');
+  });
+});
+
 describe('the deployment date sent by the API', () => {
   test('a microsecond timestamp becomes a millisecond ISO date', () => {
     expect(isoDate('2026-11-06T19:32:28.999444Z')).toBe('2026-11-06T19:32:28.999Z');

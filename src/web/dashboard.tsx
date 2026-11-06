@@ -1,6 +1,7 @@
 import type { CSSProperties, ReactNode } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import type { Roster } from '../lib/club';
+import { defeatMessage } from '../lib/defeat-message';
 import {
   dailyRecap,
   exerciseDescription,
@@ -123,12 +124,6 @@ const finishers = [
   'Zéro pompe due. Champion du monde !',
   'Ardoise effacée ! Tu peux re-perdre tranquille.',
 ];
-const taunts = [
-  '+5 pour {n}… courage, champion.',
-  '{n} prend 5 pompes. Le ballon ne pardonne pas.',
-  'Défaite pour {n} : direction le tapis !',
-  '{n} : +5. On appelle ça de l’entraînement.',
-];
 const confettiColors = ['#2e9bff', '#ff8a1f', '#ffd23f', '#ffffff'];
 const themes: [Theme, string][] = [
   ['dark', 'Sombre'],
@@ -218,6 +213,12 @@ function saveDraft(draft: Draft) {
   }
 }
 
+/** Reloads to the deployed version, keeping the form as it is. */
+function reloadKeeping(draft: Draft | null) {
+  if (draft) saveDraft(draft);
+  location.reload();
+}
+
 function takeDraft(roster: Roster): Draft | null {
   try {
     const stored = sessionStorage.getItem(draftKey);
@@ -236,16 +237,6 @@ function takeDraft(roster: Roster): Draft | null {
     return null;
   }
 }
-
-const isEditingField = () => {
-  const field = document.activeElement;
-  return (
-    field instanceof HTMLInputElement ||
-    field instanceof HTMLTextAreaElement ||
-    field instanceof HTMLSelectElement ||
-    (field instanceof HTMLElement && field.isContentEditable)
-  );
-};
 
 // How long a visible page must stay untouched before it reloads to a newer version.
 const idleBeforeReload = 30_000;
@@ -676,12 +667,15 @@ export function Dashboard() {
 
   const deployed = useDeployedVersion();
   const outdated = deployed !== null && deployed.commit !== loadedCommit;
-  // A declaration being sent, waiting to be resent or still undoable, or an open menu, keeps the page as it is.
-  const reloadHeld = busy || pending !== null || undoable !== null || menuOpen || installHelp;
+  // A declaration being sent or still undoable keeps the page as it is. A focused field, an open menu or a
+  // declaration waiting to be resent does not: the form and the declaration are kept across the reload, and any
+  // activity postpones it.
+  const reloadHeld = busy || undoable !== null;
   const formDraft = useRef<Draft | null>(null);
   formDraft.current = { player, type, count, playerTouched: playerTouched.current };
 
-  // A newer version answers: reload once the page is hidden, or untouched for a while, keeping the form as it is.
+  // A newer version answers: reload once the page is hidden, or untouched for 30 s (typing, scrolling or
+  // tapping counts as activity), keeping the form as it is.
   useEffect(() => {
     if (!outdated || reloadHeld) return;
     let timer = 0;
@@ -690,12 +684,11 @@ export function Dashboard() {
       timer = window.setTimeout(reloadIfSafe, document.hidden ? 0 : idleBeforeReload);
     };
     function reloadIfSafe() {
-      if (submissionInFlight.current || (!document.hidden && isEditingField())) {
+      if (submissionInFlight.current) {
         timer = window.setTimeout(reloadIfSafe, idleBeforeReload);
         return;
       }
-      if (formDraft.current) saveDraft(formDraft.current);
-      location.reload();
+      reloadKeeping(formDraft.current);
     }
     const activity = ['pointerdown', 'keydown', 'input', 'wheel', 'touchstart'] as const;
     for (const event of activity) window.addEventListener(event, reloadWhenIdle, { passive: true });
@@ -823,8 +816,11 @@ export function Dashboard() {
     const seen = seenLosses.current;
     if (seen) {
       const fresh = losses.filter((_, index) => !seen.has(keys[index] ?? ''));
-      const names = Array.from(new Set(fresh.map((r) => r.name)));
-      if (names.length) celebrate('loss', pick(taunts).replace('{n}', names.join(' et ')));
+      if (fresh.length) {
+        const matches = matchIndex(data.results, data.matchRosters || []);
+        const defeats = fresh.map((r) => ({ player: r.name, pushups: 5 + lastPlaceBonus(r, matches, roster) }));
+        celebrate('loss', defeatMessage(defeats));
+      }
     }
     seenLosses.current = new Set(keys);
 
@@ -1819,7 +1815,23 @@ export function Dashboard() {
           {me.role === 'admin' && <a href="/reglages">Réglages du club</a>}
           <SignOutLink />
         </nav>
-        <p className="small muted">{versionLabel(deployed ?? { commit: loadedCommit, deployedAt: null })}</p>
+        <p className="small muted">
+          {versionLabel(deployed ?? { commit: loadedCommit, deployedAt: null }, loadedCommit)}
+          {outdated && (
+            <>
+              {' · '}
+              <a
+                href="/"
+                onClick={(event) => {
+                  event.preventDefault();
+                  reloadKeeping(formDraft.current);
+                }}
+              >
+                Recharger
+              </a>
+            </>
+          )}
+        </p>
       </footer>
     </main>
   );
