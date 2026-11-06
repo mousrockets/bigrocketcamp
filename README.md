@@ -34,6 +34,8 @@ Le même Worker sert l'API et l'app web ([`docs/deploiement.md`](docs/deploiemen
 
 Les règles sont dans [`AGENTS.md`](AGENTS.md) : elles s'appliquent aux humains comme aux agents IA.
 
+Avec Codex dans le cloud, rien à installer : créez un environnement pour ce dépôt avec Node 24 et la commande d'installation `npm ci`. Codex lit `AGENTS.md` tout seul.
+
 ## Licence
 
 [MIT](LICENSE).
