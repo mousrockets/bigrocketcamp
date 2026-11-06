@@ -47,7 +47,15 @@ type PlayerStats = {
   crunches: number;
   remaining: number;
 };
-type DoublesRank = { player: string; mmr: number | null; label: string; status: string; fetchedAt: string | null };
+type DoublesRank = {
+  player: string;
+  mmr: number | null;
+  label: string;
+  tier: number | null;
+  matchesPlayed: number | null;
+  status: string;
+  fetchedAt: string | null;
+};
 type Reaction = { exercise_id: string; emoji: string; count: number; mine: number };
 type EpicConnection = { slot: string; status: string; last_sync: string | null; last_attempt: string | null };
 type State = {
@@ -309,13 +317,25 @@ function DoublesRankPanel({ player, rank }: { player: string; rank: DoublesRank 
     // biome-ignore lint/a11y/useAriaPropsSupportedByRole: same markup as before the migration.
     <div className="rank-panel" aria-label={`Classement 2v2 de ${player}`}>
       <span className="rank-mode">2V2 CLASSÉ · DERNIER RELEVÉ</span>
-      <p className="rank-name">{rank?.label || 'Classement non reçu'}</p>
-      {rank?.mmr != null ? (
-        <strong className="rank-mmr">
-          {formatNumber(rank.mmr)} <span>MMR</span>
-        </strong>
-      ) : (
-        <p className="small muted">MMR non reçu</p>
+      <div className="rank-body">
+        {rank?.tier != null && (
+          <img className="rank-icon" src={`/rocket-league/ranks/${rank.tier}.png`} alt="" width={56} height={56} />
+        )}
+        <div>
+          <p className="rank-name">{rank?.label || 'Classement non reçu'}</p>
+          {rank?.mmr != null ? (
+            <strong className="rank-mmr">
+              {formatNumber(rank.mmr)} <span>MMR</span>
+            </strong>
+          ) : (
+            <p className="small muted">MMR non reçu</p>
+          )}
+        </div>
+      </div>
+      {rank?.matchesPlayed != null && (
+        <p className="rank-meta">
+          {formatNumber(rank.matchesPlayed)} {rank.matchesPlayed > 1 ? 'matchs classés' : 'match classé'} en 2v2
+        </p>
       )}
       {rank?.fetchedAt && (
         <p className="rank-meta">
@@ -1038,7 +1058,9 @@ export function Dashboard() {
 
       <section className="intro">
         <div>
-          <p className="eyebrow">{clubName.toUpperCase()} · ROCKET LEAGUE</p>
+          <p className="eyebrow">
+            {clubName.toUpperCase()} · <span className="rl-logo" role="img" aria-label="Rocket League" />
+          </p>
           <h1>
             On perd ensemble.
             <br />
@@ -1678,6 +1700,11 @@ export function Dashboard() {
         <p>
           Aucun accès aux sessions Epic. Le Direct nécessite un onglet ouvert sur un PC qui joue. Tests bots exclus du
           bilan.
+        </p>
+        <p>
+          Des parties des supports utilisés sont des marques déposées et/ou des travaux soumis aux droits d’auteur
+          d’Epic Games, Inc. Tous droits réservés par Epic. Ce produit n’est pas officiel et n’a pas l’approbation
+          d’Epic.
         </p>
         <SignOutLink />
       </footer>

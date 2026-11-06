@@ -43,3 +43,7 @@ Avec Codex dans le cloud, rien à installer : créez un environnement pour ce d�
 ## Licence
 
 [MIT](LICENSE).
+
+## Marques
+
+Rocket League, son logo et ses icônes de rang appartiennent à Epic Games, Inc. Les fichiers de `public/rocket-league/` ne sont pas couverts par la licence MIT : voir [leur notice](public/rocket-league/README.md). Ce projet n'est pas officiel et n'a pas l'approbation d'Epic.

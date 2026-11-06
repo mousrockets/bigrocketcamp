@@ -16,6 +16,8 @@ export interface ObservedRank {
   mmr: number;
   tier: number | null;
   division: number | null;
+  /** Ranked 2v2 matches played, when the source can read it. */
+  matches: number | null;
   observedAt: string;
 }
 
@@ -34,7 +36,7 @@ export async function readRankTargets(db: Database): Promise<RankTarget[]> {
 export function validateObservedRanks(input: unknown, targets: RankTarget[], now: number = Date.now()): ObservedRank[] {
   if (!Array.isArray(input) || input.length > 50) throw new Error('Relevé de rangs invalide.');
   return input.map((raw: Record<string, unknown> | null) => {
-    const { player, playerId, mmr, tier = null, division = null, observedAt } = raw ?? {};
+    const { player, playerId, mmr, tier = null, division = null, matches = null, observedAt } = raw ?? {};
     const target = targets.find((candidate) => candidate.player === player && candidate.playerId === playerId);
     const observed = typeof observedAt === 'string' ? Date.parse(observedAt) : Number.NaN;
     if (
@@ -42,6 +44,7 @@ export function validateObservedRanks(input: unknown, targets: RankTarget[], now
       !integerIn(mmr, 0, 10_000) ||
       (tier !== null && !integerIn(tier, 0, 22)) ||
       (division !== null && !integerIn(division, 1, 4)) ||
+      (matches !== null && !integerIn(matches, 0, 1_000_000)) ||
       !Number.isFinite(observed) ||
       observed > now + 60_000 ||
       observed < now - 86_400_000
@@ -54,6 +57,7 @@ export function validateObservedRanks(input: unknown, targets: RankTarget[], now
       mmr: mmr as number,
       tier: tier as number | null,
       division: division as number | null,
+      matches: matches as number | null,
       observedAt: new Date(observed).toISOString(),
     };
   });
@@ -106,6 +110,14 @@ export async function recordObservedRanks(db: Database, ranks: ObservedRank[]): 
       projectMmrRankWrite(db, { playerId: rank.playerId, id, author: 'rank-source', player: rank.player }),
     );
     changed++;
+  }
+  for (const rank of ranks) {
+    if (rank.matches === null) continue;
+    writes.push(
+      db
+        .prepare('UPDATE player_ranks SET matches_played = ? WHERE player = ? AND playlist = 11')
+        .bind(rank.matches, rank.player),
+    );
   }
   if (writes.length) await db.batch(writes);
   return { changed };
