@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "5fbd385c-b854-464f-a165-2e12e3265de5",
-  "prevId": "bc055ab7-0709-4271-9177-15014ce904a9",
+  "id": "681de6c5-28e0-4d79-b23f-d4b4e0982a72",
+  "prevId": "694abff9-36ff-4777-8fc9-5fe846078db1",
   "tables": {
     "club_settings": {
       "name": "club_settings",
@@ -651,6 +651,13 @@
           "notNull": false,
           "autoincrement": false
         },
+        "solo_player_id": {
+          "name": "solo_player_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "platform": {
           "name": "platform",
           "type": "text",
@@ -678,6 +685,13 @@
           "name": "members_duo_pseudo",
           "columns": [
             "duo_pseudo"
+          ],
+          "isUnique": true
+        },
+        "members_solo_player_id": {
+          "name": "members_solo_player_id",
+          "columns": [
+            "solo_player_id"
           ],
           "isUnique": true
         }
@@ -969,6 +983,41 @@
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
+        },
+        "season": {
+          "name": "season",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "peak_mmr": {
+          "name": "peak_mmr",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "peak_tier": {
+          "name": "peak_tier",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "peak_division": {
+          "name": "peak_division",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "peak_at": {
+          "name": "peak_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         }
       },
       "indexes": {},
@@ -977,8 +1026,8 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
-    "prototype_match_rosters": {
-      "name": "prototype_match_rosters",
+    "match_rosters": {
+      "name": "match_rosters",
       "columns": {
         "match_guid": {
           "name": "match_guid",
@@ -1003,8 +1052,8 @@
         }
       },
       "indexes": {
-        "prototype_match_rosters_match_key": {
-          "name": "prototype_match_rosters_match_key",
+        "match_rosters_match_key": {
+          "name": "match_rosters_match_key",
           "columns": [
             "lower(trim(\"match_guid\"))"
           ],
@@ -1016,8 +1065,8 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
-    "prototype_results": {
-      "name": "prototype_results",
+    "results": {
+      "name": "results",
       "columns": {
         "match_guid": {
           "name": "match_guid",
@@ -1105,8 +1154,8 @@
         }
       },
       "indexes": {
-        "prototype_results_match_key": {
-          "name": "prototype_results_match_key",
+        "results_match_key": {
+          "name": "results_match_key",
           "columns": [
             "lower(trim(\"match_guid\"))"
           ],
@@ -1115,12 +1164,12 @@
       },
       "foreignKeys": {},
       "compositePrimaryKeys": {
-        "prototype_results_match_guid_player_id_pk": {
+        "results_match_guid_player_id_pk": {
           "columns": [
             "match_guid",
             "player_id"
           ],
-          "name": "prototype_results_match_guid_player_id_pk"
+          "name": "results_match_guid_player_id_pk"
         }
       },
       "uniqueConstraints": {},
@@ -1292,6 +1341,175 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
+    "solo_mmr_entries": {
+      "name": "solo_mmr_entries",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "player": {
+          "name": "player",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "player_id": {
+          "name": "player_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "mmr": {
+          "name": "mmr",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "tier": {
+          "name": "tier",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "division": {
+          "name": "division",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "recorded_at": {
+          "name": "recorded_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "solo_mmr_entries_player_recorded": {
+          "name": "solo_mmr_entries_player_recorded",
+          "columns": [
+            "player",
+            "recorded_at"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "solo_ranks": {
+      "name": "solo_ranks",
+      "columns": {
+        "player": {
+          "name": "player",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "player_id": {
+          "name": "player_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "mmr": {
+          "name": "mmr",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "tier": {
+          "name": "tier",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "division": {
+          "name": "division",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "matches_played": {
+          "name": "matches_played",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "fetched_at": {
+          "name": "fetched_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "season": {
+          "name": "season",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "peak_mmr": {
+          "name": "peak_mmr",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "peak_tier": {
+          "name": "peak_tier",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "peak_division": {
+          "name": "peak_division",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "peak_at": {
+          "name": "peak_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
     "source_reports": {
       "name": "source_reports",
       "columns": {
@@ -1443,14 +1661,14 @@
   },
   "internal": {
     "indexes": {
-      "prototype_match_rosters_match_key": {
+      "match_rosters_match_key": {
         "columns": {
           "lower(trim(\"match_guid\"))": {
             "isExpression": true
           }
         }
       },
-      "prototype_results_match_key": {
+      "results_match_key": {
         "columns": {
           "lower(trim(\"match_guid\"))": {
             "isExpression": true

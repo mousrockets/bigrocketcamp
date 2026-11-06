@@ -10,7 +10,7 @@ import { getTableName, is } from 'drizzle-orm';
 import { getTableConfig, SQLiteTable } from 'drizzle-orm/sqlite-core';
 import * as schema from '../src/lib/schema.ts';
 
-/** The prototype's tables that changed name (migration 0018). */
+/** The prototype's tables that changed name (migration 0019). */
 const renamed: Record<string, string> = { results: 'prototype_results', match_rosters: 'prototype_match_rosters' };
 
 const columnsOf = new Map(
@@ -48,7 +48,7 @@ function sqlValue(value: unknown): string {
 }
 
 // The app keeps only the rank source's readings (migrations 0014 and 0015), and a reaction only with its
-// exercise (migration 0017).
+// exercise (migration 0018).
 const exported = (table: string): Record<string, unknown>[] => {
   const file = join(directory ?? '', `${table}.json`);
   return existsSync(file) ? JSON.parse(readFileSync(file, 'utf8')) : [];

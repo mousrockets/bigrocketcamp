@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { readRankTargets, recordObservedRanks, targetRanks } from '../../lib/rank-source';
 import { secretKeyMatches } from '../../lib/secret-key';
 import type { AppEnv } from '../auth';
-import { invalidRanks, observedRanks } from '../inputs';
+import { invalidRanks, rankReport } from '../inputs';
 import { failure, noStore } from '../respond';
 import { jsonBody } from '../validate';
 
@@ -18,16 +18,17 @@ rankRoutes.use(async (c, next) => {
 
 rankRoutes.get('/targets', async (c) => c.json({ targets: await readRankTargets(c.env.DB) }, 200, noStore));
 
-const ranksBody = jsonBody(observedRanks, {
+const reportBody = jsonBody(rankReport, {
   invalid: invalidRanks,
   maxLength: 20_000,
   tooLarge: 'Envoi trop volumineux.',
 });
 
-rankRoutes.post('/', ...ranksBody, async (c) => {
+rankRoutes.post('/', ...reportBody, async (c) => {
   try {
-    const ranks = targetRanks(c.req.valid('json').ranks, await readRankTargets(c.env.DB));
-    return c.json({ ok: true, ...(await recordObservedRanks(c.env.DB, ranks)) }, 200, noStore);
+    const targets = await readRankTargets(c.env.DB);
+    const report = targetRanks(c.req.valid('json'), targets);
+    return c.json({ ok: true, ...(await recordObservedRanks(c.env.DB, report, targets)) }, 200, noStore);
   } catch (error) {
     return failure(c, error, invalidRanks);
   }

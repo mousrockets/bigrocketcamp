@@ -4,7 +4,7 @@ import { joinTestClub, players, roster } from '../lib/club-fixture';
 import { observationWrites, readMerged } from '../lib/reconcile';
 import { databaseBefore, runMigrationsFrom } from './migration-history';
 
-// Replays migrations 0017 and 0018 on data shaped like production's: the retired columns go, the prototype's
+// Replays migrations 0018 and 0019 on data shaped like production's: the retired columns go, the prototype's
 // tables change name, and every value kept, closed months and drinks first, stays exactly the same.
 
 const snapshot = JSON.stringify({
@@ -42,7 +42,7 @@ const kept = (db: D1Database, prototypeResults: string, prototypeRosters: string
   ]);
 
 test('the cleanup keeps every value, and the board still follows every change', async () => {
-  const db = await databaseBefore('0017_');
+  const db = await databaseBefore('0018_');
   await joinTestClub(db);
   const writes = await observationWrites(
     db,
@@ -105,7 +105,7 @@ test('the cleanup keeps every value, and the board still follows every change', 
   ]);
   const before = await kept(db, 'results', 'match_rosters');
 
-  await runMigrationsFrom(db, '0017_');
+  await runMigrationsFrom(db, '0018_');
 
   expect(await kept(db, 'prototype_results', 'prototype_match_rosters')).toEqual(before);
   // Only the reaction to an exercise that no longer exists went.

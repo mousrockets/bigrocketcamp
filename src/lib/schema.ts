@@ -22,12 +22,15 @@ export const members = sqliteTable(
     /** Every game record of the player is keyed by it. */
     duoPseudo: text('duo_pseudo'),
     soloPseudo: text('solo_pseudo'),
+    /** The solo account's game ID, found by the rank source from the solo pseudo; cleared when the pseudo or the platform changes. */
+    soloPlayerId: text('solo_player_id'),
     platform: text('platform', { enum: ['pc', 'playstation', 'xbox', 'switch'] }),
     /** Players are listed in the order they joined the club. */
     rosterPosition: integer('roster_position'),
   },
   (table) => [
     uniqueIndex('members_duo_pseudo').on(table.duoPseudo),
+    uniqueIndex('members_solo_player_id').on(table.soloPlayerId),
     check('members_role', sql`${table.role} IN ('admin', 'member')`),
     check('members_platform', sql`${table.platform} IN ('pc', 'playstation', 'xbox', 'switch')`),
   ],
@@ -263,6 +266,18 @@ export const exerciseReactions = sqliteTable(
 
 // Ranks and the monthly 2v2 MMR challenge
 
+/**
+ * The highest rating the rank source read this season (the game gives no peak), with the rank it came with.
+ * It starts over with the first reading of a new season.
+ */
+const seasonPeak = {
+  season: integer('season'),
+  peakMmr: integer('peak_mmr'),
+  peakTier: integer('peak_tier'),
+  peakDivision: integer('peak_division'),
+  peakAt: text('peak_at'),
+};
+
 /** The ranked 2v2 rank on each player's card. */
 export const playerRanks = sqliteTable('player_ranks', {
   player: text('player').primaryKey(),
@@ -274,7 +289,39 @@ export const playerRanks = sqliteTable('player_ranks', {
   lastAttempt: text('last_attempt').notNull(),
   status: text('status').notNull(),
   matchesPlayed: integer('matches_played'),
+  ...seasonPeak,
 });
+
+/** The ranked 2v2 rank of each player's solo account, kept apart from the duo one. */
+export const soloRanks = sqliteTable('solo_ranks', {
+  player: text('player').primaryKey(),
+  /** Null while the rank source has not found the account. */
+  playerId: text('player_id'),
+  mmr: integer('mmr'),
+  tier: integer('tier'),
+  division: integer('division'),
+  matchesPlayed: integer('matches_played'),
+  /** The rank source's latest reading of the account. */
+  fetchedAt: text('fetched_at'),
+  /** `ready`, or why the rank source could not read the account (`not_found`, `needs_player_id`…). */
+  status: text('status').notNull(),
+  ...seasonPeak,
+});
+
+/** Each change of a solo account's rating, as the rank source read it. */
+export const soloMmrEntries = sqliteTable(
+  'solo_mmr_entries',
+  {
+    id: text('id').primaryKey(),
+    player: text('player').notNull(),
+    playerId: text('player_id').notNull(),
+    mmr: integer('mmr').notNull(),
+    tier: integer('tier'),
+    division: integer('division'),
+    recordedAt: text('recorded_at').notNull(),
+  },
+  (table) => [index('solo_mmr_entries_player_recorded').on(table.player, table.recordedAt)],
+);
 
 /** Each change of a player's rating, as the rank source read it: the only source since migration 0015. */
 export const mmrEntries = sqliteTable(
