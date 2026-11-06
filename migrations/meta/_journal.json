@@ -127,6 +127,20 @@
       "when": 1794002273091,
       "tag": "0017_solo_ranks",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1794003002765,
+      "tag": "0018_drop_prototype_columns",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "6",
+      "when": 1794003011811,
+      "tag": "0019_rename_prototype_tables",
+      "breakpoints": true
     }
   ]
 }

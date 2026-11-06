@@ -140,10 +140,10 @@ async function buildChunk(db: Database, roster: Roster, aliases: readonly Alias[
     db.prepare(`SELECT * FROM source_reports WHERE match_guid IN (${inList}) ORDER BY received, rowid`).bind(list),
     db
       .prepare(
-        `SELECT * FROM results WHERE lower(trim(match_guid)) IN (${inList}) ORDER BY day DESC, received DESC, rowid DESC`,
+        `SELECT * FROM prototype_results WHERE lower(trim(match_guid)) IN (${inList}) ORDER BY day DESC, received DESC, rowid DESC`,
       )
       .bind(list),
-    db.prepare(`SELECT * FROM match_rosters WHERE lower(trim(match_guid)) IN (${inList})`).bind(list),
+    db.prepare(`SELECT * FROM prototype_match_rosters WHERE lower(trim(match_guid)) IN (${inList})`).bind(list),
     db.prepare(`SELECT ${columns.join(', ')} FROM match_results WHERE match_guid IN (${inList})`).bind(list),
   ])) as [
     { results: { match_guid: string; revision: number }[] },

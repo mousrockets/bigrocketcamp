@@ -9,7 +9,8 @@ export default defineConfig(async () => {
     plugins: [
       cloudflareTest({
         wrangler: { configPath: './wrangler.jsonc' },
-        miniflare: { bindings: { TEST_MIGRATIONS: migrations } },
+        // MIGRATION_DB replays the migrations one by one: each migration test starts from the schema it ran on.
+        miniflare: { bindings: { TEST_MIGRATIONS: migrations }, d1Databases: ['MIGRATION_DB'] },
       }),
     ],
     define: { __APP_COMMIT__: JSON.stringify('test') },

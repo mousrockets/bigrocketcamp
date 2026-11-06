@@ -15,8 +15,8 @@ const ids = { alice: 'Epic|alice-test|0', bob: 'Epic|bob-test|0', carla: 'PS4|ca
 const tables = [
   'result_observations',
   'source_reports',
-  'results',
-  'match_rosters',
+  'prototype_results',
+  'prototype_match_rosters',
   'match_results',
   'match_builds',
   'sync_removals',
@@ -94,15 +94,15 @@ async function seedHistory() {
   await db.batch([
     db
       .prepare(
-        "INSERT INTO results VALUES ('Prototype-MATCH', ?, ?, '2026-10-30', 'match', 0, 1, 280, 1, 0, 2, '2026-10-30T21:00:00.000Z')",
+        "INSERT INTO prototype_results VALUES ('Prototype-MATCH', ?, ?, '2026-10-30', 'match', 0, 1, 280, 1, 0, 2, '2026-10-30T21:00:00.000Z')",
       )
       .bind(ids.alice, alice),
     db
       .prepare(
-        "INSERT INTO results VALUES ('Prototype-MATCH', 'Steam|old', 'Old opponent', '2026-10-30', 'match', 1, 1, 330, 2, 0, 0, '2026-10-30T21:00:00.000Z')",
+        "INSERT INTO prototype_results VALUES ('Prototype-MATCH', 'Steam|old', 'Old opponent', '2026-10-30', 'match', 1, 1, 330, 2, 0, 0, '2026-10-30T21:00:00.000Z')",
       )
       .bind(),
-    db.prepare("INSERT INTO match_rosters VALUES ('Prototype-MATCH', 2, '2026-10-30T21:00:00.000Z')"),
+    db.prepare("INSERT INTO prototype_match_rosters VALUES ('Prototype-MATCH', 2, '2026-10-30T21:00:00.000Z')"),
   ]);
   await db.batch(
     [

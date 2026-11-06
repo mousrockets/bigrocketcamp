@@ -375,9 +375,9 @@ export function mergeSources(roster: Roster, aliases: readonly Alias[], sources:
 /** Reconciles the whole history at once: the reference the stored match results must equal. */
 export async function readMerged(db: Database, roster: Roster) {
   const [legacy, observations, rosters, reports, aliases] = await Promise.all([
-    db.prepare('SELECT * FROM results ORDER BY day DESC,received DESC,rowid DESC').all<StoredResult>(),
+    db.prepare('SELECT * FROM prototype_results ORDER BY day DESC,received DESC,rowid DESC').all<StoredResult>(),
     db.prepare('SELECT * FROM result_observations ORDER BY received,rowid').all<Observation & { payload: string }>(),
-    db.prepare('SELECT * FROM match_rosters').all<CompleteRoster>(),
+    db.prepare('SELECT * FROM prototype_match_rosters').all<CompleteRoster>(),
     db.prepare('SELECT * FROM source_reports ORDER BY received,rowid').all<SourceReport & { players: string }>(),
     db.prepare('SELECT player_id,slot FROM player_identity_aliases').all<Alias>(),
   ]);

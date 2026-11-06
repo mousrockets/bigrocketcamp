@@ -69,10 +69,8 @@ exerciseRoutes.delete('/', ...jsonBody(exerciseToUndo, { invalid: unknownExercis
   if (Date.now() - Date.parse(saved.created) > undoWindow) {
     return c.json({ error: 'Une série ne peut être annulée que dans les 24 heures.' }, 403);
   }
-  await db.batch([
-    db.delete(exerciseReactions).where(eq(exerciseReactions.exerciseId, id)),
-    db.delete(exercises).where(and(eq(exercises.id, id), eq(exercises.author, c.var.member.id))),
-  ]);
+  // Its reactions go with it (foreign key, ON DELETE CASCADE).
+  await db.delete(exercises).where(and(eq(exercises.id, id), eq(exercises.author, c.var.member.id)));
   return c.json({ ok: true });
 });
 

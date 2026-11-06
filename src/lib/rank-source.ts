@@ -204,10 +204,10 @@ async function duoWrites(db: Database, rank: ObservedRank): Promise<{ writes: St
     writes.push(
       db
         .prepare(
-          "INSERT INTO mmr_entries (id, player, mmr, tier, division, author, recorded_at, source) VALUES (?, ?, ?, ?, ?, 'rank-source', ?, 'observer') ON CONFLICT(id) DO NOTHING",
+          'INSERT INTO mmr_entries (id, player, mmr, tier, division, recorded_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO NOTHING',
         )
         .bind(id, rank.player, rank.mmr, rank.tier, rank.division, rank.observedAt),
-      projectMmrRankWrite(db, { playerId: rank.playerId, id, author: 'rank-source', player: rank.player }),
+      projectMmrRankWrite(db, { playerId: rank.playerId, id, player: rank.player }),
     );
   } else {
     writes.push(

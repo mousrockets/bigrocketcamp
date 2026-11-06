@@ -51,7 +51,7 @@ const isUniqueViolation = (error: unknown): boolean =>
 export async function slotHasHistory(db: Database, slot: string): Promise<boolean> {
   const found = await db
     .prepare(
-      `SELECT EXISTS (SELECT 1 FROM results WHERE name = ?1)
+      `SELECT EXISTS (SELECT 1 FROM prototype_results WHERE name = ?1)
         OR EXISTS (SELECT 1 FROM exercises WHERE player = ?1)
         OR EXISTS (SELECT 1 FROM mmr_entries WHERE player = ?1)
         OR EXISTS (SELECT 1 FROM player_ranks WHERE player = ?1)

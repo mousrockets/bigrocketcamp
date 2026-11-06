@@ -42,9 +42,13 @@ function only<T>(items: T[], index = 0): T {
 
 async function clearSources() {
   await env.DB.batch(
-    ['results', 'match_rosters', 'result_observations', 'source_reports', 'player_identity_aliases'].map((table) =>
-      env.DB.prepare(`DELETE FROM ${table}`),
-    ),
+    [
+      'prototype_results',
+      'prototype_match_rosters',
+      'result_observations',
+      'source_reports',
+      'player_identity_aliases',
+    ].map((table) => env.DB.prepare(`DELETE FROM ${table}`)),
   );
 }
 

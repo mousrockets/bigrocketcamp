@@ -70,14 +70,14 @@ describe('domain', () => {
   });
 
   test('the SQL keys deduplicate a match player and a repeated exercise', async () => {
-    await env.DB.batch([env.DB.prepare('DELETE FROM results'), env.DB.prepare('DELETE FROM exercises')]);
+    await env.DB.batch([env.DB.prepare('DELETE FROM prototype_results'), env.DB.prepare('DELETE FROM exercises')]);
     const insertResult = (playerId: string, name: string) =>
       env.DB.prepare(
-        'INSERT INTO results VALUES (?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(match_guid,player_id) DO NOTHING',
+        'INSERT INTO prototype_results VALUES (?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(match_guid,player_id) DO NOTHING',
       ).bind('m', playerId, name, '2026-11-04', 'match', 0, 1, 10, 0, 0, 0, 'now');
     for (let i = 0; i < 3; i++) await insertResult('p', second).run();
     await insertResult('p2', first).run();
-    const results = await env.DB.prepare('SELECT COUNT(*) AS n FROM results').first<{ n: number }>();
+    const results = await env.DB.prepare('SELECT COUNT(*) AS n FROM prototype_results').first<{ n: number }>();
     expect(results?.n).toBe(2);
 
     const insertExercise = () =>

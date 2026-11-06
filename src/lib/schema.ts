@@ -111,9 +111,6 @@ export const playerIdentities = sqliteTable(
     slot: text('slot').primaryKey(),
     owner: text('owner').notNull(),
     playerId: text('player_id').notNull(),
-    lastSync: text('last_sync'),
-    lastAttempt: text('last_attempt'),
-    coverage: text('coverage').notNull().default('recent_only'),
   },
   (table) => [uniqueIndex('player_identities_player_id_unique').on(table.playerId)],
 );
@@ -159,8 +156,8 @@ export const sourceReports = sqliteTable(
 );
 
 /** Results imported from the prototype, never written since. */
-export const results = sqliteTable(
-  'results',
+export const prototypeResults = sqliteTable(
+  'prototype_results',
   {
     matchGuid: text('match_guid').notNull(),
     playerId: text('player_id').notNull(),
@@ -177,19 +174,19 @@ export const results = sqliteTable(
   },
   (table) => [
     primaryKey({ columns: [table.matchGuid, table.playerId] }),
-    index('results_match_key').on(sql`lower(trim(${table.matchGuid}))`),
+    index('prototype_results_match_key').on(sql`lower(trim(${table.matchGuid}))`),
   ],
 );
 
 /** Complete scoreboards imported from the prototype, never written since. */
-export const matchRosters = sqliteTable(
-  'match_rosters',
+export const prototypeMatchRosters = sqliteTable(
+  'prototype_match_rosters',
   {
     matchGuid: text('match_guid').primaryKey(),
     expectedPlayers: integer('expected_players').notNull(),
     received: text('received').notNull(),
   },
-  (table) => [index('match_rosters_match_key').on(sql`lower(trim(${table.matchGuid}))`)],
+  (table) => [index('prototype_match_rosters_match_key').on(sql`lower(trim(${table.matchGuid}))`)],
 );
 
 /** Each match's results reconciled from its sources: what the board shows. */
@@ -253,7 +250,9 @@ export const exercises = sqliteTable(
 export const exerciseReactions = sqliteTable(
   'exercise_reactions',
   {
-    exerciseId: text('exercise_id').notNull(),
+    exerciseId: text('exercise_id')
+      .notNull()
+      .references(() => exercises.id, { onDelete: 'cascade' }),
     author: text('author').notNull(),
     emoji: text('emoji').notNull(),
     created: text('created').notNull(),
@@ -283,11 +282,9 @@ const seasonPeak = {
 export const playerRanks = sqliteTable('player_ranks', {
   player: text('player').primaryKey(),
   playerId: text('player_id').notNull(),
-  playlist: integer('playlist').notNull().default(11),
   mmr: integer('mmr'),
   tier: integer('tier'),
   division: integer('division'),
-  placementMatches: integer('placement_matches'),
   fetchedAt: text('fetched_at'),
   lastAttempt: text('last_attempt').notNull(),
   status: text('status').notNull(),
@@ -326,7 +323,7 @@ export const soloMmrEntries = sqliteTable(
   (table) => [index('solo_mmr_entries_player_recorded').on(table.player, table.recordedAt)],
 );
 
-/** Each change of a player's rating, as the rank source read it. */
+/** Each change of a player's rating, as the rank source read it: the only source since migration 0015. */
 export const mmrEntries = sqliteTable(
   'mmr_entries',
   {
@@ -335,11 +332,7 @@ export const mmrEntries = sqliteTable(
     mmr: integer('mmr').notNull(),
     tier: integer('tier'),
     division: integer('division'),
-    author: text('author').notNull(),
     recordedAt: text('recorded_at').notNull().default(isoNow),
-    source: text('source').notNull().default('manual'),
-    sourceAt: text('source_at'),
-    sourceUrl: text('source_url'),
   },
   (table) => [index('mmr_entries_player_recorded').on(table.player, table.recordedAt)],
 );

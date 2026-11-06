@@ -37,7 +37,7 @@ npx wrangler d1 execute bigrocketcamp --remote --command "INSERT INTO members (i
 ## Reprendre les données du prototype
 
 1. Exporter chaque table du prototype en JSON (un tableau par table, fichier `<table>.json`), hors du dépôt.
-2. `node scripts/import-prototype.ts <dossier> > import.sql` (les relevés RLStats du prototype ne sont pas repris)
+2. `node scripts/import-prototype.ts <dossier> > import.sql` : les lignes vont dans les tables actuelles (`results` devient `prototype_results`, `match_rosters` devient `prototype_match_rosters`), sans les colonnes retirées par les migrations. Seuls les relevés de la source de rangs sont repris.
 3. `npx wrangler d1 execute bigrocketcamp --remote --file import.sql`, puis créer le premier administrateur (voir plus haut).
 4. Supprimer l'export et `import.sql` : ils contiennent des données personnelles.
 
