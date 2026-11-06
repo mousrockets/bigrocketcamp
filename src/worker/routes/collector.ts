@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { type AppEnv, sameOrigin } from '../auth';
+import { type AppEnv, sameOriginOnly } from '../auth';
 import {
   createPairingCode,
   listCollectors,
@@ -8,15 +8,16 @@ import {
   requireCollector,
   revokeCollector,
 } from '../collectors';
-import { failure, noStore, smallJson } from '../respond';
+import { collectorToRevoke, invalidPairingCode, pairingCode, unknownCollector } from '../inputs';
+import { failure, noStore } from '../respond';
+import { jsonBody } from '../validate';
 
 /** What the Windows collector calls: pairing without a session, then its own token. */
 export const collectorRoutes = new Hono<AppEnv>();
 
-collectorRoutes.post('/pair', async (c) => {
+collectorRoutes.post('/pair', ...jsonBody(pairingCode, { invalid: invalidPairingCode, maxLength: 200 }), async (c) => {
   try {
-    const body = await smallJson(c, 200);
-    return c.json(await pairCollector(c.env.DB, body?.code), 200, noStore);
+    return c.json(await pairCollector(c.env.DB, c.req.valid('json').code), 200, noStore);
   } catch (error) {
     return failure(c, error, 'Association impossible.');
   }
@@ -33,8 +34,7 @@ collectorDeviceRoutes.get('/', async (c) =>
   c.json({ devices: await listCollectors(c.env.DB, c.var.member.id) }, 200, noStore),
 );
 
-collectorDeviceRoutes.post('/', async (c) => {
-  if (!sameOrigin(c)) return c.json({ error: 'Origine refusée.' }, 403, noStore);
+collectorDeviceRoutes.post('/', sameOriginOnly, async (c) => {
   try {
     return c.json(await createPairingCode(c.env.DB, c.var.member.id), 201, noStore);
   } catch (error) {
@@ -42,12 +42,16 @@ collectorDeviceRoutes.post('/', async (c) => {
   }
 });
 
-collectorDeviceRoutes.delete('/', async (c) => {
-  if (!sameOrigin(c)) return c.json({ error: 'Origine refusée.' }, 403, noStore);
-  try {
-    await revokeCollector(c.env.DB, c.var.member.id, (await smallJson(c))?.id);
-    return c.body(null, 204);
-  } catch (error) {
-    return failure(c, error, 'Révocation impossible.');
-  }
-});
+collectorDeviceRoutes.delete(
+  '/',
+  sameOriginOnly,
+  ...jsonBody(collectorToRevoke, { invalid: unknownCollector }),
+  async (c) => {
+    try {
+      await revokeCollector(c.env.DB, c.var.member.id, c.req.valid('json').id);
+      return c.body(null, 204);
+    } catch (error) {
+      return failure(c, error, 'Révocation impossible.');
+    }
+  },
+);

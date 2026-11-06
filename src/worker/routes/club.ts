@@ -1,8 +1,10 @@
 import { Hono } from 'hono';
 import { readClubName, readClubPlayers } from '../../lib/club';
 import { readOwnProfile, saveClubName } from '../../lib/members';
-import { type AppEnv, requireAdmin, sameOrigin } from '../auth';
-import { failure, noStore, smallJson } from '../respond';
+import { type AppEnv, requireAdmin, sameOriginOnly } from '../auth';
+import { clubName, invalidClubName } from '../inputs';
+import { noStore } from '../respond';
+import { jsonBody } from '../validate';
 
 /** Before signing in, a visitor only learns the club's name. */
 export const clubNameRoutes = new Hono<AppEnv>();
@@ -22,11 +24,6 @@ clubRoutes.get('/', async (c) => {
   return c.json({ name, players, me }, 200, noStore);
 });
 
-clubRoutes.put('/', requireAdmin, async (c) => {
-  if (!sameOrigin(c)) return c.json({ error: 'Origine refusée.' }, 403, noStore);
-  try {
-    return c.json({ name: await saveClubName(c.env.DB, (await smallJson(c))?.name) }, 200, noStore);
-  } catch (error) {
-    return failure(c, error, 'Nom du club invalide.');
-  }
-});
+clubRoutes.put('/', requireAdmin, sameOriginOnly, ...jsonBody(clubName, { invalid: invalidClubName }), async (c) =>
+  c.json({ name: await saveClubName(c.env.DB, c.req.valid('json').name) }, 200, noStore),
+);

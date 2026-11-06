@@ -39,12 +39,6 @@ function randomCode(): string {
   return code;
 }
 
-/** The code as typed: case, spaces and dashes do not matter. */
-export function normalizePairingCode(input: unknown): string | null {
-  const code = typeof input === 'string' ? input.toUpperCase().replace(/[\s-]/g, '') : '';
-  return code.length === codeLength && [...code].every((char) => codeAlphabet.includes(char)) ? code : null;
-}
-
 const duoPseudoOf = async (db: Database, memberId: string) => {
   const [member] = await orm(db).select({ duoPseudo: members.duoPseudo }).from(members).where(eq(members.id, memberId));
   return member?.duoPseudo ?? null;
@@ -68,9 +62,7 @@ export async function createPairingCode(db: Database, memberId: string): Promise
 }
 
 /** Trades a pairing code for the collector's token, once. */
-export async function pairCollector(db: Database, input: unknown): Promise<{ token: string; player: string }> {
-  const code = normalizePairingCode(input);
-  if (!code) throw withStatus('Le code d’association fait 8 caractères.', 400);
+export async function pairCollector(db: Database, code: string): Promise<{ token: string; player: string }> {
   const now = Date.now();
   const query = orm(db);
   const [claimed] = await query
@@ -112,8 +104,7 @@ export async function listCollectors(db: Database, memberId: string): Promise<Co
   }));
 }
 
-export async function revokeCollector(db: Database, memberId: string, deviceId: unknown): Promise<void> {
-  if (typeof deviceId !== 'string') throw withStatus('Collecteur inconnu.', 400);
+export async function revokeCollector(db: Database, memberId: string, deviceId: string): Promise<void> {
   const removed = await orm(db)
     .delete(collectorDevices)
     .where(and(eq(collectorDevices.id, deviceId), eq(collectorDevices.memberId, memberId)))

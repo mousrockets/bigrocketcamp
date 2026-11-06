@@ -2,7 +2,9 @@ import { Hono } from 'hono';
 import { type BoardReader, prepareBoard, readBoardChanges, readFullBoard, readHead } from '../../lib/board';
 import { parisMonth } from '../../lib/monthly-mmr';
 import { type AppEnv, sha256 } from '../auth';
+import { boardQuery, invalidVersion } from '../inputs';
 import { noStore } from '../respond';
+import { queryOf } from '../validate';
 
 export const stateRoutes = new Hono<AppEnv>();
 
@@ -14,17 +16,15 @@ const hourMs = 3_600_000;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-stateRoutes.get('/', async (c) => {
+stateRoutes.get('/', queryOf(boardQuery, invalidVersion), async (c) => {
   const reader: BoardReader = {
     db: c.env.DB,
     memberId: c.var.member.id,
     hasRankSource: Boolean(c.env.RANK_SOURCE_KEY),
   };
-  const since = c.req.query('since');
-  if (since === undefined) return fullBoard(c.req.header('if-none-match'), reader);
-  const from = Number(since);
-  if (!Number.isSafeInteger(from) || from < 0) return c.json({ error: 'Version du tableau invalide.' }, 400, noStore);
-  const wait = Math.min(maxWaitSeconds, Math.max(0, Number(c.req.query('wait')) || 0)) * 1000;
+  const { since: from, wait: waitSeconds } = c.req.valid('query');
+  if (from === undefined) return fullBoard(c.req.header('if-none-match'), reader);
+  const wait = Math.min(maxWaitSeconds, Math.max(0, waitSeconds || 0)) * 1000;
   const started = Date.now();
   for (;;) {
     const head = await readHead(reader.db);

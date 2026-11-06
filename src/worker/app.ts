@@ -17,6 +17,12 @@ import { stateRoutes } from './routes/state';
 
 export const app = new Hono<AppEnv>().basePath('/api');
 
+// What no route expected: the member gets a message to retry, the logs get the error's name only.
+app.onError((error, c) => {
+  console.error('unexpected error', error.name);
+  return c.json({ error: 'Une erreur est survenue. Réessaie dans un instant.' }, 500, noStore);
+});
+
 // Which build answers, and since when: the web app reloads itself when it no longer matches.
 app.get('/health', (c) =>
   c.json(

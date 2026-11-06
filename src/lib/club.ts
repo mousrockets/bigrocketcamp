@@ -9,8 +9,6 @@ import { members } from './schema';
 export const platforms = ['pc', 'playstation', 'xbox', 'switch'] as const;
 export type Platform = (typeof platforms)[number];
 
-export const isPlatform = (value: unknown): value is Platform => platforms.includes(value as Platform);
-
 export interface ClubPlayer {
   slot: string;
   platform: Platform | null;

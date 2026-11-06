@@ -210,9 +210,9 @@ describe('monthly MMR storage', () => {
     expect(undone?.paid_at).toBe(null);
   });
 
-  test('an unknown or malformed drink is refused', async () => {
+  // A malformed drink is refused by the API's input schema (src/worker/inputs.test.ts).
+  test('an unknown drink is refused', async () => {
     await reset();
-    await expect(settleDrink(env.DB, roster, 'current-user', 'x'.repeat(161))).rejects.toThrow('Dette invalide.');
     await expect(settleDrink(env.DB, roster, 'current-user', 'missing')).rejects.toMatchObject({ status: 404 });
   });
 });

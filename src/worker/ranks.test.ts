@@ -13,7 +13,11 @@ function call(path: string, init: RequestInit = {}, withKey = true) {
 }
 
 function post(ranks: unknown) {
-  return call('/api/ranks', { method: 'POST', body: JSON.stringify({ ranks }) });
+  return call('/api/ranks', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ranks }),
+  });
 }
 
 const rank = (mmr: number, observedAt = new Date().toISOString()) => ({

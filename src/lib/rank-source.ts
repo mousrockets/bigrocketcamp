@@ -21,9 +21,6 @@ export interface ObservedRank {
   observedAt: string;
 }
 
-const integerIn = (value: unknown, min: number, max: number): value is number =>
-  typeof value === 'number' && Number.isSafeInteger(value) && value >= min && value <= max;
-
 export async function readRankTargets(db: Database): Promise<RankTarget[]> {
   const [roster, identities] = await Promise.all([
     readRoster(db),
@@ -34,33 +31,13 @@ export async function readRankTargets(db: Database): Promise<RankTarget[]> {
     .map((identity) => ({ player: identity.slot, playerId: identity.player_id }));
 }
 
-export function validateObservedRanks(input: unknown, targets: RankTarget[], now: number = Date.now()): ObservedRank[] {
-  if (!Array.isArray(input) || input.length > 50) throw new Error('Relevé de rangs invalide.');
-  return input.map((raw: Record<string, unknown> | null) => {
-    const { player, playerId, mmr, tier = null, division = null, matches = null, observedAt } = raw ?? {};
-    const target = targets.find((candidate) => candidate.player === player && candidate.playerId === playerId);
-    const observed = typeof observedAt === 'string' ? Date.parse(observedAt) : Number.NaN;
-    if (
-      !target ||
-      !integerIn(mmr, 0, 10_000) ||
-      (tier !== null && !integerIn(tier, 0, 22)) ||
-      (division !== null && !integerIn(division, 1, 4)) ||
-      (matches !== null && !integerIn(matches, 0, 1_000_000)) ||
-      !Number.isFinite(observed) ||
-      observed > now + 60_000 ||
-      observed < now - 86_400_000
-    ) {
+/** Readings whose shape the API checked; each must name one of the targets, with its game ID. */
+export function targetRanks(ranks: readonly ObservedRank[], targets: RankTarget[]): ObservedRank[] {
+  return ranks.map((rank) => {
+    if (!targets.some((target) => target.player === rank.player && target.playerId === rank.playerId)) {
       throw new Error('Relevé de rangs invalide.');
     }
-    return {
-      player: target.player,
-      playerId: target.playerId,
-      mmr: mmr as number,
-      tier: tier as number | null,
-      division: division as number | null,
-      matches: matches as number | null,
-      observedAt: new Date(observed).toISOString(),
-    };
+    return rank;
   });
 }
 
