@@ -1,0 +1,25 @@
+# Every pull request merges by itself once the required checks pass.
+# Squash by default; the `rebase` label keeps deliberately atomic commits.
+name: Auto-merge
+
+on:
+  pull_request:
+    types: [opened, reopened, ready_for_review, labeled, unlabeled]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  enable:
+    # A fork's token cannot merge; a draft is not ready.
+    if: github.event.pull_request.head.repo.full_name == github.repository && !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.html_url }}
+          METHOD: ${{ contains(github.event.pull_request.labels.*.name, 'rebase') && '--rebase' || '--squash' }}
+        run: |
+          gh pr merge --disable-auto "$PR" || true
+          gh pr merge --auto "$METHOD" "$PR"
