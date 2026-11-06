@@ -258,6 +258,14 @@ describe('the rank source health', () => {
     expect((await readRankSourceHealth(env.DB, read + 3 * hour)).stale).toBe(true);
   });
 
+  test('is given with the activity, so a source can tell a reading already happened', async () => {
+    const activity = async () => (await call('/api/ranks/activity')).json();
+    expect(await activity()).toEqual({ lastRankedMatchAt: null, lastReadAt: null });
+    const observedAt = new Date().toISOString();
+    await post([rank(1180, observedAt)]);
+    expect(await activity()).toEqual({ lastRankedMatchAt: null, lastReadAt: observedAt });
+  });
+
   test('ignores ranks the players entered themselves', async () => {
     await env.DB.prepare(
       "INSERT INTO player_ranks (player, player_id, mmr, fetched_at, last_attempt, status) VALUES ('bob', 'Epic|bob-test|0', 1180, ?1, ?1, 'manual')",
