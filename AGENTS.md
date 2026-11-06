@@ -26,7 +26,7 @@ Règles pour tout agent IA qui travaille sur ce dépôt. Elles valent aussi pour
 
 1. Pars toujours du dernier `main`.
 2. Une demande = une issue = une branche = une PR. Propose de découper une demande qui mélange plusieurs sujets.
-3. Issue : contexte, résultat attendu, critères d'acceptation. Si tu ne peux pas créer l'issue, mets ces points dans la PR.
+3. Issue : contexte, résultat attendu, critères d'acceptation, assignée à la personne qui la demande (son compte GitHub). Si tu ne peux pas créer l'issue, mets ces points dans la PR.
 4. Branche courte en anglais : `feat/…`, `fix/…`, `docs/…`, `refactor/…`, `chore/…`.
 5. Change le minimum utile. Un comportement nouveau arrive avec son test ; un bug corrigé, avec le test qui l'aurait détecté.
 6. Commits au format Conventional Commits (`fix: keep pushups after a reload`). Le premier commit de la PR donne son message au commit fusionné : il résume toute la PR.
