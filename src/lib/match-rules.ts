@@ -130,7 +130,7 @@ export function validateMatchRosters(
       seen.has(matchGuid) ||
       typeof playerCount !== 'number' ||
       !Number.isSafeInteger(playerCount) ||
-      playerCount < 2 ||
+      playerCount < 1 ||
       playerCount > 16
     ) {
       throw new Error('Liste de participants invalide.');
@@ -141,7 +141,8 @@ export function validateMatchRosters(
     if (
       players.length !== playerCount ||
       unique.size !== playerCount ||
-      new Set(players.map((row) => row.team)).size !== 2 ||
+      // A forfeit can leave a single team on the scoreboard.
+      !players.every((row) => row.team === 0 || row.team === 1) ||
       new Set(players.map((row) => row.day)).size !== 1 ||
       new Set(players.map((row) => row.winner)).size !== 1
     ) {

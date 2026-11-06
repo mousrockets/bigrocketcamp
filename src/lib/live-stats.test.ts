@@ -136,7 +136,7 @@ describe('live stats', () => {
   });
 
   test('a historical replay, a mid-match connection or a vanished scoreboard is never imported', () => {
-    for (const mode of ['replay', 'mid-match', 'destroyed', 'missing-player']) {
+    for (const mode of ['replay', 'mid-match', 'destroyed']) {
       const out: unknown[] = [];
       const p = payload(mode);
       const capture = matchCapture(
@@ -147,10 +147,51 @@ describe('live stats', () => {
       if (mode !== 'mid-match') capture.handle(packet('MatchCreated', { MatchGuid: mode }));
       capture.handle(packet('UpdateState', p.state));
       if (mode === 'destroyed') capture.handle(packet('MatchDestroyed', { MatchGuid: mode }));
-      if (mode === 'missing-player') p.state.Players.pop();
       finish(capture, p);
       expect(out.length, mode).toBe(0);
     }
+  });
+
+  test('a forfeit counts: players who left, bots and a late or missing winner flag are not required', () => {
+    const left = payload();
+    left.state.Players.splice(3, 2);
+    left.seenIds.pop();
+    left.state.Game.bHasWinner = false;
+    left.state.Game.Winner = '';
+    expect(parseLiveMatch(roster, left, now).rows.length).toBe(4);
+    expect(parseLiveMatch(roster, left, now).rosters).toEqual([{ matchGuid: 'synthetic-live-match', playerCount: 4 }]);
+    const bot = payload();
+    const opponent = bot.state.Players[5];
+    if (!opponent) throw new Error('missing synthetic opponent');
+    opponent.PrimaryId = 'Unknown|0|0';
+    expect(parseLiveMatch(roster, bot, now).rows.length).toBe(5);
+    const alone = payload();
+    alone.state.Players.splice(3, 3);
+    expect(parseLiveMatch(roster, alone, now).rows.map((row) => row.team)).toEqual([0, 0, 0]);
+  });
+
+  test('a match left right after its end is sent with the latest scoreboard', () => {
+    const out: LivePayload[] = [];
+    const p = payload('forfeit');
+    p.state.Players.splice(4, 2);
+    const capture = matchCapture(
+      (completed) => out.push(completed as LivePayload),
+      () => now,
+    );
+    capture.handle(packet('MatchCreated', { MatchGuid: 'forfeit' }));
+    capture.handle(packet('UpdateState', p.state));
+    capture.handle(packet('MatchEnded', p.end));
+    capture.handle(packet('MatchDestroyed', { MatchGuid: 'forfeit' }));
+    expect(out.length).toBe(1);
+    expect(out[0]?.state.Players.length).toBe(4);
+    const left = matchCapture(
+      (completed) => out.push(completed as LivePayload),
+      () => now,
+    );
+    left.handle(packet('MatchCreated', { MatchGuid: 'quit' }));
+    left.handle(packet('UpdateState', payload('quit').state));
+    left.handle(packet('MatchDestroyed', { MatchGuid: 'quit' }));
+    expect(out.length).toBe(1);
   });
 
   test('validation: no forfeit inferred from the score, no bots, private, unknown winner, duplicate or partial snapshot', () => {
@@ -171,9 +212,6 @@ describe('live stats', () => {
         p.end.MatchGuid = 'other';
       },
       (p) => {
-        p.state.Game.bHasWinner = false;
-      },
-      (p) => {
         p.state.Game.bReplay = true;
       },
       (p) => {
@@ -186,16 +224,10 @@ describe('live stats', () => {
         p.state.Game.PlaylistId = 40;
       },
       (p) => {
-        p.state.Players.pop();
-      },
-      (p) => {
-        p.seenIds.pop();
-      },
-      (p) => {
         player(p, 1).PrimaryId = player(p, 0).PrimaryId;
       },
       (p) => {
-        player(p, 0).PrimaryId = 'Bot|1|0';
+        for (const found of p.state.Players) found.PrimaryId = 'Bot|1|0';
       },
       (p) => {
         player(p, 0).Score = Number.NaN;

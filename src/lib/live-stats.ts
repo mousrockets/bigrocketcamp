@@ -58,7 +58,7 @@ export function parseLiveMatch(
   now: number = Date.now(),
 ): { rows: ReceivedResult[]; rosters: ReceivedRoster[] } {
   // biome-ignore lint/suspicious/noExplicitAny: the browser's payload is checked field by field below.
-  const { state, end, startedAt, endedAt, seenIds } = (input || {}) as Record<string, any>;
+  const { state, end, startedAt, endedAt } = (input || {}) as Record<string, any>;
   const game = state?.Game;
   const guid = state?.MatchGuid;
   if (
@@ -81,7 +81,9 @@ export function parseLiveMatch(
     throw new Error('Date du match invalide.');
   }
   const count = playerCounts.get(game?.PlaylistId);
-  if (!count || game?.bHasWinner !== true || game?.bReplay !== false) throw new Error('Match public terminé requis.');
+  // MatchEnded names the winner. A forfeit can end the match before the scoreboard says so, so bHasWinner
+  // and Winner only have to agree with it when they are set.
+  if (!count || game?.bReplay !== false) throw new Error('Match public terminé requis.');
   if (
     !Array.isArray(game.Teams) ||
     game.Teams.length !== 2 ||
@@ -98,41 +100,27 @@ export function parseLiveMatch(
     throw new Error('Équipes finales invalides.');
   }
   const winner = game.Teams.find((team: LiveTeam) => team.TeamNum === end.WinnerTeamNum);
-  if (game.Winner !== winner.Name) throw new Error('Gagnant du tableau différent de la fin de match.');
-  if (
-    !Array.isArray(state.Players) ||
-    state.Players.length !== count ||
-    !Array.isArray(seenIds) ||
-    seenIds.length !== count
-  ) {
-    throw new Error('Tableau final incomplet : aucune dette ajoutée.');
+  if (typeof game.Winner === 'string' && game.Winner && game.Winner !== winner.Name)
+    throw new Error('Gagnant du tableau différent de la fin de match.');
+  // Players who left (a forfeit, a quit) are missing, and bots have no platform id: both are simply not counted.
+  if (!Array.isArray(state.Players) || state.Players.length > count) {
+    throw new Error('Tableau final invalide.');
   }
-  const ids = state.Players.map((player: LivePlayer) => canonical(player.PrimaryId));
-  if (
-    new Set(ids).size !== count ||
-    new Set(seenIds.map(canonical)).size !== count ||
-    !seenIds.every((id) => ids.includes(canonical(id)))
-  ) {
-    throw new Error('Participants du tableau incomplets ou ambigus.');
-  }
-  if (
-    !state.Players.every(
-      (player: LivePlayer) =>
-        typeof player.PrimaryId === 'string' &&
-        /^(Epic|Steam|PS4|PSN|XboxOne|Switch|PsyNet)\|[^\s|]{1,128}\|0$/.test(player.PrimaryId),
-    )
-  ) {
-    throw new Error('Identité de joueur manquante ou bot.');
-  }
-  if (
-    ![0, 1].every((team) => state.Players.filter((player: LivePlayer) => player.TeamNum === team).length === count / 2)
-  ) {
-    throw new Error('Tableau des équipes incomplet.');
+  const players = state.Players.filter(
+    (player: LivePlayer) =>
+      typeof player.PrimaryId === 'string' &&
+      /^(Epic|Steam|PS4|PSN|XboxOne|Switch|PsyNet)\|[^\s|]{1,128}\|0$/.test(player.PrimaryId),
+  );
+  if (!players.length) throw new Error('Aucun joueur identifié dans le tableau final.');
+  const ids = players.map((player: LivePlayer) => canonical(player.PrimaryId));
+  if (new Set(ids).size !== ids.length) throw new Error('Participants du tableau ambigus.');
+  if (![0, 1].every((team) => players.filter((player: LivePlayer) => player.TeamNum === team).length <= count / 2)) {
+    throw new Error('Tableau des équipes invalide.');
   }
   // Epic groups its history by RecordStartTimestamp. Use the observed start,
   // including matches that finish after Paris midnight, to keep that convention.
   const day = parisDay(new Date(startedAt));
-  const rows = state.Players.map((player: LivePlayer) =>
+  const rows = players.map((player: LivePlayer) =>
     normalizeParticipant(roster, {
       MatchGuid: guid.trim().toLowerCase(),
       PlayerId: canonical(player.PrimaryId),
@@ -147,7 +135,7 @@ export function parseLiveMatch(
       Saves: player.Saves,
     }),
   );
-  const rosters = validateMatchRosters([{ MatchGuid: rows[0].matchGuid, PlayerCount: count }], rows);
+  const rosters = validateMatchRosters([{ MatchGuid: rows[0].matchGuid, PlayerCount: rows.length }], rows);
   return { rows, rosters };
 }
 
@@ -235,12 +223,15 @@ interface CurrentMatch {
   end: { MatchGuid: string; WinnerTeamNum: unknown } | null;
   endedAt: number | null;
   candidate: string | null;
+  /** The latest scoreboard seen, sent if the match is left right after its end (a forfeit, an early exit). */
+  last: LiveMatch['state'] | null;
   sent: boolean;
 }
 
 // A live match must be observed from its creation/initialization. Never import
 // a loaded replay or reuse another match's cached scoreboard. Wait for two
-// identical post-winner updates instead of treating the last pre-end tick as final.
+// identical post-winner updates instead of treating the last pre-end tick as final,
+// unless the match is left first: then the latest scoreboard goes with MatchEnded's winner.
 export function matchCapture(onComplete: (payload: LiveMatch) => void, now: () => number = Date.now) {
   let current: CurrentMatch | null = null;
   const blocked = new Set<string>();
@@ -256,12 +247,38 @@ export function matchCapture(onComplete: (payload: LiveMatch) => void, now: () =
         return;
       }
       if (event === 'MatchDestroyed') {
-        if (current?.guid === guid) current = null;
+        if (current?.guid !== guid) return;
+        const ended = current;
+        current = null;
+        if (!ended.end || ended.sent || !ended.last) return;
+        const payload: LiveMatch = {
+          state: ended.last,
+          end: ended.end,
+          startedAt: ended.startedAt,
+          endedAt: ended.endedAt,
+          seenIds: [...ended.seen],
+        };
+        try {
+          checkLiveMatch(payload, now());
+        } catch {
+          return;
+        }
+        ended.sent = true;
+        onComplete(payload);
         return;
       }
       if ((event === 'MatchCreated' || event === 'MatchInitialized') && !blocked.has(guid)) {
         if (current?.guid !== guid)
-          current = { guid, startedAt: now(), seen: new Set(), end: null, endedAt: null, candidate: null, sent: false };
+          current = {
+            guid,
+            startedAt: now(),
+            seen: new Set(),
+            end: null,
+            endedAt: null,
+            candidate: null,
+            last: null,
+            sent: false,
+          };
         return;
       }
       if (!current || current.guid !== guid || current.sent || blocked.has(guid)) return;
@@ -277,7 +294,6 @@ export function matchCapture(onComplete: (payload: LiveMatch) => void, now: () =
         current = null;
         return;
       }
-      if (!current.end) return;
       const state = {
         MatchGuid: guid,
         Players: data.Players.map(({ Name, PrimaryId, TeamNum, Score, Goals, Assists, Saves }: LivePlayer) => ({
@@ -297,6 +313,8 @@ export function matchCapture(onComplete: (payload: LiveMatch) => void, now: () =
           Winner: data.Game?.Winner,
         },
       };
+      current.last = state;
+      if (!current.end) return;
       const payload: LiveMatch = {
         state,
         end: current.end,
