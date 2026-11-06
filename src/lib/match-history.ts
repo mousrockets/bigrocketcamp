@@ -1,5 +1,11 @@
 import type { Roster } from './club';
-import { type IndexedMatch, lastPlaceBonus, type MatchRow } from './match-rules';
+import {
+  defaultLastPlaceRules,
+  type IndexedMatch,
+  type LastPlaceRules,
+  lastPlaceBonus,
+  type MatchRow,
+} from './match-rules';
 
 // The match history shows one entry per match, not one line per player: its result, its score, and what
 // each club player present scored and owes.
@@ -59,6 +65,7 @@ export function matchHistory<Row extends HistoryRow>(
   scoreboard: readonly HistoryRow[],
   matches: Map<string, IndexedMatch<Row>>,
   roster: Roster,
+  rules: LastPlaceRules = defaultLastPlaceRules,
 ): HistoryMatch<Row>[] {
   const byMatch = new Map<string, Row[]>();
   for (const row of clubRows) {
@@ -101,7 +108,7 @@ export function matchHistory<Row extends HistoryRow>(
       score: hasGoals ? [goalsOf(all, ours), goalsOf(all, 1 - ours)] : null,
       players: rows.map((row) => {
         const counted = !row.review_required && row.kind === 'match' && row.team !== row.winner;
-        const bonus = counted ? lastPlaceBonus(row, matches, roster) : 0;
+        const bonus = counted ? lastPlaceBonus(row, matches, roster, rules) : 0;
         return { row, pushups: counted ? 5 + bonus : 0, lastPlace: bonus > 0 };
       }),
     };

@@ -1,13 +1,14 @@
 import type { BoardChanges, BoardExercise, BoardReaction, FullBoard } from './board';
 import type { Roster } from './club';
 import type { BuiltResult } from './match-builds';
+import { defaultLastPlaceRules } from './match-rules';
 import { undoMs } from './monthly-mmr';
 import { rankSourceStale } from './rank-source';
 import { compareResults, reliabilityOf } from './reconcile';
 
 // The board as the web app holds it: the rows received so far, which each answer of the API updates.
 
-type SmallParts = Pick<BoardChanges, 'collectors' | 'doublesRanks' | 'monthly' | 'rankSource'>;
+type SmallParts = Pick<BoardChanges, 'collectors' | 'doublesRanks' | 'monthly' | 'rankSource' | 'rules'>;
 
 export interface SyncedBoard {
   /** The version to ask changes from. */
@@ -46,6 +47,7 @@ export function applyChanges(board: SyncedBoard, changes: BoardChanges): SyncedB
     doublesRanks: changes.doublesRanks,
     monthly: changes.monthly,
     rankSource: changes.rankSource,
+    rules: changes.rules,
   };
   board.version = changes.version;
   board.viewer = changes.viewer;
@@ -109,5 +111,7 @@ export function boardView(board: SyncedBoard, roster: Roster, now: number = Date
     rankSource: small?.rankSource
       ? { ...small.rankSource, stale: rankSourceStale(small.rankSource.lastReadAt, now) }
       : null,
+    // A board kept from an older API, or received from one, has no rules: the default ones apply.
+    rules: small?.rules ?? { lastPlace: defaultLastPlaceRules },
   } as FullBoard;
 }

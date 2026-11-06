@@ -24,7 +24,7 @@ Dans le Worker, Settings :
 
 ## Le club et ses membres
 
-Le nom du club et ses membres sont des réglages de l'app, en base : un administrateur les gère dans la page Réglages (lien en bas du tableau). Seuls les membres invités se connectent, avec leur adresse e-mail et un code reçu par mail ; personne ne s'inscrit seul.
+Le nom du club, son logo, ses membres et les règles des défis sont des réglages de l'app, en base : un administrateur les gère dans la page Réglages (lien en bas du tableau). Le logo est recadré et allégé dans le navigateur avant l'envoi, puis gardé dans D1 ; sans logo envoyé, l'app montre `public/club-photo.jpg`. Un changement de règle s'applique à partir du lendemain : les matchs déjà joués gardent leurs pompes. Seuls les membres invités se connectent, avec leur adresse e-mail et un code reçu par mail ; personne ne s'inscrit seul.
 
 Chaque membre remplit son profil : pseudo duo, pseudo solo et plateforme. Le pseudo duo est son emplacement de joueur : les matchs, exercices et rangs y sont rattachés, et les joueurs du tableau sont les membres qui en ont un, dans l'ordre d'arrivée. Il se change tant qu'aucune donnée de jeu n'y est liée, puis il est figé.
 

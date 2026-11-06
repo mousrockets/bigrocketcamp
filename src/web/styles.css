@@ -2815,6 +2815,16 @@ h1 em {
   margin: 4px 0 0;
 }
 
+.logo-setting {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.logo-setting [data-slot="input"] {
+  margin-top: 0;
+}
+
 .member-role {
   margin-left: 8px;
   padding: 2px 7px;

@@ -16,16 +16,27 @@ import { jsonBody } from '../validate';
 export const identityRoutes = new Hono<AppEnv>();
 
 const noStore = { 'Cache-Control': 'no-store' };
+
+/** The player slot of the member: their duo pseudo. */
+const ownSlotOf = async (db: D1Database, memberId: string) =>
+  (
+    await db
+      .prepare('SELECT duo_pseudo FROM members WHERE id = ?')
+      .bind(memberId)
+      .first<{ duo_pseudo: string | null }>()
+  )?.duo_pseudo ?? null;
 const gamePlayerId = /^(Epic|Steam|PS4|XboxOne|Switch|PsyNet)\|[^\s|]{1,128}\|0$/;
 
 identityRoutes.get('/', async (c) => {
   const db = c.env.DB;
   const roster = await readRoster(db);
   await prepareBoard(db);
-  const [identities, aliases, stored] = await Promise.all([
+  const memberId = c.var.member.id;
+  const [identities, aliases, stored, ownSlot] = await Promise.all([
     readPlayerIdentities(db, roster),
     readIdentityBindings(db, roster),
     readStoredResults(db),
+    ownSlotOf(db, memberId),
   ]);
   const isBound = (playerId: string) =>
     aliases.some((alias) => canonicalPlayerId(alias.player_id) === canonicalPlayerId(playerId));
@@ -44,7 +55,6 @@ identityRoutes.get('/', async (c) => {
       name: row.name.startsWith(unassignedPrefix) ? row.name.slice(unassignedPrefix.length) : row.name,
       day: row.day,
     }));
-  const memberId = c.var.member.id;
   return c.json(
     {
       retired: true,
@@ -53,7 +63,8 @@ identityRoutes.get('/', async (c) => {
         return {
           slot,
           known: Boolean(identity),
-          owned: identity?.owner === memberId,
+          // A new player has no game identity yet: their first confirmation creates it.
+          owned: identity ? identity.owner === memberId : slot === ownSlot,
           aliases: aliases
             .filter((alias) => alias.slot === slot)
             .map((alias) => ({ playerId: alias.player_id, primary: alias.player_id === identity?.player_id })),
@@ -76,11 +87,13 @@ identityRoutes.post('/', sameOriginOnly, ...identityBody, async (c) => {
     const roster = await readRoster(db);
     if (!roster.includes(slot)) throw new Error(invalidIdentity);
     const playerId = canonicalPlayerId(rawId);
-    const identity = (await readPlayerIdentities(db, roster, memberId)).find((candidate) => candidate.slot === slot);
-    if (!identity) {
+    const [identity] = await readPlayerIdentities(db, [slot]);
+    const firstIdentity = !identity && slot === (await ownSlotOf(db, memberId));
+    if (identity?.owner !== memberId && !firstIdentity) {
       return c.json({ error: 'Seul le membre associé à ce joueur peut confirmer son identifiant.' }, 403, noStore);
     }
     if (action === 'remove') {
+      if (!identity) throw new Error(invalidIdentity);
       if (playerId === identity.player_id) throw new Error('L’identifiant principal est conservé.');
       await db
         .prepare('DELETE FROM player_identity_aliases WHERE player_id = ? AND slot = ? AND confirmed_by = ?')
@@ -94,12 +107,18 @@ identityRoutes.post('/', sameOriginOnly, ...identityBody, async (c) => {
       (row) => row.kind === 'match' && !row.review_required && canonicalPlayerId(row.player_id) === playerId,
     );
     if (!seenInAMatch) throw new Error('Choisis un joueur déjà présent dans un tableau reçu.');
-    await db
+    const confirm = db
       .prepare(
         'INSERT INTO player_identity_aliases (player_id, slot, confirmed_by, confirmed_at) SELECT ?, slot, owner, ? FROM player_identities WHERE slot = ? AND owner = ? ON CONFLICT(player_id) DO NOTHING',
       )
-      .bind(playerId, new Date().toISOString(), slot, memberId)
-      .run();
+      .bind(playerId, new Date().toISOString(), slot, memberId);
+    // The first game ID a player confirms becomes their main one, unless another player already holds it.
+    const create = db
+      .prepare(
+        'INSERT INTO player_identities (slot, owner, player_id) SELECT ?1, ?2, ?3 WHERE NOT EXISTS (SELECT 1 FROM player_identity_aliases WHERE player_id = ?3) ON CONFLICT DO NOTHING',
+      )
+      .bind(slot, memberId, playerId);
+    await db.batch(firstIdentity ? [create, confirm] : [confirm]);
     const saved = await db
       .prepare('SELECT slot FROM player_identity_aliases WHERE player_id = ?')
       .bind(playerId)

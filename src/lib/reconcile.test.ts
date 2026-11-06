@@ -205,11 +205,9 @@ describe('collector rosters', () => {
     expect(merged.rosters.length).toBe(1);
     expect(merged.rows.some((r) => r.name === 'opponent')).toBe(true);
     const player = only(
-      dailyRecap(roster, merged.rows, parisDay(), merged.rosters, {
-        enabled: true,
-        effectiveFrom: '2026-11-05',
-        ties: 'none',
-      }).players,
+      dailyRecap(roster, merged.rows, parisDay(), merged.rosters, [
+        { enabled: true, effectiveFrom: '2026-11-05', ties: 'none' },
+      ]).players,
     );
     expect([player.played, player.losses, player.lowest, player.generated]).toEqual([1, 1, 0, 5]);
   });

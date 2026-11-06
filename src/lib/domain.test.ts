@@ -220,6 +220,7 @@ describe('domain', () => {
 
 const recapDay = '2026-11-04';
 const enabledRule = { enabled: true, effectiveFrom: '2026-11-05', ties: 'none' as const };
+const enabledRules = [enabledRule];
 
 function row(matchGuid: string, name: string, score: number, patch: Record<string, unknown> = {}) {
   return {
@@ -315,13 +316,13 @@ describe('daily recap', () => {
       row('m', 'opponent-low', 50, { team: 1, ...day }),
       row('m', 'opponent-high', 400, { team: 1, ...day }),
     ];
-    const recap = dailyRecap(roster, rows, '2026-11-05', complete(rows), enabledRule);
+    const recap = dailyRecap(roster, rows, '2026-11-05', complete(rows), enabledRules);
     expect(recap.players.slice(0, 2).map((p) => [p.lowest, p.bonus, p.generated])).toEqual([
       [1, 5, 10],
       [0, 0, 5],
     ]);
     expect(
-      summarize(roster, rows, [], '', complete(rows), enabledRule)
+      summarize(roster, rows, [], '', complete(rows), enabledRules)
         .slice(0, 2)
         .map((p) => p.due),
     ).toEqual([10, 5]);
@@ -329,18 +330,20 @@ describe('daily recap', () => {
 
   test('a loser with the fewest points of the team takes +5; a winner pays nothing', () => {
     const rows = [row('m', first, 20, { day: '2026-11-05' }), row('m', second, 100, { day: '2026-11-05' })];
-    const recap = dailyRecap(roster, rows, '2026-11-05', [], enabledRule);
+    const recap = dailyRecap(roster, rows, '2026-11-05', [], enabledRules);
     expect(firstPlayer(recap.players).generated).toBe(10);
     expect(firstPlayer(recap.players).bonus).toBe(5);
-    expect(firstPlayer(summarize(roster, rows, [], '', [], enabledRule)).due).toBe(10);
+    expect(firstPlayer(summarize(roster, rows, [], '', [], enabledRules)).due).toBe(10);
     const win = rows.map((r) => ({ ...r, winner: 0 }));
-    expect(firstPlayer(dailyRecap(roster, win, '2026-11-05', [], enabledRule).players).generated).toBe(0);
+    expect(firstPlayer(dailyRecap(roster, win, '2026-11-05', [], enabledRules).players).generated).toBe(0);
   });
 
   test('a tie between club players: no extra, or every tied loser pays', () => {
     const rows = [row('m', first, 0, { day: '2026-11-05' }), row('m', second, 0, { day: '2026-11-05' })];
-    const none = firstPlayer(dailyRecap(roster, rows, '2026-11-05', [], enabledRule).players);
-    const all = firstPlayer(dailyRecap(roster, rows, '2026-11-05', [], { ...enabledRule, ties: 'all' }).players);
+    const none = firstPlayer(dailyRecap(roster, rows, '2026-11-05', [], enabledRules).players);
+    const all = firstPlayer(
+      dailyRecap(roster, rows, '2026-11-05', [], [{ ...enabledRule, ties: 'all' as const }]).players,
+    );
     expect([none.lowest, none.lowestTies, none.generated]).toEqual([1, 1, 5]);
     expect(all.generated).toBe(10);
   });
@@ -349,14 +352,23 @@ describe('daily recap', () => {
     const split = [row('m', first, 0, { day: '2026-11-05' }), row('m', second, 100, { team: 1, day: '2026-11-05' })];
     const duel = [row('d', first, 0, { day: '2026-11-05' }), row('d', 'opponent', 100, { team: 1, day: '2026-11-05' })];
     for (const rows of [split, duel]) {
-      const player = firstPlayer(dailyRecap(roster, rows, '2026-11-05', complete(rows), enabledRule).players);
+      const player = firstPlayer(dailyRecap(roster, rows, '2026-11-05', complete(rows), enabledRules).players);
       expect([player.lowest, player.compared, player.unranked, player.generated]).toEqual([0, 0, 1, 5]);
     }
   });
 
   test('the new penalty does not apply before its effective date', () => {
     const rows = [row('m', first, 0), row('m', second, 100)];
-    expect(firstPlayer(dailyRecap(roster, rows, recapDay, [], enabledRule).players).generated).toBe(5);
+    expect(firstPlayer(dailyRecap(roster, rows, recapDay, [], enabledRules).players).generated).toBe(5);
+  });
+
+  test('turning the +5 off spares the matches from its day on, and the earlier ones keep it', () => {
+    const rules = [enabledRule, { ...enabledRule, effectiveFrom: '2026-11-07', enabled: false }];
+    const before = [row('a', first, 0, { day: '2026-11-06' }), row('a', second, 100, { day: '2026-11-06' })];
+    const after = [row('b', first, 0, { day: '2026-11-07' }), row('b', second, 100, { day: '2026-11-07' })];
+    expect(firstPlayer(dailyRecap(roster, before, '2026-11-06', [], rules).players).generated).toBe(10);
+    expect(firstPlayer(dailyRecap(roster, after, '2026-11-07', [], rules).players).generated).toBe(5);
+    expect(firstPlayer(summarize(roster, [...before, ...after], [], '', [], rules)).due).toBe(15);
   });
 
   test('empty day, invalid days and unknown players', () => {
