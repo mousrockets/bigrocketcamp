@@ -110,3 +110,20 @@ export async function recordObservedRanks(db: Database, ranks: ObservedRank[]): 
   if (writes.length) await db.batch(writes);
   return { changed };
 }
+
+// A healthy source reads at least hourly; past two hours, it has stopped.
+const staleAfter = 2 * 60 * 60 * 1000;
+
+export interface RankSourceHealth {
+  lastReadAt: string | null;
+  stale: boolean;
+}
+
+/** Only the rank source marks a rank `ready`: its newest one tells when the source last reported. */
+export async function readRankSourceHealth(db: Database, now: number = Date.now()): Promise<RankSourceHealth> {
+  const row = await db
+    .prepare("SELECT MAX(fetched_at) AS last FROM player_ranks WHERE playlist = 11 AND status = 'ready'")
+    .first<{ last: string | null }>();
+  const lastReadAt = row?.last ?? null;
+  return { lastReadAt, stale: lastReadAt === null || now - Date.parse(lastReadAt) > staleAfter };
+}

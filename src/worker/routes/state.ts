@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { readDoublesRanks } from '../../lib/doubles-ranks';
 import { collectionPaused } from '../../lib/epic-sync';
 import { readMonthlyMmr } from '../../lib/monthly-mmr';
+import { readRankSourceHealth } from '../../lib/rank-source';
 import { readMerged } from '../../lib/reconcile';
 import type { AppEnv } from '../auth';
 
@@ -10,7 +11,7 @@ export const stateRoutes = new Hono<AppEnv>();
 stateRoutes.get('/', async (c) => {
   const db = c.env.DB;
   const memberId = c.var.member.id;
-  const [merged, exercises, collectors, doublesRanks, reactions, me, epic, monthly] = await Promise.all([
+  const [merged, exercises, collectors, doublesRanks, reactions, me, epic, monthly, rankSource] = await Promise.all([
     readMerged(db),
     db.prepare('SELECT * FROM exercises ORDER BY created DESC').all<Record<string, unknown>>(),
     db.prepare('SELECT * FROM collectors ORDER BY last_seen DESC').all(),
@@ -33,6 +34,8 @@ stateRoutes.get('/', async (c) => {
       )
       .all(),
     readMonthlyMmr(db, memberId),
+    // Only an instance with a rank source can see it stop.
+    c.env.RANK_SOURCE_KEY ? readRankSourceHealth(db) : null,
   ]);
   // Authors stay private: a member only learns which exercises are theirs.
   const ownExercises = exercises.results.map(({ author, ...exercise }) => ({ ...exercise, mine: author === memberId }));
@@ -49,6 +52,7 @@ stateRoutes.get('/', async (c) => {
     epicPaused: collectionPaused(),
     epicRetired: true,
     monthly,
+    rankSource,
   });
   const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(body)));
   const etag = `"${Array.from(digest.slice(0, 16), (byte) => byte.toString(16).padStart(2, '0')).join('')}"`;

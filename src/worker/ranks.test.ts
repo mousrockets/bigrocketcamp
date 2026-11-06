@@ -1,5 +1,6 @@
 import { env, exports } from 'cloudflare:workers';
 import { beforeEach, describe, expect, test } from 'vitest';
+import { readRankSourceHealth } from '../lib/rank-source';
 
 const key = 'k'.repeat(40);
 const origin = 'http://localhost';
@@ -60,5 +61,30 @@ describe('the rank source API', () => {
     expect((await post([{ ...rank(1180), playerId: 'Epic|someone-else|0' }])).status).toBe(400);
     expect((await post([rank(20_000)])).status).toBe(400);
     expect((await post([rank(1180, '2020-01-01T00:00:00.000Z')])).status).toBe(400);
+  });
+});
+
+describe('the rank source health', () => {
+  const hour = 60 * 60 * 1000;
+
+  test('is stale before any reading', async () => {
+    expect(await readRankSourceHealth(env.DB)).toEqual({ lastReadAt: null, stale: true });
+  });
+
+  test('stays healthy for two hours after a reading, then turns stale', async () => {
+    const observedAt = new Date().toISOString();
+    await post([rank(1180, observedAt)]);
+    const read = Date.parse(observedAt);
+    expect(await readRankSourceHealth(env.DB, read + hour)).toEqual({ lastReadAt: observedAt, stale: false });
+    expect((await readRankSourceHealth(env.DB, read + 3 * hour)).stale).toBe(true);
+  });
+
+  test('ignores ranks the players entered themselves', async () => {
+    await env.DB.prepare(
+      "INSERT INTO player_ranks (player, player_id, playlist, mmr, fetched_at, last_attempt, status) VALUES ('nokouki', 'Epic|nokouki-test|0', 11, 1180, ?1, ?1, 'manual')",
+    )
+      .bind(new Date().toISOString())
+      .run();
+    expect((await readRankSourceHealth(env.DB)).stale).toBe(true);
   });
 });

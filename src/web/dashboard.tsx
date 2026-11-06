@@ -63,6 +63,7 @@ type State = {
   epicPaused?: boolean;
   epicRetired?: boolean;
   monthly?: MonthlyState;
+  rankSource?: { lastReadAt: string | null; stale: boolean } | null;
 };
 type CheerKind = 'cheer' | 'finish' | 'badge' | 'loss';
 type ConfettiPiece = { key: string; style: CSSProperties };
@@ -1063,6 +1064,14 @@ export function Dashboard() {
             Actualiser
           </button>
         </p>
+      )}
+      {data?.rankSource?.stale && (
+        <aside className="alert" aria-label="Relevé des rangs arrêté">
+          {data.rankSource.lastReadAt
+            ? `Les rangs 2v2 ne sont plus relevés automatiquement depuis le ${new Date(data.rankSource.lastReadAt).toLocaleString('fr-FR', { timeZone: 'Europe/Paris', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}.`
+            : 'Les rangs 2v2 n’ont encore jamais été relevés automatiquement.'}{' '}
+          Préviens la personne qui gère l’instance : l’observateur des rangs est peut-être en panne.
+        </aside>
       )}
       {data?.epicRetired && (
         <aside className="alert" aria-label="Connexion Epic retirée">
