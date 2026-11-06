@@ -41,7 +41,7 @@ export async function fixture({legacy=true}={}){
  const {POST:INGEST}=await loadRoute('../../app/api/ingest/route.ts',context);
  const ingest=(body,key='test-ingest-key')=>INGEST(new Request('https://rl.example/api/ingest',{method:'POST',headers:{'Content-Type':'application/json',authorization:`Bearer ${key}`},body:JSON.stringify(body)}));
  const post=(body,origin='https://rl.example')=>POST(new Request('https://rl.example/api/exercise',{method:'POST',headers:{'Content-Type':'application/json',origin},body:JSON.stringify(body)}));
- const readState=()=>GET();
+ const readState=request=>GET(request);
  const input={id:'new-exercise-123456',player:'nokouki',count:60,type:'plank',day:parisDay()};
  const stats=()=>summarize(db.prepare('SELECT * FROM results').all(),db.prepare('SELECT * FROM exercises').all(),'');
  function resetDebt(remaining){

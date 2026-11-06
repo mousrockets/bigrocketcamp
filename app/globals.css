@@ -12,7 +12,8 @@ button:active:not(:disabled){transform:translateY(4px);box-shadow:0 0 0 var(--li
 .primary:active:not(:disabled){box-shadow:0 0 0 var(--orange-dark);transform:translateY(5px)}
 .quick-counts button{font-size:14px;font-weight:800;padding:12px}
 #team,#history,#recap-title{scroll-margin-top:20px}
-#team{padding-top:28px}
+.podium-toggle{display:inline-flex;gap:6px;margin:0 0 16px}.podium-toggle button{padding:6px 12px;font-size:12px}.podium-toggle button[aria-pressed=true]{background:var(--green);color:#fff;border-color:var(--green)}
+.presence{display:flex;align-items:center;gap:6px;margin:2px 0 8px;font-size:11px;color:var(--muted)}.presence::before{content:'';flex:none;width:8px;height:8px;border-radius:50%;background:var(--muted)}.presence.online::before{background:var(--green)}.presence.warn::before{background:var(--orange)}
 .fab{box-shadow:0 5px 0 var(--orange-dark),0 8px 20px #0008;transition:transform .08s;font-style:italic;text-transform:uppercase}.fab:active{transform:translateY(5px);box-shadow:0 0 0 var(--orange-dark)}
 .card{transition:transform .2s,border-color .2s}.card:hover{transform:translateY(-3px);border-color:var(--hover-line)}
 .progress i{transition:width .7s cubic-bezier(.2,.9,.3,1.25)}

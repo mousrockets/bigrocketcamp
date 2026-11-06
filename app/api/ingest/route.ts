@@ -2,9 +2,11 @@ import { env } from 'cloudflare:workers';
 import { normalizeParticipant,validateExercise } from '../../../lib/domain.mjs';
 import { validateMatchRosters } from '../../../lib/match-rules.mjs';
 import { observationWrites } from '../../../lib/reconcile.mjs';
+// Compares fixed-length digests so response time does not reveal the key prefix.
+async function sameSecret(a:string,b:string){const [x,y]=await Promise.all([a,b].map(s=>crypto.subtle.digest('SHA-256',new TextEncoder().encode(s))));const u=new Uint8Array(x),v=new Uint8Array(y);let diff=0;for(let i=0;i<u.length;i++)diff|=u[i]^v[i];return diff===0;}
 export async function POST(request:Request){
  const secret=(env as unknown as {INGEST_KEY?:string}).INGEST_KEY;
- if(!secret||request.headers.get('authorization')!==`Bearer ${secret}`)return Response.json({error:'Collecteur non autorisé.'},{status:401});
+ if(!secret||!await sameSecret(request.headers.get('authorization')??'',`Bearer ${secret}`))return Response.json({error:'Collecteur non autorisé.'},{status:401});
  const body=await request.text();if(body.length>2000000)return Response.json({error:'Envoi trop volumineux.'},{status:413});
  try{const data=JSON.parse(body);if(!Array.isArray(data.results)||data.results.length>500||!Array.isArray(data.exercises)||data.exercises.length>500||typeof data.collector!=='string'||!/^[a-zA-Z0-9-]{1,80}$/.test(data.collector))throw Error('Envoi invalide.');
  const rows=data.results.map(normalizeParticipant),rosters=validateMatchRosters(data.matches,rows),ex=data.exercises.map(validateExercise),now=new Date().toISOString(),db=env.DB!;

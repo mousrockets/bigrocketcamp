@@ -10,6 +10,7 @@ type Result={match_guid:string;player_id:string;name:string;day:string;kind:stri
 type PlayerStats={name:string;played:number;wins:number;losses:number;due:number;done:number;pushups:number;plankSeconds:number;crunches:number;remaining:number};
 type DoublesRank={player:string;mmr:number|null;label:string;status:string;fetchedAt:string|null};
 type Reaction={exercise_id:string;emoji:string;count:number;mine:number};
+type EpicState={player:string;status:string;checkedAt:string|null};
 type State={
   results:Result[];
   exercises:Exercise[];
@@ -19,6 +20,7 @@ type State={
   doublesRanks?:DoublesRank[];
   reactions?:Reaction[];
   me?:string|null;
+  epic?:EpicState[];
 };
 type CheerKind='cheer'|'finish'|'badge'|'loss';
 type Cheer={id:number;text:string;kind:CheerKind;pieces:CSSProperties[]};
@@ -110,6 +112,20 @@ function speak(text:string){
   }catch{}
 }
 
+const presenceLabels:Record<string,[string,string]>={
+  waiting_offline:['online','En jeu ou présence masquée · matchs Epic à la sortie du jeu'],
+  synced:['offline','Hors ligne · matchs Epic à jour'],
+  partial:['offline','Hors ligne · matchs Epic à jour'],
+  ready:['offline','Compte Epic connecté · première lecture en attente'],
+  reconnect:['warn','Autorisation Epic à renouveler'],
+  error:['warn','Lecture Epic momentanément indisponible'],
+};
+function EpicPresence({state}:{state?:EpicState}){
+  const entry=state&&presenceLabels[state.status];
+  if(!state||!entry)return null;
+  return <p className={`presence ${entry[0]}`}>{entry[1]}{state.checkedAt?` · vérifié à ${new Date(state.checkedAt).toLocaleTimeString('fr-FR',{timeZone:'Europe/Paris',hour:'2-digit',minute:'2-digit'})}`:''}</p>;
+}
+
 function DoublesRankPanel({player,rank}:{player:string;rank?:DoublesRank}){
   return <div className="rank-panel" aria-label={`Classement 2v2 de ${player}`}>
     <span className="rank-mode">2V2 CLASSÉ · DERNIER RELEVÉ</span>
@@ -178,6 +194,7 @@ export default function Dashboard(){
   const menuRef=useRef<HTMLDivElement>(null);
   const cardsRef=useRef<HTMLDivElement>(null);
   const [activeCard,setActiveCard]=useState(0);
+  const [podiumMode,setPodiumMode]=useState<'effort'|'mmr'>('effort');
   const cardsCentered=useRef(false);
   const refreshRequest=useRef(0);
   const submissionInFlight=useRef(false);
@@ -219,6 +236,7 @@ export default function Dashboard(){
     setTheme(savedTheme==='light'||savedTheme==='auto'?savedTheme:'dark');
     const savedMe=readStorage('rl-me');
     if(savedMe&&roster.includes(savedMe))setChosenMe(savedMe);
+    if(readStorage('rl-podium')==='mmr')setPodiumMode('mmr');
     try{
       const stored=readStorage('rl-pending');
       if(stored){
@@ -342,6 +360,7 @@ export default function Dashboard(){
   },[data]);
 
   function toggleSound(){const next=!sound;setSound(next);writeStorage('rl-sound',next?'on':'off');}
+  function choosePodium(next:'effort'|'mmr'){setPodiumMode(next);writeStorage('rl-podium',next);}
   function chooseTheme(next:Theme){setTheme(next);writeStorage('rl-theme',next);}
   function chooseMe(next:string|null){
     setChosenMe(next);
@@ -446,6 +465,10 @@ export default function Dashboard(){
   }));
   const podium=[...weekly].sort((a,b)=>b.effort-a.effort);
   const debtor=[...weekly].sort((a,b)=>b.generated-a.generated)[0];
+  const mmrPodium=roster.map(name=>{const r=data?.doublesRanks?.find(x=>x.player===name);return {name,mmr:r?.mmr??null,label:r?.label||''};}).sort((a,b)=>(b.mmr??-1)-(a.mmr??-1));
+  const podiumRows=podiumMode==='mmr'
+    ?mmrPodium.map(p=>({name:p.name,title:p.label,value:p.mmr!=null?<>{formatNumber(p.mmr)} <small>MMR</small></>:<small>MMR non reçu</small>}))
+    :podium.map(p=>({name:p.name,title:'',value:<>{formatNumber(p.effort)} <small>équiv.</small></>}));
   const reactionsFor=(id:string)=>reactionEmojis.map(emoji=>{const r=data?.reactions?.find(x=>x.exercise_id===id&&x.emoji===emoji);return {emoji,count:r?.count||0,mine:!!r?.mine};});
   const installLabel=touchDevice?'Ajouter à l’écran d’accueil':'Installer sur le bureau';
 
@@ -482,6 +505,11 @@ export default function Dashboard(){
         </div>}
       </div>
     </header>
+
+    <section className="intro">
+      <div><p className="eyebrow">LES TROIS MOUSROCKETS · ROCKET LEAGUE</p><h1>On perd ensemble.<br/><em>On pousse ensemble.</em></h1><p className="muted">Une défaite, 5 pompes. Pompes, gainage ou abdos : chaque effort compte.</p><KickoffScene/></div>
+      <div className="rule"><strong>5</strong><span>POMPES / DÉFAITE</span><small>{lastPlaceRule.enabled?'Dernier aux points du match : +5 si défaite':'Bonus dernier aux points désactivé'}</small></div>
+    </section>
     {error&&<p className="alert" role="alert">{error} <button onClick={refresh}>Actualiser</button></p>}
 
     <section id="team">
@@ -493,6 +521,7 @@ export default function Dashboard(){
         return <article className={p.name===recognized?'card me':'card'} key={p.name}>
           <div className="card-top"><span className="avatar">{players[p.name]?.initials??p.name.slice(0,2).toUpperCase()}</span>{p.name===recognized&&<span className="you">TOI</span>}{streak.current>0&&<span className="streak" title={`${streak.current} jour(s) d’affilée avec un exercice`}>🔥 {streak.current} j</span>}<span className="platform">{players[p.name]?.platform??'PC'}</span></div>
           <h3>{p.name}</h3>
+          <EpicPresence state={data.epic?.find(e=>e.player===p.name)}/>
           <DoublesRankPanel player={p.name} rank={data.doublesRanks?.find(r=>r.player===p.name)}/>
           <div className="results"><span><b>{p.played}</b> parties</span><span className="win"><b>{p.wins}</b> victoires</span><span><b>{p.losses}</b> défaites</span></div>
           <div className="debt"><strong><Odometer value={formatNumber(p.remaining)}/></strong><span>pompes restantes</span></div>
@@ -504,11 +533,6 @@ export default function Dashboard(){
         </article>;
       })}</div>
       {data&&<div className="card-dots" role="group" aria-label="Choisir un joueur">{stats.map((p,i)=><button type="button" key={p.name} className={i===activeCard?'dot active':'dot'} aria-label={`Voir la carte de ${p.name}`} aria-current={i===activeCard} onClick={()=>scrollToCard(i)}/>)}</div>}
-    </section>
-
-    <section className="intro">
-      <div><p className="eyebrow">LES TROIS MOUSROCKETS · ROCKET LEAGUE</p><h1>On perd ensemble.<br/><em>On pousse ensemble.</em></h1><p className="muted">Une défaite, 5 pompes. Pompes, gainage ou abdos : chaque effort compte.</p><KickoffScene/></div>
-      <div className="rule"><strong>5</strong><span>POMPES / DÉFAITE</span><small>{lastPlaceRule.enabled?'Dernier aux points du match : +5 si défaite':'Bonus dernier aux points désactivé'}</small></div>
     </section>
 
     <section id="exercise" className="exercise">
@@ -562,14 +586,20 @@ export default function Dashboard(){
     </section>
 
     <section id="week" className="week" aria-labelledby="week-title">
-      <p className="eyebrow">DEPUIS LUNDI</p><h2 id="week-title">Le podium de la semaine</h2>
+      <p className="eyebrow">{podiumMode==='mmr'?'2V2 CLASSÉ · DERNIER RELEVÉ':'DEPUIS LUNDI'}</p><h2 id="week-title">{podiumMode==='mmr'?'Le podium MMR 2v2':'Le podium de la semaine'}</h2>
+      <div className="podium-toggle" role="group" aria-label="Classer le podium par">
+        <button type="button" aria-pressed={podiumMode==='effort'} onClick={()=>choosePodium('effort')}>Efforts</button>
+        <button type="button" aria-pressed={podiumMode==='mmr'} onClick={()=>choosePodium('mmr')}>MMR 2v2</button>
+      </div>
       {!data?<div className="sk-table"><i className="sk sk-big"/></div>:<>
-        <ol className="podium">{[podium[1],podium[0],podium[2]].map(p=>{const rank=podium.indexOf(p)+1;return <li key={p.name} className={`step step-${rank}`}>
+        <ol className="podium">{[podiumRows[1],podiumRows[0],podiumRows[2]].map(p=>{const rank=podiumRows.indexOf(p)+1;return <li key={p.name} className={`step step-${rank}`} title={p.title}>
           <span className="step-name">{p.name}</span>
-          <span className="step-value">{formatNumber(p.effort)} <small>équiv.</small></span>
+          <span className="step-value">{p.value}</span>
           <span className="step-block">{rank}</span>
         </li>;})}</ol>
-        <p className="small muted">{podium[0].effort>0?`${podium[0].name} mène la semaine.`:'Personne n’a encore bougé cette semaine…'}{debtor.generated>0?` Lanterne rouge : ${debtor.name} avec ${debtor.generated} pompes générées.`:''}</p>
+        <p className="small muted">{podiumMode==='mmr'
+          ?<>{mmrPodium[0].mmr!=null?`${mmrPodium[0].name} a le meilleur MMR 2v2${mmrPodium[0].label?` (${mmrPodium[0].label})`:''}.`:'Aucun MMR 2v2 reçu pour l’instant.'} Dernier relevé Epic, indépendant de la semaine.</>
+          :<>{podium[0].effort>0?`${podium[0].name} mène la semaine.`:'Personne n’a encore bougé cette semaine…'}{debtor.generated>0?` Lanterne rouge : ${debtor.name} avec ${debtor.generated} pompes générées.`:''}</>}</p>
       </>}
     </section>
 

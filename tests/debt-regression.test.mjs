@@ -26,7 +26,7 @@ for(const activity of activities){
      assert.deepEqual(await response.json(),{ok:true});
      // Read through the real GET route, as the dashboard does after saving/reloading.
      const stateResponse=await f.readState();assert.equal(stateResponse.status,200);
-     assert.equal(stateResponse.headers.get('Cache-Control'),'no-store');
+     assert.equal(stateResponse.headers.get('Cache-Control'),'private, no-cache');
      const state=await stateResponse.json(),after=summarize(state.results,state.exercises,'')[1];
      assert.equal(after.remaining,expectedRemaining);
      assert.equal(after.done,before.done+equivalent);

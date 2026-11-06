@@ -132,6 +132,7 @@ for(const fails of [false,true]){
   const h=await harness(5),wait=deferred();
   try{
    h.network.delayNextState=wait;await action(()=>{for(const tick of h.intervals)tick();});
+   for(let i=0;i<20&&!wait.snapshot;i++)await action(()=>{});
    assert.ok(wait.snapshot);await h.setCount(20);await h.submit();assert.equal(h.debtText(),'0');
    await action(()=>{if(fails)wait.reject(Error('Ancienne requête interrompue.'));else wait.resolve(wait.snapshot);});
    assert.equal(h.debtText(),'0');assert.equal(h.root().findAllByProps({role:'alert'}).length,0);

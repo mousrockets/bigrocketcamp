@@ -4,7 +4,7 @@ const EMOJIS=['💪','🔥','😂'];
 export async function POST(request:Request){
  const user=await getChatGPTUser();if(!user)return Response.json({error:'Connexion requise.'},{status:401});
  if(request.headers.get('origin')!==new URL(request.url).origin)return Response.json({error:'Origine refusée.'},{status:403});
- const body=await request.json().catch(()=>null) as {exerciseId?:unknown;emoji?:unknown}|null;
+ const input=await request.text();const body=input.length>2000?null:(()=>{try{return JSON.parse(input);}catch{return null;}})() as {exerciseId?:unknown;emoji?:unknown}|null;
  const exerciseId=body?.exerciseId,emoji=body?.emoji;
  if(typeof exerciseId!=='string'||!/^[a-zA-Z0-9-]{16,80}$/.test(exerciseId)||typeof emoji!=='string'||!EMOJIS.includes(emoji))return Response.json({error:'Réaction invalide.'},{status:400});
  const db=env.DB!;
