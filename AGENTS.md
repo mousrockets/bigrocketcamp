@@ -10,12 +10,12 @@ Règles pour tout agent IA qui travaille sur ce dépôt. Elles valent aussi pour
 
 ## Langues
 
-- Anglais : code, noms, commentaires, commits, branches, titres de PR.
-- Français : issues, descriptions de PR, docs, et tes réponses.
+- Anglais : code, noms, commentaires, commits, branches.
+- Français : issues, PR (titre et description), docs, et tes réponses.
 
 ## Commandes
 
-- `npm install` : installe les dépendances.
+- `npm install` : installe les dépendances (Node 24, voir `.node-version`).
 - `npm run dev` : lance l'app et l'API sur http://127.0.0.1:10071.
 - `npm run check` : lint, types et tests. Doit passer avant toute PR.
 - `npm run fmt` : formate le code.
@@ -28,9 +28,10 @@ Règles pour tout agent IA qui travaille sur ce dépôt. Elles valent aussi pour
 3. Issue : contexte, résultat attendu, critères d'acceptation. Si tu ne peux pas créer l'issue, mets ces points dans la PR.
 4. Branche courte en anglais : `feat/…`, `fix/…`, `docs/…`, `refactor/…`, `chore/…`.
 5. Change le minimum utile. Un comportement nouveau arrive avec son test ; un bug corrigé, avec le test qui l'aurait détecté.
-6. PR : titre au format Conventional Commits (`fix: keep pushups after a reload`), description en français (quoi, pourquoi, comment vérifier) et `Closes #N`.
-7. La PR fusionne seule, en squash, quand la CI est verte. Le label `rebase` garde des commits volontairement atomiques.
-8. Fusion dans `main` = mise en production. Termine en résumant ce qui change pour l'utilisateur.
+6. Commits au format Conventional Commits (`fix: keep pushups after a reload`). Le premier commit de la PR donne son message au commit fusionné : il résume toute la PR.
+7. PR : titre et description en français (quoi, pourquoi, comment vérifier), et `Closes #N`.
+8. La PR fusionne seule, en squash, quand la CI est verte. Le label `rebase` garde des commits volontairement atomiques.
+9. Fusion dans `main` = mise en production. Termine en résumant ce qui change pour l'utilisateur.
 
 ## Stack
 

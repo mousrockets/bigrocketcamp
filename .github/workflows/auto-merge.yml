@@ -1,10 +1,12 @@
 # Every pull request merges by itself once the required checks pass.
 # Squash by default; the `rebase` label keeps deliberately atomic commits.
+# Pull requests are written in French and commits in English: the squashed commit
+# takes the message of the pull request's first commit, not its title.
 name: Auto-merge
 
 on:
   pull_request:
-    types: [opened, reopened, ready_for_review, labeled, unlabeled]
+    types: [opened, reopened, synchronize, ready_for_review, labeled, unlabeled]
 
 permissions:
   contents: write
@@ -20,6 +22,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.html_url }}
           METHOD: ${{ contains(github.event.pull_request.labels.*.name, 'rebase') && '--rebase' || '--squash' }}
+          NUMBER: ${{ github.event.pull_request.number }}
         run: |
+          message=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$NUMBER/commits" --jq '.[0].commit.message')
+          subject="$(printf '%s\n' "$message" | head -n 1) (#$NUMBER)"
+          body=$(printf '%s\n' "$message" | tail -n +3)
           gh pr merge --disable-auto "$PR" || true
-          gh pr merge --auto "$METHOD" "$PR"
+          if [ "$METHOD" = --squash ]; then
+            gh pr merge --auto --squash --subject "$subject" --body "$body" "$PR"
+          else
+            gh pr merge --auto --rebase "$PR"
+          fi
