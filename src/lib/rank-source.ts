@@ -1,5 +1,6 @@
 import { type Platform, readClubPlayers } from './club';
 import type { Database, Statement } from './db';
+import { parisDay } from './domain';
 import { projectMmrRankWrite } from './mmr-ledger';
 import { currentSeason } from './season';
 
@@ -175,20 +176,29 @@ interface LatestEntry {
   mmr: number;
   tier: number | null;
   division: number | null;
+  recordedAt: string;
 }
 
-const unchanged = (latest: LatestEntry | null, rank: ObservedRank) =>
-  latest !== null && latest.mmr === rank.mmr && latest.tier === rank.tier && latest.division === rank.division;
+/**
+ * Whether the reading only repeats the latest entry. A rating unchanged since an earlier day still gets an
+ * entry with its first reading of the day: the monthly challenge needs one from the month's last day.
+ */
+const repeats = (latest: LatestEntry | null, rank: ObservedRank) =>
+  latest !== null &&
+  latest.mmr === rank.mmr &&
+  latest.tier === rank.tier &&
+  latest.division === rank.division &&
+  parisDay(new Date(latest.recordedAt)) === parisDay(new Date(rank.observedAt));
 
 async function duoWrites(db: Database, rank: ObservedRank): Promise<{ writes: Statement[]; changed: boolean }> {
   const latest = await db
     .prepare(
-      'SELECT mmr, tier, division FROM mmr_entries WHERE player = ? ORDER BY recorded_at DESC, rowid DESC LIMIT 1',
+      'SELECT mmr, tier, division, recorded_at AS recordedAt FROM mmr_entries WHERE player = ? ORDER BY recorded_at DESC, rowid DESC LIMIT 1',
     )
     .bind(rank.player)
     .first<LatestEntry>();
   const writes: Statement[] = [];
-  const changed = !unchanged(latest, rank);
+  const changed = !repeats(latest, rank);
   if (changed) {
     const id = await entryId(rank);
     writes.push(
@@ -238,11 +248,11 @@ async function soloWrites(
   }
   const latest = await db
     .prepare(
-      'SELECT mmr, tier, division, player_id AS playerId FROM solo_mmr_entries WHERE player = ? ORDER BY recorded_at DESC, rowid DESC LIMIT 1',
+      'SELECT mmr, tier, division, recorded_at AS recordedAt, player_id AS playerId FROM solo_mmr_entries WHERE player = ? ORDER BY recorded_at DESC, rowid DESC LIMIT 1',
     )
     .bind(rank.player)
     .first<LatestEntry & { playerId: string }>();
-  const changed = !unchanged(latest, rank) || latest?.playerId !== rank.playerId;
+  const changed = !repeats(latest, rank) || latest?.playerId !== rank.playerId;
   if (changed) {
     writes.push(
       db
@@ -269,8 +279,8 @@ async function soloWrites(
 }
 
 /**
- * Keeps a new rating entry only when the rating changed, so the history stays short
- * (the monthly ranking reads all of it), and marks the rank as freshly read either way.
+ * Keeps a new rating entry when the rating changed, or with the first reading of the day, so the history stays
+ * short (a month's ranking reads all of the month), and marks the rank as freshly read either way.
  */
 export async function recordObservedRanks(
   db: Database,
