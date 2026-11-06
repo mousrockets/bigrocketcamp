@@ -232,7 +232,7 @@ function firstPlayer<T>(players: T[]): T {
 }
 
 describe('daily recap', () => {
-  test('matches, losses and the minimum of the whole match', () => {
+  test('matches, losses and the fewest points among the club players of a team', () => {
     const rows = [
       row('loss', first, 50),
       row('loss', second, 100),
@@ -287,7 +287,7 @@ describe('daily recap', () => {
     ]);
   });
 
-  test('a winning opponent with fewer points cancels the extra for our players', () => {
+  test('opponents never count: the club player with fewer points in the team pays', () => {
     const day = { day: '2026-11-05' };
     const rows = [
       row('m', first, 200, day),
@@ -297,57 +297,46 @@ describe('daily recap', () => {
     ];
     const recap = dailyRecap(roster, rows, '2026-11-05', complete(rows), enabledRule);
     expect(recap.players.slice(0, 2).map((p) => [p.lowest, p.bonus, p.generated])).toEqual([
-      [0, 0, 5],
+      [1, 5, 10],
       [0, 0, 5],
     ]);
     expect(
       summarize(roster, rows, [], '', complete(rows), enabledRule)
         .slice(0, 2)
         .map((p) => p.due),
-    ).toEqual([5, 5]);
+    ).toEqual([10, 5]);
   });
 
-  test('a loser alone in last place takes +5; a winner in last place pays nothing', () => {
-    const rows = [
-      row('m', first, 20, { day: '2026-11-05' }),
-      row('m', 'opponent', 100, { team: 1, day: '2026-11-05' }),
-    ];
-    const recap = dailyRecap(roster, rows, '2026-11-05', complete(rows), enabledRule);
+  test('a loser with the fewest points of the team takes +5; a winner pays nothing', () => {
+    const rows = [row('m', first, 20, { day: '2026-11-05' }), row('m', second, 100, { day: '2026-11-05' })];
+    const recap = dailyRecap(roster, rows, '2026-11-05', [], enabledRule);
     expect(firstPlayer(recap.players).generated).toBe(10);
     expect(firstPlayer(recap.players).bonus).toBe(5);
-    expect(firstPlayer(summarize(roster, rows, [], '', complete(rows), enabledRule)).due).toBe(10);
+    expect(firstPlayer(summarize(roster, rows, [], '', [], enabledRule)).due).toBe(10);
     const win = rows.map((r) => ({ ...r, winner: 0 }));
-    expect(firstPlayer(dailyRecap(roster, win, '2026-11-05', complete(win), enabledRule).players).generated).toBe(0);
+    expect(firstPlayer(dailyRecap(roster, win, '2026-11-05', [], enabledRule).players).generated).toBe(0);
   });
 
-  test('a tie with an opponent: no extra, or every tied loser pays', () => {
-    const rows = [row('m', first, 0, { day: '2026-11-05' }), row('m', 'opponent', 0, { team: 1, day: '2026-11-05' })];
-    const none = firstPlayer(dailyRecap(roster, rows, '2026-11-05', complete(rows), enabledRule).players);
-    const all = firstPlayer(
-      dailyRecap(roster, rows, '2026-11-05', complete(rows), { ...enabledRule, ties: 'all' }).players,
-    );
+  test('a tie between club players: no extra, or every tied loser pays', () => {
+    const rows = [row('m', first, 0, { day: '2026-11-05' }), row('m', second, 0, { day: '2026-11-05' })];
+    const none = firstPlayer(dailyRecap(roster, rows, '2026-11-05', [], enabledRule).players);
+    const all = firstPlayer(dailyRecap(roster, rows, '2026-11-05', [], { ...enabledRule, ties: 'all' }).players);
     expect([none.lowest, none.lowestTies, none.generated]).toEqual([1, 1, 5]);
     expect(all.generated).toBe(10);
   });
 
-  test('without a complete declared roster, no last place or extra is invented', () => {
-    const rows = [row('m', first, 0, { day: '2026-11-05' }), row('m', second, 100, { day: '2026-11-05' })];
-    for (const rosters of [[], [{ match_guid: 'm', expected_players: 4 }]]) {
-      const player = firstPlayer(dailyRecap(roster, rows, '2026-11-05', rosters, enabledRule).players);
+  test('a club player alone in their team is never compared, 1v1 included', () => {
+    const split = [row('m', first, 0, { day: '2026-11-05' }), row('m', second, 100, { team: 1, day: '2026-11-05' })];
+    const duel = [row('d', first, 0, { day: '2026-11-05' }), row('d', 'opponent', 100, { team: 1, day: '2026-11-05' })];
+    for (const rows of [split, duel]) {
+      const player = firstPlayer(dailyRecap(roster, rows, '2026-11-05', complete(rows), enabledRule).players);
       expect([player.lowest, player.compared, player.unranked, player.generated]).toEqual([0, 0, 1, 5]);
     }
   });
 
-  test('a 1v1 can be ranked when both players are known', () => {
-    const rows = [row('m', first, 0), row('m', 'opponent', 100, { team: 1 })];
-    const player = firstPlayer(dailyRecap(roster, rows, recapDay, complete(rows)).players);
-    expect(player.lowest).toBe(1);
-    expect(player.compared).toBe(1);
-  });
-
   test('the new penalty does not apply before its effective date', () => {
-    const rows = [row('m', first, 0), row('m', 'opponent', 100, { team: 1 })];
-    expect(firstPlayer(dailyRecap(roster, rows, recapDay, complete(rows), enabledRule).players).generated).toBe(5);
+    const rows = [row('m', first, 0), row('m', second, 100)];
+    expect(firstPlayer(dailyRecap(roster, rows, recapDay, [], enabledRule).players).generated).toBe(5);
   });
 
   test('empty day, invalid days and unknown players', () => {

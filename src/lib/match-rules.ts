@@ -23,8 +23,6 @@ export interface RosterSize {
 export interface IndexedMatch<Row extends MatchRow> {
   players: Map<string, Row>;
   complete: boolean;
-  minimum: number | null;
-  last: Row[];
 }
 
 export interface LastPlaceRule {
@@ -33,8 +31,8 @@ export interface LastPlaceRule {
   ties: 'none' | 'all';
 }
 
-// Only explicitly complete scoreboards can produce a last-place classification.
-export const lastPlaceRule: LastPlaceRule = { enabled: false, effectiveFrom: '2026-11-05', ties: 'none' };
+// On a defeat, the club player with the fewest points among the club players of their team does 5 more pushups.
+export const lastPlaceRule: LastPlaceRule = { enabled: true, effectiveFrom: '2026-11-06', ties: 'none' };
 
 const guid = (row: MatchRow | RosterSize) => row.match_guid ?? row.matchGuid;
 const identity = (row: MatchRow) => row.player_id ?? row.playerId ?? row.name;
@@ -50,7 +48,7 @@ export function matchIndex<Row extends MatchRow>(
     if (row.kind !== 'match' || row.review_required || typeof id !== 'string' || !id) continue;
     let match = matches.get(id);
     if (!match) {
-      match = { players: new Map(), complete: false, minimum: null, last: [] };
+      match = { players: new Map(), complete: false };
       matches.set(id, match);
     }
     const key = identity(row);
@@ -73,27 +71,43 @@ export function matchIndex<Row extends MatchRow>(
         (row) =>
           [0, 1].includes(row.team) && [0, 1].includes(row.winner) && Number.isSafeInteger(row.score) && row.score >= 0,
       );
-    match.minimum = match.complete ? Math.min(...players.map((row) => row.score)) : null;
-    match.last = match.complete ? players.filter((row) => row.score === match.minimum) : [];
   }
   return matches;
+}
+
+export interface TeamPlace {
+  /** At least two club players were in this player's team, so they can be compared. */
+  compared: boolean;
+  lowest: boolean;
+  tied: boolean;
+}
+
+/** Where a club player finished among the club players of their own team: opponents and strangers never count. */
+export function teamPlace<Row extends MatchRow>(
+  row: Row,
+  matches: Map<string, IndexedMatch<Row>>,
+  roster: readonly string[],
+): TeamPlace {
+  const id = guid(row);
+  const match = id === undefined ? undefined : matches.get(id);
+  const mates = match
+    ? [...match.players.values()].filter((player) => player.team === row.team && roster.includes(player.name))
+    : [];
+  if (mates.length < 2 || !roster.includes(row.name)) return { compared: false, lowest: false, tied: false };
+  const lowestScore = Math.min(...mates.map((player) => player.score));
+  const atLowest = mates.filter((player) => player.score === lowestScore).length;
+  return { compared: true, lowest: row.score === lowestScore, tied: row.score === lowestScore && atLowest > 1 };
 }
 
 export function lastPlaceBonus<Row extends MatchRow>(
   row: Row,
   matches: Map<string, IndexedMatch<Row>>,
+  roster: readonly string[],
   rule: LastPlaceRule = lastPlaceRule,
 ): number {
-  const id = guid(row);
-  const match = id === undefined ? undefined : matches.get(id);
-  return rule.enabled &&
-    row.day >= rule.effectiveFrom &&
-    row.team !== row.winner &&
-    match?.complete &&
-    row.score === match.minimum &&
-    (rule.ties === 'all' || match.last.length === 1)
-    ? 5
-    : 0;
+  if (!rule.enabled || row.day < rule.effectiveFrom || row.team === row.winner) return 0;
+  const place = teamPlace(row, matches, roster);
+  return place.lowest && (rule.ties === 'all' || !place.tied) ? 5 : 0;
 }
 
 export interface ReceivedRoster {

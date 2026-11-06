@@ -6,9 +6,10 @@ import {
   type MatchRow,
   matchIndex,
   type RosterSize,
+  teamPlace,
 } from './match-rules';
 
-export { lastPlaceRule } from './match-rules';
+export { lastPlaceBonus, lastPlaceRule, matchIndex } from './match-rules';
 
 export const parisDay = (date: Date = new Date()): string =>
   new Intl.DateTimeFormat('en-CA', {
@@ -185,7 +186,7 @@ export function summarize<Row extends MatchRow>(
     const all = rows.filter((row) => row.name === name && row.kind === 'match' && !row.review_required);
     const selected = all.filter((row) => !day || row.day === day);
     const due = all.reduce(
-      (sum, row) => sum + (row.team !== row.winner ? 5 : 0) + lastPlaceBonus(row, matches, rule),
+      (sum, row) => sum + (row.team !== row.winner ? 5 : 0) + lastPlaceBonus(row, matches, roster, rule),
       0,
     );
     const performed = exercises.filter((exercise) => exercise.player === name);
@@ -245,14 +246,13 @@ export function dailyRecap<Row extends MatchRow>(
       player.played++;
       if (row.team === row.winner) player.wins++;
       else player.losses++;
-      if (match.complete) {
+      const place = teamPlace(row, matches, roster);
+      if (place.compared) {
         player.compared++;
-        if (row.score === match.minimum) {
-          player.lowest++;
-          if (match.last.length > 1) player.lowestTies++;
-        }
+        if (place.lowest) player.lowest++;
+        if (place.tied) player.lowestTies++;
       }
-      player.bonus += lastPlaceBonus(row, matches, rule);
+      player.bonus += lastPlaceBonus(row, matches, roster, rule);
     }
   }
   for (const player of players) {

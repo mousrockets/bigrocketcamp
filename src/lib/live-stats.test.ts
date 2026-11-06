@@ -283,7 +283,8 @@ describe('live reception', () => {
     }
     let { merged, stats } = await mergedStats();
     expect(stats.map((s) => s.played)).toEqual([1, 1, 1]);
-    expect(stats.map((s) => s.remaining)).toEqual([5, 5, 5]);
+    // A defeat: 5 each, and 5 more for the club player with the fewest points of the team.
+    expect(stats.map((s) => s.remaining)).toEqual([10, 5, 5]);
     expect(merged.rosters.length).toBe(1);
     expect(await observationCount()).toBe(6);
 
