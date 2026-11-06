@@ -3,6 +3,7 @@ import { type Platform, platforms } from '../lib/club';
 import { apiFetch } from './api';
 import { Brand } from './brand';
 import { errorOf, platformLabels, useClub } from './club';
+import { CollectorSection } from './collectors';
 import { Button } from './components/ui/button';
 import { Input } from './components/ui/input';
 import { Label } from './components/ui/label';
@@ -144,11 +145,12 @@ export function Profile() {
           </p>
         )}
       </section>
+      {!firstVisit && <CollectorSection />}
       <section className="settings">
         <h2>Supprimer mon compte</h2>
         <p className="muted small">
-          Ton adresse e-mail, ton profil et tes connexions sont effacés, et tu ne peux plus te connecter. Tes matchs,
-          exercices et rangs restent dans l’historique du club, sous ton pseudo duo.
+          Ton adresse e-mail, ton profil, tes connexions et tes collecteurs sont effacés, et tu ne peux plus te
+          connecter. Tes matchs, exercices et rangs restent dans l’historique du club, sous ton pseudo duo.
         </p>
         {confirmingDeletion ? (
           <div className="settings-actions">

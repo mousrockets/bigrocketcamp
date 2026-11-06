@@ -146,10 +146,12 @@ export async function inviteMember(db: Database, email: string, role: unknown): 
   return asProfile(row);
 }
 
-/** Closes the member's sessions and pending code; their game records stay with their pseudo. */
+/** Closes the member's sessions, collectors and pending codes; their game records stay with their pseudo. */
 function forgetMember(db: Database, memberId: string) {
   return [
     db.prepare('DELETE FROM sessions WHERE member_id = ?').bind(memberId),
+    db.prepare('DELETE FROM collector_devices WHERE member_id = ?').bind(memberId),
+    db.prepare('DELETE FROM collector_pairing_codes WHERE member_id = ?').bind(memberId),
     db.prepare('DELETE FROM sign_in_codes WHERE email = (SELECT email FROM members WHERE id = ?)').bind(memberId),
     db.prepare('DELETE FROM members WHERE id = ?').bind(memberId),
   ];

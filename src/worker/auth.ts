@@ -8,7 +8,8 @@ export interface Member {
   role: Role;
 }
 
-export type AppEnv = { Bindings: Env; Variables: { member: Member } };
+/** `collector` names the paired collector device when the request carries its token instead of a session. */
+export type AppEnv = { Bindings: Env; Variables: { member: Member; collector?: string } };
 
 const sessionCookie = 'session';
 const day = 24 * 60 * 60 * 1000;
@@ -17,12 +18,12 @@ const codeLifetime = 10 * 60 * 1000;
 const codeResendDelay = 60 * 1000;
 const codeAttempts = 5;
 
-async function sha256(text: string): Promise<string> {
+export async function sha256(text: string): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
-function randomToken(): string {
+export function randomToken(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(32));
   return btoa(String.fromCharCode(...bytes))
     .replaceAll('+', '-')
