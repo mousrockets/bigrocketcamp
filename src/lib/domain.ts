@@ -1,8 +1,8 @@
 import type { Roster } from './club';
 import {
-  type LastPlaceRule,
+  defaultLastPlaceRules,
+  type LastPlaceRules,
   lastPlaceBonus,
-  lastPlaceRule,
   type MatchRow,
   matchIndex,
   type RosterSize,
@@ -10,7 +10,7 @@ import {
 } from './match-rules';
 import { parseOrThrow, says, z } from './validation';
 
-export { lastPlaceBonus, lastPlaceRule, matchIndex } from './match-rules';
+export { defaultLastPlaceRules, lastPlaceBonus, lastPlaceRuleOn, matchIndex } from './match-rules';
 
 export const parisDay = (date: Date = new Date()): string =>
   new Intl.DateTimeFormat('en-CA', {
@@ -202,14 +202,14 @@ export function summarize<Row extends MatchRow>(
   exercises: StoredExercise[],
   day: string,
   rosters: RosterSize[] = [],
-  rule: LastPlaceRule = lastPlaceRule,
+  rules: LastPlaceRules = defaultLastPlaceRules,
 ) {
   const matches = matchIndex(rows, rosters);
   return roster.map((name) => {
     const all = rows.filter((row) => row.name === name && row.kind === 'match' && !row.review_required);
     const selected = all.filter((row) => !day || row.day === day);
     const due = all.reduce(
-      (sum, row) => sum + (row.team !== row.winner ? 5 : 0) + lastPlaceBonus(row, matches, roster, rule),
+      (sum, row) => sum + (row.team !== row.winner ? 5 : 0) + lastPlaceBonus(row, matches, roster, rules),
       0,
     );
     const performed = exercises.filter((exercise) => exercise.player === name);
@@ -238,7 +238,7 @@ export function dailyRecap<Row extends MatchRow>(
   rows: Row[],
   day: string,
   rosters: RosterSize[] = [],
-  rule: LastPlaceRule = lastPlaceRule,
+  rules: LastPlaceRules = defaultLastPlaceRules,
 ) {
   if (!validDay(day)) throw new Error('Date du récap invalide.');
   const players = roster.map((name) => ({
@@ -275,7 +275,7 @@ export function dailyRecap<Row extends MatchRow>(
         if (place.lowest) player.lowest++;
         if (place.tied) player.lowestTies++;
       }
-      player.bonus += lastPlaceBonus(row, matches, roster, rule);
+      player.bonus += lastPlaceBonus(row, matches, roster, rules);
     }
   }
   for (const player of players) {

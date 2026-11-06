@@ -4,7 +4,7 @@ import { type AppEnv, requireAdmin, requireMember } from './auth';
 import { requireMemberOrCollector } from './collectors';
 import { noStore } from './respond';
 import { authRoutes } from './routes/auth';
-import { clubNameRoutes, clubRoutes } from './routes/club';
+import { clubLogoRoutes, clubNameRoutes, clubRoutes, clubRuleRoutes } from './routes/club';
 import { collectorDeviceRoutes, collectorRoutes } from './routes/collector';
 import { exerciseRoutes, reactionRoutes } from './routes/exercises';
 import { identityRoutes } from './routes/identities';
@@ -34,6 +34,8 @@ app.get('/health', (c) =>
 app.route('/auth', authRoutes);
 app.route('/ranks', rankRoutes);
 app.route('/club/name', clubNameRoutes);
+// Anyone reads the logo; changing it checks the member inside its routes.
+app.route('/club/logo', clubLogoRoutes);
 // The Windows collector pairs with a code and then sends its own token: no session.
 app.route('/collector', collectorRoutes);
 
@@ -45,6 +47,7 @@ app.use('/identities', requireMember);
 app.use('/live', requireMemberOrCollector);
 app.use('/monthly', requireMember);
 app.use('/club', requireMember);
+app.use('/club/rules', requireMember);
 app.use('/profile', requireMember);
 app.use('/collectors', requireMember);
 app.use('/members', requireMember, requireAdmin);
@@ -55,6 +58,7 @@ app.route('/reaction', reactionRoutes);
 app.route('/identities', identityRoutes);
 app.route('/live', liveRoutes);
 app.route('/monthly', monthlyRoutes);
+app.route('/club/rules', clubRuleRoutes);
 app.route('/club', clubRoutes);
 app.route('/profile', profileRoutes);
 app.route('/collectors', collectorDeviceRoutes);

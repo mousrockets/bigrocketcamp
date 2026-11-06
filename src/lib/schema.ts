@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { check, index, integer, primaryKey, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { blob, check, index, integer, primaryKey, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
 // The database, as Drizzle reads it and as drizzle-kit generates its migrations from (npm run db:generate).
 // Migrations 0000 to 0016 were written before this file; the next ones come from the difference with it.
@@ -43,6 +43,38 @@ export const clubSettings = sqliteTable(
     name: text('name').notNull(),
   },
   (table) => [check('club_settings_single_row', sql`${table.id} = 1`)],
+);
+
+/** The club's logo, a small square the browser resized before sending it; `version` names this image in its URL. */
+export const clubLogo = sqliteTable(
+  'club_logo',
+  {
+    id: integer('id').primaryKey(),
+    image: blob('image', { mode: 'buffer' }).notNull(),
+    contentType: text('content_type', { enum: ['image/webp', 'image/jpeg', 'image/png'] }).notNull(),
+    version: text('version').notNull(),
+    updatedAt: text('updated_at').notNull().default(isoNow),
+  },
+  (table) => [
+    check('club_logo_single_row', sql`${table.id} = 1`),
+    check('club_logo_content_type', sql`${table.contentType} IN ('image/webp', 'image/jpeg', 'image/png')`),
+  ],
+);
+
+/**
+ * The +5 for the club player with the fewest points of a losing team, as it changed over time. Each row applies
+ * from its day until the next row's; before the first one there is no +5. Rows in the past never change (triggers).
+ */
+export const lastPlaceRules = sqliteTable(
+  'last_place_rules',
+  {
+    effectiveFrom: text('effective_from').primaryKey(),
+    enabled: integer('enabled', { mode: 'boolean' }).notNull(),
+    ties: text('ties', { enum: ['none', 'all'] })
+      .notNull()
+      .default('none'),
+  },
+  (table) => [check('last_place_rules_ties', sql`${table.ties} IN ('none', 'all')`)],
 );
 
 /** Only a hash of the code is stored. Times in milliseconds. */

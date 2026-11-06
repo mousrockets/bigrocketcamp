@@ -1,5 +1,11 @@
 import { expect, test } from 'vitest';
-import { lastPlaceBonus, lastPlaceRule, matchIndex, validateMatchRosters } from './match-rules';
+import {
+  defaultLastPlaceRules,
+  lastPlaceBonus,
+  lastPlaceRuleOn,
+  matchIndex,
+  validateMatchRosters,
+} from './match-rules';
 
 const day = '2026-11-05';
 const scoreboard = [
@@ -8,7 +14,7 @@ const scoreboard = [
 ];
 
 test('on a defeat, the club player with the fewest points of their team pays 5 more', () => {
-  expect(lastPlaceRule.enabled).toBe(true);
+  expect(lastPlaceRuleOn(defaultLastPlaceRules, '2026-11-06').enabled).toBe(true);
   const day = '2026-11-06';
   const rows = [
     { name: 'alice', score: 300, team: 0 },
@@ -29,8 +35,22 @@ test('on a defeat, the club player with the fewest points of their team pays 5 m
   if (!alice || !bob) throw new Error('expected two club players');
   expect(lastPlaceBonus(bob, matches, roster)).toBe(5);
   expect(lastPlaceBonus(alice, matches, roster)).toBe(0);
-  expect(lastPlaceBonus(bob, matches, roster, { ...lastPlaceRule, enabled: false })).toBe(0);
+  expect(lastPlaceBonus(bob, matches, roster, [{ effectiveFrom: '2026-11-06', enabled: false, ties: 'none' }])).toBe(0);
   expect(lastPlaceBonus(bob, matches, ['bob'])).toBe(0);
+});
+
+test('a match counts with the rule of its own day: the latest change on or before it', () => {
+  const rules = [
+    { effectiveFrom: '2026-11-10', enabled: false, ties: 'none' as const },
+    { effectiveFrom: '2026-11-06', enabled: true, ties: 'none' as const },
+    { effectiveFrom: '2026-11-20', enabled: true, ties: 'all' as const },
+  ];
+  expect(lastPlaceRuleOn(rules, '2026-11-05').enabled).toBe(false);
+  expect(lastPlaceRuleOn(rules, '2026-11-06').enabled).toBe(true);
+  expect(lastPlaceRuleOn(rules, '2026-11-09').enabled).toBe(true);
+  expect(lastPlaceRuleOn(rules, '2026-11-10').enabled).toBe(false);
+  expect(lastPlaceRuleOn(rules, '2026-11-25')).toMatchObject({ enabled: true, ties: 'all' });
+  expect(lastPlaceRuleOn([], '2026-11-25').enabled).toBe(false);
 });
 
 test('declared rosters must match a coherent scoreboard', () => {

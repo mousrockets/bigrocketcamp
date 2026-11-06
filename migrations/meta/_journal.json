@@ -148,6 +148,13 @@
       "when": 1794008703098,
       "tag": "0020_collector_ranked_match",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "6",
+      "when": 1794009205825,
+      "tag": "0021_club_logo_and_rules",
+      "breakpoints": true
     }
   ]
 }

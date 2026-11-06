@@ -27,14 +27,29 @@ export interface IndexedMatch<Row extends MatchRow> {
   expected: number | null;
 }
 
+/** The +5 as it applies from `effectiveFrom` (a day in Paris) until the next change. */
 export interface LastPlaceRule {
   enabled: boolean;
   effectiveFrom: string;
   ties: 'none' | 'all';
 }
 
+/** Every change of the +5, oldest first: a match counts with the rule of its own day, never a later one. */
+export type LastPlaceRules = readonly LastPlaceRule[];
+
 // On a defeat, the club player with the fewest points among the club players of their team does 5 more pushups.
-export const lastPlaceRule: LastPlaceRule = { enabled: true, effectiveFrom: '2026-11-06', ties: 'none' };
+// The club changes it in its settings; until the API says otherwise (an older API, an empty board), this applies.
+export const defaultLastPlaceRules: LastPlaceRules = [{ enabled: true, effectiveFrom: '2026-11-06', ties: 'none' }];
+
+const noLastPlace: LastPlaceRule = { enabled: false, effectiveFrom: '', ties: 'none' };
+
+/** The rule in force on a day: the latest change made effective on or before it. */
+export function lastPlaceRuleOn(rules: LastPlaceRules, day: string): LastPlaceRule {
+  return rules.reduce(
+    (current, rule) => (rule.effectiveFrom <= day && rule.effectiveFrom >= current.effectiveFrom ? rule : current),
+    noLastPlace,
+  );
+}
 
 const guid = (row: MatchRow | RosterSize) => row.match_guid ?? row.matchGuid;
 const identity = (row: MatchRow) => row.player_id ?? row.playerId ?? row.name;
@@ -106,9 +121,10 @@ export function lastPlaceBonus<Row extends MatchRow>(
   row: Row,
   matches: Map<string, IndexedMatch<Row>>,
   roster: readonly string[],
-  rule: LastPlaceRule = lastPlaceRule,
+  rules: LastPlaceRules = defaultLastPlaceRules,
 ): number {
-  if (!rule.enabled || row.day < rule.effectiveFrom || row.team === row.winner) return 0;
+  const rule = lastPlaceRuleOn(rules, row.day);
+  if (!rule.enabled || row.team === row.winner) return 0;
   const place = teamPlace(row, matches, roster);
   return place.lowest && (rule.ties === 'all' || !place.tied) ? 5 : 0;
 }

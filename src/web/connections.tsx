@@ -3,11 +3,11 @@ import { apiFetch } from './api';
 import { Brand } from './brand';
 
 type Alias = { playerId: string; primary: boolean };
-type Identity = { slot: string; known: boolean; owned: boolean; aliases: Alias[] };
+export type Identity = { slot: string; known: boolean; owned: boolean; aliases: Alias[] };
 type Candidate = { playerId: string; name: string; day: string };
 
 // "platform|id": the platform and the end of the id are enough to recognise one's own account.
-function shortId(id: string) {
+export function shortId(id: string) {
   const [platform = '', accountId = ''] = id.split('|');
   return `${platform} · …${accountId.slice(-6)}`;
 }
@@ -91,7 +91,11 @@ export function Connections() {
           <article className="card" key={identity.slot}>
             <h2>{identity.slot}</h2>
             <p>
-              {identity.known ? 'Identité de jeu enregistrée' : 'Identité à associer avec l’administrateur du club'}
+              {identity.known
+                ? 'Identité de jeu enregistrée'
+                : identity.owned
+                  ? 'Pas encore d’identité de jeu : choisis ton joueur dans un tableau reçu.'
+                  : 'Identité à associer avec l’administrateur du club'}
             </p>
             {identity.owned && <p className="small muted">Ton joueur sur ce compte</p>}
             <ul>

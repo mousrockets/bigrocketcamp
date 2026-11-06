@@ -32,6 +32,11 @@ export const clubName = z.object({
     .pipe(z.string().regex(/^[^\p{C}]{2,60}$/u, says(invalidClubName))),
 });
 
+export const invalidRuleChange = 'Règle des défis invalide.';
+export const ruleChange = z.object({
+  lastPlace: z.object({ enabled: z.boolean(says(invalidRuleChange)) }, says(invalidRuleChange)),
+});
+
 const codeAlphabet = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 export const invalidPairingCode = 'Le code d’association fait 8 caractères.';
 /** The pairing code as typed: case, spaces and dashes do not matter. */

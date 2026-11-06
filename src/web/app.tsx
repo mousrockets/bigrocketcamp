@@ -1,7 +1,15 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { isSignInRequired, subscribeToSignInRequired } from './api';
 import { Brand } from './brand';
-import { type Club, ClubContext, ClubNameContext, fetchClub, fetchClubName } from './club';
+import {
+  type Club,
+  ClubContext,
+  type ClubIdentity,
+  ClubLogoContext,
+  ClubNameContext,
+  fetchClub,
+  fetchClubIdentity,
+} from './club';
 import { Connections } from './connections';
 import { Dashboard } from './dashboard';
 import { Direct } from './direct';
@@ -54,7 +62,7 @@ function Page({ path }: { path: string }) {
 export function App() {
   const signInRequired = useSyncExternalStore(subscribeToSignInRequired, isSignInRequired);
   const [club, setClub] = useState<Club | null>(null);
-  const [name, setName] = useState('');
+  const [identity, setIdentity] = useState<ClubIdentity>({ name: '', logo: null });
   const [failed, setFailed] = useState(false);
   // "/direct/" and "/direct" are the same page.
   const path = location.pathname.replace(/\/+$/, '') || '/';
@@ -87,10 +95,10 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    if (signInRequired) fetchClubName().then(setName);
+    if (signInRequired) fetchClubIdentity().then(setIdentity);
   }, [signInRequired]);
 
-  const clubName = club?.name ?? name;
+  const clubName = club?.name ?? identity.name;
   useEffect(() => {
     if (!clubName) return;
     document.title = `${clubName} · Le club`;
@@ -106,8 +114,10 @@ export function App() {
 
   if (signInRequired) {
     return (
-      <ClubNameContext value={name}>
-        <SignIn />
+      <ClubNameContext value={identity.name}>
+        <ClubLogoContext value={identity.logo}>
+          <SignIn />
+        </ClubLogoContext>
       </ClubNameContext>
     );
   }
@@ -115,9 +125,11 @@ export function App() {
   if (!club || mustFillProfile) return null;
   return (
     <ClubNameContext value={club.name}>
-      <ClubContext value={club}>
-        <Page path={path} />
-      </ClubContext>
+      <ClubLogoContext value={club.logo}>
+        <ClubContext value={club}>
+          <Page path={path} />
+        </ClubContext>
+      </ClubLogoContext>
     </ClubNameContext>
   );
 }

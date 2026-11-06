@@ -4,13 +4,14 @@ import type { Roster } from '../lib/club';
 import { defeatMessage } from '../lib/defeat-message';
 import {
   dailyRecap,
+  defaultLastPlaceRules,
   exerciseDescription,
   exerciseEffect,
   exerciseReceipt,
   exerciseTypes,
   formatNumber,
   lastPlaceBonus,
-  lastPlaceRule,
+  lastPlaceRuleOn,
   matchIndex,
   parisDay,
   pushupCredit,
@@ -18,6 +19,7 @@ import {
   validateExercise,
 } from '../lib/domain';
 import { matchHistory } from '../lib/match-history';
+import type { LastPlaceRules } from '../lib/match-rules';
 import { currentSeason, seasonEndLabel, seasonTiming } from '../lib/season';
 import { versionLabel } from '../lib/version';
 import { apiFetch, signOut } from './api';
@@ -93,7 +95,11 @@ type State = {
   me?: string | null;
   monthly?: MonthlyState;
   rankSource?: { lastReadAt: string | null; stale: boolean } | null;
+  rules?: { lastPlace: LastPlaceRules };
 };
+
+/** The +5 as the club set it over time; a board from an older API has none, the default applies. */
+const lastPlaceRulesOf = (state: State | null): LastPlaceRules => state?.rules?.lastPlace ?? defaultLastPlaceRules;
 type CheerKind = 'cheer' | 'finish' | 'badge' | 'loss';
 type ConfettiPiece = { key: string; style: CSSProperties };
 type Cheer = { id: number; text: string; kind: CheerKind; pieces: ConfettiPiece[] };
@@ -246,7 +252,14 @@ function takeDraft(roster: Roster): Draft | null {
 const idleBeforeReload = 30_000;
 
 function summarizeStats(roster: Roster, state: State, day: string) {
-  return summarize(roster, state.results, state.exercises, day, state.matchRosters || []) as PlayerStats[];
+  return summarize(
+    roster,
+    state.results,
+    state.exercises,
+    day,
+    state.matchRosters || [],
+    lastPlaceRulesOf(state),
+  ) as PlayerStats[];
 }
 
 // Generated in the browser: no audio files to host or license.
@@ -849,7 +862,10 @@ export function Dashboard() {
       const fresh = losses.filter((_, index) => !seen.has(keys[index] ?? ''));
       if (fresh.length) {
         const matches = matchIndex(data.results, data.matchRosters || []);
-        const defeats = fresh.map((r) => ({ player: r.name, pushups: 5 + lastPlaceBonus(r, matches, roster) }));
+        const defeats = fresh.map((r) => ({
+          player: r.name,
+          pushups: 5 + lastPlaceBonus(r, matches, roster, lastPlaceRulesOf(data)),
+        }));
         celebrate('loss', defeatMessage(defeats));
       }
     }
@@ -1029,7 +1045,9 @@ export function Dashboard() {
     data?.results.filter((r) => roster.includes(r.name) && (!day || r.day === day) && (test || r.kind === 'match')) ||
     [];
   const indexedMatches = data ? matchIndex(data.results, data.matchRosters || []) : new Map();
-  const history = data ? matchHistory(rows, data.results, indexedMatches, roster) : [];
+  const lastPlaceRules = lastPlaceRulesOf(data);
+  const lastPlaceRule = lastPlaceRuleOn(lastPlaceRules, today);
+  const history = data ? matchHistory(rows, data.results, indexedMatches, roster, lastPlaceRules) : [];
   const exercises = data?.exercises.filter((e) => !day || e.day === day) || [];
   const draft = pending || { type, count: type === 'plank' ? count * 60 : count };
   const selected = stats.find((p) => p.name === (pending?.player || player));
@@ -1048,7 +1066,8 @@ export function Dashboard() {
     setCount((current) => Math.min(limit, (Number.isFinite(current) ? current : 0) + amount));
   }
   const recapDay = day || today;
-  const recap = data ? dailyRecap(roster, data.results, recapDay, data.matchRosters || []) : null;
+  const recapRule = lastPlaceRuleOn(lastPlaceRules, recapDay);
+  const recap = data ? dailyRecap(roster, data.results, recapDay, data.matchRosters || [], lastPlaceRules) : null;
   const recapLabel = new Intl.DateTimeFormat('fr-FR', {
     timeZone: 'Europe/Paris',
     day: 'numeric',
@@ -1062,7 +1081,9 @@ export function Dashboard() {
   const monday = weekStart(today);
   const weekLength = (Date.parse(`${today}T12:00:00Z`) - Date.parse(`${monday}T12:00:00Z`)) / 86400000 + 1;
   const weekDays = Array.from({ length: weekLength }, (_, index) => shiftDay(monday, index));
-  const weekRecaps = data ? weekDays.map((d) => dailyRecap(roster, data.results, d, data.matchRosters || [])) : [];
+  const weekRecaps = data
+    ? weekDays.map((d) => dailyRecap(roster, data.results, d, data.matchRosters || [], lastPlaceRules))
+    : [];
   const weekly = roster.map((name) => ({
     name,
     effort: (data?.exercises || [])
@@ -1637,9 +1658,9 @@ export function Dashboard() {
         <p className="small muted">
           * Comparaison entre les joueurs du club d’une même équipe, quand ils sont au moins deux. Les égalités sont
           indiquées.{' '}
-          {lastPlaceRule.enabled
-            ? `Une défaite vaut 5 pompes, avec 5 de plus pour celui du club qui a le moins de points dans l’équipe${lastPlaceRule.ties === 'none' ? ', sauf égalité' : ''}.`
-            : 'Le supplément dernier aux points reste désactivé.'}
+          {recapRule.enabled
+            ? `Une défaite vaut 5 pompes, avec 5 de plus pour celui du club qui a le moins de points dans l’équipe${recapRule.ties === 'none' ? ', sauf égalité' : ''}.`
+            : 'Ce jour-là, une défaite vaut 5 pompes, sans supplément pour le dernier aux points.'}
         </p>
       </section>
 

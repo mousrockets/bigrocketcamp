@@ -58,7 +58,7 @@ describe('the club', () => {
   test('before signing in, only its name is public', async () => {
     const response = await call('/api/club/name', null);
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ name: 'Le Club Fictif' });
+    expect(await response.json()).toEqual({ name: 'Le Club Fictif', logo: null });
     expect((await call('/api/club', null)).status).toBe(401);
   });
 
@@ -77,7 +77,7 @@ describe('the club', () => {
     expect((await call('/api/club', member, 'PUT', { name: 'Autre nom' })).status).toBe(403);
     expect((await call('/api/club', admin, 'PUT', { name: ' ' })).status).toBe(400);
     expect((await call('/api/club', admin, 'PUT', { name: '  Les   Nouveaux ' })).status).toBe(200);
-    expect(await (await call('/api/club/name', null)).json()).toEqual({ name: 'Les Nouveaux' });
+    expect(await (await call('/api/club/name', null)).json()).toMatchObject({ name: 'Les Nouveaux' });
   });
 });
 
