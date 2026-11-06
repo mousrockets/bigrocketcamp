@@ -15,7 +15,7 @@ Règles pour tout agent IA qui travaille sur ce dépôt. Elles valent aussi pour
 
 ## Commandes
 
-- `npm install` : installe les dépendances (Node 24, voir `.node-version`).
+- `npm install` : installe les dépendances (Node, voir `.node-version`).
 - `npm run dev` : lance l'app et l'API sur http://127.0.0.1:10071.
 - `npm run check` : lint, types et tests. Doit passer avant toute PR.
 - `npm run fmt` : formate le code.
@@ -40,6 +40,7 @@ Règles pour tout agent IA qui travaille sur ce dépôt. Elles valent aussi pour
 - API : Hono sur un Worker Cloudflare, dans `src/worker`. App web : React et Vite, dans `src/web`.
 - Interface : uniquement des composants shadcn (Base UI) de `src/web/components/ui`, adaptés au style du projet. Un composant du projet se construit à partir d'eux. Pour en ajouter un : `npx shadcn@latest add <nom>`.
 - Tout élément cliquable affiche un curseur en forme de main (règle globale de `src/web/styles.css`).
+- Toujours les versions les plus récentes possibles : voir « Mises à jour » dans `docs/deploiement.md`.
 
 ## Validation d'un mainteneur
 
