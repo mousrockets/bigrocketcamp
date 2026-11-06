@@ -149,6 +149,7 @@ function DoublesRankPanel({player,rank}:{player:string;rank?:DoublesRank}){
     {rank?.status==='unavailable'&&<p className="rank-meta">Actualisation du classement indisponible.</p>}
     {rank?.status==='frozen'&&<p className="rank-meta">Dernier MMR conservé · connexion Epic retirée.</p>}
     {rank?.status==='manual'&&<p className="rank-meta">MMR déclaré par le joueur · sans connexion Epic.</p>}
+    {rank?.status==='public'&&<p className="rank-meta">MMR du profil public RLStats.net.</p>}
   </div>;
 }
 
@@ -474,7 +475,7 @@ export default function Dashboard(){
   }));
   const podium=[...weekly].sort((a,b)=>b.effort-a.effort);
   const debtor=[...weekly].sort((a,b)=>b.generated-a.generated)[0];
-  const mmrPodium=roster.map(name=>{const r=data?.monthly?.current.rows.find(x=>x.player===name);return {name,mmr:r?.mmr??null,label:'MMR déclaré ce mois'};}).sort((a,b)=>(b.mmr??-1)-(a.mmr??-1));
+  const mmrPodium=roster.map(name=>{const r=data?.monthly?.current.rows.find(x=>x.player===name);return {name,mmr:r?.mmr??null,label:'MMR 2v2 de ce mois'};}).sort((a,b)=>(b.mmr??-1)-(a.mmr??-1));
   const podiumRows=podiumMode==='mmr'
     ?mmrPodium.map(p=>({name:p.name,title:p.label,value:p.mmr!=null?<>{formatNumber(p.mmr)} <small>MMR</small></>:<small>MMR non reçu</small>}))
     :podium.map(p=>({name:p.name,title:'',value:<>{formatNumber(p.effort)} <small>équiv.</small></>}));
@@ -615,7 +616,7 @@ export default function Dashboard(){
           <span className="step-block">{rank}</span>
         </li>;})}</ol>}
         <p className="small muted">{podiumMode==='mmr'
-          ?<>{mmrPodium[0].mmr!=null?`${mmrPodium[0].name} a le meilleur MMR 2v2 déclaré ce mois.`:'Les MMR du mois restent à renseigner.'} Classement provisoire ; les boissons sont attribuées seulement après clôture. <a href="#monthly-mmr">Voir le défi du mois</a>.</>
+          ?<>{mmrPodium[0].mmr!=null?`${mmrPodium[0].name} a le meilleur MMR 2v2 reçu ce mois.`:'Les MMR du mois restent à renseigner.'} Classement provisoire ; les boissons sont attribuées seulement après clôture. <a href="#monthly-mmr">Voir le défi du mois</a>.</>
           :<>{podium[0].effort>0?`${podium[0].name} mène la semaine.`:'Personne n’a encore bougé cette semaine…'}{debtor.generated>0?` Lanterne rouge : ${debtor.name} avec ${debtor.generated} pompes générées.`:''}</>}</p>
       </>}
     </section>

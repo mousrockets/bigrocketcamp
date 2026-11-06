@@ -4,6 +4,7 @@ import {fixture,loadRoute} from './helpers/exercise-fixture.mjs';
 import {roster,parisDay} from '../lib/domain.mjs';
 import {monthBounds,monthlyRanking,recordMmr,closeMonthlyMmr,readMonthlyMmr,settleDrink,validateMmrEntry} from '../lib/monthly-mmr.mjs';
 import {readDoublesRanks} from '../lib/doubles-ranks.mjs';
+import {syncPublicMmr} from '../lib/public-ranks.mjs';
 import {connectionStatus,syncHistories,recapState} from '../lib/epic-sync.mjs';
 
 const finalDay='2026-11-30T21:00:00.000Z',closure=Date.parse('2026-11-30T23:05:00Z');
@@ -89,13 +90,13 @@ test('Boisson offerte : seuls les deux concernés, idempotence et annulation par
  }finally{f.db.close();}
 });
 test('Routes et MCP : authentification, origine, limite de taille, clôture sans date forcée et sans réseau Epic',async()=>{
- const f=await fixture({legacy:false});const original=globalThis.fetch;let external=0;globalThis.fetch=async()=>{external++;throw Error('Unexpected network');};
+ const f=await fixture({legacy:false});const original=globalThis.fetch;let external=0;globalThis.fetch=async url=>{assert.ok(String(url).startsWith('https://rlstats.net/profile/'));external++;throw Error('Public provider unavailable');};
  try{owners(f);assert.equal((await f.monthly({action:'record',...input()},'https://other.example')).status,403);assert.equal((await f.monthly({action:'record',padding:'x'.repeat(4000)})).status,413);
   f.actor.user=null;assert.equal((await f.readMonthly()).status,401);assert.equal((await f.monthly({action:'refresh'})).status,401);f.actor.user={userId:'current-user'};
-  const route=await loadRoute('../../app/mcp/route.ts',{env:f.env,getChatGPTUser:async()=>f.actor.user,connectionStatus,syncHistories,recapState,parisDay,readMonthlyMmr,closeMonthlyMmr});
+  const route=await loadRoute('../../app/mcp/route.ts',{env:f.env,getChatGPTUser:async()=>f.actor.user,connectionStatus,syncHistories,recapState,parisDay,readMonthlyMmr,closeMonthlyMmr,syncPublicMmr});
   const call=async(name,args={})=>(await (await route.POST(new Request('https://rl.example/mcp',{method:'POST',body:JSON.stringify({jsonrpc:'2.0',id:1,method:'tools/call',params:{name,arguments:args}})}))).json()).result;
   const read=JSON.parse((await call('get_monthly_mmr')).content[0].text);assert.equal(read.allowedPlayers[0],roster[0]);
-  const close=JSON.parse((await call('close_monthly_mmr',{now:'2099-01-01',month:'2098-12'})).content[0].text);assert.equal(close.month,parisDay().slice(0,7));assert.equal(close.ok,true);assert.equal(external,0);
+  const close=JSON.parse((await call('close_monthly_mmr',{now:'2099-01-01',month:'2098-12'})).content[0].text);assert.equal(close.month,parisDay().slice(0,7));assert.equal(close.ok,true);assert.equal(external,3);assert.equal(close.publicMmr.status,'unavailable');
   f.actor.user=null;assert.equal((await call('get_monthly_mmr')),undefined);
  }finally{globalThis.fetch=original;f.db.close();}
 });

@@ -6,16 +6,21 @@ import {fixture} from './helpers/exercise-fixture.mjs';
 import {MonthlyMmr} from './helpers/react-component.mjs';
 import {closeMonthlyMmr} from '../lib/monthly-mmr.mjs';
 import {roster} from '../lib/domain.mjs';
+import {publicProfiles} from '../lib/public-ranks.mjs';
+import {publicProfileHtml} from './helpers/public-profile.mjs';
 const content=node=>typeof node==='string'?node:node.children?.map(content).join('')||'';
 
-async function harness({owned=true,history=false}={}){
+async function harness({owned=true,history=false,publicReadings=false}={}){
  const f=await fixture({legacy:false}),storage=new Map(),saved=new Map(),inFlight=new Set(),intervals=new Set(),network={records:[],failAfterSave:false};let renderer;
  if(owned)f.db.prepare('INSERT INTO player_identities (slot,owner,player_id) VALUES (?,?,?)').run(roster[0],'current-user','Epic|synthetic-own|0');
+ if(publicReadings)for(const [i,p] of roster.slice(1).entries())f.db.prepare('INSERT INTO player_identities (slot,owner,player_id) VALUES (?,?,?)').run(p,`other-member-${i}`,`Epic|private-synthetic-${i}|0`);
  if(history){f.db.exec("UPDATE monthly_mmr_policy SET starts_month='2026-10'");for(const [i,p] of roster.entries())f.db.prepare('INSERT INTO mmr_entries (id,player,mmr,author,recorded_at) VALUES (?,?,?,?,?)').run(crypto.randomUUID(),p,1000+i*100,'synthetic','2026-10-31T21:00:00.000Z');await closeMonthlyMmr(f.env.DB,Date.parse('2026-10-31T23:05:00Z'));}
  const override=(name,value)=>{saved.set(name,Object.getOwnPropertyDescriptor(globalThis,name));Object.defineProperty(globalThis,name,{value,writable:true,configurable:true});};
  override('IS_REACT_ACT_ENVIRONMENT',true);override('localStorage',{getItem:key=>storage.get(key)||null,setItem:(key,value)=>storage.set(key,value),removeItem:key=>storage.delete(key)});
  override('setInterval',fn=>{intervals.add(fn);return fn;});override('clearInterval',fn=>intervals.delete(fn));
- override('fetch',(url,options)=>{assert.equal(url,'/api/monthly');const body=JSON.parse(options.body);if(body.action==='record')network.records.push(body);
+ override('fetch',(url,options)=>{
+  if(String(url).startsWith('https://rlstats.net/')){const p=publicProfiles.find(p=>p.url===url);assert.ok(p);const d=new Date(),month=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getUTCMonth()],stamp=`${month}/${d.getUTCDate()}/${d.getUTCFullYear()} ${d.toISOString().slice(11,19)} GMT`;return Promise.resolve(new Response(publicProfileHtml(p,{mmr:1500-publicProfiles.indexOf(p)*100,stamp}),{headers:{'content-type':'text/html'}}));}
+  assert.equal(url,'/api/monthly');const body=JSON.parse(options.body);if(body.action==='record')network.records.push(body);
   const run=(async()=>{const response=await f.monthly(body);if(body.action==='record'&&network.failAfterSave){network.failAfterSave=false;throw Error('Connexion interrompue après enregistrement.');}return response;})();
   inFlight.add(run);run.then(()=>inFlight.delete(run),()=>inFlight.delete(run));return run;
  });
@@ -53,5 +58,13 @@ test('Historique réel : une boisson à chaque autre joueur, marquer offerte pui
 });
 test('Sans identité associée : expliquer la connexion locale, aucun formulaire pour modifier autrui',async()=>{
  const h=await harness({owned:false});try{assert.equal(h.root().findAllByType('form').length,0);assert.match(content(h.root()),/ton identité de joueur/);assert.match(content(h.root()),/aucune dette automatique/);
+ }finally{await h.cleanup();}
+});
+test('Relevé public dans le vrai formulaire : remplir les trois MMR et les cartes sans saisir de valeur',async()=>{
+ const h=await harness({publicReadings:true});try{
+  await h.action(()=>h.root().findAllByType('button').find(b=>content(b)==='Actualiser les MMR publics').props.onClick());
+  const table=content(h.root().findByProps({'aria-label':'Classement MMR mensuel'}));for(const mmr of [1500,1400,1300])assert.ok(table.includes(String(mmr)));
+  assert.ok(table.includes('RLStats.net'));assert.equal(h.network.records.length,0);
+  const state=await (await h.f.readState()).json();assert.ok(state.doublesRanks.every(r=>r.status==='public'));assert.equal(state.monthly.publicSync.status,'ready');assert.equal(h.root().findAllByType('button').find(b=>content(b)==='Actualiser les MMR publics').props.disabled,true);
  }finally{await h.cleanup();}
 });

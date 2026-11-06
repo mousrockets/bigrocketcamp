@@ -1,6 +1,7 @@
 import {env} from 'cloudflare:workers';
 import {getChatGPTUser} from '../../chatgpt-auth';
 import {recordMmr,closeMonthlyMmr,settleDrink,readMonthlyMmr} from '../../../lib/monthly-mmr.mjs';
+import {syncPublicMmr} from '../../../lib/public-ranks.mjs';
 const headers={'Cache-Control':'no-store'};
 export async function GET(){const user=await getChatGPTUser();if(!user)return Response.json({error:'Connexion requise.'},{status:401,headers});return Response.json(await readMonthlyMmr(env.DB!,user.userId),{headers});}
 export async function POST(request:Request){
@@ -10,6 +11,7 @@ export async function POST(request:Request){
  try{const input=JSON.parse(body);let result;
   if(input.action==='record')result=await recordMmr(env.DB!,user.userId,input);
   else if(input.action==='refresh')result=await closeMonthlyMmr(env.DB!);
+  else if(input.action==='public')result=await syncPublicMmr(env.DB!);
   else if(input.action==='settle'||input.action==='undo')result=await settleDrink(env.DB!,user.userId,input.id,input.action==='undo');
   else throw Error('Action inconnue.');
   return Response.json(result,{headers});
