@@ -19,7 +19,7 @@ function secondTarget<T>(targets: T[]): T {
 test('only the ranked 2v2: Champion II, API division 1 => Division II, Mu 55 => 1200 MMR', () => {
   const rank = normalizeDoublesSkill(response(skill));
   expect(rank).toEqual({ playlist: 11, mmr: 1200, tier: 17, division: 2, placementMatches: 10 });
-  expect(doublesRankLabel(rank)).toBe('Champion II Division II');
+  expect(doublesRankLabel(rank)).toBe('Champion II · Division II');
   expect(normalizeDoublesSkill(response({ ...skill, Mu: 55.025 })).mmr).toBe(1201);
   for (const value of [{ Skills: [] }, { Skills: [{ ...skill, Playlist: 2 }] }, { Skills: [skill, skill] }, {}]) {
     expect(() => normalizeDoublesSkill(value)).toThrow();
@@ -39,7 +39,7 @@ test('official ranks, divisions I to IV and SSL without an invented division', (
   for (const [tier, label] of tiers) {
     for (let division = 0; division < 4; division++) {
       const rank = normalizeDoublesSkill({ Skills: [{ ...skill, Tier: tier, Division: division }] });
-      expect(doublesRankLabel(rank)).toMatch(new RegExp(`^${label} Division `));
+      expect(doublesRankLabel(rank)).toMatch(new RegExp(`^${label} · Division `));
       expect(rank.division).toBe(division + 1);
     }
   }
@@ -116,7 +116,7 @@ test('D1: the last rank is kept and marked historical without network access', a
     .run();
   const rank = secondTarget(await readDoublesRanks(env.DB));
   expect(rank.mmr).toBe(1200);
-  expect(rank.label).toBe('Champion II Division II');
+  expect(rank.label).toBe('Champion II · Division II');
   expect(rank.status).toBe('frozen');
   expect(rank.fetchedAt).toBe(now);
 });

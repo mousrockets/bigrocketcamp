@@ -71,7 +71,7 @@ export function doublesRankLabel(rank: {
       : 'Non classé';
   }
   const name = tiers[rank.tier];
-  return name ? name + (rank.division ? ` Division ${roman[rank.division - 1]}` : '') : 'Classement non reçu';
+  return name ? name + (rank.division ? ` · Division ${roman[rank.division - 1]}` : '') : 'Classement non reçu';
 }
 
 export function rankTargets(
