@@ -64,9 +64,6 @@ export function Connections() {
           Chaque joueur confirme son identifiant de jeu à partir d’un tableau reçu : c’est lui qui rattache les tableaux
           du Direct au bon joueur.
         </p>
-        <Link to="/direct" reloadDocument>
-          Configurer le Direct PC →
-        </Link>
       </section>
       {error && (
         <p className="alert" role="alert">
