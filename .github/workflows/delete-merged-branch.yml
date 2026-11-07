@@ -10,7 +10,7 @@ on:
     workflows: [Auto-merge]
     types: [completed]
   schedule:
-    - cron: '17 * * * *'
+    - cron: "17 * * * *"
   workflow_dispatch:
 
 permissions:
