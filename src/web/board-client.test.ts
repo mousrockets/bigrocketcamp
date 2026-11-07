@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import type { BoardChanges } from '../lib/board';
+import type { BoardChanges } from '../lib/contract';
 import { timeoutMessage } from '../lib/timeout';
 import { BoardClient } from './board-client';
 
@@ -23,9 +23,25 @@ const changes: BoardChanges = {
   removed: { results: [], exercises: [] },
   collectors: [],
   doublesRanks: [],
-  monthly: null as unknown as BoardChanges['monthly'],
+  monthly: {
+    startsMonth: '2026-11',
+    current: {
+      month: '2026-11',
+      startAt: '2026-10-31T23:00:00.000Z',
+      lastDay: '2026-11-30',
+      lastDayStartAt: '2026-11-29T23:00:00.000Z',
+      cutoffAt: '2026-11-30T23:00:00.000Z',
+      rows: [],
+      status: 'live',
+      missing: [],
+    },
+    closed: [],
+    allowedPlayers: [],
+    debts: [],
+  },
   rankSource: null,
-} as unknown as BoardChanges;
+  rules: { lastPlace: [] },
+};
 
 test('the board keeps following after a request that never answered', { timeout: 15_000 }, async () => {
   const original = globalThis.fetch;

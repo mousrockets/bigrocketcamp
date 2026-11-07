@@ -16,6 +16,17 @@
     "skipLibCheck": true,
     "noEmit": true
   },
-  "include": ["scripts", "src/lib", "src/web", "src/vite-env.d.ts", "vite.config.ts", "vitest.config.ts"],
+  // The web app's API client is typed from the Worker's routes (`AppType`): checking them needs the Worker's
+  // bindings, declared in runtime.d.ts and env.d.ts. Only types cross over: no Worker code reaches the bundle.
+  "include": [
+    "scripts",
+    "src/lib",
+    "src/web",
+    "src/vite-env.d.ts",
+    "src/worker/runtime.d.ts",
+    "src/worker/env.d.ts",
+    "vite.config.ts",
+    "vitest.config.ts"
+  ],
   "exclude": ["src/lib/**/*.test.ts", "src/web/sw"]
 }

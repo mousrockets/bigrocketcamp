@@ -1,25 +1,15 @@
 import { createContext, useContext } from 'react';
 import type { ClubPlayer, Platform, Roster } from '../lib/club';
-import type { ChallengeRules } from '../lib/club-rules';
-import type { OwnProfile } from '../lib/members';
-import { fetchWithin } from '../lib/timeout';
-import { apiFetch } from './api';
+import { type Club as ClubAnswer, type ClubIdentity, club as clubAnswer, clubIdentity } from '../lib/contract';
+import { api, guestApi } from './api';
 
 // The club comes from the API once signed in (GET /api/club); before that, only its name (GET /api/club/name).
 
-/** What a visitor sees of the club before signing in. */
-export interface ClubIdentity {
-  name: string;
-  /** The uploaded logo's address, or null for the default picture. */
-  logo: string | null;
-}
+export { errorOf } from './api';
+export type { ClubIdentity };
 
-export interface Club extends ClubIdentity {
-  /** Absent from an older API: the default rules then apply. */
-  rules?: ChallengeRules;
-  players: ClubPlayer[];
+export interface Club extends ClubAnswer {
   roster: Roster;
-  me: OwnProfile;
 }
 
 export const platformLabels: Record<Platform, string> = {
@@ -45,20 +35,20 @@ export function useClub(): Club {
   return club;
 }
 
+/** The club, or null when the API did not give it. */
 export async function fetchClub(): Promise<Club | null> {
-  const response = await apiFetch('/api/club', { cache: 'no-store' });
+  const response = await api.club.$get();
   if (!response.ok) return null;
-  const club = (await response.json()) as Omit<Club, 'roster'>;
-  return { ...club, logo: club.logo ?? null, roster: club.players.map((player) => player.slot) };
+  const read = clubAnswer.safeParse(await response.json());
+  if (!read.success) return null;
+  return { ...read.data, roster: read.data.players.map((player) => player.slot) };
 }
 
 export async function fetchClubIdentity(): Promise<ClubIdentity> {
   try {
-    const response = await fetchWithin(fetch, '/api/club/name', { cache: 'no-store' });
-    if (response.ok) {
-      const identity = (await response.json()) as Partial<ClubIdentity>;
-      return { name: identity.name ?? '', logo: identity.logo ?? null };
-    }
+    const response = await guestApi.club.name.$get();
+    const identity = response.ok && clubIdentity.safeParse(await response.json());
+    if (identity?.success) return identity.data;
   } catch {
     // Offline: the page still works without the name.
   }
@@ -69,13 +59,4 @@ export async function fetchClubIdentity(): Promise<ClubIdentity> {
 export function playerPlatform(players: readonly ClubPlayer[], name: string): string {
   const platform = players.find((player) => player.slot === name)?.platform;
   return platform ? platformLabels[platform] : '';
-}
-
-/** The error message of an API answer, or a fallback. */
-export async function errorOf(response: Response, fallback: string): Promise<string> {
-  try {
-    return ((await response.json()) as { error?: string }).error || fallback;
-  } catch {
-    return fallback;
-  }
 }

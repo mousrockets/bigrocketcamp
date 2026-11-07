@@ -1,37 +1,50 @@
 import type { Platform } from '../lib/club';
+import {
+  type ClubNameInput,
+  done,
+  type Invitation,
+  type MemberToRemove,
+  monthsClosed,
+  pairingCodeCreated,
+  type RoleChange,
+  type RuleChange,
+  reaction,
+} from '../lib/contract';
 import type { ExerciseType } from '../lib/domain';
-import { fetchWithin } from '../lib/timeout';
-import { apiFetch } from './api';
-import { errorOf } from './club';
+import { parseOrThrow } from '../lib/validation';
+import { api, dataOf, errorOf, guestApi, sent } from './api';
 
 // Every write to the API, run by the pages as TanStack Query mutations. None is retried by the cache:
 // a write is sent once per action of the member, and the pages decide what a failure means.
 
-const json = (method: string, body: unknown): RequestInit => ({
-  method,
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify(body),
-});
+/** The settings page's writes, by method and path, each sent through its typed route. */
+const jsonWrites = {
+  'PUT /api/club': (json: ClubNameInput) => api.club.$put({ json }),
+  'PUT /api/club/rules': (json: RuleChange) => api.club.rules.$put({ json }),
+  'POST /api/members': (json: Invitation) => api.members.$post({ json }),
+  'PATCH /api/members': (json: RoleChange) => api.members.$patch({ json }),
+  'DELETE /api/members': (json: MemberToRemove) => api.members.$delete({ json }),
+};
+type JsonWrites = typeof jsonWrites;
 
-export interface JsonWrite {
-  path: string;
-  method: string;
-  body: unknown;
-  /** What the member reads when the API refuses without saying why. */
-  fallback: string;
-}
+export type JsonWrite = {
+  [Route in keyof JsonWrites]: Route extends `${infer Method} ${infer Path}`
+    ? {
+        path: Path;
+        method: Method;
+        body: Parameters<JsonWrites[Route]>[0];
+        /** What the member reads when the API refuses without saying why. */
+        fallback: string;
+      }
+    : never;
+}[keyof JsonWrites];
 
 /** Sends a JSON body; a refusal becomes the API's own message, or `fallback`. */
 export async function sendJson({ path, method, body, fallback }: JsonWrite): Promise<void> {
-  const response = await apiFetch(path, json(method, body));
-  if (!response.ok) throw Error(await errorOf(response, fallback));
-}
-
-/** Like `sendJson`, for the routes that always answer in JSON, even on success. */
-async function sendExpectingJson(path: string, method: string, body: unknown, fallback: string): Promise<void> {
-  const response = await apiFetch(path, json(method, body));
-  const result = (await response.json()) as { error?: string };
-  if (!response.ok) throw Error(result.error || fallback);
+  // JsonWrite pairs each route with its own body; once destructured, the compiler no longer sees the pairing.
+  const route = `${method} ${path}` as keyof JsonWrites;
+  const write = jsonWrites[route] as (body: JsonWrite['body']) => ReturnType<JsonWrites[typeof route]>;
+  await sent(write(body), fallback);
 }
 
 export interface ProfileFields {
@@ -41,12 +54,9 @@ export interface ProfileFields {
 }
 
 export const saveProfile = (profile: ProfileFields) =>
-  sendJson({ path: '/api/profile', method: 'PUT', body: profile, fallback: 'Enregistrement impossible.' });
+  sent(api.profile.$put({ json: profile }), 'Enregistrement impossible.');
 
-export async function deleteAccount(): Promise<void> {
-  const response = await apiFetch('/api/profile', { method: 'DELETE' });
-  if (!response.ok) throw Error(await errorOf(response, 'Suppression impossible.'));
-}
+export const deleteAccount = (): Promise<void> => sent(api.profile.$delete(), 'Suppression impossible.');
 
 export interface IdentityChange {
   slot: string;
@@ -54,35 +64,29 @@ export interface IdentityChange {
   action: 'confirm' | 'remove';
 }
 
-export const changeIdentity = (change: IdentityChange) =>
-  sendExpectingJson('/api/identities', 'POST', change, 'Confirmation impossible.');
+export async function changeIdentity(change: IdentityChange): Promise<void> {
+  await dataOf(api.identities.$post({ json: change }), done, 'Confirmation impossible.');
+}
 
 /** A one-time code that pairs a Windows collector. */
 export async function createPairingCode(): Promise<{ code: string; expires: string }> {
-  const response = await apiFetch('/api/collectors', { method: 'POST' });
-  if (!response.ok) throw Error(await errorOf(response, 'Code impossible à créer.'));
-  return (await response.json()) as { code: string; expires: string };
+  return dataOf(api.collectors.$post(), pairingCodeCreated, 'Code impossible à créer.');
 }
 
 export async function revokeCollector(id: string): Promise<void> {
-  const response = await apiFetch('/api/collectors', json('DELETE', { id }));
+  const response = await api.collectors.$delete({ json: { id } });
   // Already revoked elsewhere: the list read afterwards says so.
   if (!response.ok && response.status !== 404) throw Error(await errorOf(response, 'Révocation impossible.'));
 }
 
-export async function uploadClubLogo(image: Blob): Promise<void> {
-  const response = await apiFetch('/api/club/logo', {
-    method: 'PUT',
-    headers: { 'Content-Type': image.type },
-    body: image,
-  });
-  if (!response.ok) throw Error(await errorOf(response, 'Envoi du logo impossible.'));
-}
+export const uploadClubLogo = (image: Blob): Promise<void> =>
+  // The typed client sends JSON or forms only: the image goes as the request's own body.
+  sent(
+    api.club.logo.$put(undefined, { headers: { 'Content-Type': image.type }, init: { body: image } }),
+    'Envoi du logo impossible.',
+  );
 
-export async function removeClubLogo(): Promise<void> {
-  const response = await apiFetch('/api/club/logo', { method: 'DELETE' });
-  if (!response.ok) throw Error(await errorOf(response, 'Retrait du logo impossible.'));
-}
+export const removeClubLogo = (): Promise<void> => sent(api.club.logo.$delete(), 'Retrait du logo impossible.');
 
 /** An exercise as declared: its id is chosen by the page, so that resending it never counts twice. */
 export interface Declaration {
@@ -93,39 +97,38 @@ export interface Declaration {
   day: string;
 }
 
-export const declareExercise = (exercise: Declaration) =>
-  sendExpectingJson('/api/exercise', 'POST', exercise, 'Impossible d’enregistrer cet exercice.');
+export async function declareExercise(exercise: Declaration): Promise<void> {
+  await dataOf(api.exercise.$post({ json: exercise }), done, 'Impossible d’enregistrer cet exercice.');
+}
 
-export const undoExercise = (id: string) =>
-  sendExpectingJson('/api/exercise', 'DELETE', { id }, 'Impossible d’annuler cette série.');
+export async function undoExercise(id: string): Promise<void> {
+  await dataOf(api.exercise.$delete({ json: { id } }), done, 'Impossible d’annuler cette série.');
+}
 
 export async function reactToExercise({ exerciseId, emoji }: { exerciseId: string; emoji: string }): Promise<void> {
-  const response = await apiFetch('/api/reaction', json('POST', { exerciseId, emoji }));
-  if (!response.ok) throw Error(((await response.json()) as { error?: string }).error || 'Réaction impossible.');
+  // The page offers only the API's emojis: checked here with the API's own rule and message.
+  const json = parseOrThrow(reaction, { exerciseId, emoji }, 'Réaction impossible.');
+  await dataOf(api.reaction.$post({ json }), done, 'Réaction impossible.');
 }
 
 /** Asks the API to close the finished months now; returns how many it closed, or null if it could not. */
 export async function closeDueMonths(): Promise<number | null> {
-  const response = await apiFetch('/api/monthly', json('POST', { action: 'refresh' }));
-  return response.ok ? (((await response.json()) as { closed?: number }).closed ?? 0) : null;
+  const response = await api.monthly.$post({ json: { action: 'refresh' } });
+  if (!response.ok) return null;
+  const answer = monthsClosed.safeParse(await response.json());
+  return answer.success ? answer.data.closed : null;
 }
 
 /** Marks a drink as offered, or takes that back. */
 export async function settleDrink(body: { action: 'settle' | 'undo'; id: string }): Promise<void> {
-  const response = await apiFetch('/api/monthly', json('POST', body));
-  const result = (await response.json()) as { error?: string; ok?: boolean };
-  if (!response.ok || !result.ok) throw Error(result.error || 'Action impossible.');
+  const result = await dataOf(api.monthly.$post({ json: body }), done, 'Action impossible.');
+  if (!result.ok) throw Error('Action impossible.');
 }
 
-// Signing in happens before any session: these calls do not go through apiFetch, which watches for a lost session.
-
-async function postSignIn(path: string, body: Record<string, string>, fallback: string): Promise<void> {
-  const response = await fetchWithin(fetch, path, json('POST', body));
-  if (!response.ok) throw Error(await errorOf(response, fallback));
-}
+// Signing in happens before any session: these calls do not watch for a lost session.
 
 export const requestSignInCode = (email: string) =>
-  postSignIn('/api/auth/code', { email }, 'Impossible d’envoyer le code. Réessaie dans un instant.');
+  sent(guestApi.auth.code.$post({ json: { email } }), 'Impossible d’envoyer le code. Réessaie dans un instant.');
 
 export const verifySignInCode = ({ email, code }: { email: string; code: string }) =>
-  postSignIn('/api/auth/verify', { email, code }, 'Code incorrect ou expiré.');
+  sent(guestApi.auth.verify.$post({ json: { email, code } }), 'Code incorrect ou expiré.');
