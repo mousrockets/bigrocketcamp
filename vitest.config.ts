@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import { cloudflareTest, readD1Migrations } from '@cloudflare/vitest-plugin';
 import { defineConfig } from 'vitest/config';
 
@@ -14,6 +15,8 @@ export default defineConfig(async () => {
       }),
     ],
     define: { __APP_COMMIT__: JSON.stringify('test') },
+    // The same `@/` as the app (vite.config.ts), which the shadcn components import from.
+    resolve: { alias: { '@': fileURLToPath(new URL('./src/web', import.meta.url)) } },
     test: { setupFiles: ['./src/test-setup.ts'] },
   };
 });
