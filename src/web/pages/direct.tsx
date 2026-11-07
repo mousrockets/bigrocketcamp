@@ -333,7 +333,7 @@ export function DirectPage() {
   return (
     <div className="flex flex-col gap-3.5">
       <PageHeader
-        back={<BackLink to="/profil" label="Retour au profil" />}
+        back={<BackLink to="/profil" label="Retour au profil" wide="Profil" />}
         kicker="Scores en direct"
         title="Direct PC"
       />

@@ -8,7 +8,8 @@ export interface SegmentedItem<Value extends string> {
 
 /**
  * One choice among a few, all visible (period, exercise, player): a shadcn toggle group that never empties,
- * the chosen item in white.
+ * the chosen item in white. The design's .seg and .sb: a full-width grid of 36 px items; `header` makes it, on a
+ * wide screen, the compact strip of a page header (34 px items, 13 px text).
  */
 export function Segmented<Value extends string>({
   label,
@@ -17,7 +18,7 @@ export function Segmented<Value extends string>({
   onChange,
   disabled,
   className,
-  size = 'default',
+  layout = 'fill',
 }: {
   label: string;
   items: readonly SegmentedItem<Value>[];
@@ -25,7 +26,7 @@ export function Segmented<Value extends string>({
   onChange: (value: Value) => void;
   disabled?: boolean;
   className?: string;
-  size?: 'default' | 'sm';
+  layout?: 'fill' | 'header';
 }) {
   return (
     <ToggleGroup
@@ -37,7 +38,11 @@ export function Segmented<Value extends string>({
         if (typeof chosen === 'string' && chosen !== value) onChange(chosen as Value);
       }}
       spacing={1}
-      className={cn('grid w-full auto-cols-fr grid-flow-col gap-1 rounded-[14px] bg-secondary p-1', className)}
+      className={cn(
+        'grid w-full auto-cols-fr grid-flow-col gap-1 rounded-[14px] bg-secondary p-1',
+        layout === 'header' && 'lg:flex lg:w-auto lg:rounded-[12px]',
+        className,
+      )}
     >
       {items.map((item) => (
         <ToggleGroupItem
@@ -45,7 +50,7 @@ export function Segmented<Value extends string>({
           value={item.value}
           className={cn(
             'h-9 min-w-0 rounded-[10px] px-3 text-sm font-semibold text-soft hover:bg-accent hover:text-foreground aria-pressed:bg-inverse aria-pressed:text-inverse-foreground aria-pressed:hover:bg-inverse',
-            size === 'sm' && 'h-[34px] rounded-[9px] px-1 text-[12px] lg:px-3 lg:text-[13px]',
+            layout === 'header' && 'lg:h-[34px] lg:rounded-[9px] lg:px-3.5 lg:text-[13px]',
           )}
         >
           <span className="truncate">{item.label}</span>

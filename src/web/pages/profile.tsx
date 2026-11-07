@@ -194,7 +194,6 @@ export function ProfilePage() {
             items={themeChoices.map(([value, label]) => ({ value, label }))}
             value={theme}
             onChange={setTheme}
-            size="sm"
           />
         </div>
         {install.mode && install.mode !== 'installed' && (

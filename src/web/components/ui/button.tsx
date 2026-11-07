@@ -8,8 +8,9 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: "bg-primary text-primary-foreground hover:bg-primary/80",
+        // The design's .sm and, at the xl sizes, its .btn2: a thin light edge on nothing.
         outline:
-          "border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
+          "border-input bg-transparent text-foreground hover:bg-secondary hover:text-foreground aria-expanded:bg-secondary aria-expanded:text-foreground",
         secondary:
           "bg-secondary text-secondary-foreground hover:bg-[color-mix(in_oklch,var(--secondary),var(--foreground)_5%)] aria-expanded:bg-secondary aria-expanded:text-secondary-foreground",
         ghost:
@@ -17,8 +18,10 @@ const buttonVariants = cva(
         destructive:
           "bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40",
         link: "text-primary underline-offset-4 hover:underline",
-        inverse: "bg-inverse font-display text-inverse-foreground hover:bg-inverse/90 hover:text-inverse-foreground",
-        action: "bg-primary font-display text-primary-foreground shadow-[0_6px_18px_color-mix(in_srgb,var(--primary)_32%,transparent)] hover:bg-primary/90 hover:text-primary-foreground",
+        // The design's .btn: the white main button.
+        inverse: "bg-inverse font-button font-extrabold text-inverse-foreground hover:bg-inverse/90 hover:text-inverse-foreground dark:hover:bg-white",
+        // The design's .decl: the blue "Déclarer un exercice".
+        action: "bg-primary font-button font-extrabold text-primary-foreground shadow-[0_6px_18px_var(--primary-glow-soft)] hover:bg-primary-hover hover:text-primary-foreground",
       },
       size: {
         default:
@@ -32,10 +35,18 @@ const buttonVariants = cva(
         "icon-sm":
           "size-7 rounded-[min(var(--radius-md),12px)] in-data-[slot=button-group]:rounded-lg",
         "icon-lg": "size-9",
+        // The design's buttons by height: .btn of the sign-in screens (54), of the home (52), of a wide screen (48).
+        "2xl": "h-[54px] gap-2 rounded-[14px] px-5 text-[17px] [&_svg:not([class*='size-'])]:size-[18px]",
         xl: "h-[52px] gap-2 rounded-[14px] px-5 text-[17px] [&_svg:not([class*='size-'])]:size-[18px]",
+        cta: "h-12 gap-2 rounded-[14px] px-[22px] text-base [&_svg:not([class*='size-'])]:size-[18px]",
+        // The design's .sm: the small framed button of a card ("Copier", "Retirer").
+        md: "h-9 gap-1.5 rounded-[12px] px-3 text-[13px] font-semibold",
         "icon-xl": "size-11 rounded-full [&_svg:not([class*='size-'])]:size-5",
       },
     },
+    compoundVariants: [
+      { variant: "outline", size: ["xl", "2xl", "cta"], className: "border-line-strong font-button font-extrabold" },
+    ],
     defaultVariants: {
       variant: "default",
       size: "default",

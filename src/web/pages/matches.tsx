@@ -157,7 +157,7 @@ function MatchDetail({ match, data }: { match: Match; data: BoardState }) {
       </section>
       <Panel aria-label="Tableau des points" className="lg:rounded-none lg:border-0 lg:border-t">
         <div className="overflow-x-auto">
-          <Table className="text-sm tabular-nums">
+          <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 {['Joueur', 'Pts', 'Buts', 'Pompes'].map((label, index) => (
@@ -165,7 +165,7 @@ function MatchDetail({ match, data }: { match: Match; data: BoardState }) {
                     key={label}
                     scope="col"
                     className={cn(
-                      'kicker h-auto px-2.5 py-2.5 tracking-[0.06em] first:pl-3.5 lg:px-5 lg:first:pl-5',
+                      'px-2.5 pt-2.5 pb-2 first:pl-3.5 lg:px-5 lg:py-3 lg:first:pl-5',
                       index > 0 && 'text-right',
                     )}
                   >
@@ -357,7 +357,7 @@ export function MatchesPage({ guid }: { guid?: string }) {
         <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
           <span className="hidden lg:block">{status}</span>
           <div className="flex flex-col gap-2 lg:w-[460px]">
-            <Segmented label="Période" items={periodItems} value={period} onChange={choose} size="sm" />
+            <Segmented label="Période" items={periodItems} value={period} onChange={choose} layout="header" />
             {period === 'pick' && (
               <div className="flex items-center gap-3 text-sm text-soft">
                 <Label htmlFor="matches-day" className="font-normal">

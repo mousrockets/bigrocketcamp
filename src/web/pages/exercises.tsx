@@ -112,7 +112,7 @@ export function ExercisesPage() {
                 setPlayer(next);
                 setShown(PAGE);
               }}
-              size="sm"
+              layout="header"
               className="w-max min-w-full lg:min-w-0"
             />
           </div>
@@ -195,18 +195,11 @@ export function ExercisesPage() {
           {exercises.length > 0 && (
             <Panel aria-label="Historique" className="hidden lg:flex">
               <div className="overflow-x-auto">
-                <Table className="text-sm tabular-nums">
+                <Table>
                   <TableHeader>
                     <TableRow className="hover:bg-transparent">
                       {['Quand', 'Joueur', 'Exercice', 'Équiv.', 'Réactions'].map((title) => (
-                        <TableHead
-                          key={title}
-                          scope="col"
-                          className={cn(
-                            'kicker h-auto px-4 py-3 tracking-[0.08em]',
-                            title === 'Équiv.' && 'text-right',
-                          )}
-                        >
+                        <TableHead key={title} scope="col" className={cn('', title === 'Équiv.' && 'text-right')}>
                           {title}
                         </TableHead>
                       ))}

@@ -1,10 +1,8 @@
-// "chat-pris-tea" gives CT and "kevin-74000" K7: first and last parts of a compound name.
-// "nokouki" gives NK: the first letter, then the next consonant, which reads better than "NO".
+// As the design draws them: the first letters of the first two words ("aile-gauche" → AG), else the name's first
+// two letters ("centreur" → CE, "relance-42" → RE).
 export function playerInitials(name: string): string {
-  const parts = name.split(/[-_.\s]+/).filter(Boolean);
-  const first = parts[0] ?? name;
-  const last = parts.at(-1);
-  if (parts.length > 1 && last) return (first.charAt(0) + last.charAt(0)).toUpperCase();
-  const consonant = first.slice(1).match(/[b-df-hj-np-tv-z]/i)?.[0];
-  return (consonant ? first.charAt(0) + consonant : first.slice(0, 2)).toUpperCase();
+  const words = name.split(/[-_.\s]+/).filter((word) => /^\p{L}/u.test(word));
+  const [first, second] = words;
+  if (first && second) return (first.charAt(0) + second.charAt(0)).toUpperCase();
+  return (first ?? name).slice(0, 2).toUpperCase();
 }
