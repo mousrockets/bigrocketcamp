@@ -1,18 +1,13 @@
 import { cn } from 'cn';
-import type { PointerEvent, ReactNode } from 'react';
+import type { PointerEvent } from 'react';
 import { formatAge, formatNumber } from '../../lib/format';
-import type { SeasonPeak } from '../board';
+import { Badge } from '../components/ui/badge';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '../components/ui/card';
+import { Progress } from '../components/ui/progress';
 import { DuoIcon, RefreshIcon, SoloIcon } from '../shell/icons';
 import { StreakCount } from './debt-hero';
-import { type Debt, rankRgb, shortRankLabel, splitRankLabel } from './stats';
-
-/** What a card needs to know about a rank: the API's doubles rank or solo rank, or nothing read yet. */
-export interface CardRank {
-  mmr: number | null;
-  label: string;
-  tier: number | null;
-  peak: SeasonPeak | null;
-}
+import { type CardRank, RankBlock } from './rank-block';
+import { type Debt, rankRgb } from './stats';
 
 export interface CardPlayer {
   name: string;
@@ -52,17 +47,22 @@ function untilt(event: PointerEvent<HTMLElement>) {
   for (const property of ['--mx', '--my', '--ang']) card.style.removeProperty(property);
 }
 
+const progressParts =
+  '[&_[data-slot=progress-track]]:h-[3px] [&_[data-slot=progress-track]]:rounded-[2px] [&_[data-slot=progress-track]]:bg-white/8 [&_[data-slot=progress-indicator]]:origin-left [&_[data-slot=progress-indicator]]:animate-grow [&_[data-slot=progress-indicator]]:rounded-[2px]';
+
+/** A player's card: who they are, their solo and duo ranks, what they still owe, and when their rank was read. */
 export function PlayerCard({ player, active, now }: { player: CardPlayer; active: boolean; now: number }) {
   const rgb = rankRgb(player.tier);
   const { left, paid, owed, percent } = player.debt;
-  const mmr = player.duo.mmr === null ? '' : `, ${formatNumber(player.duo.mmr)} MMR`;
   return (
-    <article
-      aria-label={`${player.name}, ${player.duo.label.replace(' · ', ' ')}${mmr}`}
+    <Card
       data-active={active || undefined}
       onPointerMove={tilt}
       onPointerLeave={untilt}
-      className={cn('player-card flex-[0_0_var(--cw)] snap-center', !active && 'max-lg:scale-94 max-lg:opacity-55')}
+      className={cn(
+        'player-card gap-0 rounded-[26px] bg-transparent py-0 text-[16px] ring-0 [line-height:normal]',
+        !active && 'max-lg:scale-94 max-lg:opacity-55',
+      )}
     >
       <i
         aria-hidden="true"
@@ -72,28 +72,36 @@ export function PlayerCard({ player, active, now }: { player: CardPlayer; active
       <i aria-hidden="true" className="player-card-holo pointer-events-none absolute inset-0 z-2" />
       <i aria-hidden="true" className="player-card-glint pointer-events-none absolute inset-0 z-3" />
       <div className="relative z-4 flex flex-col gap-5 px-5 pt-5 pb-[18px]">
-        <div className="flex items-start justify-between gap-2.5">
+        <CardHeader className="flex items-start justify-between gap-2.5 p-0">
           <span className="flex min-w-0 flex-col gap-[3px]">
             <span className="flex items-center gap-2">
-              <b className="whitespace-nowrap font-semibold text-[17px] tracking-[-.01em]">{player.name}</b>
-              {player.me && (
-                <span className="rounded-md border border-line px-1.5 py-0.5 font-semibold text-[10px] text-t2 tracking-[.06em]">
-                  TOI
-                </span>
-              )}
+              <CardTitle className="whitespace-nowrap font-sans font-semibold text-[17px] tracking-[-.01em] [line-height:normal]">
+                {player.name}
+              </CardTitle>
+              {player.me && <Badge variant="tag">TOI</Badge>}
             </span>
             {player.platform && <span className="text-[12px] text-t3">{player.platform}</span>}
           </span>
           <StreakCount streak={player.streak} large />
-        </div>
+        </CardHeader>
 
-        <div className="flex flex-col gap-2">
+        <CardContent className="flex flex-col gap-2 p-0">
           <RankBlock kind="Solo" icon={<SoloIcon />} rank={player.solo} />
           <RankBlock kind="Duo" icon={<DuoIcon />} rank={player.duo} ringed />
-        </div>
+        </CardContent>
 
-        <div className="flex flex-col gap-2">
-          <div className="flex items-baseline justify-between">
+        <Progress
+          value={percent}
+          aria-label={`Dette de ${player.name}`}
+          className={cn(
+            'gap-2',
+            progressParts,
+            left > 0
+              ? '[&_[data-slot=progress-indicator]]:bg-cost-strong'
+              : '[&_[data-slot=progress-indicator]]:bg-win',
+          )}
+        >
+          <div className="flex w-full items-baseline justify-between">
             <span className="flex items-baseline gap-1.5">
               <b className={cn('num text-[24px] [line-height:1]', left > 0 ? 'text-cost' : 'text-win')}>
                 {formatNumber(left)}
@@ -104,89 +112,13 @@ export function PlayerCard({ player, active, now }: { player: CardPlayer; active
               {formatNumber(paid)} / {formatNumber(owed)}
             </span>
           </div>
-          <div aria-hidden="true" className="h-[3px] overflow-hidden rounded-[2px] bg-white/8">
-            <i
-              className={cn(
-                'block h-full origin-left animate-grow rounded-[2px]',
-                left > 0 ? 'bg-cost-strong' : 'bg-win',
-              )}
-              style={{ width: `${percent}%` }}
-            />
-          </div>
-        </div>
+        </Progress>
 
-        <div className="flex items-center gap-1.5 text-[11px] text-t3">
+        <CardFooter className="gap-1.5 rounded-none border-0 bg-transparent p-0 text-[11px] text-t3">
           <RefreshIcon />
           <span>{player.updated ? `Actualisé ${formatAge(player.updated, now)}` : 'Rang pas encore relevé'}</span>
-        </div>
+        </CardFooter>
       </div>
-    </article>
-  );
-}
-
-const rankIcon = (tier: number | null) => `/rocket-league/ranks/${tier ?? 0}.png`;
-
-function RankBlock({
-  kind,
-  icon,
-  rank,
-  ringed = false,
-}: {
-  kind: 'Solo' | 'Duo';
-  icon: ReactNode;
-  rank: CardRank | null;
-  ringed?: boolean;
-}) {
-  const rgb = rankRgb(rank?.tier);
-  const { rank: name, division } = rank ? splitRankLabel(rank.label) : { rank: 'Pas de compte solo', division: '' };
-  return (
-    <div
-      className="flex flex-col gap-2.5 rounded-2xl p-3"
-      style={{
-        background: `radial-gradient(120% 100% at 0% 0%, rgba(${rgb},.16), rgba(${rgb},0) 62%), rgba(255,255,255,.04)`,
-        boxShadow: ringed
-          ? `inset 0 0 0 1px rgba(${rgb},.42), inset 0 1px 0 rgba(255,255,255,.10), 0 8px 24px -12px rgba(${rgb},.55)`
-          : 'inset 0 0 0 .5px rgba(255,255,255,.07), inset 0 1px 0 rgba(255,255,255,.05)',
-      }}
-    >
-      <div className="flex items-center gap-3">
-        <span className="flex w-10 shrink-0 justify-center">
-          <img
-            src={rankIcon(rank?.tier ?? null)}
-            alt={`Icône de rank ${kind.toLowerCase()} ${name}`}
-            width={40}
-            height={40}
-            className={cn('size-10 object-contain drop-shadow-[0_4px_10px_rgba(0,0,0,.4)]', !rank && 'opacity-40')}
-          />
-        </span>
-        <span className="flex min-w-0 flex-1 flex-col gap-[3px] *:truncate">
-          <span className="label-caps flex items-center gap-[5px]">
-            {icon}
-            {kind}
-          </span>
-          <b className="font-semibold text-[14px] tracking-[-.01em]">{name}</b>
-          {division && <span className="text-[12px] text-t2">{division}</span>}
-        </span>
-        {rank?.mmr != null && (
-          <span className="flex shrink-0 flex-col items-end">
-            <b className="num text-[28px] [line-height:.8]">{formatNumber(rank.mmr)}</b>
-          </span>
-        )}
-      </div>
-      {rank?.peak && (
-        <div className="flex items-center gap-3 border-line border-t-[.5px] pt-2.5">
-          <span className="flex w-10 shrink-0 justify-center">
-            <img src={rankIcon(rank.peak.tier)} alt="" width={24} height={24} className="size-6 object-contain" />
-          </span>
-          <span className="flex min-w-0 flex-1 flex-col gap-0.5 *:truncate">
-            <span className="label-caps text-[10px]">Peak saison</span>
-            <span className="text-[11px] text-t3">{shortRankLabel(rank.peak.label)}</span>
-          </span>
-          <span className="flex shrink-0 flex-col items-end">
-            <b className="num text-[15px] text-t2 [line-height:1]">{formatNumber(rank.peak.mmr)}</b>
-          </span>
-        </div>
-      )}
-    </div>
+    </Card>
   );
 }

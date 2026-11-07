@@ -1,6 +1,16 @@
-import { Link, Outlet } from '@tanstack/react-router';
-import type { ComponentType } from 'react';
+import { Link, Outlet, useMatchRoute } from '@tanstack/react-router';
+import type { ComponentType, CSSProperties } from 'react';
 import { BoardProvider } from '../board';
+import { Button } from '../components/ui/button';
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+} from '../components/ui/sidebar';
 import { ClubBadge } from './club-badge';
 import { useFreshVersion } from './fresh-version';
 import { ChallengesIcon, MatchesIcon, PlusIcon, SettingsIcon, TeamIcon } from './icons';
@@ -19,38 +29,47 @@ export function AppShell() {
   useFreshVersion();
   return (
     <BoardProvider>
-      <div className="flex min-h-dvh flex-wrap bg-black text-t1">
-        <Sidebar />
+      <SidebarProvider className="flex-wrap bg-black text-t1" style={{ '--sidebar-width': 'auto' } as CSSProperties}>
+        <AppSidebar />
         <div className="relative min-w-0 flex-[999_1_560px]">
           <Outlet />
         </div>
         <TabBar />
-      </div>
+      </SidebarProvider>
     </BoardProvider>
   );
 }
 
-function Sidebar() {
+function AppSidebar() {
+  const matchRoute = useMatchRoute();
   return (
-    <aside
+    <Sidebar
+      collapsible="none"
       aria-label="Barre latérale"
-      className="sticky top-0 hidden h-dvh min-w-0 flex-[1_1_220px] flex-col gap-7 self-start border-line border-r px-3.5 py-7 lg:flex"
+      className="sticky top-0 hidden h-dvh min-w-0 flex-[1_1_220px] gap-7 self-start border-line border-r px-3.5 py-7 lg:flex"
     >
-      <ClubBadge className="px-2" />
-      <nav aria-label="Navigation principale" className="flex flex-wrap gap-0.5">
-        {tabs.map(({ to, label, Icon }) => (
-          <Link
-            key={to}
-            to={to}
-            activeOptions={{ exact: to === '/' }}
-            className="flex h-10 flex-[1_1_170px] items-center gap-3 rounded-[10px] px-3 font-medium text-[14px] text-t2 transition-colors duration-300 hover:bg-white/4 hover:text-t1 aria-[current=page]:bg-white/7 aria-[current=page]:text-t1"
-          >
-            <Icon size={18} />
-            {label}
-          </Link>
-        ))}
-      </nav>
-    </aside>
+      <SidebarHeader className="p-0">
+        <ClubBadge className="px-2" />
+      </SidebarHeader>
+      <SidebarContent>
+        <nav aria-label="Navigation principale">
+          <SidebarMenu className="flex-row flex-wrap gap-0.5">
+            {tabs.map(({ to, label, Icon }) => (
+              <SidebarMenuItem key={to} className="flex-[1_1_170px]">
+                <SidebarMenuButton
+                  size="nav"
+                  isActive={Boolean(matchRoute({ to }))}
+                  render={<Link to={to} activeOptions={{ exact: to === '/' }} />}
+                >
+                  <Icon size={18} />
+                  <span>{label}</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            ))}
+          </SidebarMenu>
+        </nav>
+      </SidebarContent>
+    </Sidebar>
   );
 }
 
@@ -67,24 +86,27 @@ function TabBar() {
       >
         <div className="glass grid h-[62px] flex-1 grid-cols-4 rounded-[31px] p-[5px]">
           {tabs.map(({ to, label, Icon }) => (
-            <Link
+            <Button
               key={to}
-              to={to}
-              activeOptions={{ exact: to === '/' }}
-              className="relative flex flex-col items-center justify-center gap-0.5 rounded-[26px] font-semibold text-[10px] text-t2 tracking-[.01em] transition-colors duration-300 aria-[current=page]:bg-white/13 aria-[current=page]:text-t1 aria-[current=page]:shadow-[inset_0_.5px_0_rgba(255,255,255,.28),0_2px_8px_rgba(0,0,0,.25)] [&_svg]:size-[22px]"
+              variant="tab"
+              className="h-full"
+              nativeButton={false}
+              render={<Link to={to} activeOptions={{ exact: to === '/' }} />}
             >
               <Icon />
               {label}
-            </Link>
+            </Button>
           ))}
         </div>
-        <Link
-          to="/declarer"
+        <Button
+          variant="glass"
+          className="size-[62px]"
           aria-label="Déclarer un exercice"
-          className="glass flex size-[62px] shrink-0 items-center justify-center rounded-full text-t1 transition-transform duration-300 ease-(--ease) active:scale-94"
+          nativeButton={false}
+          render={<Link to="/declarer" />}
         >
           <PlusIcon />
-        </Link>
+        </Button>
       </nav>
     </>
   );
