@@ -2,7 +2,8 @@ import { QueryClient } from '@tanstack/react-query';
 import { afterEach, expect, test } from 'vitest';
 import { emptyBoard, type SyncedBoard } from '../lib/board-sync';
 import type { BoardChanges } from '../lib/contract';
-import { boardQuery } from './board';
+import { boardQuery, playerStats } from './board';
+import { aResult, boardWith } from './test-utils';
 
 // The board query reads every page of what changed, and starts over when the board it holds is another member's.
 
@@ -86,4 +87,13 @@ test('starts over when the board kept in the browser was another member’s', as
   expect(asked).toEqual(['9', '0']);
   expect(board.viewer).toBe('viewer-alice');
   expect(board.exercises).toEqual({});
+});
+
+test('counts each debt with the club’s rules of the match’s day, the −5 of a forfeit won included', () => {
+  const won = (match_guid: string, day: string) =>
+    aResult({ name: 'alice', match_guid, day, winner: 0, forfeit: true });
+  const board = boardWith({ results: [won('before', '2026-11-06'), won('after', '2026-11-07')] });
+  expect(playerStats(board, ['alice'])[0]?.due).toBe(-10);
+  const rules = { ...board.rules, forfeit: [{ effectiveFrom: '2026-11-07', enabled: false }] };
+  expect(playerStats({ ...board, rules }, ['alice'])[0]?.due).toBe(-5);
 });
