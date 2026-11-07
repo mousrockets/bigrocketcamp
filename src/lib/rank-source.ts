@@ -391,13 +391,27 @@ export async function recordObservedRanks(
  * When the app last received a ranked 2v2 match: a source that asks often can read the ranks right after a
  * match instead of waiting for its next turn. One row per live source, so asking every minute costs little.
  */
+/**
+ * When the rank source should read soon: the last ranked 2v2 match received, or the last time a member named another
+ * solo account, so that its rank shows a minute later instead of at the next hourly reading. The source reads a
+ * minute after this time (it calls it `lastRankedMatchAt`).
+ */
 export async function readLastRankedMatch(db: Database): Promise<string | null> {
-  const row = await orm(db)
-    .select({ last: max(collectors.lastRankedAt) })
-    .from(collectors)
-    .get();
-  return row?.last ?? null;
+  const query = orm(db);
+  const [match, account] = await Promise.all([
+    query
+      .select({ last: max(collectors.lastRankedAt) })
+      .from(collectors)
+      .get(),
+    query
+      .select({ last: max(members.soloChangedAt) })
+      .from(members)
+      .get(),
+  ]);
+  return latestOf(match?.last ?? null, account?.last ?? null);
 }
+
+const latestOf = (a: string | null, b: string | null) => (a === null ? b : b === null ? a : a > b ? a : b);
 
 // A healthy source reads at least hourly; past two hours, it has stopped.
 const staleAfter = 2 * 60 * 60 * 1000;
