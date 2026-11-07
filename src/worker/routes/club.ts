@@ -11,7 +11,7 @@ import {
   removeLogo,
   saveLogo,
 } from '../../lib/club-logo';
-import { changeLastPlaceRule, readChallengeRules } from '../../lib/club-rules';
+import { changeChallengeRules, readChallengeRules } from '../../lib/club-rules';
 import {
   type ChallengeRules,
   type Club,
@@ -64,7 +64,11 @@ export const clubRuleRoutes = new Hono<AppEnv>().put(
   sameOriginOnly,
   ...jsonBody(ruleChange, { invalid: invalidRuleChange }),
   async (c) => {
-    const rules: ChallengeRules = await changeLastPlaceRule(c.env.DB, c.req.valid('json').lastPlace.enabled);
+    const { lastPlace, forfeit } = c.req.valid('json');
+    const rules: ChallengeRules = await changeChallengeRules(c.env.DB, {
+      lastPlace: lastPlace?.enabled,
+      forfeit: forfeit?.enabled,
+    });
     return c.json(rules, 200, noStore);
   },
 );

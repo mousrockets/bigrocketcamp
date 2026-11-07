@@ -2,7 +2,7 @@ import { useForm } from '@tanstack/react-form';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useRef } from 'react';
-import { clubName, ruleChange } from '../../lib/contract';
+import { clubName, ruleSwitch } from '../../lib/contract';
 import { parisDay } from '../../lib/days';
 import { defaultLastPlaceRules, lastPlaceRuleOn } from '../../lib/domain';
 import { networkError } from '../access/gate';
@@ -31,7 +31,7 @@ import {
 
 // The club as its admins set it: its logo, its name, its challenge rules.
 
-const clubSettings = clubName.extend({ lastPlace: ruleChange.shape.lastPlace.shape.enabled });
+const clubSettings = clubName.extend({ lastPlace: ruleSwitch.shape.enabled });
 
 /** The +5 as it stands from tomorrow on: a change never touches the matches already played. */
 function nextLastPlaceRule(rules = defaultLastPlaceRules) {

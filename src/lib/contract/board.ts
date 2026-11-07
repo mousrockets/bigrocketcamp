@@ -1,4 +1,4 @@
-import { defaultLastPlaceRules } from '../match-rules';
+import { defaultForfeitRules, defaultLastPlaceRules } from '../match-rules';
 import { says, z } from '../validation';
 import { challengeRules } from './club';
 import { monthlyStandings } from './monthly';
@@ -114,7 +114,10 @@ const smallParts = {
   monthly: monthlyStandings,
   rankSource: rankSourceHealth.nullable().catch(null),
   /** Absent from an API older than the challenge rules: the default ones then apply. */
-  rules: challengeRules.catch(() => ({ lastPlace: defaultLastPlaceRules.map((rule) => ({ ...rule })) })),
+  rules: challengeRules.catch(() => ({
+    lastPlace: defaultLastPlaceRules.map((rule) => ({ ...rule })),
+    forfeit: defaultForfeitRules.map((rule) => ({ ...rule })),
+  })),
 };
 
 export const boardChanges = z.looseObject({

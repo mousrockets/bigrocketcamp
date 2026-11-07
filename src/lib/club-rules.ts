@@ -1,15 +1,30 @@
 import { asc, gte } from 'drizzle-orm';
+import type { BatchItem } from 'drizzle-orm/batch';
 import { parisDay } from './days';
 import type { Database } from './db';
-import { type LastPlaceRule, type LastPlaceRules, lastPlaceRuleOn } from './match-rules';
+import {
+  type ForfeitRule,
+  type ForfeitRules,
+  forfeitRuleOn,
+  type LastPlaceRule,
+  type LastPlaceRules,
+  lastPlaceRuleOn,
+} from './match-rules';
 import { orm } from './orm';
-import { lastPlaceRules } from './schema';
+import { forfeitRules, lastPlaceRules } from './schema';
 
 // The challenge rules are club settings with a history: a change applies from the next day in Paris, so the
 // matches already played, today's included, keep the pushups they were counted with.
 
 export interface ChallengeRules {
   lastPlace: LastPlaceRules;
+  forfeit: ForfeitRules;
+}
+
+/** What an admin asks for each rule from tomorrow on; a rule left out stays as it is. */
+export interface RuleChoice {
+  lastPlace?: boolean | undefined;
+  forfeit?: boolean | undefined;
 }
 
 /** The day after a day (YYYY-MM-DD). */
@@ -20,35 +35,54 @@ export function dayAfter(day: string): string {
 }
 
 export async function readChallengeRules(db: Database): Promise<ChallengeRules> {
-  const lastPlace: LastPlaceRule[] = await orm(db)
-    .select({
-      effectiveFrom: lastPlaceRules.effectiveFrom,
-      enabled: lastPlaceRules.enabled,
-      ties: lastPlaceRules.ties,
-    })
-    .from(lastPlaceRules)
-    .orderBy(asc(lastPlaceRules.effectiveFrom));
-  return { lastPlace };
+  const query = orm(db);
+  const [lastPlace, forfeit]: [LastPlaceRule[], ForfeitRule[]] = await Promise.all([
+    query
+      .select({
+        effectiveFrom: lastPlaceRules.effectiveFrom,
+        enabled: lastPlaceRules.enabled,
+        ties: lastPlaceRules.ties,
+      })
+      .from(lastPlaceRules)
+      .orderBy(asc(lastPlaceRules.effectiveFrom)),
+    query
+      .select({ effectiveFrom: forfeitRules.effectiveFrom, enabled: forfeitRules.enabled })
+      .from(forfeitRules)
+      .orderBy(asc(forfeitRules.effectiveFrom)),
+  ]);
+  return { lastPlace, forfeit };
 }
 
-/** Turns the +5 on or off from tomorrow; asking again for today's rule cancels a change still to come. */
-export async function changeLastPlaceRule(
+/**
+ * Turns the +5 or the −5 on or off from tomorrow, both in one batch; asking again for today's rule cancels a
+ * change still to come.
+ */
+export async function changeChallengeRules(
   db: Database,
-  enabled: boolean,
+  choice: RuleChoice,
   today: string = parisDay(),
 ): Promise<ChallengeRules> {
   const from = dayAfter(today);
-  const { lastPlace } = await readChallengeRules(db);
-  const inForce = lastPlaceRuleOn(lastPlace, today);
+  const rules = await readChallengeRules(db);
   const query = orm(db);
-  const forgetComing = query.delete(lastPlaceRules).where(gte(lastPlaceRules.effectiveFrom, from));
-  if (inForce.enabled === enabled) {
-    await forgetComing;
-  } else {
-    await query.batch([
-      forgetComing,
-      query.insert(lastPlaceRules).values({ effectiveFrom: from, enabled, ties: inForce.ties }),
-    ]);
+  const writes: BatchItem<'sqlite'>[] = [];
+  if (choice.lastPlace !== undefined) {
+    const inForce = lastPlaceRuleOn(rules.lastPlace, today);
+    writes.push(query.delete(lastPlaceRules).where(gte(lastPlaceRules.effectiveFrom, from)));
+    if (inForce.enabled !== choice.lastPlace) {
+      writes.push(
+        query.insert(lastPlaceRules).values({ effectiveFrom: from, enabled: choice.lastPlace, ties: inForce.ties }),
+      );
+    }
   }
+  if (choice.forfeit !== undefined) {
+    writes.push(query.delete(forfeitRules).where(gte(forfeitRules.effectiveFrom, from)));
+    if (forfeitRuleOn(rules.forfeit, today).enabled !== choice.forfeit) {
+      writes.push(query.insert(forfeitRules).values({ effectiveFrom: from, enabled: choice.forfeit }));
+    }
+  }
+  const [first, ...rest] = writes;
+  if (!first) return rules;
+  await query.batch([first, ...rest]);
   return readChallengeRules(db);
 }

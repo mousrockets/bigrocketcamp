@@ -77,6 +77,15 @@ export const lastPlaceRules = sqliteTable(
   (table) => [check('last_place_rules_ties', sql`${table.ties} IN ('none', 'all')`)],
 );
 
+/**
+ * The −5 of a win the opponents forfeited, as it changed over time. Each row applies from its day until the
+ * next row's; before the first one the −5 applies. Rows in the past never change (triggers).
+ */
+export const forfeitRules = sqliteTable('forfeit_rules', {
+  effectiveFrom: text('effective_from').primaryKey(),
+  enabled: integer('enabled', { mode: 'boolean' }).notNull(),
+});
+
 /** Only a hash of the code is stored. Times in milliseconds. */
 export const signInCodes = sqliteTable('sign_in_codes', {
   email: text('email').primaryKey(),
