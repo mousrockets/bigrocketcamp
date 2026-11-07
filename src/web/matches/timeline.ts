@@ -21,7 +21,7 @@ export interface SummaryPlayer {
   /** Pushups the day adds: defeats, bonus, minus the dodged ones. */
   owed: number;
   bonus: number;
-  /** Pushups off for wins the opponents forfeited and games above 1000 points. */
+  /** Pushups off for wins the opponents forfeited and games from 1000 points. */
   dodged: number;
 }
 

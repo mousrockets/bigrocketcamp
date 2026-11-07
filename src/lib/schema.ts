@@ -89,7 +89,7 @@ export const forfeitRules = sqliteTable('forfeit_rules', {
 });
 
 /**
- * The −10 of a game above 1000 points, as it changed over time. Each row applies from its day until the next
+ * The −10 of a game from 1000 points, as it changed over time. Each row applies from its day until the next
  * row's; before the first one (2026-11-07) it does not apply. Rows in the past never change (triggers).
  */
 export const highScoreRules = sqliteTable('high_score_rules', {

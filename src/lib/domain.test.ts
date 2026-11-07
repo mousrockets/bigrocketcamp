@@ -378,7 +378,7 @@ describe('daily recap', () => {
     expect(due.map((p) => p.due)).toEqual([-5, -5]);
   });
 
-  test('above 1000 points, a club player dodges 10, win or loss, and the credit counts for later defeats', () => {
+  test('from 1000 points, a club player dodges 10, win or loss, and the credit counts for later defeats', () => {
     const day = { day: '2026-11-07' };
     const rows = [
       row('loss', first, 1001, day),
@@ -390,16 +390,16 @@ describe('daily recap', () => {
     const recap = dailyRecap(roster, rows, '2026-11-07', complete(rows), enabledRules);
     expect(recap.players.slice(0, 2).map((p) => [p.losses, p.bonus, p.dodged, p.generated])).toEqual([
       [1, 0, 20, -15],
-      [1, 5, 0, 10],
+      [1, 5, 10, 0],
     ]);
     const [alice, bob] = summarize(roster, rows, [], '', complete(rows), enabledRules);
-    expect([alice?.due, alice?.remaining, bob?.due]).toEqual([-15, 0, 10]);
+    expect([alice?.due, alice?.remaining, bob?.due]).toEqual([-15, 0, 0]);
     // The credit stacks with the −5 of a forfeit won.
     const forfeit = [row('ff', first, 1100, { ...day, winner: 0, forfeit: true })];
     expect(firstPlayer(dailyRecap(roster, forfeit, '2026-11-07', [], enabledRules).players).dodged).toBe(15);
   });
 
-  test('above 1000 points dodges nothing in a match under review, nor before 2026-11-07', () => {
+  test('from 1000 points dodges nothing in a match under review, nor before 2026-11-07', () => {
     const doubtful = [row('m', first, 1500, { day: '2026-11-07', review_required: true })];
     expect(firstPlayer(summarize(roster, doubtful, [], '', [], enabledRules)).due).toBe(0);
     const before = [row('m', first, 1500, { day: '2026-11-06' })];
@@ -407,7 +407,7 @@ describe('daily recap', () => {
     expect(firstPlayer(summarize(roster, before, [], '', [], enabledRules)).due).toBe(5);
   });
 
-  test('above 1000 points dodges nothing on the days the club turned the −10 off', () => {
+  test('from 1000 points dodges nothing on the days the club turned the −10 off', () => {
     const rows = [row('on', first, 1200, { day: '2026-11-08' }), row('off', first, 1200, { day: '2026-11-09' })];
     const highScoreOff = {
       ...defaultDodgeRules,

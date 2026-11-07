@@ -28,14 +28,14 @@ export interface HistoryPlayer<Row extends HistoryRow> {
   row: Row;
   /**
    * What the match adds: 0 for a win, 5 for a defeat, 10 for the team's lowest club player, -5 for a win the
-   * opponents forfeited, and 10 less for a game above 1000 points.
+   * opponents forfeited, and 10 less for a game from 1000 points.
    */
   pushups: number;
   /** This player takes the extra 5 of the team's lowest club player. */
   lastPlace: boolean;
   /** This player dodges 5 pushups: the opponents forfeited. */
   dodged: boolean;
-  /** This player dodges 10 pushups: more than 1000 points in the game. */
+  /** This player dodges 10 pushups: 1000 points or more in the game. */
   highScore: boolean;
 }
 

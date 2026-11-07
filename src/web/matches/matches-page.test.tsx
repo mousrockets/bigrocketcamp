@@ -70,7 +70,7 @@ test('a forfeit won dodges nothing the days the club turned the −5 off', async
   expect(bob).not.toHaveTextContent('Esquivées−5');
 });
 
-test('above 1000 points, a player dodges 10 pushups, and the replay says why', async () => {
+test('from 1000 points, a player dodges 10 pushups, and the replay says why', async () => {
   const highScore = duo('night-loss', '2026-11-07T20:50:00Z', { won: false }).map((row) =>
     row.name === 'alice' ? { ...row, score: 1240 } : row,
   );
@@ -79,7 +79,7 @@ test('above 1000 points, a player dodges 10 pushups, and the replay says why', a
   const [alice] = within(summary)
     .getAllByText(/parties/)
     .map((line) => line.closest('[data-slot=card]') as HTMLElement);
-  // Two defeats (10), one forfeit won (−5), one game above 1000 points (−10): nothing to do.
+  // Two defeats (10), one forfeit won (−5), one game from 1000 points (−10): nothing to do.
   expect(alice).toHaveTextContent('4 parties · 2 V · 2 D');
   expect(alice).toHaveTextContent('Esquivées−15');
   expect(alice).toHaveTextContent('mains propres');
@@ -126,11 +126,11 @@ test('states the rules as the club set them', async () => {
   ).toBeInTheDocument();
 });
 
-test('names the −10 above 1000 points on the days the club keeps it', async () => {
+test('names the −10 from 1000 points on the days the club keeps it', async () => {
   renderInApp(<MatchesPage />, { board: boardWith() });
   expect(
     await screen.findByText(
-      'Une défaite coûte 5 pompes à chaque joueur du club, plus 5 de bonus pour celui qui a le moins de points dans l’équipe. Si les adversaires FF, 5 pompes de moins. Plus de 1 000 points dans une partie, 10 pompes de moins. Journée en heure de Paris.',
+      'Une défaite coûte 5 pompes à chaque joueur du club, plus 5 de bonus pour celui qui a le moins de points dans l’équipe. Si les adversaires FF, 5 pompes de moins. Dès 1 000 points dans une partie, 10 pompes de moins. Journée en heure de Paris.',
     ),
   ).toBeInTheDocument();
 });

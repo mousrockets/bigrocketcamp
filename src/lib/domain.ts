@@ -213,7 +213,7 @@ export function summarize<Row extends MatchRow>(
   return roster.map((name) => {
     const all = rows.filter((row) => row.name === name && row.kind === 'match' && !row.review_required);
     const selected = all.filter((row) => !day || row.day === day);
-    // A forfeit won or a game above 1000 points lowers what is due like an exercise would: the pushups dodged
+    // A forfeit won or a game from 1000 points lowers what is due like an exercise would: the pushups dodged
     // count for later defeats.
     const due = all.reduce(
       (sum, row) =>
@@ -263,7 +263,7 @@ export function dailyRecap<Row extends MatchRow>(
     compared: 0,
     unranked: 0,
     bonus: 0,
-    /** Pushups taken off by the wins the opponents forfeited and the games above 1000 points. */
+    /** Pushups taken off by the wins the opponents forfeited and the games from 1000 points. */
     dodged: 0,
     /** What the day adds to the debt: the defeats, the bonus, less what was dodged. */
     generated: 0,
