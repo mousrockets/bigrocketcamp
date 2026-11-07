@@ -1,27 +1,28 @@
 import { useQuery } from '@tanstack/react-query';
-import { Link, Navigate, Outlet, useMatchRoute } from '@tanstack/react-router';
+import { Link, Navigate, Outlet, useMatchRoute, useNavigate } from '@tanstack/react-router';
+import { cn } from 'cn';
 import { useEffect, useSyncExternalStore } from 'react';
 import { isSignInRequired, subscribeToSignInRequired } from './api';
-import { Brand } from './brand';
 import { ClubContext, ClubLogoContext, ClubNameContext } from './club';
+import { AppShell } from './components/club/app-shell';
+import { EmptyPitch } from './components/club/icons';
+import { buttonVariants } from './components/ui/button';
+import { Toaster } from './components/ui/sonner';
 import { clubIdentityQuery, clubQuery } from './queries';
 import { SignIn } from './sign-in';
+import { useTheme } from './theme';
 
 export function NotFound() {
   return (
-    <main>
-      <header>
-        <Brand />
-        <Link className="back-link" to="/" reloadDocument>
-          ← Retour au tableau
-        </Link>
-      </header>
-      <section>
-        <p className="eyebrow">ERREUR 404</p>
-        <h1>Page introuvable</h1>
-        <p className="muted">Cette adresse ne correspond à aucune page du club.</p>
-      </section>
-    </main>
+    <section className="flex flex-col items-center gap-4 py-24 text-center">
+      <EmptyPitch />
+      <span className="kicker">Erreur 404</span>
+      <h1 className="font-display text-4xl leading-none">Page introuvable</h1>
+      <p className="max-w-sm text-[15px] text-soft">Cette adresse ne correspond à aucune page du club.</p>
+      <Link to="/" className={cn(buttonVariants({ variant: 'inverse', size: 'xl' }), 'mt-2')}>
+        Retour au club
+      </Link>
+    </section>
   );
 }
 
@@ -46,6 +47,8 @@ export function App() {
   const { data: club = null, isError: failed } = useQuery(clubQuery);
   const { data: identity = noIdentity } = useQuery({ ...clubIdentityQuery, enabled: signInRequired });
   const onProfile = useMatchRoute()({ to: '/profil' }) !== false;
+  const navigate = useNavigate();
+  useTheme();
 
   const clubName = club?.name ?? identity.name;
   useEffect(() => {
@@ -72,7 +75,10 @@ export function App() {
     <ClubNameContext value={club.name}>
       <ClubLogoContext value={club.logo}>
         <ClubContext value={club}>
-          <Outlet />
+          <AppShell onDeclare={() => navigate({ to: '/', hash: 'exercise' })}>
+            <Outlet />
+          </AppShell>
+          <Toaster position="top-center" />
         </ClubContext>
       </ClubLogoContext>
     </ClubNameContext>
