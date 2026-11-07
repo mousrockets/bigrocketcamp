@@ -88,3 +88,19 @@ test('says when nobody played today', async () => {
   expect(await screen.findByText('Aucun match aujourd’hui. Le terrain attend son kickoff.')).toBeInTheDocument();
   expect(screen.getByText('Pas un match cette semaine. Suspect.')).toBeInTheDocument();
 });
+
+test('states the rules as the club set them', async () => {
+  renderInApp(<MatchesPage />, {
+    board: boardWith({
+      rules: {
+        lastPlace: [{ enabled: false, effectiveFrom: '2026-11-01', ties: 'none' }],
+        forfeit: [{ enabled: true, effectiveFrom: '2026-11-01' }],
+      },
+    }),
+  });
+  expect(
+    await screen.findByText(
+      'Une défaite coûte 5 pompes à chaque joueur du club. Si les adversaires FF, 5 pompes de moins. Journée en heure de Paris.',
+    ),
+  ).toBeInTheDocument();
+});
