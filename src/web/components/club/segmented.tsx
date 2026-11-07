@@ -45,7 +45,7 @@ export function Segmented<Value extends string>({
           value={item.value}
           className={cn(
             'h-9 min-w-0 rounded-[10px] px-3 text-sm font-semibold text-soft hover:bg-accent hover:text-foreground aria-pressed:bg-inverse aria-pressed:text-inverse-foreground aria-pressed:hover:bg-inverse',
-            size === 'sm' && 'h-[34px] rounded-[9px] text-[13px]',
+            size === 'sm' && 'h-[34px] rounded-[9px] px-1.5 text-[13px] lg:px-3',
           )}
         >
           <span className="truncate">{item.label}</span>

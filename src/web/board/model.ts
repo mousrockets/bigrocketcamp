@@ -180,3 +180,37 @@ export function payoffFor(type: ExerciseType, owed: number): number {
     type === 'plank' ? Math.ceil((owed / 15) * 4) / 4 : Math.ceil(type === 'crunches' ? owed * 2 : owed),
   );
 }
+
+/** Where a result comes from, as the member reads it. */
+export function sourceLabel(row: Result): string {
+  if (row.review_required) return 'À vérifier : les sources ne sont pas d’accord';
+  if (row.verification === 'confirmed') return 'Confirmé par les deux sources';
+  if (row.verification === 'corrected') return 'Corrigé par Epic';
+  return row.selected_source === 'epic' ? 'Reçu d’Epic' : 'Reçu par le collecteur PC';
+}
+
+/**
+ * Everyone in a match's scoreboard: the club's side first, best score first, then the other side. Players outside
+ * the club are never named on screen ("Adversaire 1", "Coéquipier"), only counted.
+ */
+export function scoreboardOf(roster: readonly string[], state: BoardState, guid: string, clubTeam: number) {
+  const rows = state.results.filter((row) => row.match_guid === guid);
+  const byScore = (a: Result, b: Result) => b.score - a.score;
+  const ours = rows.filter((row) => row.team === clubTeam).sort(byScore);
+  const theirs = rows.filter((row) => row.team !== clubTeam).sort(byScore);
+  let opponent = 0;
+  return [...ours, ...theirs].map((row) => {
+    const member = roster.includes(row.name);
+    const label = member ? row.name : row.team === clubTeam ? 'Coéquipier' : `Adversaire ${++opponent}`;
+    return { row, member, ours: row.team === clubTeam, label };
+  });
+}
+
+/** "6 matchs reçus aujourd’hui · 3 victoires · 3 défaites". */
+export function matchesSummary(matches: { outcome: string }[], when: string): string {
+  const count = matches.length;
+  const wins = matches.filter((match) => match.outcome === 'victory').length;
+  const losses = matches.filter((match) => match.outcome === 'defeat').length;
+  if (!count) return `Aucun match reçu ${when}.`;
+  return `${count} match${count > 1 ? 's' : ''} reçu${count > 1 ? 's' : ''} ${when} · ${wins} victoire${wins > 1 ? 's' : ''} · ${losses} défaite${losses > 1 ? 's' : ''}`;
+}

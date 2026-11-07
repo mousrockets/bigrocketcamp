@@ -165,7 +165,7 @@ export function AppShell({ children, onDeclare }: { children: ReactNode; onDecla
       <SideBar onDeclare={onDeclare} />
       <main
         id="main"
-        className="relative min-w-0 flex-1 px-4 pt-[calc(env(safe-area-inset-top)+14px)] pb-[calc(env(safe-area-inset-bottom)+112px)] lg:px-[clamp(16px,4vw,48px)] lg:pt-8 lg:pb-14"
+        className="relative min-w-0 flex-1 overflow-x-clip px-4 pt-[calc(env(safe-area-inset-top)+14px)] pb-[calc(env(safe-area-inset-bottom)+112px)] lg:px-[clamp(16px,4vw,48px)] lg:pt-8 lg:pb-14"
       >
         <div className="relative mx-auto flex max-w-[1180px] flex-col gap-3.5 lg:gap-5">{children}</div>
       </main>
