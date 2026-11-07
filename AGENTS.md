@@ -8,6 +8,14 @@ Règles pour tout agent IA qui travaille sur ce dépôt. Elles valent aussi pour
 - Un contributeur développeur : donne-lui le détail technique, présente les options et leurs compromis, et laisse-le décider.
 - Le vocabulaire et les questions de la personne te disent à qui tu parles. Dans le doute, demande-lui.
 
+## Pour commencer
+
+- Lis `README.md` et `docs/`, puis le code concerné, avant d'agir.
+- Si l'environnement n'est pas prêt, guide la personne pas à pas :
+  - dans le cloud (Codex…) : un environnement pour ce dépôt, avec la version de Node de `.node-version` et la commande d'installation `npm ci` ;
+  - en local : cloner le dépôt, installer Node (`.node-version`), puis les commandes ci-dessous.
+- S'il lui manque un accès (organisation GitHub, dépôt, connecteur de ton outil), dis-lui exactement quoi demander à un mainteneur.
+
 ## Langues
 
 - Anglais : code, noms, commentaires, commits, branches.
@@ -34,12 +42,13 @@ Règles pour tout agent IA qui travaille sur ce dépôt. Elles valent aussi pour
 6. Commits au format Conventional Commits (`fix: keep pushups after a reload`). Le premier commit de la PR donne son message au commit fusionné : il résume toute la PR.
 7. PR : titre et description en français (quoi, pourquoi, comment vérifier), et `Closes #N`.
 8. La PR fusionne seule, en squash, quand la CI est verte. Le label `rebase` garde des commits volontairement atomiques.
-9. Fusion dans `main` = mise en production. Termine en résumant ce qui change pour l'utilisateur.
+9. Fusion dans `main` = mise en production. Quelques minutes après la fusion, vérifie que `/api/health` de l'instance (voir `docs/deploiement.md`) annonce le dernier commit de `main` : deux fusions rapprochées peuvent laisser en ligne la plus ancienne. Sinon, préviens un mainteneur.
+10. Termine en résumant ce qui change pour l'utilisateur.
 
 ## Stack
 
 - TypeScript strict uniquement : aucun fichier JavaScript.
-- Node 24 et npm. Tests : Vitest, exécuté dans le moteur des Workers Cloudflare.
+- Node (la dernière LTS, dans `.node-version`) et npm. Tests : Vitest, exécuté dans le moteur des Workers Cloudflare.
 - API : Hono sur un Worker Cloudflare, dans `src/worker`. App web : React et Vite, dans `src/web`.
 - Base : D1 (SQLite). Le schéma est décrit en TypeScript avec Drizzle ORM dans `src/lib/schema.ts`. Requêtes typées avec Drizzle, SQL brut là où il se lit mieux.
 - Changer la base :
@@ -53,7 +62,9 @@ Règles pour tout agent IA qui travaille sur ce dépôt. Elles valent aussi pour
 
 ## Validation d'un mainteneur
 
-Seuls `.github/`, `wrangler.jsonc` et ce fichier l'exigent (`.github/CODEOWNERS`). Tout le reste fusionne sans attendre.
+- `.github/`, `wrangler.jsonc` et ce fichier l'exigent (`.github/CODEOWNERS`).
+- L'apparence de l'app (couleurs, mise en page, typographie, logo) suit les maquettes validées par un mainteneur. Avant de la changer, demande à la personne d'obtenir son accord, et attends-le.
+- Tout le reste fusionne sans attendre.
 
 ## Jamais
 
