@@ -108,7 +108,7 @@ describe('an answer from an older API, without the fields added since, still par
     });
   });
 
-  test('rules without the −10 above 1000 points: it applies from 2026-11-07, as the club decided', () => {
+  test('rules without the −10 from 1000 points: it applies from 2026-11-07, as the club decided', () => {
     expect(boardChanges.parse(changes).rules.highScore).toEqual(defaultHighScoreRules);
     const read = club.parse({ name: 'Big Rocket Camp', logo: null, players: [], me, rules: changes.rules });
     expect(read.rules?.highScore).toEqual([{ enabled: true, effectiveFrom: '2026-11-07' }]);

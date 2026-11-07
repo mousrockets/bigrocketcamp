@@ -174,7 +174,7 @@ describe('the challenge rules', () => {
     expect(await env.DB.prepare('SELECT COUNT(*) AS n FROM forfeit_rules').first('n')).toBe(0);
   });
 
-  test('the −10 above 1000 points switches off from tomorrow, and back on cancels it', async () => {
+  test('the −10 from 1000 points switches off from tomorrow, and back on cancels it', async () => {
     const off = await call('/api/club/rules', admin, 'PUT', { highScore: { enabled: false } });
     expect(off.status).toBe(200);
     expect(await off.json()).toEqual({

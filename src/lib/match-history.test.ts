@@ -134,7 +134,7 @@ test('a forfeit won the day the club keeps no −5 costs nothing and dodges noth
   ]);
 });
 
-test('above 1000 points, a club player dodges 10, win or loss, on top of what the match costs', () => {
+test('from 1000 points, a club player dodges 10, win or loss, on top of what the match costs', () => {
   const tonight = (row: ReturnType<typeof line>) => ({ ...row, day: '2026-11-07' });
   const rows = [
     line('loss', alice, 0, 1, 1240, 2),
@@ -153,7 +153,7 @@ test('above 1000 points, a club player dodges 10, win or loss, on top of what th
       [bob, 0, true, true],
     ],
     [
-      [alice, 0, false, false],
+      [alice, -10, false, true],
       [bob, -10, false, true],
     ],
   ]);

@@ -75,7 +75,7 @@ test('the +5 counts as before, and nothing stored changes', async () => {
   await runMigrationsFrom(db, '0022_');
   const { lastPlace, forfeit, highScore } = await readChallengeRules(db);
   expect(forfeit).toEqual([]);
-  // The −10 above 1000 points starts where the code's default starts it.
+  // The −10 from 1000 points starts where the code's default starts it.
   expect(highScore).toEqual(defaultHighScoreRules);
   expect(lastPlace).toEqual(defaultLastPlaceRules);
   // The day before the rule, the defeat costs 5; from its day on, bob takes the +5.

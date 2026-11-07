@@ -59,7 +59,7 @@ function nextRule<Rule extends { effectiveFrom: string; enabled: boolean }>(
 const ruleSwitches = [
   { name: 'lastPlace', label: '+5 pour le moins de points' },
   { name: 'forfeit', label: '−5 si les adversaires FF' },
-  { name: 'highScore', label: `−10 au-delà de ${formatNumber(highScorePoints)} points` },
+  { name: 'highScore', label: `−10 dès ${formatNumber(highScorePoints)} points` },
 ] as const;
 
 export function ClubSettings() {

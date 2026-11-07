@@ -77,7 +77,7 @@ test('the −5 of a forfeit won is on until the club turns it off, then follows 
   expect(dodgedPushups({ ...win, day: '2026-11-12' })).toBe(5);
 });
 
-test('the −10 above 1000 points starts on 2026-11-07, then follows each day’s rule', () => {
+test('the −10 from 1000 points starts on 2026-11-07, then follows each day’s rule', () => {
   expect(highScoreRuleOn(defaultHighScoreRules, '2026-11-06').enabled).toBe(false);
   expect(highScoreRuleOn(defaultHighScoreRules, '2026-11-07').enabled).toBe(true);
   const rules = [...defaultHighScoreRules, { effectiveFrom: '2026-11-10', enabled: false }];
@@ -87,7 +87,7 @@ test('the −10 above 1000 points starts on 2026-11-07, then follows each day’
   const game = { name: 'alice', kind: 'match', team: 0, winner: 1, day: '2026-11-07' };
   expect(dodgedPushups({ ...game, score: 1001 })).toBe(10);
   expect(dodgedPushups({ ...game, score: 1001, winner: 0 })).toBe(10);
-  expect(dodgedPushups({ ...game, score: 1000 })).toBe(0);
+  expect(dodgedPushups({ ...game, score: 1000 })).toBe(10);
   expect(dodgedPushups({ ...game, score: 999 })).toBe(0);
   expect(dodgedPushups({ ...game, score: 1001, review_required: true })).toBe(0);
   expect(dodgedPushups({ ...game, score: 1001, kind: 'private' })).toBe(0);

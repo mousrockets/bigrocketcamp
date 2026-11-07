@@ -163,7 +163,7 @@ export function forfeitDodge(row: MatchRow, rules: ForfeitRules = defaultForfeit
   return won && forfeitRuleOn(rules, row.day).enabled ? 5 : 0;
 }
 
-/** The −10 of a game above 1000 points, as it applies from `effectiveFrom` (a day in Paris). */
+/** The −10 of a game of 1000 points or more, as it applies from `effectiveFrom` (a day in Paris). */
 export interface HighScoreRule {
   enabled: boolean;
   effectiveFrom: string;
@@ -172,7 +172,7 @@ export interface HighScoreRule {
 /** Every change of the −10, oldest first: a match counts with the rule of its own day, never a later one. */
 export type HighScoreRules = readonly HighScoreRule[];
 
-/** Points a player must go beyond in a game to dodge pushups. */
+/** Points a player must reach in a game to dodge pushups. */
 export const highScorePoints = 1000;
 
 // The −10 starts on 2026-11-07, the evening the club decided it. The club changes it in its settings; until the
@@ -190,12 +190,12 @@ export function highScoreRuleOn(rules: HighScoreRules, day: string): HighScoreRu
 }
 
 /**
- * « Si un joueur dépasse 1000 points pendant une game, il esquive 10 pompes. Qu'ils perdent ou qu'ils gagnent »:
- * a club player above 1000 points in a counted match takes 10 pushups off, win or loss, on the days the club
+ * « Si un joueur dépasse 1000 points pendant une game, il esquive 10 pompes. Qu'ils perdent ou qu'ils gagnent »,
+ * from 1000 points included, as the club set it the day after: a club player with 1000 points or more in a counted match takes 10 pushups off, win or loss, on the days the club
  * keeps the rule.
  */
 export function highScoreDodge(row: MatchRow, rules: HighScoreRules = defaultHighScoreRules): number {
-  const counted = row.kind === 'match' && !row.review_required && row.score > highScorePoints;
+  const counted = row.kind === 'match' && !row.review_required && row.score >= highScorePoints;
   return counted && highScoreRuleOn(rules, row.day).enabled ? 10 : 0;
 }
 

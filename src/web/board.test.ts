@@ -98,7 +98,7 @@ test('counts each debt with the club’s rules of the match’s day, the −5 of
   expect(playerStats({ ...board, rules }, ['alice'])[0]?.due).toBe(-5);
 });
 
-test('counts each debt with the −10 above 1000 points of the match’s day', () => {
+test('counts each debt with the −10 from 1000 points of the match’s day', () => {
   const game = (match_guid: string, day: string) => aResult({ name: 'alice', match_guid, day, score: 1100 });
   const board = boardWith({ results: [game('before', '2026-11-06'), game('first', '2026-11-07')] });
   expect(playerStats(board, ['alice'])[0]?.due).toBe(0);

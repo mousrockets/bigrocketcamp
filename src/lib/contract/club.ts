@@ -19,7 +19,7 @@ export const invalidRuleChange = 'Règle des défis invalide.';
 /** One rule turned on or off from tomorrow. */
 export const ruleSwitch = z.object({ enabled: z.boolean(says(invalidRuleChange)) }, says(invalidRuleChange));
 /**
- * The rules an admin changes: the +5, the −5 of a forfeit won, the −10 above 1000 points, or several; a rule
+ * The rules an admin changes: the +5, the −5 of a forfeit won, the −10 from 1000 points, or several; a rule
  * left out stays as it is.
  */
 export const ruleChange = z
@@ -51,7 +51,7 @@ export const lastPlaceRule = z.looseObject({
 /** The −5 of a win the opponents forfeited, as it applies from `effectiveFrom` (a day in Paris). */
 export const forfeitRule = z.looseObject({ enabled: z.boolean(), effectiveFrom: z.string() });
 
-/** The −10 of a game above 1000 points, as it applies from `effectiveFrom` (a day in Paris). */
+/** The −10 of a game from 1000 points, as it applies from `effectiveFrom` (a day in Paris). */
 export const highScoreRule = z.looseObject({ enabled: z.boolean(), effectiveFrom: z.string() });
 
 /** Also the answer to a change of the rules. Every change, oldest first: a match counts with its own day's rule. */
@@ -62,7 +62,7 @@ export const challengeRules = z.looseObject({
     .array(forfeitRule)
     .readonly()
     .catch(() => defaultForfeitRules.map((rule) => ({ ...rule }))),
-  /** Absent from an API older than the −10 above 1000 points: it then applies as the club decided it. */
+  /** Absent from an API older than the −10 from 1000 points: it then applies as the club decided it. */
   highScore: z
     .array(highScoreRule)
     .readonly()
