@@ -2,9 +2,11 @@ import { cn } from 'cn';
 import { parisDay } from '../../lib/days';
 import {
   defaultForfeitRules,
+  defaultHighScoreRules,
   defaultLastPlaceRules,
   forfeitRuleOn,
   highScorePoints,
+  highScoreRuleOn,
   lastPlaceRuleOn,
 } from '../../lib/domain';
 import { formatLongDay, formatNumber } from '../../lib/format';
@@ -79,9 +81,11 @@ export function MatchesPage() {
 function rulesText(board: Board, today: string): string {
   const bonus = lastPlaceRuleOn(board.rules?.lastPlace ?? defaultLastPlaceRules, today).enabled;
   const forfeit = forfeitRuleOn(board.rules?.forfeit ?? defaultForfeitRules, today).enabled;
+  const highScore = highScoreRuleOn(board.rules?.highScore ?? defaultHighScoreRules, today).enabled;
   return [
     `Une défaite coûte 5 pompes à chaque joueur du club${bonus ? ', plus 5 de bonus pour celui qui a le moins de points dans l’équipe' : ''}.`,
     forfeit ? 'Si les adversaires FF, 5 pompes de moins.' : '',
+    highScore ? `Plus de ${formatNumber(highScorePoints)} points dans une partie, 10 pompes de moins.` : '',
     'Journée en heure de Paris.',
   ]
     .filter(Boolean)
