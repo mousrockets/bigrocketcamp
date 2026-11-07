@@ -1,12 +1,10 @@
 import { Hono } from 'hono';
 import { type BoardReader, prepareBoard, readBoardChanges, readFullBoard, readHead } from '../../lib/board';
+import { type BoardChanges, boardQuery, invalidVersion } from '../../lib/contract';
 import { parisMonth } from '../../lib/monthly-mmr';
 import { type AppEnv, sha256 } from '../auth';
-import { boardQuery, invalidVersion } from '../inputs';
 import { noStore } from '../respond';
 import { queryOf } from '../validate';
-
-export const stateRoutes = new Hono<AppEnv>();
 
 /** An open board waits at most this long for a change, then asks again. */
 export const maxWaitSeconds = 25;
@@ -16,7 +14,7 @@ const hourMs = 3_600_000;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-stateRoutes.get('/', queryOf(boardQuery, invalidVersion), async (c) => {
+export const stateRoutes = new Hono<AppEnv>().get('/', queryOf(boardQuery, invalidVersion), async (c) => {
   const reader: BoardReader = {
     db: c.env.DB,
     memberId: c.var.member.id,
@@ -30,7 +28,14 @@ stateRoutes.get('/', queryOf(boardQuery, invalidVersion), async (c) => {
     const head = await readHead(reader.db);
     if (from === 0 || head.version !== from || head.pending) {
       const { players, pending } = await prepareBoard(reader.db);
-      return c.json(await readBoardChanges(reader, players, from, { pending }), 200, noStore);
+      // The board reads its collectors without a row type: their shape is only the contract's word until it has one.
+      const changes: Omit<BoardChanges, 'collectors'> & { collectors: unknown[] } = await readBoardChanges(
+        reader,
+        players,
+        from,
+        { pending },
+      );
+      return c.json(changes, 200, noStore);
     }
     // Nothing new: an empty answer, and the board asks again.
     if (Date.now() - started + checkEveryMs > wait) return c.body(null, 204, noStore);

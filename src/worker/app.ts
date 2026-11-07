@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import type { Health } from '../lib/contract';
 import { isoDate } from '../lib/version';
 import { type AppEnv, requireAdmin, requireMember } from './auth';
 import { requireMemberOrCollector } from './collectors';
@@ -23,21 +24,28 @@ app.onError((error, c) => {
   return c.json({ error: 'Une erreur est survenue. Réessaie dans un instant.' }, 500, noStore);
 });
 
-// Which build answers, and since when: the web app reloads itself when it no longer matches.
-app.get('/health', (c) =>
-  c.json(
-    { status: 'ok', commit: __APP_COMMIT__, deployedAt: isoDate(c.env.CF_VERSION_METADATA.timestamp) },
-    200,
-    noStore,
-  ),
-);
-app.route('/auth', authRoutes);
-app.route('/ranks', rankRoutes);
-app.route('/club/name', clubNameRoutes);
-// Anyone reads the logo; changing it checks the member inside its routes.
-app.route('/club/logo', clubLogoRoutes);
-// The Windows collector pairs with a code and then sends its own token: no session.
-app.route('/collector', collectorRoutes);
+// The routes are chained so that their types add up into `AppType`, which the web app's client is typed from.
+// Hono runs handlers in the order they are added: the public routes come before the middlewares below.
+const publicRoutes = app
+  // Which build answers, and since when: the web app reloads itself when it no longer matches.
+  .get('/health', (c) =>
+    c.json(
+      {
+        status: 'ok',
+        commit: __APP_COMMIT__,
+        deployedAt: isoDate(c.env.CF_VERSION_METADATA.timestamp),
+      } satisfies Health,
+      200,
+      noStore,
+    ),
+  )
+  .route('/auth', authRoutes)
+  .route('/ranks', rankRoutes)
+  .route('/club/name', clubNameRoutes)
+  // Anyone reads the logo; changing it checks the member inside its routes.
+  .route('/club/logo', clubLogoRoutes)
+  // The Windows collector pairs with a code and then sends its own token: no session.
+  .route('/collector', collectorRoutes);
 
 // Everything below needs a signed-in member.
 app.use('/state', requireMember);
@@ -52,14 +60,18 @@ app.use('/profile', requireMember);
 app.use('/collectors', requireMember);
 app.use('/members', requireMember, requireAdmin);
 
-app.route('/state', stateRoutes);
-app.route('/exercise', exerciseRoutes);
-app.route('/reaction', reactionRoutes);
-app.route('/identities', identityRoutes);
-app.route('/live', liveRoutes);
-app.route('/monthly', monthlyRoutes);
-app.route('/club/rules', clubRuleRoutes);
-app.route('/club', clubRoutes);
-app.route('/profile', profileRoutes);
-app.route('/collectors', collectorDeviceRoutes);
-app.route('/members', memberRoutes);
+const routes = publicRoutes
+  .route('/state', stateRoutes)
+  .route('/exercise', exerciseRoutes)
+  .route('/reaction', reactionRoutes)
+  .route('/identities', identityRoutes)
+  .route('/live', liveRoutes)
+  .route('/monthly', monthlyRoutes)
+  .route('/club/rules', clubRuleRoutes)
+  .route('/club', clubRoutes)
+  .route('/profile', profileRoutes)
+  .route('/collectors', collectorDeviceRoutes)
+  .route('/members', memberRoutes);
+
+/** Every route of the API with its inputs and answers: what `hc` types the web app's client from. */
+export type AppType = typeof routes;

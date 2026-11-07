@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { prepareBoard } from '../../lib/board';
 import { readRoster } from '../../lib/club';
+import { type Done, type IdentityList, identityChange, invalidIdentity } from '../../lib/contract';
 import { readStoredResults } from '../../lib/match-builds';
 import {
   canonicalPlayerId,
@@ -9,11 +10,8 @@ import {
   unassignedPrefix,
 } from '../../lib/player-identities';
 import { type AppEnv, sameOriginOnly } from '../auth';
-import { identityChange, invalidIdentity } from '../inputs';
 import { failure } from '../respond';
 import { jsonBody } from '../validate';
-
-export const identityRoutes = new Hono<AppEnv>();
 
 const noStore = { 'Cache-Control': 'no-store' };
 
@@ -27,106 +25,106 @@ const ownSlotOf = async (db: D1Database, memberId: string) =>
   )?.duo_pseudo ?? null;
 const gamePlayerId = /^(Epic|Steam|PS4|XboxOne|Switch|PsyNet)\|[^\s|]{1,128}\|0$/;
 
-identityRoutes.get('/', async (c) => {
-  const db = c.env.DB;
-  const roster = await readRoster(db);
-  await prepareBoard(db);
-  const memberId = c.var.member.id;
-  const [identities, aliases, stored, ownSlot] = await Promise.all([
-    readPlayerIdentities(db, roster),
-    readIdentityBindings(db, roster),
-    readStoredResults(db),
-    ownSlotOf(db, memberId),
-  ]);
-  const isBound = (playerId: string) =>
-    aliases.some((alias) => canonicalPlayerId(alias.player_id) === canonicalPlayerId(playerId));
-  const seen = new Set<string>();
-  const candidates = stored
-    .filter((row) => row.kind === 'match' && !row.review_required && !isBound(row.player_id))
-    .filter((row) => {
-      const id = canonicalPlayerId(row.player_id);
-      if (seen.has(id)) return false;
-      seen.add(id);
-      return true;
-    })
-    .slice(0, 50)
-    .map((row) => ({
-      playerId: canonicalPlayerId(row.player_id),
-      name: row.name.startsWith(unassignedPrefix) ? row.name.slice(unassignedPrefix.length) : row.name,
-      day: row.day,
-    }));
-  return c.json(
-    {
-      retired: true,
-      identities: roster.map((slot) => {
-        const identity = identities.find((candidate) => candidate.slot === slot);
-        return {
-          slot,
-          known: Boolean(identity),
-          // A new player has no game identity yet: their first confirmation creates it.
-          owned: identity ? identity.owner === memberId : slot === ownSlot,
-          aliases: aliases
-            .filter((alias) => alias.slot === slot)
-            .map((alias) => ({ playerId: alias.player_id, primary: alias.player_id === identity?.player_id })),
-        };
-      }),
-      candidates,
-    },
-    200,
-    noStore,
-  );
-});
-
 const identityBody = jsonBody(identityChange, { invalid: invalidIdentity, tooLarge: 'Envoi trop volumineux.' });
 
-identityRoutes.post('/', sameOriginOnly, ...identityBody, async (c) => {
-  const db = c.env.DB;
-  const memberId = c.var.member.id;
-  try {
-    const { slot, playerId: rawId, action } = c.req.valid('json');
+export const identityRoutes = new Hono<AppEnv>()
+  .get('/', async (c) => {
+    const db = c.env.DB;
     const roster = await readRoster(db);
-    if (!roster.includes(slot)) throw new Error(invalidIdentity);
-    const playerId = canonicalPlayerId(rawId);
-    const [identity] = await readPlayerIdentities(db, [slot]);
-    const firstIdentity = !identity && slot === (await ownSlotOf(db, memberId));
-    if (identity?.owner !== memberId && !firstIdentity) {
-      return c.json({ error: 'Seul le membre associé à ce joueur peut confirmer son identifiant.' }, 403, noStore);
-    }
-    if (action === 'remove') {
-      if (!identity) throw new Error(invalidIdentity);
-      if (playerId === identity.player_id) throw new Error('L’identifiant principal est conservé.');
-      await db
-        .prepare('DELETE FROM player_identity_aliases WHERE player_id = ? AND slot = ? AND confirmed_by = ?')
-        .bind(playerId, slot, memberId)
-        .run();
-      return c.json({ ok: true }, 200, noStore);
-    }
-    if (!gamePlayerId.test(playerId)) throw new Error(invalidIdentity);
     await prepareBoard(db);
-    const seenInAMatch = (await readStoredResults(db, playerId)).some(
-      (row) => row.kind === 'match' && !row.review_required && canonicalPlayerId(row.player_id) === playerId,
+    const memberId = c.var.member.id;
+    const [identities, aliases, stored, ownSlot] = await Promise.all([
+      readPlayerIdentities(db, roster),
+      readIdentityBindings(db, roster),
+      readStoredResults(db),
+      ownSlotOf(db, memberId),
+    ]);
+    const isBound = (playerId: string) =>
+      aliases.some((alias) => canonicalPlayerId(alias.player_id) === canonicalPlayerId(playerId));
+    const seen = new Set<string>();
+    const candidates = stored
+      .filter((row) => row.kind === 'match' && !row.review_required && !isBound(row.player_id))
+      .filter((row) => {
+        const id = canonicalPlayerId(row.player_id);
+        if (seen.has(id)) return false;
+        seen.add(id);
+        return true;
+      })
+      .slice(0, 50)
+      .map((row) => ({
+        playerId: canonicalPlayerId(row.player_id),
+        name: row.name.startsWith(unassignedPrefix) ? row.name.slice(unassignedPrefix.length) : row.name,
+        day: row.day,
+      }));
+    return c.json(
+      {
+        retired: true,
+        identities: roster.map((slot) => {
+          const identity = identities.find((candidate) => candidate.slot === slot);
+          return {
+            slot,
+            known: Boolean(identity),
+            // A new player has no game identity yet: their first confirmation creates it.
+            owned: identity ? identity.owner === memberId : slot === ownSlot,
+            aliases: aliases
+              .filter((alias) => alias.slot === slot)
+              .map((alias) => ({ playerId: alias.player_id, primary: alias.player_id === identity?.player_id })),
+          };
+        }),
+        candidates,
+      } satisfies IdentityList,
+      200,
+      noStore,
     );
-    if (!seenInAMatch) throw new Error('Choisis un joueur déjà présent dans un tableau reçu.');
-    const confirm = db
-      .prepare(
-        'INSERT INTO player_identity_aliases (player_id, slot, confirmed_by, confirmed_at) SELECT ?, slot, owner, ? FROM player_identities WHERE slot = ? AND owner = ? ON CONFLICT(player_id) DO NOTHING',
-      )
-      .bind(playerId, new Date().toISOString(), slot, memberId);
-    // The first game ID a player confirms becomes their main one, unless another player already holds it.
-    const create = db
-      .prepare(
-        'INSERT INTO player_identities (slot, owner, player_id) SELECT ?1, ?2, ?3 WHERE NOT EXISTS (SELECT 1 FROM player_identity_aliases WHERE player_id = ?3) ON CONFLICT DO NOTHING',
-      )
-      .bind(slot, memberId, playerId);
-    await db.batch(firstIdentity ? [create, confirm] : [confirm]);
-    const saved = await db
-      .prepare('SELECT slot FROM player_identity_aliases WHERE player_id = ?')
-      .bind(playerId)
-      .first<{ slot: string }>();
-    if (saved?.slot !== slot)
-      return c.json({ error: 'Cet identifiant est déjà attribué à un autre joueur.' }, 409, noStore);
-    return c.json({ ok: true }, 200, noStore);
-  } catch (error) {
-    return failure(c, error, 'Confirmation impossible.');
-  }
-});
+  })
+  .post('/', sameOriginOnly, ...identityBody, async (c) => {
+    const db = c.env.DB;
+    const memberId = c.var.member.id;
+    try {
+      const { slot, playerId: rawId, action } = c.req.valid('json');
+      const roster = await readRoster(db);
+      if (!roster.includes(slot)) throw new Error(invalidIdentity);
+      const playerId = canonicalPlayerId(rawId);
+      const [identity] = await readPlayerIdentities(db, [slot]);
+      const firstIdentity = !identity && slot === (await ownSlotOf(db, memberId));
+      if (identity?.owner !== memberId && !firstIdentity) {
+        return c.json({ error: 'Seul le membre associé à ce joueur peut confirmer son identifiant.' }, 403, noStore);
+      }
+      if (action === 'remove') {
+        if (!identity) throw new Error(invalidIdentity);
+        if (playerId === identity.player_id) throw new Error('L’identifiant principal est conservé.');
+        await db
+          .prepare('DELETE FROM player_identity_aliases WHERE player_id = ? AND slot = ? AND confirmed_by = ?')
+          .bind(playerId, slot, memberId)
+          .run();
+        return c.json({ ok: true } satisfies Done, 200, noStore);
+      }
+      if (!gamePlayerId.test(playerId)) throw new Error(invalidIdentity);
+      await prepareBoard(db);
+      const seenInAMatch = (await readStoredResults(db, playerId)).some(
+        (row) => row.kind === 'match' && !row.review_required && canonicalPlayerId(row.player_id) === playerId,
+      );
+      if (!seenInAMatch) throw new Error('Choisis un joueur déjà présent dans un tableau reçu.');
+      const confirm = db
+        .prepare(
+          'INSERT INTO player_identity_aliases (player_id, slot, confirmed_by, confirmed_at) SELECT ?, slot, owner, ? FROM player_identities WHERE slot = ? AND owner = ? ON CONFLICT(player_id) DO NOTHING',
+        )
+        .bind(playerId, new Date().toISOString(), slot, memberId);
+      // The first game ID a player confirms becomes their main one, unless another player already holds it.
+      const create = db
+        .prepare(
+          'INSERT INTO player_identities (slot, owner, player_id) SELECT ?1, ?2, ?3 WHERE NOT EXISTS (SELECT 1 FROM player_identity_aliases WHERE player_id = ?3) ON CONFLICT DO NOTHING',
+        )
+        .bind(slot, memberId, playerId);
+      await db.batch(firstIdentity ? [create, confirm] : [confirm]);
+      const saved = await db
+        .prepare('SELECT slot FROM player_identity_aliases WHERE player_id = ?')
+        .bind(playerId)
+        .first<{ slot: string }>();
+      if (saved?.slot !== slot)
+        return c.json({ error: 'Cet identifiant est déjà attribué à un autre joueur.' }, 409, noStore);
+      return c.json({ ok: true } satisfies Done, 200, noStore);
+    } catch (error) {
+      return failure(c, error, 'Confirmation impossible.');
+    }
+  });
