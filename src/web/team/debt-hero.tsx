@@ -1,7 +1,7 @@
 import { Link } from '@tanstack/react-router';
 import { cn } from 'cn';
 import { formatNumber, plural } from '../../lib/format';
-import { Button } from '../components/ui/button';
+import { buttonVariants } from '../components/ui/button';
 import { Flame, PlayIcon } from '../shell/icons';
 import { type Debt, litSegments } from './stats';
 
@@ -54,10 +54,10 @@ export function DebtHero({ debt, streak }: { debt: Debt; streak: number }) {
         <p className="m-0 text-[15px] text-t2 [line-height:1.45] lg:[line-height:1.5]">
           {settled ? 'Ardoise propre. Le free play t’attend.' : 'Même le ballon a mal aux bras pour toi.'}
         </p>
-        <Button variant="cta" size="cta" nativeButton={false} render={<Link to="/declarer" />}>
+        <Link to="/declarer" className={buttonVariants({ variant: 'cta', size: 'cta' })}>
           <PlayIcon />
           Lancer une série
-        </Button>
+        </Link>
       </div>
     </section>
   );

@@ -1,7 +1,8 @@
 import { Link, Outlet, useMatchRoute } from '@tanstack/react-router';
+import { cn } from 'cn';
 import type { ComponentType, CSSProperties } from 'react';
 import { BoardProvider } from '../board';
-import { Button } from '../components/ui/button';
+import { buttonVariants } from '../components/ui/button';
 import {
   Sidebar,
   SidebarContent,
@@ -73,7 +74,7 @@ function AppSidebar() {
   );
 }
 
-function TabBar() {
+export function TabBar() {
   return (
     <>
       <div
@@ -86,27 +87,24 @@ function TabBar() {
       >
         <div className="glass grid h-[62px] flex-1 grid-cols-4 rounded-[31px] p-[5px]">
           {tabs.map(({ to, label, Icon }) => (
-            <Button
+            <Link
               key={to}
-              variant="tab"
-              className="h-full"
-              nativeButton={false}
-              render={<Link to={to} activeOptions={{ exact: to === '/' }} />}
+              to={to}
+              activeOptions={{ exact: to === '/' }}
+              className={cn(buttonVariants({ variant: 'tab' }), 'h-full')}
             >
               <Icon />
               {label}
-            </Button>
+            </Link>
           ))}
         </div>
-        <Button
-          variant="glass"
-          className="size-[62px]"
+        <Link
+          to="/declarer"
           aria-label="Déclarer un exercice"
-          nativeButton={false}
-          render={<Link to="/declarer" />}
+          className={cn(buttonVariants({ variant: 'glass' }), 'size-[62px]')}
         >
           <PlusIcon />
-        </Button>
+        </Link>
       </nav>
     </>
   );
