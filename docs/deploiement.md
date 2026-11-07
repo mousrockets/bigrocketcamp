@@ -62,7 +62,7 @@ La source de rangs de mousrockets.com est un autre Worker du même compte, avec 
 
 ## Version déployée
 
-`GET /api/health` renvoie `{"status":"ok","commit":"a1b2c3d","deployedAt":"…"}`, et le pied de page du tableau l'affiche. Le commit vient de `WORKERS_CI_COMMIT_SHA`, que Workers Builds fournit à la commande de build (`dev` pour un build local) ; la date est celle de la version du Worker (binding `version_metadata`). Quand l'API annonce un autre commit que celui de la page chargée, le pied de page affiche les deux (« Version 535fe91 · page chargée : 0eb8ca1 · … ») avec un lien « Recharger ». Le tableau se recharge de lui-même dès qu'il est masqué ou laissé 30 secondes sans interaction (une frappe, un défilement ou un appui repoussent le délai), jamais pendant un envoi ni dans les 10 secondes où une série peut être annulée. Le formulaire d'exercice et une déclaration en attente d'envoi sont gardés.
+`GET /api/health` renvoie `{"status":"ok","commit":"a1b2c3d","deployedAt":"…"}`. Le commit vient de `WORKERS_CI_COMMIT_SHA`, que Workers Builds fournit à la commande de build (`dev` pour un build local) ; la date est celle de la version du Worker (binding `version_metadata`). Quand l'API annonce un autre commit que celui de la page chargée, l'app se recharge d'elle-même dès qu'elle est masquée ou laissée 30 secondes sans interaction (une frappe, un défilement ou un appui repoussent le délai) ; l'app installée se recharge aussi au retour après 5 minutes d'absence (`src/web/shell/fresh-version.ts`).
 
 ## App installable
 
@@ -77,7 +77,7 @@ Chaque build qui change un fichier change `/sw.js` : le navigateur installe le n
 
 ## Le club et ses membres
 
-Le nom du club, son logo, ses membres et les règles des défis sont des réglages de l'app, en base : un administrateur les gère dans la page Réglages (lien en bas du tableau). Le logo est recadré et allégé dans le navigateur avant l'envoi, puis gardé dans D1 ; sans logo envoyé, l'app montre `public/club-photo.jpg`. Un changement de règle s'applique à partir du lendemain : les matchs déjà joués gardent leurs pompes. Seuls les membres invités se connectent, avec leur adresse e-mail et un code reçu par mail ; personne ne s'inscrit seul.
+Le nom du club, son logo, ses membres et les règles des défis sont des réglages de l'app, en base : un administrateur les gère dans l'onglet Réglages. Le logo est recadré et allégé dans le navigateur avant l'envoi, puis gardé dans D1 ; sans logo envoyé, l'app montre la marque « BRC » de Big Rocket Camp. Un changement de règle s'applique à partir du lendemain : les matchs déjà joués gardent leurs pompes. Seuls les membres invités se connectent, avec leur adresse e-mail et un code reçu par mail ; personne ne s'inscrit seul.
 
 Chaque membre remplit son profil : pseudo duo, pseudo solo et plateforme. Le pseudo duo est son emplacement de joueur : les matchs, exercices et rangs y sont rattachés, et les joueurs du tableau sont les membres qui en ont un, dans l'ordre d'arrivée. Il se change tant qu'aucune donnée de jeu n'y est liée, puis il est figé.
 
