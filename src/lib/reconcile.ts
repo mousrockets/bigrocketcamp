@@ -1,6 +1,15 @@
+import { desc, sql } from 'drizzle-orm';
 import type { Roster } from './club';
 import type { Database, Statement } from './db';
 import type { ReceivedRoster } from './match-rules';
+import { orm, rowid, sqlNamed, statementOf } from './orm';
+import {
+  playerIdentityAliases,
+  prototypeMatchRosters,
+  prototypeResults,
+  resultObservations,
+  sourceReports,
+} from './schema';
 
 /** A result as stored and as served to the web app. */
 export interface StoredResult {
@@ -296,17 +305,20 @@ export async function observationWrites(
 ): Promise<Statement[]> {
   if (!['collector', 'epic'].includes(sourceType)) throw new Error('Source invalide.');
   const stored = rows.map((row) => asStored(row, now));
+  const query = orm(db);
+  // D1 statements, not Drizzle queries: callers batch them with their own writes.
   const writes: Statement[] = [];
   for (const row of stored) {
     const payload = JSON.stringify({ ...row, received: undefined });
     const id = await sha(JSON.stringify([sourceType, sourceId, payload]));
-    writes.push(
-      db
-        .prepare(
-          'INSERT INTO result_observations (id,match_guid,player_id,source_id,source_type,payload,received) VALUES (?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET received=MAX(result_observations.received,excluded.received)',
-        )
-        .bind(id, row.match_guid, row.player_id, sourceId, sourceType, payload, now),
-    );
+    const observation = query
+      .insert(resultObservations)
+      .values({ id, matchGuid: row.match_guid, playerId: row.player_id, sourceId, sourceType, payload, received: now })
+      .onConflictDoUpdate({
+        target: resultObservations.id,
+        set: { received: sql`max(${resultObservations.received}, excluded.received)` },
+      });
+    writes.push(statementOf(db, observation));
   }
   for (const roster of rosters) {
     const players = stored
@@ -315,13 +327,22 @@ export async function observationWrites(
       .sort((a, b) => a.player_id.localeCompare(b.player_id));
     const payload = JSON.stringify(players);
     const id = await sha(JSON.stringify([sourceType, sourceId, roster.matchGuid, payload]));
-    writes.push(
-      db
-        .prepare(
-          'INSERT INTO source_reports (id,match_guid,source_id,source_type,expected_players,players,received) VALUES (?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET received=MAX(source_reports.received,excluded.received)',
-        )
-        .bind(id, matchKey(roster.matchGuid), sourceId, sourceType, roster.playerCount, payload, now),
-    );
+    const report = query
+      .insert(sourceReports)
+      .values({
+        id,
+        matchGuid: matchKey(roster.matchGuid),
+        sourceId,
+        sourceType,
+        expectedPlayers: roster.playerCount,
+        players: payload,
+        received: now,
+      })
+      .onConflictDoUpdate({
+        target: sourceReports.id,
+        set: { received: sql`max(${sourceReports.received}, excluded.received)` },
+      });
+    writes.push(statementOf(db, report));
   }
   return writes;
 }
@@ -374,17 +395,18 @@ export function mergeSources(roster: Roster, aliases: readonly Alias[], sources:
 
 /** Reconciles the whole history at once: the reference the stored match results must equal. */
 export async function readMerged(db: Database, roster: Roster) {
+  const query = orm(db);
   const [legacy, observations, rosters, reports, aliases] = await Promise.all([
-    db.prepare('SELECT * FROM prototype_results ORDER BY day DESC,received DESC,rowid DESC').all<StoredResult>(),
-    db.prepare('SELECT * FROM result_observations ORDER BY received,rowid').all<Observation & { payload: string }>(),
-    db.prepare('SELECT * FROM prototype_match_rosters').all<CompleteRoster>(),
-    db.prepare('SELECT * FROM source_reports ORDER BY received,rowid').all<SourceReport & { players: string }>(),
-    db.prepare('SELECT player_id,slot FROM player_identity_aliases').all<Alias>(),
+    query
+      .select(sqlNamed(prototypeResults))
+      .from(prototypeResults)
+      .orderBy(desc(prototypeResults.day), desc(prototypeResults.received), desc(rowid)),
+    query.select(sqlNamed(resultObservations)).from(resultObservations).orderBy(resultObservations.received, rowid),
+    query.select(sqlNamed(prototypeMatchRosters)).from(prototypeMatchRosters),
+    query.select(sqlNamed(sourceReports)).from(sourceReports).orderBy(sourceReports.received, rowid),
+    query
+      .select({ player_id: playerIdentityAliases.playerId, slot: playerIdentityAliases.slot })
+      .from(playerIdentityAliases),
   ]);
-  return mergeSources(roster, aliases.results, {
-    legacy: legacy.results,
-    observations: observations.results,
-    rosters: rosters.results,
-    reports: reports.results,
-  });
+  return mergeSources(roster, aliases, { legacy, observations, rosters, reports });
 }
