@@ -1,5 +1,15 @@
 import { expect, test } from 'vitest';
-import { count, formatAge, formatClock, formatNumber, formatTime, formatWhen, plural } from './format';
+import {
+  count,
+  formatAge,
+  formatClock,
+  formatLongDay,
+  formatMonth,
+  formatNumber,
+  formatTime,
+  formatWhen,
+  plural,
+} from './format';
 
 test('numbers keep a full space between thousands', () => {
   expect(formatNumber(1509)).toBe('1 509');
@@ -31,4 +41,12 @@ test('an age says how long ago', () => {
 
 test('a match time reads like a scoreboard', () => {
   expect(formatClock('2026-11-07T20:40:00Z')).toBe('21:40');
+});
+
+test('a tab’s day and a club month are written out in full', () => {
+  // 23 h 30 UTC on Saturday is already Sunday in Paris.
+  expect(formatLongDay('2026-11-07T18:30:00Z')).toBe('Samedi 7 novembre');
+  expect(formatLongDay('2026-11-07T23:30:00Z')).toBe('Dimanche 8 novembre');
+  expect(formatMonth('2026-11')).toBe('Novembre');
+  expect(formatMonth('2027-08')).toBe('Août');
 });
