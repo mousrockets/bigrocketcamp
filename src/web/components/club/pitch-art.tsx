@@ -42,7 +42,7 @@ export function PitchArt({ ball = 'center', goals = true }: { ball?: 'center' | 
         </>
       )}
       {ball === 'center' ? (
-        <g className="animate-drift">
+        <g className="animate-drift [--drift-time:5s] [--drift:10px]">
           <circle cx="360" cy="210" r="34" fill="rgb(255 255 255 / 0.08)" />
           <circle cx="360" cy="210" r="13" fill="#f4f5f7" />
         </g>
