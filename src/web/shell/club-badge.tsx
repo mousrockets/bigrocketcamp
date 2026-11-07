@@ -1,7 +1,7 @@
 import { cn } from 'cn';
 import { count } from '../../lib/format';
-import { ClubLogo } from '../brand/club-logo';
 import { useClub } from '../club';
+import { ClubLogo } from '../components/club-logo';
 
 /** The club's logo and name, with the game it plays and how many play: atop L'équipe on a phone, the sidebar on a computer. */
 export function ClubBadge({ className }: { className?: string }) {

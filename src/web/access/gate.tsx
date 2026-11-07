@@ -1,6 +1,6 @@
 import { cn } from 'cn';
 import type { ReactNode } from 'react';
-import { EpicNotice, RocketLeagueLogo } from '../brand/epic-notice';
+import { EpicNotice, RocketLeagueLogo } from '../components/epic-notice';
 import { Input } from '../components/ui/input';
 
 // The screens before the club: signing in, the first visit, the club out of reach. They share a slightly lighter

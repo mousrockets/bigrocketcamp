@@ -1,8 +1,8 @@
 import { useMutation } from '@tanstack/react-query';
 import { ArrowRight, ChevronLeft } from 'lucide-react';
 import { useState } from 'react';
-import { ClubLogo } from '../brand/club-logo';
 import { useClubName } from '../club';
+import { ClubLogo } from '../components/club-logo';
 import { Button } from '../components/ui/button';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '../components/ui/input-otp';
 import { requestSignInCode, verifySignInCode } from '../writes';

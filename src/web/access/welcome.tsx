@@ -1,8 +1,8 @@
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import { type Platform, platforms } from '../../lib/club';
-import { ClubLogo } from '../brand/club-logo';
 import { platformLabels, useClub } from '../club';
+import { ClubLogo } from '../components/club-logo';
 import { Button } from '../components/ui/button';
 import { ToggleGroup, ToggleGroupItem } from '../components/ui/toggle-group';
 import { saveProfile } from '../writes';
