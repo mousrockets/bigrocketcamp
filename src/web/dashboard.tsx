@@ -3,6 +3,7 @@ import { Link } from '@tanstack/react-router';
 import type { CSSProperties, ReactNode } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import type { Roster } from '../lib/club';
+import { parisDay } from '../lib/days';
 import { defeatMessage } from '../lib/defeat-message';
 import {
   dailyRecap,
@@ -11,15 +12,14 @@ import {
   exerciseEffect,
   exerciseReceipt,
   exerciseTypes,
-  formatNumber,
   lastPlaceBonus,
   lastPlaceRuleOn,
   matchIndex,
-  parisDay,
   pushupCredit,
   summarize,
   validateExercise,
 } from '../lib/domain';
+import { formatNumber } from '../lib/format';
 import { matchHistory } from '../lib/match-history';
 import type { LastPlaceRules } from '../lib/match-rules';
 import { currentSeason, seasonEndLabel, seasonTiming } from '../lib/season';

@@ -1,4 +1,5 @@
 import type { Roster } from './club';
+import { count, formatNumber } from './format';
 import {
   defaultLastPlaceRules,
   type LastPlaceRules,
@@ -11,14 +12,6 @@ import {
 import { parseOrThrow, says, z } from './validation';
 
 export { defaultLastPlaceRules, lastPlaceBonus, lastPlaceRuleOn, matchIndex } from './match-rules';
-
-export const parisDay = (date: Date = new Date()): string =>
-  new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Europe/Paris',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(date);
 
 export const playerName = (roster: Roster, name: unknown): string | null =>
   roster.find((player) => player === String(name).trim().toLowerCase()) ?? null;
@@ -132,9 +125,6 @@ export function exerciseEffect(remaining: number, exercise: CountedExercise) {
   };
 }
 
-export const formatNumber = (value: number): string =>
-  new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 }).format(value);
-
 export function exerciseDescription(exercise: CountedExercise): string {
   const type = exerciseType(exercise);
   if (type === 'plank') return `${formatNumber(exercise.count / 60)} min de gainage`;
@@ -142,7 +132,7 @@ export function exerciseDescription(exercise: CountedExercise): string {
   return `${formatNumber(exercise.count)} pompes`;
 }
 
-const pushups = (count: number) => `${formatNumber(count)} pompe${Math.abs(count) >= 2 ? 's' : ''}`;
+const pushups = (value: number) => count(value, 'pompe');
 
 /**
  * What the player reads once the server has saved an exercise: what it reduced, from the debt it was declared

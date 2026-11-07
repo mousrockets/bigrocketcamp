@@ -1,5 +1,6 @@
 import { cn } from 'cn';
-import { defaultLastPlaceRules, parisDay, summarize } from '../../lib/domain';
+import { parisDay } from '../../lib/days';
+import { defaultLastPlaceRules, summarize } from '../../lib/domain';
 import { type Board, useBoardState } from '../board';
 import { epicNotice } from '../brand/epic-notice';
 import { platformLabels, useClub } from '../club';

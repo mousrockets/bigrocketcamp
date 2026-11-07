@@ -1,5 +1,6 @@
 import type { Roster } from './club';
-import { normalizeParticipant, parisDay, type ReceivedResult } from './domain';
+import { parisDay } from './days';
+import { normalizeParticipant, type ReceivedResult } from './domain';
 import { type ReceivedRoster, validateMatchRosters } from './match-rules';
 import { parseOrThrow, says, z } from './validation';
 

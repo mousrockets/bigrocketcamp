@@ -2,13 +2,11 @@ import { expect, test } from 'vitest';
 import {
   currentStreak,
   debtOf,
-  figure,
   highestTier,
   isLive,
   latest,
   litSegments,
   rankRgb,
-  readingAge,
   receptionLabel,
   shortRankLabel,
   splitRankLabel,
@@ -52,21 +50,6 @@ test('a player takes the colour of their highest rank', () => {
   expect(rankRgb(null)).toBe(rankRgb(0));
 });
 
-test('a reading says how old it is', () => {
-  const now = Date.parse('2026-11-07T12:00:00Z');
-  expect(readingAge('2026-11-07T11:59:40Z', now)).toBe('à l’instant');
-  expect(readingAge('2026-11-07T11:52:00Z', now)).toBe('il y a 8 min');
-  expect(readingAge('2026-11-07T10:00:00Z', now)).toBe('il y a 2 h');
-  expect(readingAge('2026-11-05T12:00:00Z', now)).toBe('il y a 2 jours');
-  expect(latest('2026-11-07T10:00:00Z', null, '2026-11-07T11:00:00Z')).toBe('2026-11-07T11:00:00Z');
-  expect(latest(null, undefined)).toBeNull();
-});
-
-test('figures keep a visible space between thousands', () => {
-  expect(figure(1509)).toBe('1\u00a0509');
-  expect(figure(35)).toBe('35');
-});
-
 test('the club is live while a match came in within a quarter of an hour', () => {
   const now = Date.parse('2026-11-07T18:30:00Z');
   expect(isLive('2026-11-07T18:20:00Z', now)).toBe(true);
@@ -79,4 +62,9 @@ test('the last reception says its time, and its date when it was not today', () 
   expect(receptionLabel('2026-11-07T18:42:00Z', now)).toBe('Actualisé à 19 h 42');
   expect(receptionLabel('2026-11-05T21:10:00Z', now)).toBe('Actualisé le 5 nov. à 22 h 10');
   expect(receptionLabel(null, now)).toBe('En attente du premier match');
+});
+
+test('the latest reading wins', () => {
+  expect(latest('2026-11-07T10:00:00Z', null, '2026-11-07T11:00:00Z')).toBe('2026-11-07T11:00:00Z');
+  expect(latest(null, undefined)).toBeNull();
 });

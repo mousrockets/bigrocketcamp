@@ -1,7 +1,7 @@
 import { cn } from 'cn';
+import { count } from '../../lib/format';
 import { ClubLogo } from '../brand/club-logo';
 import { useClub } from '../club';
-import { plural } from '../team/stats';
 
 /** The club's logo and name, with the game it plays and how many play: atop L'équipe on a phone, the sidebar on a computer. */
 export function ClubBadge({ className }: { className?: string }) {
@@ -21,9 +21,7 @@ export function ClubBadge({ className }: { className?: string }) {
             height={13}
             className="shrink-0 opacity-70"
           />
-          <span>
-            {players.length} {plural(players.length, 'joueur')}
-          </span>
+          <span>{count(players.length, 'joueur')}</span>
         </span>
       </span>
     </span>

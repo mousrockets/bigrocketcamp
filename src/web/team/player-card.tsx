@@ -1,9 +1,10 @@
 import { cn } from 'cn';
 import type { PointerEvent, ReactNode } from 'react';
+import { formatAge, formatNumber } from '../../lib/format';
 import type { SeasonPeak } from '../board';
 import { DuoIcon, RefreshIcon, SoloIcon } from '../shell/icons';
 import { StreakCount } from './debt-hero';
-import { type Debt, figure, rankRgb, readingAge, shortRankLabel, splitRankLabel } from './stats';
+import { type Debt, rankRgb, shortRankLabel, splitRankLabel } from './stats';
 
 /** What a card needs to know about a rank: the API's doubles rank or solo rank, or nothing read yet. */
 export interface CardRank {
@@ -54,7 +55,7 @@ function untilt(event: PointerEvent<HTMLElement>) {
 export function PlayerCard({ player, active, now }: { player: CardPlayer; active: boolean; now: number }) {
   const rgb = rankRgb(player.tier);
   const { left, paid, owed, percent } = player.debt;
-  const mmr = player.duo.mmr === null ? '' : `, ${figure(player.duo.mmr)} MMR`;
+  const mmr = player.duo.mmr === null ? '' : `, ${formatNumber(player.duo.mmr)} MMR`;
   return (
     <article
       aria-label={`${player.name}, ${player.duo.label.replace(' · ', ' ')}${mmr}`}
@@ -95,12 +96,12 @@ export function PlayerCard({ player, active, now }: { player: CardPlayer; active
           <div className="flex items-baseline justify-between">
             <span className="flex items-baseline gap-1.5">
               <b className={cn('num text-[24px] [line-height:1]', left > 0 ? 'text-cost' : 'text-win')}>
-                {figure(left)}
+                {formatNumber(left)}
               </b>
               <span className="text-[13px] text-t2">{left > 0 ? 'pompes restantes' : 'pompes restantes, GG'}</span>
             </span>
             <span className="text-[12px] text-t3 tabular-nums">
-              {figure(paid)} / {figure(owed)}
+              {formatNumber(paid)} / {formatNumber(owed)}
             </span>
           </div>
           <div aria-hidden="true" className="h-[3px] overflow-hidden rounded-[2px] bg-white/8">
@@ -116,7 +117,7 @@ export function PlayerCard({ player, active, now }: { player: CardPlayer; active
 
         <div className="flex items-center gap-1.5 text-[11px] text-t3">
           <RefreshIcon />
-          <span>{player.updated ? `Actualisé ${readingAge(player.updated, now)}` : 'Rang pas encore relevé'}</span>
+          <span>{player.updated ? `Actualisé ${formatAge(player.updated, now)}` : 'Rang pas encore relevé'}</span>
         </div>
       </div>
     </article>
@@ -168,7 +169,7 @@ function RankBlock({
         </span>
         {rank?.mmr != null && (
           <span className="flex shrink-0 flex-col items-end">
-            <b className="num text-[28px] [line-height:.8]">{figure(rank.mmr)}</b>
+            <b className="num text-[28px] [line-height:.8]">{formatNumber(rank.mmr)}</b>
           </span>
         )}
       </div>
@@ -182,7 +183,7 @@ function RankBlock({
             <span className="text-[11px] text-t3">{shortRankLabel(rank.peak.label)}</span>
           </span>
           <span className="flex shrink-0 flex-col items-end">
-            <b className="num text-[15px] text-t2 [line-height:1]">{figure(rank.peak.mmr)}</b>
+            <b className="num text-[15px] text-t2 [line-height:1]">{formatNumber(rank.peak.mmr)}</b>
           </span>
         </div>
       )}

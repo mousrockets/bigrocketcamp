@@ -1,7 +1,8 @@
 import { and, eq } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { readRoster } from '../../lib/club';
-import { exerciseInput, parisDay } from '../../lib/domain';
+import { parisDay } from '../../lib/days';
+import { exerciseInput } from '../../lib/domain';
 import { orm } from '../../lib/orm';
 import { exerciseReactions, exercises } from '../../lib/schema';
 import { type AppEnv, sameOriginOnly } from '../auth';

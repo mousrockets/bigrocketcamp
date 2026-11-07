@@ -1,7 +1,7 @@
 import { env, exports } from 'cloudflare:workers';
 import { beforeEach, describe, expect, test } from 'vitest';
 import { dayAfter } from '../lib/club-rules';
-import { parisDay } from '../lib/domain';
+import { parisDay } from '../lib/days';
 import { observationWrites } from '../lib/reconcile';
 
 // The club settings of issue #9: the logo, the challenge rules, and a new player's first game identity.

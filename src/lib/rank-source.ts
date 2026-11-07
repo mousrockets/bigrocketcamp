@@ -1,6 +1,6 @@
 import { type Platform, readClubPlayers } from './club';
+import { parisDay } from './days';
 import type { Database, Statement } from './db';
-import { parisDay } from './domain';
 import { projectMmrRankWrite } from './mmr-ledger';
 import { currentSeason } from './season';
 
