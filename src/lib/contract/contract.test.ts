@@ -133,6 +133,23 @@ describe('a field a newer API adds is kept, so that a copy of the answer loses n
   });
 });
 
+describe('a value a newer API adds to a closed list falls back to a known one', () => {
+  test('on the board and on the club', () => {
+    const read = boardChanges.parse({
+      ...changes,
+      results: [{ ...result, verification: 'disputed', source_difference: 'timing' }],
+    });
+    expect(read.results[0]).toMatchObject({ verification: 'single', source_difference: null });
+    expect(doublesRank.parse({ ...rank, solo: { ...rank, status: 'banned', peak: null } }).solo?.status).toBe(
+      'waiting',
+    );
+    expect(
+      club.parse({ name: 'Big Rocket Camp', logo: null, players: [{ slot: 'alice', platform: 'stadia' }], me })
+        .players[0]?.platform,
+    ).toBeNull();
+  });
+});
+
 describe('an answer without a field it always had breaks the contract', () => {
   test('a result without its match', () => {
     const { match_guid: _guid, ...broken } = result;

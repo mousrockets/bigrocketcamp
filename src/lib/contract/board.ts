@@ -30,10 +30,10 @@ export const boardResult = z.looseObject({
   saves: z.number(),
   received: z.string(),
   review_required: z.boolean(),
-  verification: z.enum(['review', 'corrected', 'confirmed', 'single']),
+  verification: z.enum(['review', 'corrected', 'confirmed', 'single']).catch('single'),
   source_types: z.array(z.string()),
   selected_source: z.string(),
-  source_difference: z.enum(['result', 'stats', 'identity']).nullable(),
+  source_difference: z.enum(['result', 'stats', 'identity']).nullable().catch(null),
   /** Set on every row of a match whose full scoreboard a source confirmed. */
   expected_players: z.number().nullable(),
 });
@@ -81,7 +81,9 @@ const rankFields = {
 export const soloRank = z.looseObject({
   ...rankFields,
   /** Why the account shows no fresh rank: `ready` when it was read, else what the player can do about it. */
-  status: z.enum(['waiting', 'ready', 'not_found', 'needs_player_id', 'lookup_unavailable', 'read_failed']),
+  status: z
+    .enum(['waiting', 'ready', 'not_found', 'needs_player_id', 'lookup_unavailable', 'read_failed'])
+    .catch('waiting'),
 });
 export type SoloRank = Known<z.output<typeof soloRank>>;
 
