@@ -15,7 +15,7 @@ const boardRoute = createRoute({ getParentRoute: () => rootRoute, path: '/', com
 // "/direct/" opens it too: an address matches with or without its final slash, and keeps it.
 const directRoute = createRoute({ getParentRoute: () => rootRoute, path: '/direct', component: Direct });
 const connectionsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/connexions', component: Connections });
-export const profileRoute = createRoute({ getParentRoute: () => rootRoute, path: '/profil', component: Profile });
+const profileRoute = createRoute({ getParentRoute: () => rootRoute, path: '/profil', component: Profile });
 const settingsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/reglages', component: Settings });
 
 export const routeTree = rootRoute.addChildren([
