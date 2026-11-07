@@ -4,12 +4,13 @@ import type { Result } from '../../board/types';
 import { Badge } from '../ui/badge';
 
 // The pieces every match shows: its result tag and its score, the opponents' goals in orange after a defeat.
+// The tag speaks the design's playful voice: "GG" for a win, "AÏE" for a defeat.
 
 export type Match = HistoryMatch<Result>;
 
 const outcomeLabels = {
-  victory: 'Victoire',
-  defeat: 'Défaite',
+  victory: 'GG',
+  defeat: 'AÏE',
   'between-members': 'Entre membres',
   review: 'À vérifier',
 } as const;
@@ -17,7 +18,7 @@ const outcomeLabels = {
 export function OutcomeTag({ match, className }: { match: Match; className?: string | undefined }) {
   const variant = match.outcome === 'defeat' ? 'cost' : match.outcome === 'victory' ? 'settled' : 'neutral';
   return (
-    <Badge variant={variant} className={className}>
+    <Badge variant={variant} className={cn('border-0', className)}>
       {outcomeLabels[match.outcome]}
     </Badge>
   );
@@ -27,15 +28,17 @@ export function outcomeText(match: Match): string {
   return outcomeLabels[match.outcome];
 }
 
-/** "2 – 3": the club's goals, then the opponents'. */
+/** "2 – 3": the club's goals, then the opponents'; `spaced` sets the dash between spaces, as the big detail score. */
 export function Score({
   match,
   className,
   dashClassName,
+  spaced = false,
 }: {
   match: Match;
   className?: string;
   dashClassName?: string;
+  spaced?: boolean;
 }) {
   if (!match.score) return <b className={cn('font-numeral text-faint', className)}>—</b>;
   const [ours, theirs] = match.score;
@@ -46,7 +49,7 @@ export function Score({
       </span>
       <span aria-hidden="true">
         {ours}
-        <span className={cn('px-[0.12em] text-faint', dashClassName)}>–</span>
+        <span className={cn(!spaced && 'px-[0.12em]', 'text-faint', dashClassName)}>{spaced ? ' – ' : '–'}</span>
         <span className={match.outcome === 'defeat' ? 'text-cost' : undefined}>{theirs}</span>
       </span>
     </b>

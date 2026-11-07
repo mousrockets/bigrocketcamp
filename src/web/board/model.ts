@@ -211,11 +211,13 @@ export function scoreboardOf(roster: readonly string[], state: BoardState, guid:
   });
 }
 
-/** "6 matchs reçus aujourd’hui · 3 victoires · 3 défaites". */
-export function matchesSummary(matches: { outcome: string }[], when: string): string {
+/** "6 matchs, 3 victoires, 3 défaites. Les bras vont chauffer ce soir.": the design's playful summary. */
+export function matchesSummary(matches: { outcome: string }[], when: string, tonight = false): string {
   const count = matches.length;
   const wins = matches.filter((match) => match.outcome === 'victory').length;
   const losses = matches.filter((match) => match.outcome === 'defeat').length;
   if (!count) return `Aucun match reçu ${when}.`;
-  return `${count} match${count > 1 ? 's' : ''} reçu${count > 1 ? 's' : ''} ${when} · ${wins} victoire${wins > 1 ? 's' : ''} · ${losses} défaite${losses > 1 ? 's' : ''}`;
+  const tally = `${count} match${count > 1 ? 's' : ''}, ${wins} victoire${wins > 1 ? 's' : ''}, ${losses} défaite${losses > 1 ? 's' : ''}.`;
+  if (!losses) return `${tally} Les bras se reposent.`;
+  return `${tally} ${tonight ? 'Les bras vont chauffer ce soir.' : 'Les bras ont chauffé.'}`;
 }
