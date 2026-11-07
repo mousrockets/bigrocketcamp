@@ -74,8 +74,8 @@ const invalidStats = 'Statistiques invalides.';
 const nameless = 'Nom du joueur invalide.';
 const primaryId = /^(Epic|Steam|PS4|PSN|XboxOne|Switch|PsyNet)\|[^\s|]{1,128}\|0$/;
 const identified = (player: LivePlayer) => typeof player.PrimaryId === 'string' && primaryId.test(player.PrimaryId);
-const statistic = z.int(says(invalidStats)).check(z.gte(0, says(invalidStats)), z.lte(1_000_000, says(invalidStats)));
-const notBlank = (message: string) => z.refine<string>((text) => text.trim() !== '', says(message));
+const statistic = z.int(says(invalidStats)).min(0, says(invalidStats)).max(1_000_000, says(invalidStats));
+const notBlank = (text: string) => text.trim() !== '';
 
 /**
  * A finished public match as the collector sends it. The checks run in stages, each with its own message,
@@ -88,7 +88,7 @@ export function liveMatchInput(now: () => number = Date.now) {
     .looseObject(
       {
         state: z.looseObject(
-          { MatchGuid: z.string(says(finished)).check(z.maxLength(128, says(finished)), notBlank(finished)) },
+          { MatchGuid: z.string(says(finished)).max(128, says(finished)).refine(notBlank, says(finished)) },
           says(finished),
         ),
         end: z.looseObject(
@@ -98,18 +98,16 @@ export function liveMatchInput(now: () => number = Date.now) {
       },
       says(finished),
     )
-    .check(z.refine((match) => match.end.MatchGuid === match.state.MatchGuid, says(finished)));
+    .refine((match) => match.end.MatchGuid === match.state.MatchGuid, says(finished));
   const timed = z
     .looseObject({ startedAt: z.int(says(dated)), endedAt: z.int(says(dated)) })
-    .check(
-      z.refine(
-        ({ startedAt, endedAt }) =>
-          startedAt <= endedAt &&
-          endedAt - startedAt <= 10_800_000 &&
-          endedAt <= now() + 30_000 &&
-          endedAt >= now() - 86_400_000,
-        says(dated),
-      ),
+    .refine(
+      ({ startedAt, endedAt }) =>
+        startedAt <= endedAt &&
+        endedAt - startedAt <= 10_800_000 &&
+        endedAt <= now() + 30_000 &&
+        endedAt >= now() - 86_400_000,
+      says(dated),
     );
   // MatchEnded names the winner. A forfeit can end the match before the scoreboard says so, so bHasWinner
   // and Winner only have to agree with it when they are set.
@@ -117,7 +115,7 @@ export function liveMatchInput(now: () => number = Date.now) {
     state: z.looseObject({
       Game: z.looseObject(
         {
-          PlaylistId: z.number(says(publicMatch)).check(z.refine((id) => playerCounts.has(id), says(publicMatch))),
+          PlaylistId: z.number(says(publicMatch)).refine((id) => playerCounts.has(id), says(publicMatch)),
           bReplay: z.literal(false, says(publicMatch)),
         },
         says(publicMatch),
@@ -127,18 +125,18 @@ export function liveMatchInput(now: () => number = Date.now) {
   const team = z.looseObject(
     {
       TeamNum: z.literal([0, 1], says(finalTeams)),
-      Name: z.string(says(finalTeams)).check(z.minLength(1, says(finalTeams))),
-      Score: z.int(says(finalTeams)).check(z.gte(0, says(finalTeams))),
+      Name: z.string(says(finalTeams)).min(1, says(finalTeams)),
+      Score: z.int(says(finalTeams)).min(0, says(finalTeams)),
     },
     says(finalTeams),
   );
   const teams = z.looseObject({
     state: z.looseObject({
       Game: z.looseObject({
-        Teams: z.array(team, says(finalTeams)).check(
-          z.length(2, says(finalTeams)),
-          z.refine((both) => new Set(both.map((side) => side.TeamNum)).size === 2, says(finalTeams)),
-        ),
+        Teams: z
+          .array(team, says(finalTeams))
+          .length(2, says(finalTeams))
+          .refine((both) => new Set(both.map((side) => side.TeamNum)).size === 2, says(finalTeams)),
       }),
     }),
   });
@@ -152,16 +150,14 @@ export function liveMatchInput(now: () => number = Date.now) {
         }),
       }),
     })
-    .check(
-      z.refine(({ end, state }) => {
-        const named = state.Game.Winner;
-        return (
-          typeof named !== 'string' ||
-          !named ||
-          named === state.Game.Teams.find((side) => side.TeamNum === end.WinnerTeamNum)?.Name
-        );
-      }, says(winnerDiffers)),
-    );
+    .refine(({ end, state }) => {
+      const named = state.Game.Winner;
+      return (
+        typeof named !== 'string' ||
+        !named ||
+        named === state.Game.Teams.find((side) => side.TeamNum === end.WinnerTeamNum)?.Name
+      );
+    }, says(winnerDiffers));
   const board = z
     .looseObject({
       state: z.looseObject({
@@ -169,12 +165,7 @@ export function liveMatchInput(now: () => number = Date.now) {
         Game: z.looseObject({ PlaylistId: z.number() }),
       }),
     })
-    .check(
-      z.refine(
-        ({ state }) => state.Players.length <= (playerCounts.get(state.Game.PlaylistId) ?? 0),
-        says(invalidBoard),
-      ),
-    );
+    .refine(({ state }) => state.Players.length <= (playerCounts.get(state.Game.PlaylistId) ?? 0), says(invalidBoard));
   const onlyIdentified = z.pipe(
     z.looseObject({ state: z.looseObject({ Players: z.array(z.unknown()) }) }),
     z.transform((match) => ({
@@ -189,15 +180,13 @@ export function liveMatchInput(now: () => number = Date.now) {
   );
   const someone = z
     .looseObject({ state: z.looseObject({ Players: z.array(z.unknown()) }) })
-    .check(z.refine(({ state }) => state.Players.length > 0, says(nobody)));
+    .refine(({ state }) => state.Players.length > 0, says(nobody));
   const distinct = z
     .looseObject({ state: z.looseObject({ Players: z.array(z.looseObject({ PrimaryId: z.string() })) }) })
-    .check(
-      z.refine(({ state }) => {
-        const ids = state.Players.map((player) => canonical(player.PrimaryId));
-        return new Set(ids).size === ids.length;
-      }, says(ambiguous)),
-    );
+    .refine(({ state }) => {
+      const ids = state.Players.map((player) => canonical(player.PrimaryId));
+      return new Set(ids).size === ids.length;
+    }, says(ambiguous));
   const balanced = z
     .looseObject({
       state: z.looseObject({
@@ -205,12 +194,10 @@ export function liveMatchInput(now: () => number = Date.now) {
         Game: z.looseObject({ PlaylistId: z.number() }),
       }),
     })
-    .check(
-      z.refine(({ state }) => {
-        const half = (playerCounts.get(state.Game.PlaylistId) ?? 0) / 2;
-        return [0, 1].every((side) => state.Players.filter((player) => player.TeamNum === side).length <= half);
-      }, says(unbalanced)),
-    );
+    .refine(({ state }) => {
+      const half = (playerCounts.get(state.Game.PlaylistId) ?? 0) / 2;
+      return [0, 1].every((side) => state.Players.filter((player) => player.TeamNum === side).length <= half);
+    }, says(unbalanced));
   const participants = z.looseObject({
     state: z.looseObject({
       Players: z.array(
@@ -220,7 +207,7 @@ export function liveMatchInput(now: () => number = Date.now) {
           Goals: statistic,
           Assists: statistic,
           Saves: statistic,
-          Name: z.string(says(nameless)).check(z.maxLength(128, says(nameless)), notBlank(nameless)),
+          Name: z.string(says(nameless)).max(128, says(nameless)).refine(notBlank, says(nameless)),
         }),
       ),
     }),
@@ -240,8 +227,8 @@ export function liveMatchInput(now: () => number = Date.now) {
     participants,
   ];
   return stages
-    .map((stage) => stage as unknown as z.ZodMiniType<unknown, unknown>)
-    .reduce((checked, stage) => z.pipe(checked, stage)) as unknown as z.ZodMiniType<LiveMatch, unknown>;
+    .map((stage) => stage as unknown as z.ZodType<unknown, unknown>)
+    .reduce((checked, stage) => z.pipe(checked, stage)) as unknown as z.ZodType<LiveMatch, unknown>;
 }
 
 /** The match's lines, once `liveMatchInput` accepted it, named after the club's players. */
