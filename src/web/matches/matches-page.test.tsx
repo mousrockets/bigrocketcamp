@@ -90,6 +90,38 @@ test('from 1000 points, a player dodges 10 pushups, and the replay says why', as
   expect(within(replay).getAllByText(/1 000\+ pts/)).toHaveLength(1);
 });
 
+test('a player who left before the end loses the match: the replay says so, and his summary counts it', async () => {
+  // Bob left with 1100 points; Alice won without him.
+  const left = duo('night-left', '2026-11-07T20:50:00Z', { won: true }).map((row) =>
+    row.name === 'bob' ? { ...row, winner: 1, score: 1100, left: true } : row,
+  );
+  renderInApp(<MatchesPage />, {
+    board: {
+      ...board,
+      results: [...left, ...board.results],
+      matchRosters: [...board.matchRosters, { match_guid: 'night-left', expected_players: 3 }],
+    },
+  });
+  const summary = await screen.findByRole('region', { name: 'Bilan du jour' });
+  const [alice, bob] = within(summary)
+    .getAllByText(/parties/)
+    .map((line) => line.closest('[data-slot=card]') as HTMLElement);
+  expect(alice).toHaveTextContent('4 parties · 3 V · 1 D');
+  expect(alice).toHaveTextContent('mains propres');
+  // A defeat of 5 more, with no bonus nor the −10 of his 1100 points.
+  expect(bob).toHaveTextContent('4 parties · 2 V · 2 D');
+  expect(bob).toHaveTextContent('10pompes à faire');
+  expect(bob).toHaveTextContent('Bonus+5');
+  expect(bob).toHaveTextContent('Esquivées−5');
+  const replay = await screen.findByRole('region', { name: 'Derniers matchs' });
+  const line = within(replay).getByText(/1 100 pts/);
+  expect(line).toHaveTextContent('· 1 100 pts · a quitté');
+  expect(line).not.toHaveTextContent('1 000+ pts');
+  expect(line.closest('span.flex')).toHaveTextContent('+5');
+  expect(within(replay).getByText('21:50 · Un joueur est parti')).toBeInTheDocument();
+  expect(within(replay).getAllByText('GG')).toHaveLength(3);
+});
+
 test('replays the week by part of day, with how each match ended', async () => {
   renderInApp(<MatchesPage />, { board });
   const replay = await screen.findByRole('region', { name: 'Derniers matchs' });

@@ -192,6 +192,7 @@ function MatchRow({ match }: { match: ReplayMatch }) {
               {player.name}{' '}
               <span className="text-t3">
                 · {formatNumber(player.points)} pts{player.lastPlace ? ' · moins de pts' : ''}
+                {player.left ? ' · a quitté' : ''}
                 {player.highScore ? ` · ${formatNumber(highScorePoints)}+ pts` : ''}
               </span>
             </span>
