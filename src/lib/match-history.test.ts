@@ -117,3 +117,18 @@ test('a forfeit and an overtime are told on the match, and a forfeit won takes 5
     ],
   ]);
 });
+
+test('a forfeit won the day the club keeps no −5 costs nothing and dodges nothing', () => {
+  const rows = [line('ff', alice, 0, 0, 300, 1), line('ff', bob, 0, 0, 100)].map((row) => ({
+    ...row,
+    forfeit: true,
+  }));
+  const [match] = matchHistory(rows, rows, matchIndex(rows), roster, undefined, [
+    { effectiveFrom: '2026-11-06', enabled: false },
+  ]);
+  expect(match?.forfeit).toBe(true);
+  expect(match?.players.map(({ pushups, dodged }) => [pushups, dodged])).toEqual([
+    [0, false],
+    [0, false],
+  ]);
+});

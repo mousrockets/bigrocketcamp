@@ -1,8 +1,10 @@
 import type { Roster } from './club';
 import { count, formatNumber } from './format';
 import {
+  defaultForfeitRules,
   defaultLastPlaceRules,
   dodgedPushups,
+  type ForfeitRules,
   type LastPlaceRules,
   lastPlaceBonus,
   type MatchRow,
@@ -12,7 +14,15 @@ import {
 } from './match-rules';
 import { parseOrThrow, says, z } from './validation';
 
-export { defaultLastPlaceRules, dodgedPushups, lastPlaceBonus, lastPlaceRuleOn, matchIndex } from './match-rules';
+export {
+  defaultForfeitRules,
+  defaultLastPlaceRules,
+  dodgedPushups,
+  forfeitRuleOn,
+  lastPlaceBonus,
+  lastPlaceRuleOn,
+  matchIndex,
+} from './match-rules';
 
 export const playerName = (roster: Roster, name: unknown): string | null =>
   roster.find((player) => player === String(name).trim().toLowerCase()) ?? null;
@@ -192,6 +202,7 @@ export function summarize<Row extends MatchRow>(
   day: string,
   rosters: RosterSize[] = [],
   rules: LastPlaceRules = defaultLastPlaceRules,
+  forfeitRules: ForfeitRules = defaultForfeitRules,
 ) {
   const matches = matchIndex(rows, rosters);
   return roster.map((name) => {
@@ -200,7 +211,10 @@ export function summarize<Row extends MatchRow>(
     // A forfeit won lowers what is due like an exercise would: the pushups dodged count for later defeats.
     const due = all.reduce(
       (sum, row) =>
-        sum + (row.team !== row.winner ? 5 : 0) + lastPlaceBonus(row, matches, roster, rules) - dodgedPushups(row),
+        sum +
+        (row.team !== row.winner ? 5 : 0) +
+        lastPlaceBonus(row, matches, roster, rules) -
+        dodgedPushups(row, forfeitRules),
       0,
     );
     const performed = exercises.filter((exercise) => exercise.player === name);
@@ -230,6 +244,7 @@ export function dailyRecap<Row extends MatchRow>(
   day: string,
   rosters: RosterSize[] = [],
   rules: LastPlaceRules = defaultLastPlaceRules,
+  forfeitRules: ForfeitRules = defaultForfeitRules,
 ) {
   if (!validDay(day)) throw new Error('Date du récap invalide.');
   const players = roster.map((name) => ({
@@ -270,7 +285,7 @@ export function dailyRecap<Row extends MatchRow>(
         if (place.tied) player.lowestTies++;
       }
       player.bonus += lastPlaceBonus(row, matches, roster, rules);
-      player.dodged += dodgedPushups(row);
+      player.dodged += dodgedPushups(row, forfeitRules);
     }
   }
   for (const player of players) {

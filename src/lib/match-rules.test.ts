@@ -1,6 +1,9 @@
 import { expect, test } from 'vitest';
 import {
+  defaultForfeitRules,
   defaultLastPlaceRules,
+  dodgedPushups,
+  forfeitRuleOn,
   lastPlaceBonus,
   lastPlaceRuleOn,
   matchIndex,
@@ -51,6 +54,22 @@ test('a match counts with the rule of its own day: the latest change on or befor
   expect(lastPlaceRuleOn(rules, '2026-11-10').enabled).toBe(false);
   expect(lastPlaceRuleOn(rules, '2026-11-25')).toMatchObject({ enabled: true, ties: 'all' });
   expect(lastPlaceRuleOn([], '2026-11-25').enabled).toBe(false);
+});
+
+test('the −5 of a forfeit won is on until the club turns it off, then follows each day’s rule', () => {
+  expect(forfeitRuleOn(defaultForfeitRules, '2026-01-01').enabled).toBe(true);
+  const rules = [
+    { effectiveFrom: '2026-11-20', enabled: true },
+    { effectiveFrom: '2026-11-10', enabled: false },
+  ];
+  expect(forfeitRuleOn(rules, '2026-11-09').enabled).toBe(true);
+  expect(forfeitRuleOn(rules, '2026-11-10').enabled).toBe(false);
+  expect(forfeitRuleOn(rules, '2026-11-19').enabled).toBe(false);
+  expect(forfeitRuleOn(rules, '2026-11-20').enabled).toBe(true);
+  const win = { name: 'alice', kind: 'match', team: 0, winner: 0, score: 300, forfeit: true };
+  expect(dodgedPushups({ ...win, day: '2026-11-09' }, rules)).toBe(5);
+  expect(dodgedPushups({ ...win, day: '2026-11-12' }, rules)).toBe(0);
+  expect(dodgedPushups({ ...win, day: '2026-11-12' })).toBe(5);
 });
 
 test('declared rosters must match a coherent scoreboard', () => {

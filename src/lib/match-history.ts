@@ -1,7 +1,9 @@
 import type { Roster } from './club';
 import {
+  defaultForfeitRules,
   defaultLastPlaceRules,
   dodgedPushups,
+  type ForfeitRules,
   type IndexedMatch,
   type LastPlaceRules,
   lastPlaceBonus,
@@ -78,6 +80,7 @@ export function matchHistory<Row extends HistoryRow>(
   matches: Map<string, IndexedMatch<Row>>,
   roster: Roster,
   rules: LastPlaceRules = defaultLastPlaceRules,
+  forfeitRules: ForfeitRules = defaultForfeitRules,
 ): HistoryMatch<Row>[] {
   const byMatch = new Map<string, Row[]>();
   for (const row of clubRows) {
@@ -123,7 +126,7 @@ export function matchHistory<Row extends HistoryRow>(
       players: rows.map((row) => {
         const counted = !row.review_required && row.kind === 'match' && row.team !== row.winner;
         const bonus = counted ? lastPlaceBonus(row, matches, roster, rules) : 0;
-        const dodged = dodgedPushups(row);
+        const dodged = dodgedPushups(row, forfeitRules);
         return {
           row,
           pushups: counted ? 5 + bonus : dodged > 0 ? -dodged : 0,
