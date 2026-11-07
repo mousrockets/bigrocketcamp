@@ -1,4 +1,4 @@
-import { defaultForfeitRules, defaultLastPlaceRules } from '../match-rules';
+import { defaultForfeitRules, defaultHighScoreRules, defaultLastPlaceRules } from '../match-rules';
 import { says, z } from '../validation';
 import { challengeRules } from './club';
 import { monthlyStandings } from './monthly';
@@ -117,6 +117,7 @@ const smallParts = {
   rules: challengeRules.catch(() => ({
     lastPlace: defaultLastPlaceRules.map((rule) => ({ ...rule })),
     forfeit: defaultForfeitRules.map((rule) => ({ ...rule })),
+    highScore: defaultHighScoreRules.map((rule) => ({ ...rule })),
   })),
 };
 

@@ -95,6 +95,7 @@ test('states the rules as the club set them', async () => {
       rules: {
         lastPlace: [{ enabled: false, effectiveFrom: '2026-11-01', ties: 'none' }],
         forfeit: [{ enabled: true, effectiveFrom: '2026-11-01' }],
+        highScore: [],
       },
     }),
   });

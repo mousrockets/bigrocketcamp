@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { defaultForfeitRules, defaultLastPlaceRules } from '../match-rules';
+import { defaultForfeitRules, defaultHighScoreRules, defaultLastPlaceRules } from '../match-rules';
 import { boardChanges, challengeRules, club, doublesRank, health, ruleChange } from '.';
 
 // The app and the API may run different versions for a while: an answer parses whatever side is newer.
@@ -101,7 +101,19 @@ describe('an answer from an older API, without the fields added since, still par
 
   test('a board without rules gets the default ones', () => {
     const { rules: _rules, ...older } = changes;
-    expect(boardChanges.parse(older).rules).toEqual({ lastPlace: defaultLastPlaceRules, forfeit: [] });
+    expect(boardChanges.parse(older).rules).toEqual({
+      lastPlace: defaultLastPlaceRules,
+      forfeit: [],
+      highScore: defaultHighScoreRules,
+    });
+  });
+
+  test('rules without the −10 above 1000 points: it applies from 2026-11-07, as the club decided', () => {
+    expect(boardChanges.parse(changes).rules.highScore).toEqual(defaultHighScoreRules);
+    const read = club.parse({ name: 'Big Rocket Camp', logo: null, players: [], me, rules: changes.rules });
+    expect(read.rules?.highScore).toEqual([{ enabled: true, effectiveFrom: '2026-11-07' }]);
+    const newer = { ...changes.rules, highScore: [{ enabled: false, effectiveFrom: '2026-11-08' }] };
+    expect(challengeRules.parse(newer).highScore).toEqual(newer.highScore);
   });
 
   test('rules without the switch of the −5: it applies every day, as before', () => {
@@ -178,8 +190,10 @@ describe('an answer without a field it always had breaks the contract', () => {
   });
 });
 
-test('a change of rules names the +5, the −5, or both, and nothing else', () => {
+test('a change of rules names the +5, the −5, the −10, or several, and nothing else', () => {
   expect(ruleChange.parse({ forfeit: { enabled: false } })).toEqual({ forfeit: { enabled: false } });
+  expect(ruleChange.parse({ highScore: { enabled: false } })).toEqual({ highScore: { enabled: false } });
+  expect(ruleChange.safeParse({ highScore: { enabled: 'non' } }).success).toBe(false);
   const both = { lastPlace: { enabled: true }, forfeit: { enabled: false } };
   expect(ruleChange.parse(both)).toEqual(both);
   expect(ruleChange.safeParse({}).error?.issues[0]?.message).toBe('Règle des défis invalide.');

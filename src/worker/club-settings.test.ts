@@ -61,6 +61,7 @@ beforeEach(async () => {
     env.DB.prepare('DELETE FROM club_logo'),
     env.DB.prepare('DELETE FROM last_place_rules WHERE effective_from > ?').bind(parisDay()),
     env.DB.prepare('DELETE FROM forfeit_rules WHERE effective_from > ?').bind(parisDay()),
+    env.DB.prepare('DELETE FROM high_score_rules WHERE effective_from > ?').bind(parisDay()),
     env.DB.prepare('DELETE FROM player_identities'),
     env.DB.prepare('DELETE FROM player_identity_aliases'),
     env.DB.prepare('DELETE FROM result_observations'),
@@ -132,12 +133,13 @@ describe('the club logo', () => {
 describe('the challenge rules', () => {
   const tomorrow = () => dayAfter(parisDay());
   const original = { effectiveFrom: '2026-11-06', enabled: true, ties: 'none' };
+  const highScore = [{ effectiveFrom: '2026-11-07', enabled: true }];
 
-  test('by default, the +5 and the −5 apply as they did when they were written in the code', async () => {
+  test('by default, the +5 and the −5 apply as they did in the code, and the −10 from 2026-11-07', async () => {
     const club = await (await call('/api/club', member)).json<{ rules: unknown }>();
-    expect(club.rules).toEqual({ lastPlace: [original], forfeit: [] });
+    expect(club.rules).toEqual({ lastPlace: [original], forfeit: [], highScore });
     const board = await (await call('/api/state', member)).json<{ rules: unknown }>();
-    expect(board.rules).toEqual({ lastPlace: [original], forfeit: [] });
+    expect(board.rules).toEqual({ lastPlace: [original], forfeit: [], highScore });
   });
 
   test('a change applies from tomorrow, and asking again for today’s rule cancels it', async () => {
@@ -146,13 +148,14 @@ describe('the challenge rules', () => {
     expect(await off.json()).toEqual({
       lastPlace: [original, { effectiveFrom: tomorrow(), enabled: false, ties: 'none' }],
       forfeit: [],
+      highScore,
     });
     // Twice the same change keeps one row.
     await call('/api/club/rules', admin, 'PUT', { lastPlace: { enabled: false } });
     expect(await env.DB.prepare('SELECT COUNT(*) AS n FROM last_place_rules').first('n')).toBe(2);
 
     const back = await call('/api/club/rules', admin, 'PUT', { lastPlace: { enabled: true } });
-    expect(await back.json()).toEqual({ lastPlace: [original], forfeit: [] });
+    expect(await back.json()).toEqual({ lastPlace: [original], forfeit: [], highScore });
   });
 
   test('the −5 of a forfeit won switches off from tomorrow, and back on cancels it', async () => {
@@ -161,13 +164,30 @@ describe('the challenge rules', () => {
     expect(await off.json()).toEqual({
       lastPlace: [original],
       forfeit: [{ effectiveFrom: tomorrow(), enabled: false }],
+      highScore,
     });
     await call('/api/club/rules', admin, 'PUT', { forfeit: { enabled: false } });
     expect(await env.DB.prepare('SELECT COUNT(*) AS n FROM forfeit_rules').first('n')).toBe(1);
 
     const back = await call('/api/club/rules', admin, 'PUT', { forfeit: { enabled: true } });
-    expect(await back.json()).toEqual({ lastPlace: [original], forfeit: [] });
+    expect(await back.json()).toEqual({ lastPlace: [original], forfeit: [], highScore });
     expect(await env.DB.prepare('SELECT COUNT(*) AS n FROM forfeit_rules').first('n')).toBe(0);
+  });
+
+  test('the −10 above 1000 points switches off from tomorrow, and back on cancels it', async () => {
+    const off = await call('/api/club/rules', admin, 'PUT', { highScore: { enabled: false } });
+    expect(off.status).toBe(200);
+    expect(await off.json()).toEqual({
+      lastPlace: [original],
+      forfeit: [],
+      highScore: [...highScore, { effectiveFrom: tomorrow(), enabled: false }],
+    });
+    await call('/api/club/rules', admin, 'PUT', { highScore: { enabled: false } });
+    expect(await env.DB.prepare('SELECT COUNT(*) AS n FROM high_score_rules').first('n')).toBe(2);
+
+    const back = await call('/api/club/rules', admin, 'PUT', { highScore: { enabled: true } });
+    expect(await back.json()).toEqual({ lastPlace: [original], forfeit: [], highScore });
+    expect(await env.DB.prepare('SELECT COUNT(*) AS n FROM high_score_rules').first('n')).toBe(1);
   });
 
   test('both rules change in one request', async () => {
@@ -178,6 +198,7 @@ describe('the challenge rules', () => {
     expect(await both.json()).toEqual({
       lastPlace: [original, { effectiveFrom: tomorrow(), enabled: false, ties: 'none' }],
       forfeit: [{ effectiveFrom: tomorrow(), enabled: false }],
+      highScore,
     });
   });
 
@@ -198,6 +219,14 @@ describe('the challenge rules', () => {
     }>();
     expect(again.version).toBeGreaterThan(after.version);
     expect(again.rules.forfeit).toEqual([{ effectiveFrom: tomorrow(), enabled: false }]);
+
+    await call('/api/club/rules', admin, 'PUT', { highScore: { enabled: false } });
+    const last = await (await call(`/api/state?since=${again.version}`, member)).json<{
+      version: number;
+      rules: { highScore: unknown[] };
+    }>();
+    expect(last.version).toBeGreaterThan(again.version);
+    expect(last.rules.highScore).toEqual([...highScore, { effectiveFrom: tomorrow(), enabled: false }]);
   });
 
   test('only an administrator changes them, with a valid rule', async () => {
@@ -213,6 +242,8 @@ describe('the challenge rules', () => {
     expect(empty.status).toBe(400);
     expect(await empty.json()).toEqual({ error: 'Règle des défis invalide.' });
     expect(await env.DB.prepare('SELECT COUNT(*) AS n FROM forfeit_rules').first('n')).toBe(0);
+    expect((await call('/api/club/rules', member, 'PUT', { highScore: { enabled: false } })).status).toBe(403);
+    expect(await env.DB.prepare('SELECT COUNT(*) AS n FROM high_score_rules').first('n')).toBe(1);
   });
 
   test('the database itself refuses to rewrite a rule already in force', async () => {
@@ -221,6 +252,9 @@ describe('the challenge rules', () => {
       "DELETE FROM last_place_rules WHERE effective_from = '2026-11-06'",
       "INSERT INTO last_place_rules (effective_from, enabled) VALUES ('2026-11-01', 1)",
       "INSERT INTO forfeit_rules (effective_from, enabled) VALUES ('2026-11-01', 0)",
+      "UPDATE high_score_rules SET enabled = 0 WHERE effective_from = '2026-11-07'",
+      "DELETE FROM high_score_rules WHERE effective_from = '2026-11-07'",
+      "INSERT INTO high_score_rules (effective_from, enabled) VALUES ('2026-11-01', 1)",
     ];
     for (const attempt of attempts) {
       await expect(env.DB.prepare(attempt).run()).rejects.toThrow(/the past never changes/);
