@@ -19,7 +19,9 @@ export interface Debt {
   percent: number;
 }
 
-export function debtOf({ due, done }: { due: number; done: number }): Debt {
+export function debtOf({ due: counted, done }: { due: number; done: number }): Debt {
+  // Dodged pushups (wins the opponents forfeited) can bring what is owed below zero: nothing is owed then.
+  const due = Math.max(0, counted);
   const paid = Math.min(done, due);
   return { left: due - paid, paid, owed: due, percent: due > 0 ? Math.round((paid / due) * 100) : 100 };
 }

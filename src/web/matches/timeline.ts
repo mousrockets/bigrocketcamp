@@ -21,6 +21,8 @@ export interface SummaryPlayer {
   /** Pushups the day adds: defeats, bonus, minus the dodged ones. */
   owed: number;
   bonus: number;
+  /** Pushups off for wins the opponents forfeited. */
+  dodged: number;
 }
 
 const historyOf = (board: Board, roster: readonly string[]) =>
@@ -60,6 +62,7 @@ export function daySummary(board: Board, roster: readonly string[], me: string |
       losses: player.losses,
       owed: player.generated,
       bonus: player.bonus,
+      dodged: player.dodged,
     }));
   return [...players.filter((player) => player.me), ...players.filter((player) => !player.me)];
 }
@@ -89,6 +92,15 @@ function partOf(match: HistoryMatch<Row>, today: string): string {
   return hour < 12 ? 'Ce matin' : hour < 18 ? 'Cet après-midi' : 'Ce soir';
 }
 
+/** What made the match special, in the words of the replay. */
+function tagsOf(match: HistoryMatch<Row>): string[] {
+  const tags: string[] = [];
+  if (match.forfeit) tags.push(match.outcome === 'victory' ? 'Les adversaires ont FF' : 'FF');
+  if (match.overtime) tags.push('Prolongation');
+  if (match.left && !match.forfeit) tags.push('Un joueur est parti');
+  return tags;
+}
+
 /** The matches of the last days, newest first, grouped by part of day. */
 export function replay(board: Board, roster: readonly string[], now: number): ReplayGroup[] {
   const today = parisDay(now);
@@ -108,7 +120,7 @@ export function replay(board: Board, roster: readonly string[], now: number): Re
       guid: match.guid,
       outcome: match.outcome,
       clock: match.received ? formatClock(match.received) : null,
-      tags: match.left ? ['Un joueur est parti'] : [],
+      tags: tagsOf(match),
       score: match.score,
       players: [...match.players]
         .sort((a, b) => b.row.score - a.row.score)
