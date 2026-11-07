@@ -2,6 +2,7 @@ import { Link } from '@tanstack/react-router';
 import { cn } from 'cn';
 import type { ComponentProps, ReactNode } from 'react';
 import { epicNotice } from '../components/epic-notice';
+import { tabTopTint } from '../components/tab-page';
 import { Card } from '../components/ui/card';
 import { Field, FieldError, FieldLabel } from '../components/ui/field';
 import { Input } from '../components/ui/input';
@@ -28,7 +29,7 @@ const contentClass =
 /** The Réglages tab itself: its title, its groups, then the version and Epic's notice among them. */
 export function SettingsHomePage({ kicker, children }: { kicker: string; children: ReactNode }) {
   return (
-    <main className={cn(pageClass, 'pt-[max(60px,calc(env(safe-area-inset-top)+12px))]')}>
+    <main data-top-tint={tabTopTint} className={cn(pageClass, 'pt-[max(60px,calc(env(safe-area-inset-top)+12px))]')}>
       <Glow />
       <div className={wrapClass}>
         <header className="flex animate-rise items-end justify-between gap-4 px-5 pt-2 lg:p-0">
@@ -46,7 +47,7 @@ export function SettingsHomePage({ kicker, children }: { kicker: string; childre
 /** A screen opened from Réglages: the way back, a small kicker above its title, its groups, Epic's notice. */
 export function SettingsPage({ kicker, title, children }: { kicker: string; title: string; children: ReactNode }) {
   return (
-    <main className={cn(pageClass, 'pt-[max(40px,calc(env(safe-area-inset-top)-4px))]')}>
+    <main data-top-tint={tabTopTint} className={cn(pageClass, 'pt-[max(40px,calc(env(safe-area-inset-top)-4px))]')}>
       <Glow />
       <div className={wrapClass}>
         <header className="flex animate-rise flex-col gap-1.5 px-5 pt-0 lg:p-0">

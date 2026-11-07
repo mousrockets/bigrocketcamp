@@ -11,15 +11,18 @@ export function GatePage({
   children,
   glow = 'radial-gradient(120% 70% at 50% -10%,rgba(40,90,170,.32),rgba(6,6,7,0) 70%)',
   glowHeight = 460,
+  topTint = '#0b1320',
   className,
 }: {
   children: ReactNode;
   glow?: string;
   glowHeight?: number;
+  /** The glow's colour at the top of a phone's screen, for Safari's status bar (EdgeTint). */
+  topTint?: string;
   className?: string;
 }) {
   return (
-    <div className="relative flex min-h-dvh flex-col overflow-hidden bg-gate text-gate-text">
+    <div data-top-tint={topTint} className="relative flex min-h-dvh flex-col overflow-hidden bg-gate text-gate-text">
       <div aria-hidden="true" className="absolute inset-x-0 top-0" style={{ height: glowHeight, background: glow }} />
       <main className={cn('relative flex flex-1 flex-col px-6 lg:justify-center lg:px-5 lg:pt-16 lg:pb-24', className)}>
         {children}
