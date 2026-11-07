@@ -5,7 +5,7 @@ L'app tourne sur Cloudflare, dans les limites du plan gratuit. Une fusion dans `
 ## Une seule fois, par un mainteneur
 
 1. Dans le tableau de bord Cloudflare, Workers & Pages : créer un Worker à partir du dépôt GitHub (Workers Builds), branche de production `main`.
-2. Dossier racine `/`. Commande de build : `npm run build` (Cloudflare installe les dépendances avant). Commande de déploiement : `npx wrangler deploy`. Node et npm suivent `.node-version` et `packageManager`.
+2. Dossier racine `/`. Commande de build : `npm run build` (Cloudflare installe les dépendances avant). Commande de déploiement : `npm run deploy`, qui applique les migrations de la base avant de déployer. Node et npm suivent `.node-version` et `packageManager`.
 3. Rattacher le domaine de l'instance au Worker (Custom Domains).
 
 Cloudflare déploie ensuite chaque commit de `main` lui-même : aucun jeton Cloudflare n'est stocké dans GitHub.
@@ -17,6 +17,48 @@ Dans le Worker, Settings :
 - **Variables and Secrets** (lues par l'API) : `MAIL_FROM` (expéditeur des codes, par exemple `Les Trois Mousrockets <connexion@mousrockets.com>`), et en secrets `RESEND_API_KEY` ; `RANK_SOURCE_KEY` (au moins 32 caractères) si une source de rangs alimente le MMR 2v2 (`GET /api/ranks/targets`, `POST /api/ranks`, en-tête `X-Rank-Source-Key`). Le jeu ne donne pas le MMR au collecteur : seule la source de rangs le lit. Pour relire les rangs juste après une partie, elle peut demander souvent `GET /api/ranks/activity` (`{"lastRankedMatchAt": "…" | null, "lastReadAt": "…" | null}` : heure de réception du dernier match classé 2v2, et heure du dernier relevé reçu, quelques lignes lues) ; `GET /api/ranks/targets` donne le même champ, signe que l'app le connaît.
 - **Build → Deploy command** : `npm run deploy`. Il applique les migrations de la base avant de déployer.
 - `wrangler.jsonc` : l'identifiant de la base D1 de production (`database_id`).
+
+## Les réglages Cloudflare de mousrockets.com
+
+Tout ce qui a été réglé à la main pour l'instance mousrockets.com, chez Cloudflare et autour. Seuls les noms des secrets figurent ici, jamais leurs valeurs. Le reste vit dans `wrangler.jsonc` et part avec chaque déploiement.
+
+### Compte
+
+- Offre gratuite uniquement : Workers, D1 et KV dans leurs limites gratuites (voir « Rester dans le plan gratuit »).
+
+### Domaine `mousrockets.com`
+
+- Acheté le 6 novembre 2026 chez Cloudflare Registrar ; son DNS est chez Cloudflare.
+- **DNS → Records** : les enregistrements que Resend demande pour envoyer depuis le domaine, ajoutés pour le vérifier : DKIM (`resend._domainkey`), MX et SPF du sous-domaine d'envoi (`send`). Aucun enregistrement DMARC pour l'instant.
+- **SSL/TLS → Edge Certificates → Always Use HTTPS** : activé le 7 novembre 2026. `http://mousrockets.com` répond `301` vers `https://`. HSTS n'est pas activé.
+
+### Base D1 `bigrocketcamp`
+
+- Créée le 6 novembre 2026 avec la juridiction **UE** (`eu`) : les données restent dans l'Union européenne. Son identifiant est dans `wrangler.jsonc`.
+- Les migrations s'appliquent à chaque déploiement (`npm run deploy`), jamais à la main.
+
+### Worker `bigrocketcamp`
+
+- **Settings → Build** (Workers Builds) : dépôt `mousrockets/bigrocketcamp`, branche `main`, dossier `/`, build `npm run build`, déploiement `npm run deploy`. Aucun jeton Cloudflare dans GitHub.
+- **Settings → Domains & Routes** : domaine personnalisé `mousrockets.com`. L'adresse `workers.dev` et les URL d'aperçu sont coupées par `wrangler.jsonc` (`workers_dev`, `preview_urls`).
+- **Settings → Variables and Secrets** :
+  - variable `MAIL_FROM` : l'expéditeur des codes de connexion, sur le domaine vérifié dans Resend ;
+  - secret `RESEND_API_KEY` : la clé d'envoi de Resend ;
+  - secret `RANK_SOURCE_KEY` : la clé partagée avec la source de rangs.
+- `keep_vars: true` dans `wrangler.jsonc` : un déploiement n'efface plus ces variables. Sans lui, `MAIL_FROM` avait disparu au premier déploiement (#27).
+- Réglé par `wrangler.jsonc`, sans rien à faire dans le tableau de bord :
+  - la tâche planifiée `5 * * * *`, qui clôt les mois terminés ;
+  - les journaux (`observability`) ;
+  - la date de la version en ligne (`version_metadata`).
+
+### Source de rangs
+
+La source de rangs de mousrockets.com est un autre Worker du même compte, avec son propre stockage KV et sa tâche planifiée chaque minute. Elle est mise en ligne à la main, pas par Workers Builds. Son dépôt est privé, car il touche au compte Epic jetable, et ses réglages y sont documentés. L'app ne l'appelle jamais : c'est la source qui interroge l'app, avec `RANK_SOURCE_KEY`.
+
+### Resend, pour les e-mails
+
+- Un compte dédié à l'app. Le domaine `mousrockets.com` y est vérifié, dans la région **Ireland (eu-west-1)**, pour que les envois restent dans l'UE.
+- La clé d'API n'a que le droit d'envoyer (« Sending access »), et seulement depuis ce domaine.
 
 ## Version déployée
 
