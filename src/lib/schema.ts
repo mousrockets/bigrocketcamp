@@ -24,6 +24,8 @@ export const members = sqliteTable(
     soloPseudo: text('solo_pseudo'),
     /** The solo account's game ID, found by the rank source from the solo pseudo; cleared when the pseudo or the platform changes. */
     soloPlayerId: text('solo_player_id'),
+    /** When the member last named another solo account: the rank source reads it a minute later. */
+    soloChangedAt: text('solo_changed_at'),
     platform: text('platform', { enum: ['pc', 'playstation', 'xbox', 'switch'] }),
     /** Players are listed in the order they joined the club. */
     rosterPosition: integer('roster_position'),

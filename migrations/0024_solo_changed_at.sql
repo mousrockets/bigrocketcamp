@@ -1,0 +1,1 @@
+ALTER TABLE `members` ADD `solo_changed_at` text;

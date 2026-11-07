@@ -133,7 +133,7 @@ export async function saveOwnProfile(
         duoPseudo,
         soloPseudo,
         platform,
-        ...(soloAccountChanged ? { soloPlayerId: null } : {}),
+        ...(soloAccountChanged ? { soloPlayerId: null, soloChangedAt: new Date().toISOString() } : {}),
         rosterPosition: sql`COALESCE(${members.rosterPosition}, (SELECT COALESCE(MAX(${members.rosterPosition}), 0) + 1 FROM ${members}))`,
       })
       .where(eq(members.id, memberId));
