@@ -28,8 +28,6 @@ test.each([
 });
 
 test.each([
-  ['/direct', '/direct'],
-  ['/direct/', '/direct'],
   ['/connexions', '/connexions'],
   ['/profil', '/profil'],
   ['/profil/', '/profil'],
@@ -51,6 +49,6 @@ test('an anchor stays on its page', () => {
   });
 });
 
-test.each(['/page-inconnue', '/direct/autre', '/profil/x'])('%s shows the 404 of the root', (address) => {
+test.each(['/page-inconnue', '/direct', '/profil/x'])('%s shows the 404 of the root', (address) => {
   expect(open(address).notFoundAt).toBe('__root__');
 });

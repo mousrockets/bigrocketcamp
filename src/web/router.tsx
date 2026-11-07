@@ -3,7 +3,6 @@ import { z } from '../lib/validation';
 import { App, NotFound } from './app';
 import { ChallengesPage } from './challenges/challenges-page';
 import { Connections } from './connections';
-import { Direct } from './direct';
 import { MatchesPage } from './matches/matches-page';
 import { Profile } from './profile';
 import { Settings } from './settings';
@@ -27,14 +26,11 @@ const challengesRoute = createRoute({ getParentRoute: () => shellRoute, path: '/
 const matchesRoute = createRoute({ getParentRoute: () => shellRoute, path: '/matchs', component: MatchesPage });
 const settingsRoute = createRoute({ getParentRoute: () => shellRoute, path: '/reglages', component: Settings });
 
-// "/direct/" opens it too: an address matches with or without its final slash, and keeps it.
-const directRoute = createRoute({ getParentRoute: () => rootRoute, path: '/direct', component: Direct });
 const connectionsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/connexions', component: Connections });
 const profileRoute = createRoute({ getParentRoute: () => rootRoute, path: '/profil', component: Profile });
 
 export const routeTree = rootRoute.addChildren([
   shellRoute.addChildren([teamRoute, challengesRoute, matchesRoute, settingsRoute]),
-  directRoute,
   connectionsRoute,
   profileRoute,
 ]);
@@ -43,7 +39,7 @@ export function createAppRouter(history?: RouterHistory) {
   return createRouter({
     routeTree,
     ...(history && { history }),
-    // An unknown address shows the root's 404, wherever it starts ("/direct/autre" included).
+    // An unknown address shows the root's 404, wherever it starts ("/profil/x" included).
     notFoundMode: 'root',
     // Moving between tabs and back puts the page where it was, as the browser did.
     scrollRestoration: true,
