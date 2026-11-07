@@ -50,9 +50,9 @@ const longDay = new Intl.DateTimeFormat('fr-FR', {
 
 /** The old board's anchors, from links and bookmarks: each opens what replaced it. */
 const oldAnchors: Record<string, string> = {
-  history: '/tableau#history',
-  'monthly-mmr': '/tableau#monthly-mmr',
-  week: '/tableau#week',
+  history: '/matchs',
+  'monthly-mmr': '/defi',
+  week: '/defi/podium',
   'recap-title': '/recap',
 };
 
@@ -70,7 +70,8 @@ function LastMatch({ match, now }: { match: Match; now: number }) {
   const label = `Dernier match : ${match.outcome === 'defeat' ? 'défaite' : match.outcome === 'victory' ? 'victoire' : 'résultat'}${match.score ? ` ${match.score[0]} à ${match.score[1]}` : ''}`;
   return (
     <Link
-      to="/matchs"
+      to="/matchs/$guid"
+      params={{ guid: match.guid }}
       aria-label={label}
       className="flex flex-col overflow-hidden rounded-card border border-border bg-card text-foreground no-underline transition-colors hover:bg-[#141418] hover:no-underline"
     >

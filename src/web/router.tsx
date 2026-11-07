@@ -1,10 +1,15 @@
-import { createRootRoute, createRoute, createRouter, Navigate, type RouterHistory } from '@tanstack/react-router';
+import { createRootRoute, createRoute, createRouter, type RouterHistory } from '@tanstack/react-router';
 import type { ComponentType } from 'react';
 import { App, NotFound } from './app';
 import { Connections } from './connections';
 import { Dashboard } from './dashboard';
 import { Direct } from './direct';
+import { ChallengePage } from './pages/challenge';
 import { ClubPage } from './pages/club';
+import { DrinksPage } from './pages/drinks';
+import { ExercisesPage } from './pages/exercises';
+import { MatchesPage, type MatchesSearch } from './pages/matches';
+import { PodiumPage } from './pages/podium';
 import { RecapPage } from './pages/recap';
 import { Profile } from './profile';
 import { Settings } from './settings';
@@ -30,8 +35,6 @@ const LegacyProfile = () => <Legacy page={Profile} />;
 const LegacySettings = () => <Legacy page={Settings} />;
 
 // New addresses whose page is not built yet: the board section that holds them for now.
-const MatchesOnBoard = () => <Navigate to="/tableau" hash="history" replace />;
-const ChallengeOnBoard = () => <Navigate to="/tableau" hash="monthly-mmr" replace />;
 
 const clubRoute = createRoute({ getParentRoute: () => rootRoute, path: '/', component: ClubPage });
 // The old board, while its last sections (matches, challenge, player cards) move to their own pages.
@@ -43,17 +46,29 @@ const recapRoute = createRoute({
     typeof search.jour === 'string' ? { jour: search.jour } : {},
   component: RecapPage,
 });
-const matchesRoute = createRoute({ getParentRoute: () => rootRoute, path: '/matchs', component: MatchesOnBoard });
-const exercisesRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/exercices',
-  component: MatchesOnBoard,
+/** The period and the bot tests of the matches page live in its address, so Back and a reload keep them. */
+const matchesSearch = (search: Record<string, unknown>): MatchesSearch => ({
+  ...(typeof search.jour === 'string' && { jour: search.jour }),
+  ...(search.tests === true && { tests: true }),
 });
-const challengeRoute = createRoute({
+const AllMatches = () => <MatchesPage />;
+const OneMatch = () => <MatchesPage guid={matchRoute.useParams().guid} />;
+const matchesRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/defi',
-  component: ChallengeOnBoard,
+  path: '/matchs',
+  validateSearch: matchesSearch,
+  component: AllMatches,
 });
+const matchRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/matchs/$guid',
+  validateSearch: matchesSearch,
+  component: OneMatch,
+});
+const exercisesRoute = createRoute({ getParentRoute: () => rootRoute, path: '/exercices', component: ExercisesPage });
+const challengeRoute = createRoute({ getParentRoute: () => rootRoute, path: '/defi', component: ChallengePage });
+const drinksRoute = createRoute({ getParentRoute: () => rootRoute, path: '/defi/bilans', component: DrinksPage });
+const podiumRoute = createRoute({ getParentRoute: () => rootRoute, path: '/defi/podium', component: PodiumPage });
 // "/direct/" opens it too: an address matches with or without its final slash, and keeps it.
 const directRoute = createRoute({ getParentRoute: () => rootRoute, path: '/direct', component: LegacyDirect });
 const connectionsRoute = createRoute({
@@ -69,8 +84,11 @@ export const routeTree = rootRoute.addChildren([
   boardRoute,
   recapRoute,
   matchesRoute,
+  matchRoute,
   exercisesRoute,
   challengeRoute,
+  drinksRoute,
+  podiumRoute,
   directRoute,
   connectionsRoute,
   profileRoute,

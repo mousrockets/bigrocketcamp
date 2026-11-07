@@ -4,9 +4,11 @@ import {
   debtLine,
   filledSegments,
   lastMatchOf,
+  matchesSummary,
   monthLead,
   payoffFor,
   savedLine,
+  scoreboardOf,
   sinceLabel,
   standingsOf,
   streakOf,
@@ -161,4 +163,26 @@ test('paying the whole debt', () => {
   expect(payoffFor('pushups', 35)).toBe(35);
   expect(payoffFor('plank', 35)).toBe(2.5);
   expect(payoffFor('crunches', 35)).toBe(70);
+});
+
+test('a scoreboard names club players only, their side first', () => {
+  const state = board([
+    row('m', 'adversaire', 1, 1, 500, 2, '2026-11-06T20:00:00.000Z'),
+    row('m', 'boost-max', 0, 1, 280, 0, '2026-11-06T20:00:00.000Z'),
+    row('m', 'inconnu', 0, 1, 320, 1, '2026-11-06T20:00:00.000Z'),
+    row('m', 'autre', 1, 1, 410, 1, '2026-11-06T20:00:00.000Z'),
+  ]);
+  expect(scoreboardOf(roster, state, 'm', 0).map((line) => line.label)).toEqual([
+    'Coéquipier',
+    'boost-max',
+    'Adversaire 1',
+    'Adversaire 2',
+  ]);
+});
+
+test('the matches summary', () => {
+  expect(matchesSummary([], 'hier')).toBe('Aucun match reçu hier.');
+  expect(matchesSummary([{ outcome: 'victory' }, { outcome: 'defeat' }, { outcome: 'defeat' }], 'aujourd’hui')).toBe(
+    '3 matchs reçus aujourd’hui · 1 victoire · 2 défaites',
+  );
 });

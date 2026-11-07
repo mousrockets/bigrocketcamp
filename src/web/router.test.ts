@@ -29,6 +29,9 @@ test.each([
   ['/exercices', '/exercices'],
   ['/defi', '/defi'],
   ['/recap', '/recap'],
+  ['/matchs/abc-123', '/matchs/$guid'],
+  ['/defi/bilans', '/defi/bilans'],
+  ['/defi/podium', '/defi/podium'],
   ['/tableau', '/tableau'],
 ])('%s opens its page', (address, route) => {
   expect(open(address)).toMatchObject({ routes: ['__root__', route], notFoundAt: null });
