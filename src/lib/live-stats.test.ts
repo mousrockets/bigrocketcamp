@@ -40,6 +40,7 @@ interface LivePayload {
       bOvertime?: unknown;
     };
   };
+  clockTrace?: unknown;
 }
 
 function payload(guid = 'synthetic-live-match'): LivePayload {
@@ -266,8 +267,8 @@ describe('live stats', () => {
     expect(ending({ TimeSeconds: '143', bOvertime: false })).toEqual({ forfeit: null, overtime: false });
   });
 
-  test('capture sends the clock of the last update before the end, which a later tick can only lower', () => {
-    const sent = (after: { TimeSeconds: number; bOvertime: boolean }) => {
+  test('capture sends the clock of the last update before the end, lowered only from its last second', () => {
+    const sent = (before: number, after: { TimeSeconds: number; bOvertime: boolean }) => {
       const out: LivePayload[] = [];
       const p = payload('clock');
       const capture = matchCapture(
@@ -276,7 +277,7 @@ describe('live stats', () => {
       );
       capture.handle(packet('MatchCreated', { MatchGuid: 'clock' }));
       capture.handle(
-        packet('UpdateState', { ...p.state, Game: { ...p.state.Game, TimeSeconds: 143, bOvertime: false } }),
+        packet('UpdateState', { ...p.state, Game: { ...p.state.Game, TimeSeconds: before, bOvertime: false } }),
       );
       capture.handle(packet('MatchEnded', p.end));
       const final = { ...p.state, Game: { ...p.state.Game, ...after } };
@@ -285,8 +286,38 @@ describe('live stats', () => {
       expect(out.length).toBe(1);
       return [out[0]?.state.Game.TimeSeconds, out[0]?.state.Game.bOvertime];
     };
-    expect(sent({ TimeSeconds: 300, bOvertime: false })).toEqual([143, false]);
-    expect(sent({ TimeSeconds: 0, bOvertime: true })).toEqual([0, false]);
+    expect(sent(143, { TimeSeconds: 300, bOvertime: false })).toEqual([143, false]);
+    // A forfeit: the game may set the clock to 0:00 after the end, the time left before it stays.
+    expect(sent(143, { TimeSeconds: 0, bOvertime: true })).toEqual([143, false]);
+    // The tick that reached 0:00 after MatchEnded: a full match, not a forfeit.
+    expect(sent(1, { TimeSeconds: 0, bOvertime: false })).toEqual([0, false]);
+  });
+
+  test('capture sends the last changes of the clock before the end and the first ones after it', () => {
+    const out: LivePayload[] = [];
+    const p = payload('trace');
+    const capture = matchCapture(
+      (completed) => out.push(completed as LivePayload),
+      () => now,
+    );
+    const update = (TimeSeconds: number) =>
+      capture.handle(packet('UpdateState', { ...p.state, Game: { ...p.state.Game, TimeSeconds, bOvertime: false } }));
+    capture.handle(packet('MatchCreated', { MatchGuid: 'trace' }));
+    for (let time = 150; time >= 140; time--) update(time);
+    update(140);
+    capture.handle(packet('MatchEnded', p.end));
+    update(0);
+    update(0);
+    expect(out[0]?.clockTrace).toEqual([
+      ...[145, 144, 143, 142, 141, 140].map((TimeSeconds) => ({ TimeSeconds, bOvertime: false, ended: false })),
+      { TimeSeconds: 0, bOvertime: false, ended: true },
+    ]);
+    expect(out[0]?.state.Game.TimeSeconds).toBe(140);
+    const [received] = parseLiveMatch(roster, out[0], now).rosters;
+    expect(JSON.parse(received?.clockTrace ?? 'null')).toEqual(out[0]?.clockTrace);
+    // An unreadable trace is dropped, and the match still counts.
+    const unreadable = { ...out[0], clockTrace: [{ TimeSeconds: 'soon', ended: true }] };
+    expect(parseLiveMatch(roster, unreadable, now).rosters[0]?.clockTrace).toBeUndefined();
   });
 
   test('Paris midnight: the live day uses the match start, like the Epic history', () => {

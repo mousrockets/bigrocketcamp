@@ -169,6 +169,8 @@ export interface ReceivedRoster {
   /** The clock the source read at the end of the match: absent from older collectors. */
   timeSeconds?: number;
   overtime?: boolean;
+  /** The clock's changes around the end as the collector saw them (JSON): absent from older collectors. */
+  clockTrace?: string;
 }
 
 /** How a match ended; null when no source sent the clock (older collectors, Epic's history). */

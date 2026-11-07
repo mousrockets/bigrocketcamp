@@ -176,6 +176,13 @@
       "when": 1794086721315,
       "tag": "0024_solo_changed_at",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "6",
+      "when": 1794091442042,
+      "tag": "0025_clock_trace",
+      "breakpoints": true
     }
   ]
 }
