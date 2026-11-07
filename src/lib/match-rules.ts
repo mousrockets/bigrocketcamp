@@ -158,9 +158,64 @@ export function forfeitRuleOn(rules: ForfeitRules, day: string): ForfeitRule {
  * player of the winning team, on the days the club keeps the rule. Only a match whose clock a source sent can
  * be known as a forfeit.
  */
-export function dodgedPushups(row: MatchRow, rules: ForfeitRules = defaultForfeitRules): number {
+export function forfeitDodge(row: MatchRow, rules: ForfeitRules = defaultForfeitRules): number {
   const won = row.kind === 'match' && !row.review_required && row.team === row.winner && row.forfeit === true;
   return won && forfeitRuleOn(rules, row.day).enabled ? 5 : 0;
+}
+
+/** The −10 of a game above 1000 points, as it applies from `effectiveFrom` (a day in Paris). */
+export interface HighScoreRule {
+  enabled: boolean;
+  effectiveFrom: string;
+}
+
+/** Every change of the −10, oldest first: a match counts with the rule of its own day, never a later one. */
+export type HighScoreRules = readonly HighScoreRule[];
+
+/** Points a player must go beyond in a game to dodge pushups. */
+export const highScorePoints = 1000;
+
+// The −10 starts on 2026-11-07, the evening the club decided it. The club changes it in its settings; until the
+// API says otherwise (an older API, an empty board), this applies.
+export const defaultHighScoreRules: HighScoreRules = [{ enabled: true, effectiveFrom: '2026-11-07' }];
+
+const noHighScore: HighScoreRule = { enabled: false, effectiveFrom: '' };
+
+/** The −10 in force on a day: the latest change made effective on or before it, off before the first one. */
+export function highScoreRuleOn(rules: HighScoreRules, day: string): HighScoreRule {
+  return rules.reduce(
+    (current, rule) => (rule.effectiveFrom <= day && rule.effectiveFrom >= current.effectiveFrom ? rule : current),
+    noHighScore,
+  );
+}
+
+/**
+ * « Si un joueur dépasse 1000 points pendant une game, il esquive 10 pompes. Qu'ils perdent ou qu'ils gagnent »:
+ * a club player above 1000 points in a counted match takes 10 pushups off, win or loss, on the days the club
+ * keeps the rule.
+ */
+export function highScoreDodge(row: MatchRow, rules: HighScoreRules = defaultHighScoreRules): number {
+  const counted = row.kind === 'match' && !row.review_required && row.score > highScorePoints;
+  return counted && highScoreRuleOn(rules, row.day).enabled ? 10 : 0;
+}
+
+/** The rules that take pushups off, each with its history. */
+export interface DodgeRules {
+  forfeit: ForfeitRules;
+  highScore: HighScoreRules;
+}
+
+export const defaultDodgeRules: DodgeRules = { forfeit: defaultForfeitRules, highScore: defaultHighScoreRules };
+
+/** The rules that take pushups off, from a board or a club kept by an older API: a rule left out gets its default. */
+export const dodgeRules = (rules?: Partial<DodgeRules>): DodgeRules => ({
+  forfeit: rules?.forfeit ?? defaultForfeitRules,
+  highScore: rules?.highScore ?? defaultHighScoreRules,
+});
+
+/** The pushups a match takes off a club player: they lower the debt, and count for later defeats. */
+export function dodgedPushups(row: MatchRow, rules: DodgeRules = defaultDodgeRules): number {
+  return forfeitDodge(row, rules.forfeit) + highScoreDodge(row, rules.highScore);
 }
 
 export interface ReceivedRoster {

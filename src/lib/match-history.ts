@@ -1,9 +1,10 @@
 import type { Roster } from './club';
 import {
-  defaultForfeitRules,
+  type DodgeRules,
+  defaultDodgeRules,
   defaultLastPlaceRules,
-  dodgedPushups,
-  type ForfeitRules,
+  forfeitDodge,
+  highScoreDodge,
   type IndexedMatch,
   type LastPlaceRules,
   lastPlaceBonus,
@@ -26,14 +27,16 @@ export interface HistoryRow extends MatchRow {
 export interface HistoryPlayer<Row extends HistoryRow> {
   row: Row;
   /**
-   * What the match adds: 0 for a win, 5 for a defeat, 10 for the team's lowest club player, and -5 for a win
-   * the opponents forfeited.
+   * What the match adds: 0 for a win, 5 for a defeat, 10 for the team's lowest club player, -5 for a win the
+   * opponents forfeited, and 10 less for a game above 1000 points.
    */
   pushups: number;
   /** This player takes the extra 5 of the team's lowest club player. */
   lastPlace: boolean;
   /** This player dodges 5 pushups: the opponents forfeited. */
   dodged: boolean;
+  /** This player dodges 10 pushups: more than 1000 points in the game. */
+  highScore: boolean;
 }
 
 export interface HistoryMatch<Row extends HistoryRow> {
@@ -80,7 +83,7 @@ export function matchHistory<Row extends HistoryRow>(
   matches: Map<string, IndexedMatch<Row>>,
   roster: Roster,
   rules: LastPlaceRules = defaultLastPlaceRules,
-  forfeitRules: ForfeitRules = defaultForfeitRules,
+  dodge: DodgeRules = defaultDodgeRules,
 ): HistoryMatch<Row>[] {
   const byMatch = new Map<string, Row[]>();
   for (const row of clubRows) {
@@ -126,12 +129,14 @@ export function matchHistory<Row extends HistoryRow>(
       players: rows.map((row) => {
         const counted = !row.review_required && row.kind === 'match' && row.team !== row.winner;
         const bonus = counted ? lastPlaceBonus(row, matches, roster, rules) : 0;
-        const dodged = dodgedPushups(row, forfeitRules);
+        const forfeit = forfeitDodge(row, dodge.forfeit);
+        const highScore = highScoreDodge(row, dodge.highScore);
         return {
           row,
-          pushups: counted ? 5 + bonus : dodged > 0 ? -dodged : 0,
+          pushups: (counted ? 5 + bonus : 0) - forfeit - highScore,
           lastPlace: bonus > 0,
-          dodged: dodged > 0,
+          dodged: forfeit > 0,
+          highScore: highScore > 0,
         };
       }),
     };

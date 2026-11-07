@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
 import { roster } from './club-fixture';
 import { matchHistory } from './match-history';
-import { matchIndex } from './match-rules';
+import { defaultDodgeRules, matchIndex } from './match-rules';
 
 const [alice = '', bob = '', carla = ''] = roster;
 const line = (match: string, name: string, team: number, winner: number, score: number, goals = 0) => ({
@@ -123,12 +123,45 @@ test('a forfeit won the day the club keeps no −5 costs nothing and dodges noth
     ...row,
     forfeit: true,
   }));
-  const [match] = matchHistory(rows, rows, matchIndex(rows), roster, undefined, [
-    { effectiveFrom: '2026-11-06', enabled: false },
-  ]);
+  const [match] = matchHistory(rows, rows, matchIndex(rows), roster, undefined, {
+    ...defaultDodgeRules,
+    forfeit: [{ effectiveFrom: '2026-11-06', enabled: false }],
+  });
   expect(match?.forfeit).toBe(true);
   expect(match?.players.map(({ pushups, dodged }) => [pushups, dodged])).toEqual([
     [0, false],
     [0, false],
   ]);
+});
+
+test('above 1000 points, a club player dodges 10, win or loss, on top of what the match costs', () => {
+  const tonight = (row: ReturnType<typeof line>) => ({ ...row, day: '2026-11-07' });
+  const rows = [
+    line('loss', alice, 0, 1, 1240, 2),
+    line('loss', bob, 0, 1, 1001),
+    line('win', alice, 0, 0, 1000, 1),
+    line('win', bob, 0, 0, 1500, 2),
+  ].map(tonight);
+  const history = matchHistory(rows, rows, matchIndex(rows), roster);
+  expect(
+    history.map((match) =>
+      match.players.map(({ row, pushups, lastPlace, highScore }) => [row.name, pushups, lastPlace, highScore]),
+    ),
+  ).toEqual([
+    [
+      [alice, -5, false, true],
+      [bob, 0, true, true],
+    ],
+    [
+      [alice, 0, false, false],
+      [bob, -10, false, true],
+    ],
+  ]);
+  const before = matchHistory(
+    rows.slice(0, 1).map((row) => ({ ...row, day: '2026-11-06' })),
+    rows,
+    matchIndex(rows),
+    roster,
+  );
+  expect(before[0]?.players.map(({ pushups, highScore }) => [pushups, highScore])).toEqual([[5, false]]);
 });
