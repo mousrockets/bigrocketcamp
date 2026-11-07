@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { count, formatAge, formatNumber, formatTime, formatWhen, plural } from './format';
+import { count, formatAge, formatClock, formatNumber, formatTime, formatWhen, plural } from './format';
 
 test('numbers keep a full space between thousands', () => {
   expect(formatNumber(1509)).toBe('1 509');
@@ -27,4 +27,8 @@ test('an age says how long ago', () => {
   expect(formatAge('2026-11-07T11:52:00Z', now)).toBe('il y a 8 min');
   expect(formatAge('2026-11-07T10:00:00Z', now)).toBe('il y a 2 h');
   expect(formatAge('2026-11-05T12:00:00Z', now)).toBe('il y a 2 jours');
+});
+
+test('a match time reads like a scoreboard', () => {
+  expect(formatClock('2026-11-07T20:40:00Z')).toBe('21:40');
 });
