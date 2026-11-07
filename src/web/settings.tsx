@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
-import { parisDay } from '../lib/domain';
+import { parisDay } from '../lib/days';
 import { defaultLastPlaceRules, lastPlaceRuleOn } from '../lib/match-rules';
 import type { Profile, Role } from '../lib/members';
 import { Brand } from './brand';

@@ -1,8 +1,9 @@
 import { Link } from '@tanstack/react-router';
 import { cn } from 'cn';
+import { formatNumber, plural } from '../../lib/format';
 import { Button } from '../components/ui/button';
 import { Flame, PlayIcon } from '../shell/icons';
-import { type Debt, figure, litSegments, plural } from './stats';
+import { type Debt, litSegments } from './stats';
 
 const segments = 24;
 
@@ -21,7 +22,9 @@ export function DebtHero({ debt, streak }: { debt: Debt; streak: number }) {
           <StreakCount streak={streak} />
         </div>
         <div className="flex items-end gap-3 lg:gap-3.5">
-          <b className="num text-[104px] tracking-[-.035em] [line-height:.78] lg:text-[128px]">{figure(debt.left)}</b>
+          <b className="num text-[104px] tracking-[-.035em] [line-height:.78] lg:text-[128px]">
+            {formatNumber(debt.left)}
+          </b>
           <span className="pb-1 font-medium text-[17px] text-t2 lg:pb-1.5 lg:text-[19px]">
             {plural(debt.left, 'pompe')}
           </span>
@@ -42,7 +45,7 @@ export function DebtHero({ debt, streak }: { debt: Debt; streak: number }) {
         </div>
         <div className="flex items-baseline justify-between text-[12px] text-t3 tabular-nums">
           <span>
-            {figure(debt.paid)} / {figure(debt.owed)}
+            {formatNumber(debt.paid)} / {formatNumber(debt.owed)}
           </span>
           <b className="num text-[15px] text-t1">{debt.percent} %</b>
         </div>

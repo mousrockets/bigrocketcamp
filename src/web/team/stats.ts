@@ -1,10 +1,7 @@
-// What L'équipe derives from the board: streaks, the debt gauge, rank names and colours, how old a reading is.
+import { shiftDay } from '../../lib/days';
+import { formatWhen } from '../../lib/format';
 
-export function shiftDay(day: string, delta: number): string {
-  const date = new Date(`${day}T12:00:00Z`);
-  date.setUTCDate(date.getUTCDate() + delta);
-  return date.toISOString().slice(0, 10);
-}
+// What L'équipe derives from the board: streaks, the debt gauge, rank names and colours, whether someone plays.
 
 /** Days in a row with an exercise, ending today, or yesterday while today's is still to come. */
 export function currentStreak(days: ReadonlySet<string>, today: string): number {
@@ -12,8 +9,6 @@ export function currentStreak(days: ReadonlySet<string>, today: string): number 
   for (let day = days.has(today) ? today : shiftDay(today, -1); days.has(day); day = shiftDay(day, -1)) streak++;
   return streak;
 }
-
-export const plural = (count: number, word: string): string => `${word}${Math.abs(count) >= 2 ? 's' : ''}`;
 
 export interface Debt {
   /** Pushups still owed. */
@@ -68,24 +63,9 @@ export function rankRgb(tier: number | null | undefined): string {
 export const highestTier = (...tiers: (number | null | undefined)[]): number | null =>
   tiers.reduce<number | null>((best, tier) => (tier && tier > (best ?? 0) ? tier : best), null);
 
-/** "il y a 8 min": how long ago a rank was read. */
-export function readingAge(at: string, now: number): string {
-  const minutes = Math.max(0, Math.floor((now - Date.parse(at)) / 60_000));
-  if (minutes < 1) return 'à l’instant';
-  if (minutes < 60) return `il y a ${minutes} min`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `il y a ${hours} h`;
-  const days = Math.floor(hours / 24);
-  return `il y a ${days} ${plural(days, 'jour')}`;
-}
-
 /** The latest of several readings, or null when none was made. */
 export const latest = (...dates: (string | null | undefined)[]): string | null =>
   dates.reduce<string | null>((last, date) => (date && (!last || date > last) ? date : last), null);
-
-/** "1 509": figures keep a full space between thousands, which the condensed font would squeeze to nothing. */
-export const figure = (value: number): string =>
-  new Intl.NumberFormat('fr-FR', { useGrouping: 'always' }).format(value).replace(/[\u202f\u00a0]/g, '\u00a0');
 
 /**
  * The collector sends each match once it ends, and a match lasts about seven minutes: a match received within the
@@ -96,15 +76,6 @@ const liveWindow = 15 * 60_000;
 export const isLive = (lastReceived: string | null, now: number): boolean =>
   lastReceived !== null && now - Date.parse(lastReceived) < liveWindow;
 
-const parisDayOf = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' });
-const parisTime = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit' });
-const parisDate = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', day: 'numeric', month: 'short' });
-
-/** "Actualisé à 19 h 42", or with its date when it was not today: when the last match came in. */
-export function receptionLabel(lastReceived: string | null, now: number): string {
-  if (lastReceived === null) return 'En attente du premier match';
-  const at = new Date(lastReceived);
-  const time = parisTime.format(at).replace(':', ' h ');
-  if (parisDayOf.format(at) === parisDayOf.format(now)) return `Actualisé à ${time}`;
-  return `Actualisé le ${parisDate.format(at)} à ${time}`;
-}
+/** "Actualisé à 19 h 42": when the last match came in. */
+export const receptionLabel = (lastReceived: string | null, now: number): string =>
+  lastReceived === null ? 'En attente du premier match' : `Actualisé ${formatWhen(lastReceived, now)}`;

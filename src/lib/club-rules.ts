@@ -1,6 +1,6 @@
 import { asc, gte } from 'drizzle-orm';
+import { parisDay } from './days';
 import type { Database } from './db';
-import { parisDay } from './domain';
 import { type LastPlaceRule, type LastPlaceRules, lastPlaceRuleOn } from './match-rules';
 import { orm } from './orm';
 import { lastPlaceRules } from './schema';

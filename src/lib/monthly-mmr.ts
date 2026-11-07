@@ -1,6 +1,6 @@
 import { type ClubPlayer, type Roster, rosterOf } from './club';
+import { parisDay } from './days';
 import type { Database } from './db';
-import { parisDay } from './domain';
 import type { MmrAccount, MmrEntry } from './mmr-ledger';
 import { readPlayerIdentities } from './player-identities';
 

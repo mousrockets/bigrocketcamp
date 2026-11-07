@@ -1,7 +1,8 @@
 import { env } from 'cloudflare:workers';
 import { describe, expect, test } from 'vitest';
 import { roster } from './club-fixture';
-import { dailyRecap, normalizeParticipant, parisDay, summarize } from './domain';
+import { parisDay } from './days';
+import { dailyRecap, normalizeParticipant, summarize } from './domain';
 import { validateMatchRosters } from './match-rules';
 import { observationWrites, readMerged, reconcile } from './reconcile';
 

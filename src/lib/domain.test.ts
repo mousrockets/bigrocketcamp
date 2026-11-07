@@ -1,13 +1,13 @@
 import { env } from 'cloudflare:workers';
 import { describe, expect, test } from 'vitest';
 import { roster } from './club-fixture';
+import { parisDay } from './days';
 import {
   dailyRecap,
   exerciseDescription,
   exerciseEffect,
   exerciseReceipt,
   normalizeResult,
-  parisDay,
   pushupCredit,
   summarize,
   validateExercise,
