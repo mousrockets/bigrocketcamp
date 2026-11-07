@@ -309,13 +309,26 @@
   }
 }
 
+/* The ball drifting on an empty pitch: 6 px each way by default, `--drift` and `--drift-time` widen and slow it. */
 @keyframes brc-drift {
   0%,
   100% {
-    transform: translateX(-6px);
+    transform: translateX(calc(-1 * var(--drift, 6px)));
   }
   50% {
-    transform: translateX(6px);
+    transform: translateX(var(--drift, 6px));
+  }
+}
+
+/* The design's caret in a code digit: on for half a second, off for the other half. */
+@keyframes brc-caret {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
   }
 }
 
@@ -333,7 +346,11 @@
 }
 
 @utility animate-drift {
-  animation: brc-drift 3s ease-in-out infinite;
+  animation: brc-drift var(--drift-time, 3s) ease-in-out infinite;
+}
+
+@utility animate-caret {
+  animation: brc-caret 1s steps(1) infinite;
 }
 
 /* Motion is a bonus: whoever asks for less gets the final state at once. */
