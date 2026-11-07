@@ -1,6 +1,6 @@
 import { getTableColumns, type SQL, type SQLWrapper, sql, type Table } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/d1';
-import { SQLiteAsyncDialect } from 'drizzle-orm/sqlite-core';
+import { type AnySQLiteColumn, SQLiteAsyncDialect } from 'drizzle-orm/sqlite-core';
 import type { Database, Statement } from './db';
 import * as schema from './schema';
 
@@ -29,6 +29,9 @@ export const inJsonList = (value: SQLWrapper, list: readonly unknown[]): SQL =>
 
 /** SQLite's own row number, which Drizzle does not declare: the order rows were written in. */
 export const rowid = sql<number>`rowid`;
+
+/** In an upsert's update, the value the insert proposed for this column: Drizzle has no builder for it. */
+export const excluded = (column: AnySQLiteColumn): SQL => sql`excluded.${sql.identifier(column.name)}`;
 
 type SqlNamed<T extends Table> = {
   [Key in keyof T['_']['columns'] as T['_']['columns'][Key]['_']['name']]: T['_']['columns'][Key];
