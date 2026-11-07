@@ -5,6 +5,7 @@ import { useBoardState } from '../board/board-context';
 import { statsOf, streaksOf } from '../board/model';
 import type { DoublesRank, SeasonPeak, SoloRank } from '../board/types';
 import { playerPlatform, useClub } from '../club';
+import { Odometer } from '../components/club/odometer';
 import { BackLink, PageGlow, Panel } from '../components/club/page';
 import { PlayerAvatar } from '../components/club/player-avatar';
 import { Button } from '../components/ui/button';
@@ -197,7 +198,7 @@ export function PlayerPage({ position }: { position: string }) {
                       owed > 0 ? 'text-cost' : 'text-settled',
                     )}
                   >
-                    {formatNumber(owed)}
+                    <Odometer value={formatNumber(owed)} />
                   </b>
                   <span className="pb-0.5 text-[13px] leading-tight text-soft">
                     {owed > 0 ? (
@@ -249,15 +250,17 @@ export function PlayerPage({ position }: { position: string }) {
                       <span
                         aria-hidden="true"
                         className={cn(
-                          'flex size-[52px] items-center justify-center rounded-2xl text-2xl',
+                          'flex size-[52px] items-center justify-center rounded-2xl transition-colors duration-500',
                           earned
                             ? badge.id === 'streak7'
-                              ? 'bg-streak/14'
-                              : 'bg-primary/15'
-                            : 'bg-secondary grayscale',
+                              ? 'bg-streak/14 text-streak'
+                              : 'bg-primary/15 text-link'
+                            : 'bg-secondary text-muted-foreground',
                         )}
                       >
-                        {badge.emoji}
+                        <badge.icon
+                          className={cn('size-6', earned && badge.id === 'streak7' && 'motion-safe:animate-flame')}
+                        />
                       </span>
                       {badge.label}
                       <span className="sr-only">{earned ? ' : obtenu' : ' : à débloquer'}</span>

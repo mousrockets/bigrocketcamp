@@ -1,10 +1,10 @@
 import { useMutation } from '@tanstack/react-query';
 import { createContext, type ReactNode, useContext, useEffect, useRef, useState } from 'react';
-import { toast } from 'sonner';
 import { defeatMessage } from '../../lib/defeat-message';
 import { lastPlaceBonus, matchIndex, parisDay } from '../../lib/domain';
 import { useBoard } from '../board-client';
 import { useClub } from '../club';
+import { announce } from '../components/club/announcer';
 import { closeDueMonths } from '../writes';
 import { badgeRules } from './badges';
 import { playJingle, speak, vibrate } from './feedback';
@@ -54,7 +54,7 @@ function useAnnouncements(roster: readonly string[], data: BoardState | null) {
             pushups: 5 + lastPlaceBonus(r, matches, roster, lastPlaceRulesOf(data)),
           })),
         );
-        toast(message, { classNames: { toast: 'border-cost/40!' } });
+        announce('loss', message);
         playJingle('loss');
         speak(message, 700);
         vibrate([30, 60, 30]);
@@ -73,7 +73,7 @@ function useAnnouncements(roster: readonly string[], data: BoardState | null) {
       const known = new Set<string>(JSON.parse(stored));
       const unlocked = earned.find((entry) => !known.has(entry.key));
       if (unlocked) {
-        toast.success(`Badge débloqué : ${unlocked.badge.emoji} ${unlocked.badge.label} pour ${unlocked.player}`);
+        announce('badge', `${unlocked.badge.label} pour ${unlocked.player}`);
         playJingle('badge');
       }
     }

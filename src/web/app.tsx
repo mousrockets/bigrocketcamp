@@ -6,6 +6,7 @@ import { useEffect, useState, useSyncExternalStore } from 'react';
 import { isSignInRequired, subscribeToSignInRequired } from './api';
 import { BoardProvider } from './board/board-context';
 import { ClubContext, ClubLogoContext, ClubNameContext } from './club';
+import { Announcer } from './components/club/announcer';
 import { AppShell } from './components/club/app-shell';
 import { EmptyPitch } from './components/club/icons';
 import { Button, buttonVariants } from './components/ui/button';
@@ -123,6 +124,7 @@ export function App() {
             </DeclareProvider>
           </BoardProvider>
           <Toaster position="top-center" />
+          <Announcer />
         </ClubContext>
       </ClubLogoContext>
     </ClubNameContext>
