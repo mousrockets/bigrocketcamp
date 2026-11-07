@@ -183,8 +183,13 @@ test('a scoreboard names club players only, their side first', () => {
 
 test('the matches summary', () => {
   expect(matchesSummary([], 'hier')).toBe('Aucun match reçu hier.');
-  expect(matchesSummary([{ outcome: 'victory' }, { outcome: 'defeat' }, { outcome: 'defeat' }], 'aujourd’hui')).toBe(
-    '3 matchs reçus aujourd’hui · 1 victoire · 2 défaites',
+  const matches = [{ outcome: 'victory' }, { outcome: 'defeat' }, { outcome: 'defeat' }];
+  expect(matchesSummary(matches, 'aujourd’hui', true)).toBe(
+    '3 matchs, 1 victoire, 2 défaites. Les bras vont chauffer ce soir.',
+  );
+  expect(matchesSummary(matches, 'hier')).toBe('3 matchs, 1 victoire, 2 défaites. Les bras ont chauffé.');
+  expect(matchesSummary([{ outcome: 'victory' }], 'hier')).toBe(
+    '1 match, 1 victoire, 0 défaite. Les bras se reposent.',
   );
 });
 
