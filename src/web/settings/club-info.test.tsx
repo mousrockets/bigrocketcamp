@@ -38,6 +38,18 @@ test('turns the −5 of a forfeit won off, alone', async () => {
   );
 });
 
+test('turns the −10 above 1000 points off, alone', async () => {
+  const sent = fakeApi();
+  renderInApp(<ClubSettings />, { path: '/reglages/club' });
+  const rule = await screen.findByRole('switch', { name: '−10 au-delà de 1\u00a0000 points' });
+  expect(rule).toHaveAttribute('aria-checked', 'true');
+  await userEvent.click(rule);
+  await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
+  await vi.waitFor(() =>
+    expect(writes(sent)).toEqual([{ method: 'PUT', path: '/api/club/rules', body: { highScore: { enabled: false } } }]),
+  );
+});
+
 test('shows the rules as they stand from tomorrow, and sends both switches in one change', async () => {
   const tomorrow = shiftDay(parisDay(), 1);
   const rules = {
@@ -60,6 +72,24 @@ test('shows the rules as they stand from tomorrow, and sends both switches in on
         body: { lastPlace: { enabled: false }, forfeit: { enabled: true } },
       },
     ]),
+  );
+});
+
+test('shows the −10 as it stands from tomorrow, and turns it back on', async () => {
+  const tomorrow = shiftDay(parisDay(), 1);
+  const highScore = [
+    { effectiveFrom: '2026-11-07', enabled: true },
+    { effectiveFrom: tomorrow, enabled: false },
+  ];
+  const rules = { lastPlace: [], forfeit: [], highScore };
+  const sent = fakeApi();
+  renderInApp(<ClubSettings />, { path: '/reglages/club', club: { ...testClub, rules } });
+  const rule = await screen.findByRole('switch', { name: '−10 au-delà de 1\u00a0000 points' });
+  expect(rule).toHaveAttribute('aria-checked', 'false');
+  await userEvent.click(rule);
+  await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
+  await vi.waitFor(() =>
+    expect(writes(sent)).toEqual([{ method: 'PUT', path: '/api/club/rules', body: { highScore: { enabled: true } } }]),
   );
 });
 

@@ -4,7 +4,16 @@ import { useNavigate } from '@tanstack/react-router';
 import { useRef } from 'react';
 import { clubName, ruleSwitch } from '../../lib/contract';
 import { parisDay } from '../../lib/days';
-import { defaultForfeitRules, defaultLastPlaceRules, forfeitRuleOn, lastPlaceRuleOn } from '../../lib/domain';
+import {
+  defaultForfeitRules,
+  defaultHighScoreRules,
+  defaultLastPlaceRules,
+  forfeitRuleOn,
+  highScorePoints,
+  highScoreRuleOn,
+  lastPlaceRuleOn,
+} from '../../lib/domain';
+import { formatNumber } from '../../lib/format';
 import { networkError } from '../access/gate';
 import { useBoardState } from '../board';
 import { useClub } from '../club';
@@ -31,7 +40,11 @@ import {
 
 // The club as its admins set it: its logo, its name, its challenge rules.
 
-const clubSettings = clubName.extend({ lastPlace: ruleSwitch.shape.enabled, forfeit: ruleSwitch.shape.enabled });
+const clubSettings = clubName.extend({
+  lastPlace: ruleSwitch.shape.enabled,
+  forfeit: ruleSwitch.shape.enabled,
+  highScore: ruleSwitch.shape.enabled,
+});
 
 /** A rule as it stands from tomorrow on: a change never touches the matches already played. */
 function nextRule<Rule extends { effectiveFrom: string; enabled: boolean }>(
@@ -46,6 +59,7 @@ function nextRule<Rule extends { effectiveFrom: string; enabled: boolean }>(
 const ruleSwitches = [
   { name: 'lastPlace', label: '+5 pour le moins de points' },
   { name: 'forfeit', label: '−5 si les adversaires FF' },
+  { name: 'highScore', label: `−10 au-delà de ${formatNumber(highScorePoints)} points` },
 ] as const;
 
 export function ClubSettings() {
@@ -61,13 +75,14 @@ function ClubForm() {
   const navigate = useNavigate();
   const lastPlace = nextRule(club.rules?.lastPlace ?? defaultLastPlaceRules, lastPlaceRuleOn);
   const forfeit = nextRule(club.rules?.forfeit ?? defaultForfeitRules, forfeitRuleOn);
+  const highScore = nextRule(club.rules?.highScore ?? defaultHighScoreRules, highScoreRuleOn);
   // The name shows in every header and the rules count every match: the club and its board are read again.
   const reread = async () => {
     await queryClient.invalidateQueries({ queryKey: clubQuery.queryKey });
     await refresh();
   };
   const save = useMutation({
-    mutationFn: async (value: { name: string; lastPlace: boolean; forfeit: boolean }) => {
+    mutationFn: async (value: { name: string; lastPlace: boolean; forfeit: boolean; highScore: boolean }) => {
       if (value.name.trim() !== club.name) {
         await sendJson({
           path: '/api/club',
@@ -79,8 +94,9 @@ function ClubForm() {
       const changed = {
         ...(value.lastPlace !== lastPlace && { lastPlace: { enabled: value.lastPlace } }),
         ...(value.forfeit !== forfeit && { forfeit: { enabled: value.forfeit } }),
+        ...(value.highScore !== highScore && { highScore: { enabled: value.highScore } }),
       };
-      if (changed.lastPlace || changed.forfeit) {
+      if (changed.lastPlace || changed.forfeit || changed.highScore) {
         await sendJson({ path: '/api/club/rules', method: 'PUT', body: changed, fallback: 'Règle invalide.' });
       }
     },
@@ -90,7 +106,7 @@ function ClubForm() {
     },
   });
   const form = useForm({
-    defaultValues: { name: club.name, lastPlace, forfeit },
+    defaultValues: { name: club.name, lastPlace, forfeit, highScore },
     validators: { onSubmit: clubSettings },
     onSubmit: ({ value }) => save.mutateAsync(value).catch(() => {}),
   });
