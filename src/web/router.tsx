@@ -5,12 +5,12 @@ import { ChallengesPage } from './challenges/challenges-page';
 import { Connections } from './connections';
 import { MatchesPage } from './matches/matches-page';
 import { Profile } from './profile';
-import { Settings } from './settings';
 import { AccountSettings } from './settings/account';
 import { ClubSettings } from './settings/club-info';
 import { CollectorSettings } from './settings/collector';
 import { IdentitiesSettings } from './settings/identities';
 import { MembersSettings } from './settings/members';
+import { SettingsHome } from './settings/settings-home';
 import { AppShell } from './shell/app-shell';
 import { TeamPage } from './team/team-page';
 
@@ -29,7 +29,7 @@ const shellRoute = createRoute({
 const teamRoute = createRoute({ getParentRoute: () => shellRoute, path: '/', component: TeamPage });
 const challengesRoute = createRoute({ getParentRoute: () => shellRoute, path: '/defis', component: ChallengesPage });
 const matchesRoute = createRoute({ getParentRoute: () => shellRoute, path: '/matchs', component: MatchesPage });
-const settingsRoute = createRoute({ getParentRoute: () => shellRoute, path: '/reglages', component: Settings });
+const settingsRoute = createRoute({ getParentRoute: () => shellRoute, path: '/reglages', component: SettingsHome });
 // Réglages opens its screens like iOS Settings, each with the way back to it.
 const settingsScreens = (
   [
