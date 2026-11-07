@@ -1,7 +1,7 @@
 import { cn } from 'cn';
 import type { ReactNode } from 'react';
+import type { SeasonPeak } from '../../lib/contract';
 import { formatNumber } from '../../lib/format';
-import type { SeasonPeak } from '../board';
 import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle } from '../components/ui/item';
 import { rankRgb, shortRankLabel, splitRankLabel } from './stats';
 

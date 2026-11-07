@@ -129,7 +129,7 @@ async function catchUp(board = emptyBoard(), limit = 3) {
   for (let pages = 0; pages < 50; pages++) {
     const { players: club, pending } = await prepareBoard(db);
     const changes = await readBoardChanges(reader, club, board.version, { limit, pending });
-    applyChanges(board, changes);
+    board = applyChanges(board, changes);
     if (!changes.more) return board;
   }
   throw new Error('the board never caught up');

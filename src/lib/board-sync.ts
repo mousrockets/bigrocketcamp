@@ -6,7 +6,8 @@ import { undoMs } from './monthly-mmr';
 import { rankSourceStale } from './rank-source';
 import { compareResults, reliabilityOf } from './reconcile';
 
-// The board as the web app holds it: the rows received so far, which each answer of the API updates.
+// The board as the web app holds it: the rows received so far, which each answer of the API updates. Plain data,
+// never changed in place: TanStack Query keeps it, compares it and saves it in the browser as it is.
 
 type SmallParts = Pick<BoardChanges, 'collectors' | 'doublesRanks' | 'monthly' | 'rankSource' | 'rules'>;
 
@@ -15,43 +16,44 @@ export interface SyncedBoard {
   version: number;
   /** The member the board was received for. */
   viewer: string | null;
-  results: Map<string, BuiltResult>;
-  exercises: Map<string, BoardExercise>;
+  /** By match and player. */
+  results: Record<string, BuiltResult>;
+  /** By id. */
+  exercises: Record<string, BoardExercise>;
   /** Reactions by exercise. */
-  reactions: Map<string, BoardReaction[]>;
+  reactions: Record<string, BoardReaction[]>;
   small: SmallParts | null;
 }
 
 const resultKey = (matchGuid: string, playerId: string) => `${matchGuid}\u0000${playerId}`;
 
 export function emptyBoard(): SyncedBoard {
-  return { version: 0, viewer: null, results: new Map(), exercises: new Map(), reactions: new Map(), small: null };
+  return { version: 0, viewer: null, results: {}, exercises: {}, reactions: {}, small: null };
 }
 
-/** Applies an answer to the board held, in place: what left first, then what is new or changed. */
-export function applyChanges(board: SyncedBoard, changes: BoardChanges): SyncedBoard {
-  if (changes.reset) Object.assign(board, emptyBoard());
-  for (const [matchGuid, playerId] of changes.removed.results) board.results.delete(resultKey(matchGuid, playerId));
-  for (const id of changes.removed.exercises) board.exercises.delete(id);
-  for (const row of changes.results) board.results.set(resultKey(row.match_guid, row.player_id), row);
-  for (const exercise of changes.exercises) board.exercises.set(exercise.id, exercise);
-  if (changes.reactionsOf === 'all') board.reactions.clear();
-  else for (const id of changes.reactionsOf) board.reactions.delete(id);
+/** The board after an answer: what left first, then what is new or changed. The board given is left as it was. */
+export function applyChanges(held: SyncedBoard, changes: BoardChanges): SyncedBoard {
+  const board = changes.reset ? emptyBoard() : held;
+  const results = { ...board.results };
+  const exercises = { ...board.exercises };
+  const reactions = changes.reactionsOf === 'all' ? {} : { ...board.reactions };
+  for (const [matchGuid, playerId] of changes.removed.results) delete results[resultKey(matchGuid, playerId)];
+  for (const id of changes.removed.exercises) delete exercises[id];
+  for (const row of changes.results) results[resultKey(row.match_guid, row.player_id)] = row;
+  for (const exercise of changes.exercises) exercises[exercise.id] = exercise;
+  if (changes.reactionsOf !== 'all') for (const id of changes.reactionsOf) delete reactions[id];
   for (const reaction of changes.reactions) {
-    const list = board.reactions.get(reaction.exercise_id);
-    if (list) list.push(reaction);
-    else board.reactions.set(reaction.exercise_id, [reaction]);
+    reactions[reaction.exercise_id] = [...(reactions[reaction.exercise_id] ?? []), reaction];
   }
-  board.small = {
-    collectors: changes.collectors,
-    doublesRanks: changes.doublesRanks,
-    monthly: changes.monthly,
-    rankSource: changes.rankSource,
-    rules: changes.rules,
+  const { collectors, doublesRanks, monthly, rankSource, rules } = changes;
+  return {
+    version: changes.version,
+    viewer: changes.viewer,
+    results,
+    exercises,
+    reactions,
+    small: { collectors, doublesRanks, monthly, rankSource, rules },
   };
-  board.version = changes.version;
-  board.viewer = changes.viewer;
-  return board;
 }
 
 /** The player the member declares exercises for most often, the latest one on a tie. */
@@ -79,8 +81,8 @@ function usualPlayer(exercises: readonly BoardExercise[]): string | null {
 
 /** The board in the shape the page shows, with what only time changes evaluated at `now`. */
 export function boardView(board: SyncedBoard, roster: Roster, now: number = Date.now()): FullBoard {
-  const results = [...board.results.values()].sort(compareResults);
-  const exercises = [...board.exercises.values()].sort(
+  const results = Object.values(board.results).sort(compareResults);
+  const exercises = Object.values(board.exercises).sort(
     (a, b) => b.created.localeCompare(a.created) || a.id.localeCompare(b.id),
   );
   const matchRosters = new Map<string, number>();
@@ -95,7 +97,7 @@ export function boardView(board: SyncedBoard, roster: Roster, now: number = Date
     exercises,
     matchRosters: [...matchRosters].map(([match_guid, expected_players]) => ({ match_guid, expected_players })),
     reliability: reliabilityOf(roster, results),
-    reactions: [...board.reactions.values()]
+    reactions: Object.values(board.reactions)
       .flat()
       .sort((a, b) => a.exercise_id.localeCompare(b.exercise_id) || a.emoji.localeCompare(b.emoji)),
     me: usualPlayer(exercises),
