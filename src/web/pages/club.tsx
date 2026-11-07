@@ -438,8 +438,7 @@ export function ClubPage() {
       ) : (
         <>
           <div className="relative flex flex-col gap-3.5 lg:grid lg:grid-cols-[repeat(auto-fit,minmax(min(400px,100%),1fr))] lg:gap-5">
-            <div className="order-2 lg:order-1">{me ? <MyDebt data={data} me={me} /> : null}</div>
-            <div className="order-1 lg:order-2 lg:flex">
+            <div className="lg:order-2 lg:flex">
               {last ? (
                 <div className="flex-1 [&>a]:h-full">
                   <LastMatch match={last} now={now} />
@@ -450,6 +449,7 @@ export function ClubPage() {
                 </Panel>
               )}
             </div>
+            <div className="lg:order-1">{me ? <MyDebt data={data} me={me} /> : null}</div>
           </div>
           <div className="relative flex flex-col gap-2 lg:flex-row lg:flex-wrap lg:gap-5">
             <section
