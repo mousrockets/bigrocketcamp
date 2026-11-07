@@ -33,6 +33,8 @@ test.each([
   ['/defi/bilans', '/defi/bilans'],
   ['/defi/podium', '/defi/podium'],
   ['/tableau', '/tableau'],
+  ['/joueurs/2', '/joueurs/$position'],
+  ['/reglages/membres', '/reglages/membres'],
 ])('%s opens its page', (address, route) => {
   expect(open(address)).toMatchObject({ routes: ['__root__', route], notFoundAt: null });
 });

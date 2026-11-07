@@ -101,14 +101,11 @@ export function PodiumPage() {
                     className={cn(
                       'flex w-full origin-bottom animate-in justify-center rounded-t-xl pt-2.5 duration-700 slide-in-from-bottom-8 fade-in-0',
                       heights[rank],
-                      rank === 1 ? 'bg-primary' : 'bg-[#1a1b20]',
+                      rank === 1 ? 'bg-primary' : 'bg-secondary',
                     )}
                   >
                     <span
-                      className={cn(
-                        'font-numeral text-[40px] font-black',
-                        rank === 1 ? 'text-white' : 'text-[#55575e]',
-                      )}
+                      className={cn('font-numeral text-[40px] font-black', rank === 1 ? 'text-white' : 'text-faint')}
                     >
                       <span className="sr-only">Place </span>
                       {rank}

@@ -1,5 +1,5 @@
 import type { LastPlaceRules } from '../../lib/match-rules';
-import type { MonthlyState } from '../monthly-mmr';
+import type { MonthlyState } from './monthly';
 
 // The board as the API sends it (GET /api/state), read by every page through the board context.
 

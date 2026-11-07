@@ -88,7 +88,7 @@ function SideBar({ onDeclare }: { onDeclare: () => void }) {
             key={to}
             to={to}
             activeOptions={{ exact: to === '/' }}
-            className="flex h-11 items-center gap-3 rounded-xl px-3 text-[15px] font-semibold text-muted-foreground no-underline hover:bg-[#121317] hover:text-foreground hover:no-underline aria-[current=page]:bg-sidebar-accent aria-[current=page]:text-foreground"
+            className="flex h-11 items-center gap-3 rounded-xl px-3 text-[15px] font-semibold text-muted-foreground no-underline hover:bg-sidebar-accent/70 hover:text-foreground hover:no-underline aria-[current=page]:bg-sidebar-accent aria-[current=page]:text-foreground"
           >
             <NavIcon className="size-5" />
             {wideLabel ?? label}

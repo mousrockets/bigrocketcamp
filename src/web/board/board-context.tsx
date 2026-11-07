@@ -5,11 +5,11 @@ import { defeatMessage } from '../../lib/defeat-message';
 import { lastPlaceBonus, matchIndex, parisDay } from '../../lib/domain';
 import { useBoard } from '../board-client';
 import { useClub } from '../club';
-import { closeIsDue } from '../monthly-mmr';
 import { closeDueMonths } from '../writes';
 import { badgeRules } from './badges';
 import { playJingle, speak, vibrate } from './feedback';
 import { lastPlaceRulesOf, statsOf, streaksOf } from './model';
+import { closeIsDue } from './monthly';
 import { readStorage, writeStorage } from './storage';
 import type { BoardState, Result } from './types';
 
