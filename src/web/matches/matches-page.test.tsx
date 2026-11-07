@@ -70,6 +70,26 @@ test('a forfeit won dodges nothing the days the club turned the −5 off', async
   expect(bob).not.toHaveTextContent('Esquivées−5');
 });
 
+test('above 1000 points, a player dodges 10 pushups, and the replay says why', async () => {
+  const highScore = duo('night-loss', '2026-11-07T20:50:00Z', { won: false }).map((row) =>
+    row.name === 'alice' ? { ...row, score: 1240 } : row,
+  );
+  renderInApp(<MatchesPage />, { board: { ...board, results: [...highScore, ...board.results] } });
+  const summary = await screen.findByRole('region', { name: 'Bilan du jour' });
+  const [alice] = within(summary)
+    .getAllByText(/parties/)
+    .map((line) => line.closest('[data-slot=card]') as HTMLElement);
+  // Two defeats (10), one forfeit won (−5), one game above 1000 points (−10): nothing to do.
+  expect(alice).toHaveTextContent('4 parties · 2 V · 2 D');
+  expect(alice).toHaveTextContent('Esquivées−15');
+  expect(alice).toHaveTextContent('mains propres');
+  const replay = await screen.findByRole('region', { name: 'Derniers matchs' });
+  const line = within(replay).getByText(/1 240 pts/);
+  expect(line).toHaveTextContent('· 1 240 pts · 1 000+ pts');
+  expect(line.closest('span.flex')).toHaveTextContent('−5');
+  expect(within(replay).getAllByText(/1 000\+ pts/)).toHaveLength(1);
+});
+
 test('replays the week by part of day, with how each match ended', async () => {
   renderInApp(<MatchesPage />, { board });
   const replay = await screen.findByRole('region', { name: 'Derniers matchs' });
