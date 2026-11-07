@@ -7,6 +7,7 @@ import {
   type Alias,
   type CompleteRoster,
   compareResults,
+  type Departure,
   type MergedResult,
   mergeSources,
   type Observation,
@@ -15,6 +16,7 @@ import {
 } from './reconcile';
 import {
   matchBuilds,
+  matchDepartures,
   matchResults,
   prototypeMatchRosters,
   prototypeResults,
@@ -53,6 +55,7 @@ interface StoredRow {
   expected_players: number | null;
   forfeit: boolean | null;
   overtime: boolean | null;
+  left_early: boolean;
 }
 
 /** The stored results' columns, under the names the board receives. */
@@ -77,6 +80,7 @@ export const storedColumns = {
   expected_players: matchResults.expectedPlayers,
   forfeit: matchResults.forfeit,
   overtime: matchResults.overtime,
+  left_early: matchResults.leftEarly,
 } satisfies Record<keyof StoredRow, AnySQLiteColumn>;
 
 const columns = Object.keys(storedColumns) as (keyof StoredRow)[];
@@ -102,6 +106,7 @@ export const builtResult = (row: StoredRow): BuiltResult => ({
   expected_players: row.expected_players,
   forfeit: row.forfeit,
   overtime: row.overtime,
+  left: Boolean(row.left_early),
 });
 
 const storedRow = (row: MergedResult, expected: number | null): StoredRow => ({
@@ -125,6 +130,7 @@ const storedRow = (row: MergedResult, expected: number | null): StoredRow => ({
   expected_players: expected,
   forfeit: row.forfeit,
   overtime: row.overtime,
+  left_early: row.left,
 });
 
 const sameRow = (a: StoredRow, b: StoredRow) => columns.every((column) => a[column] === b[column]);
@@ -174,6 +180,11 @@ function readSources(db: Database, guids: readonly string[]) {
       .where(inJsonList(sourceReports.matchGuid, guids))
       .orderBy(sourceReports.received, rowid),
     query
+      .select(sqlNamed(matchDepartures))
+      .from(matchDepartures)
+      .where(inJsonList(matchDepartures.matchGuid, guids))
+      .orderBy(matchDepartures.received, rowid),
+    query
       .select(sqlNamed(prototypeResults))
       .from(prototypeResults)
       .where(inJsonList(sql`lower(trim(${prototypeResults.matchGuid}))`, guids))
@@ -187,13 +198,14 @@ function readSources(db: Database, guids: readonly string[]) {
 }
 
 async function buildChunk(db: Database, roster: Roster, aliases: readonly Alias[], guids: readonly string[]) {
-  const [builds, observations, reports, legacy, legacyRosters, stored] = await readSources(db, guids);
+  const [builds, observations, reports, departures, legacy, legacyRosters, stored] = await readSources(db, guids);
   const existing = stored as StoredRow[];
   const merged = mergeSources(roster, aliases, {
     legacy: legacy as StoredResult[],
     observations: observations as (Observation & { payload: string })[],
     rosters: legacyRosters as CompleteRoster[],
     reports: reports as (SourceReport & { players: string })[],
+    departures: departures as (Departure & { payload: string })[],
   });
   const expected = new Map(merged.rosters.map((complete) => [complete.match_guid, complete.expected_players]));
   const wanted = new Set(guids);

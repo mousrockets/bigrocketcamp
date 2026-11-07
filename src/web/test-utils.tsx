@@ -65,6 +65,7 @@ export const aResult = (parts: Partial<BoardResult> & Pick<BoardResult, 'name' |
   source_difference: null,
   forfeit: null,
   overtime: null,
+  left: false,
   ...parts,
 });
 

@@ -13,6 +13,11 @@ export interface MatchRow {
   review_required?: boolean;
   /** The losing team forfeited; null or absent while no source sent the game's clock. */
   forfeit?: boolean | null;
+  /**
+   * The player left before the end: a defeat with no bonus nor credit, apart from the final scoreboard. Absent
+   * from rows kept from an API older than departures.
+   */
+  left?: boolean;
 }
 
 export interface RosterSize {
@@ -64,7 +69,8 @@ export function matchIndex<Row extends MatchRow>(
   const matches = new Map<string, IndexedMatch<Row>>();
   for (const row of rows) {
     const id = guid(row);
-    if (row.kind !== 'match' || row.review_required || typeof id !== 'string' || !id) continue;
+    // A player who left is not on the final scoreboard: the match's completeness and places ignore him.
+    if (row.kind !== 'match' || row.review_required || row.left || typeof id !== 'string' || !id) continue;
     let match = matches.get(id);
     if (!match) {
       const count = expected.get(id);
@@ -113,7 +119,8 @@ export function teamPlace<Row extends MatchRow>(
   const mates = match
     ? [...match.players.values()].filter((player) => player.team === row.team && roster.includes(player.name))
     : [];
-  if (mates.length < 2 || !roster.includes(row.name)) return { compared: false, lowest: false, tied: false };
+  if (mates.length < 2 || !roster.includes(row.name) || row.left)
+    return { compared: false, lowest: false, tied: false };
   const lowestScore = Math.min(...mates.map((player) => player.score));
   const atLowest = mates.filter((player) => player.score === lowestScore).length;
   return { compared: true, lowest: row.score === lowestScore, tied: row.score === lowestScore && atLowest > 1 };
@@ -126,7 +133,7 @@ export function lastPlaceBonus<Row extends MatchRow>(
   rules: LastPlaceRules = defaultLastPlaceRules,
 ): number {
   const rule = lastPlaceRuleOn(rules, row.day);
-  if (!rule.enabled || row.team === row.winner) return 0;
+  if (!rule.enabled || row.team === row.winner || row.left) return 0;
   const place = teamPlace(row, matches, roster);
   return place.lowest && (rule.ties === 'all' || !place.tied) ? 5 : 0;
 }
@@ -159,7 +166,8 @@ export function forfeitRuleOn(rules: ForfeitRules, day: string): ForfeitRule {
  * be known as a forfeit.
  */
 export function forfeitDodge(row: MatchRow, rules: ForfeitRules = defaultForfeitRules): number {
-  const won = row.kind === 'match' && !row.review_required && row.team === row.winner && row.forfeit === true;
+  const won =
+    row.kind === 'match' && !row.review_required && !row.left && row.team === row.winner && row.forfeit === true;
   return won && forfeitRuleOn(rules, row.day).enabled ? 5 : 0;
 }
 
@@ -195,7 +203,7 @@ export function highScoreRuleOn(rules: HighScoreRules, day: string): HighScoreRu
  * keeps the rule.
  */
 export function highScoreDodge(row: MatchRow, rules: HighScoreRules = defaultHighScoreRules): number {
-  const counted = row.kind === 'match' && !row.review_required && row.score >= highScorePoints;
+  const counted = row.kind === 'match' && !row.review_required && !row.left && row.score >= highScorePoints;
   return counted && highScoreRuleOn(rules, row.day).enabled ? 10 : 0;
 }
 
@@ -226,6 +234,8 @@ export interface ReceivedRoster {
   overtime?: boolean;
   /** The clock's changes around the end as the collector saw them (JSON): absent from older collectors. */
   clockTrace?: string;
+  /** Every opponent left before the end, as the source's departures show: absent when they do not. */
+  opponentsGone?: boolean;
 }
 
 /** How a match ended; null when no source sent the clock (older collectors, Epic's history). */

@@ -4,6 +4,7 @@ import type { Database, Statement } from './db';
 import { endingOf, type MatchEnding, type ReceivedRoster, unknownEnding } from './match-rules';
 import { excluded, orm, rowid, sqlNamed, statementOf } from './orm';
 import {
+  matchDepartures,
   playerIdentityAliases,
   prototypeMatchRosters,
   prototypeResults,
@@ -29,6 +30,8 @@ export interface StoredResult {
 
 export interface MergedResult extends StoredResult, MatchEnding {
   received: string;
+  /** The player left before the end: a defeat, kept apart from the final scoreboard. */
+  left: boolean;
   review_required: boolean;
   verification: 'review' | 'corrected' | 'confirmed' | 'single';
   source_types: string[];
@@ -55,6 +58,18 @@ export interface SourceReport {
   /** The clock the source read at the end of the match; null or absent when it sent none. */
   time_seconds?: number | null;
   overtime?: boolean | null;
+  /** Every opponent left before the end, as the source's departures showed; null or absent otherwise. */
+  opponents_gone?: boolean | null;
+}
+
+/** A player who left a match before its end, as one source saw it: his last line, a defeat. */
+export interface Departure {
+  match_guid: string;
+  player_id?: string;
+  source_id: string;
+  source_type: string;
+  payload: string | StoredResult;
+  received: string;
 }
 
 export interface CompleteRoster {
@@ -99,6 +114,7 @@ export function reconcile(
   observations: Observation[] = [],
   legacyRosters: CompleteRoster[] = [],
   reports: SourceReport[] = [],
+  departures: Departure[] = [],
 ) {
   const groups = new Map<string, Candidate[]>();
   const add = (candidate: Candidate) => {
@@ -159,6 +175,7 @@ export function reconcile(
       source_types: types,
       selected_source: chosen.type,
       source_difference: outcomeConflict ? 'result' : scoreConflict ? 'stats' : null,
+      left: false,
       ...unknownEnding,
     });
   }
@@ -230,7 +247,58 @@ export function reconcile(
       if (old && old.expected_players === players.length) complete.push({ ...old, match_guid: guid });
     }
   }
+  rows = [...rows, ...departedRows(roster, rows, departures, endings)].sort(compareResults);
   return { rows, rosters: complete, reliability: reliabilityOf(roster, rows) };
+}
+
+/**
+ * The club players who left a match before its end, one row each: a defeat. A departure counts only while no
+ * source sent a final line of that player in that match (he came back, or the leave was a misread), and the same
+ * departure from several sources counts once.
+ */
+function departedRows(
+  roster: Roster,
+  finals: readonly MergedResult[],
+  departures: readonly Departure[],
+  endings: Map<string, MatchEnding>,
+): MergedResult[] {
+  const finalKeys = new Set(finals.map(rowKey));
+  const finalNames = new Set(finals.map((row) => JSON.stringify([row.match_guid, row.name])));
+  const groups = new Map<string, Candidate[]>();
+  for (const departure of departures) {
+    let row: StoredResult;
+    try {
+      row = typeof departure.payload === 'string' ? JSON.parse(departure.payload) : departure.payload;
+    } catch {
+      continue;
+    }
+    if (!row || typeof row.match_guid !== 'string' || typeof row.player_id !== 'string') continue;
+    if (!roster.includes(row.name) || row.kind !== 'match') continue;
+    const guid = matchKey(row.match_guid);
+    if (finalKeys.has(rowKey(row)) || finalNames.has(JSON.stringify([guid, row.name]))) continue;
+    const key = rowKey(row);
+    const candidate = { row, type: departure.source_type, source: departure.source_id, received: departure.received };
+    groups.set(key, [...(groups.get(key) ?? []), candidate]);
+  }
+  return [...groups.values()].map((candidates) => {
+    const chosen = candidates.reduce((a, b) => (b.received > a.received ? b : a));
+    const types = [...new Set(candidates.map((candidate) => candidate.type))];
+    const sources = new Set(candidates.map((candidate) => `${candidate.type}:${candidate.source}`));
+    const guid = matchKey(chosen.row.match_guid);
+    return {
+      ...chosen.row,
+      match_guid: guid,
+      player_id: playerKey(chosen.row.player_id),
+      received: chosen.received,
+      review_required: false,
+      verification: sources.size > 1 ? 'confirmed' : 'single',
+      source_types: types,
+      selected_source: chosen.type,
+      source_difference: null,
+      left: true,
+      ...(endings.get(guid) ?? unknownEnding),
+    };
+  });
 }
 
 /** The one value the sources that know agree on; null when none knows, or when they disagree. */
@@ -239,19 +307,26 @@ function agreed<Value>(values: readonly (Value | null)[]): Value | null {
   return known.size === 1 ? ([...known][0] ?? null) : null;
 }
 
-/** How each match ended, from the clocks its sources read: several collectors may have sent the same match. */
+/**
+ * How each match ended, from the clocks its sources read: several collectors may have sent the same match. A
+ * source that saw every opponent leave before the end saw a forfeit, whatever the clocks say.
+ */
 function matchEndings(reports: readonly SourceReport[]): Map<string, MatchEnding> {
-  const byMatch = new Map<string, MatchEnding[]>();
+  const byMatch = new Map<string, { endings: MatchEnding[]; gone: boolean }>();
   for (const report of reports) {
     const guid = matchKey(report.match_guid);
     const ending = endingOf({ timeSeconds: report.time_seconds, overtime: report.overtime });
-    byMatch.set(guid, [...(byMatch.get(guid) ?? []), ending]);
+    const seen = byMatch.get(guid) ?? { endings: [], gone: false };
+    byMatch.set(guid, {
+      endings: [...seen.endings, ending],
+      gone: seen.gone || Boolean(report.opponents_gone),
+    });
   }
   return new Map(
-    [...byMatch].map(([guid, endings]) => [
+    [...byMatch].map(([guid, { endings, gone }]) => [
       guid,
       {
-        forfeit: agreed(endings.map((ending) => ending.forfeit)),
+        forfeit: gone ? true : agreed(endings.map((ending) => ending.forfeit)),
         overtime: agreed(endings.map((ending) => ending.overtime)),
       },
     ]),
@@ -328,9 +403,17 @@ export async function observationWrites(
   {
     rows,
     rosters = [],
+    departures = [],
     sourceId,
     sourceType,
-  }: { rows: ReceivedRow[]; rosters?: ReceivedRoster[]; sourceId: string; sourceType: string },
+  }: {
+    rows: ReceivedRow[];
+    rosters?: ReceivedRoster[];
+    /** Players who left before the end; stored apart from the final scoreboard. */
+    departures?: ReceivedRow[];
+    sourceId: string;
+    sourceType: string;
+  },
   now: string,
 ): Promise<Statement[]> {
   if (!['collector', 'epic'].includes(sourceType)) throw new Error('Source invalide.');
@@ -370,6 +453,7 @@ export async function observationWrites(
         timeSeconds: roster.timeSeconds ?? null,
         overtime: roster.overtime ?? null,
         clockTrace: roster.clockTrace ?? null,
+        opponentsGone: roster.opponentsGone ?? null,
       })
       .onConflictDoUpdate({
         target: sourceReports.id,
@@ -379,9 +463,22 @@ export async function observationWrites(
           timeSeconds: sql`coalesce(${excluded(sourceReports.timeSeconds)}, ${sourceReports.timeSeconds})`,
           overtime: sql`coalesce(${excluded(sourceReports.overtime)}, ${sourceReports.overtime})`,
           clockTrace: sql`coalesce(${excluded(sourceReports.clockTrace)}, ${sourceReports.clockTrace})`,
+          opponentsGone: sql`coalesce(${excluded(sourceReports.opponentsGone)}, ${sourceReports.opponentsGone})`,
         },
       });
     writes.push(statementOf(db, report));
+  }
+  for (const row of departures.map((departure) => asStored(departure, now))) {
+    const payload = JSON.stringify({ ...row, received: undefined });
+    const id = await sha(JSON.stringify(['departure', sourceType, sourceId, payload]));
+    const departure = query
+      .insert(matchDepartures)
+      .values({ id, matchGuid: row.match_guid, playerId: row.player_id, sourceId, sourceType, payload, received: now })
+      .onConflictDoUpdate({
+        target: matchDepartures.id,
+        set: { received: sql`max(${matchDepartures.received}, ${excluded(matchDepartures.received)})` },
+      });
+    writes.push(statementOf(db, departure));
   }
   return writes;
 }
@@ -410,18 +507,21 @@ export interface MatchSources {
   observations: (Observation & { payload: string })[];
   rosters: CompleteRoster[];
   reports: (SourceReport & { players: string })[];
+  /** Absent before departures were kept. */
+  departures?: (Departure & { payload: string })[];
 }
 
 /** Reconciles every source received, with unassigned namesakes named after their confirmed player. */
 export function mergeSources(roster: Roster, aliases: readonly Alias[], sources: MatchSources) {
   const assign = aliasAssigner(roster, aliases);
-  const observations = sources.observations.map((observation) => {
+  const assignPayload = <Source extends { payload: string }>(source: Source): Source => {
     try {
-      return { ...observation, payload: JSON.stringify(assign(JSON.parse(observation.payload))) };
+      return { ...source, payload: JSON.stringify(assign(JSON.parse(source.payload))) };
     } catch {
-      return observation;
+      return source;
     }
-  });
+  };
+  const observations = sources.observations.map(assignPayload);
   const reports = sources.reports.map((report) => {
     try {
       return { ...report, players: JSON.stringify(JSON.parse(report.players).map(assign)) };
@@ -429,13 +529,20 @@ export function mergeSources(roster: Roster, aliases: readonly Alias[], sources:
       return report;
     }
   });
-  return reconcile(roster, sources.legacy.map(assign), observations, sources.rosters, reports);
+  return reconcile(
+    roster,
+    sources.legacy.map(assign),
+    observations,
+    sources.rosters,
+    reports,
+    (sources.departures ?? []).map(assignPayload),
+  );
 }
 
 /** Reconciles the whole history at once: the reference the stored match results must equal. */
 export async function readMerged(db: Database, roster: Roster) {
   const query = orm(db);
-  const [legacy, observations, rosters, reports, aliases] = await Promise.all([
+  const [legacy, observations, rosters, reports, departures, aliases] = await Promise.all([
     query
       .select(sqlNamed(prototypeResults))
       .from(prototypeResults)
@@ -443,9 +550,10 @@ export async function readMerged(db: Database, roster: Roster) {
     query.select(sqlNamed(resultObservations)).from(resultObservations).orderBy(resultObservations.received, rowid),
     query.select(sqlNamed(prototypeMatchRosters)).from(prototypeMatchRosters),
     query.select(sqlNamed(sourceReports)).from(sourceReports).orderBy(sourceReports.received, rowid),
+    query.select(sqlNamed(matchDepartures)).from(matchDepartures).orderBy(matchDepartures.received, rowid),
     query
       .select({ player_id: playerIdentityAliases.playerId, slot: playerIdentityAliases.slot })
       .from(playerIdentityAliases),
   ]);
-  return mergeSources(roster, aliases, { legacy, observations, rosters, reports });
+  return mergeSources(roster, aliases, { legacy, observations, rosters, reports, departures });
 }
