@@ -98,19 +98,12 @@ export function tierOf(label: string): string {
   return label.split(' · ')[0] ?? label;
 }
 
-const parisTime = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit' });
 const parisDayName = new Intl.DateTimeFormat('fr-FR', {
   timeZone: 'Europe/Paris',
   weekday: 'long',
   day: 'numeric',
   month: 'long',
 });
-
-/** "21 h 40", the way a French sentence says a time. */
-export function spokenTime(date: Date): string {
-  const [hours = '', minutes = ''] = parisTime.format(date).split(':');
-  return `${Number(hours)} h ${minutes}`;
-}
 
 /** "il y a 12 min", "il y a 3 h", then the day: how long ago something arrived. */
 export function sinceLabel(iso: string, now: number): string {
@@ -122,30 +115,10 @@ export function sinceLabel(iso: string, now: number): string {
   return `le ${parisDayName.format(new Date(iso))}`;
 }
 
-/** The sentence under the member's debt. */
-export function debtLine(
-  remaining: number,
-  lastDefeat: { received: string | null; day: string } | null,
-  today: string,
-) {
+/** The sentence under the member's debt, in the design's « Fun assumé » voice. */
+export function debtLine(remaining: number): string {
   if (remaining <= 0) return 'Tu es à jour. Chaque série compte quand même dans les totaux.';
-  const owed = `${formatNumber(remaining)} pompe${remaining >= 2 ? 's' : ''}`;
-  let after = '';
-  if (lastDefeat?.received) {
-    const at = new Date(lastDefeat.received);
-    if (lastDefeat.day === today) after = ` après la défaite de ${spokenTime(at)}`;
-    else if (lastDefeat.day === shiftDay(today, -1)) after = ` après la défaite d’hier, ${spokenTime(at)}`;
-  }
-  return `Il te reste ${owed}${after}. Gainage et abdos comptent aussi.`;
-}
-
-/** The member's latest defeat that cost pushups. */
-export function lastDefeatOf(roster: Roster, state: BoardState, player: string) {
-  return (
-    matchesOf(roster, state)
-      .filter((match) => match.players.some((p) => p.row.name === player && p.pushups > 0))
-      .sort((a, b) => (b.received ?? b.day).localeCompare(a.received ?? a.day))[0] ?? null
-  );
+  return `${formatNumber(remaining)} pompe${remaining >= 2 ? 's' : ''}, champion. Même le ballon a mal aux bras pour toi.`;
 }
 
 /** How many of `segments` blocks of the debt bar are done. Nothing owed fills the bar. */

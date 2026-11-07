@@ -91,18 +91,10 @@ test('standings go by MMR, players without a reading last in roster order', () =
   expect(standingsOf(roster, state).map((p) => p.name)).toEqual(['centreur', 'boost-max', 'aile-gauche']);
 });
 
-test('the debt line names the defeat of the day, or says the member is up to date', () => {
-  expect(debtLine(0, null, '2026-11-07')).toMatch(/^Tu es à jour/);
-  expect(debtLine(1, null, '2026-11-07')).toBe('Il te reste 1 pompe. Gainage et abdos comptent aussi.');
-  expect(debtLine(35, { received: '2026-11-07T20:40:00.000Z', day: '2026-11-07' }, '2026-11-07')).toBe(
-    'Il te reste 35 pompes après la défaite de 21 h 40. Gainage et abdos comptent aussi.',
-  );
-  expect(debtLine(35, { received: '2026-11-06T20:40:00.000Z', day: '2026-11-06' }, '2026-11-07')).toContain(
-    'après la défaite d’hier, 21 h 40',
-  );
-  expect(debtLine(35, { received: '2026-11-01T20:40:00.000Z', day: '2026-11-01' }, '2026-11-07')).toBe(
-    'Il te reste 35 pompes. Gainage et abdos comptent aussi.',
-  );
+test('the debt line teases the member who owes pushups, or says they are up to date', () => {
+  expect(debtLine(0)).toMatch(/^Tu es à jour/);
+  expect(debtLine(1)).toBe('1 pompe, champion. Même le ballon a mal aux bras pour toi.');
+  expect(debtLine(35)).toBe('35 pompes, champion. Même le ballon a mal aux bras pour toi.');
 });
 
 test('the debt bar rounds to tenths and fills when nothing is owed', () => {
