@@ -162,6 +162,13 @@
       "when": 1794083508933,
       "tag": "0022_match_endings",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "6",
+      "when": 1794084673305,
+      "tag": "0023_forfeit_rules",
+      "breakpoints": true
     }
   ]
 }

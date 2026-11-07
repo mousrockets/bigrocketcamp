@@ -60,6 +60,7 @@ beforeEach(async () => {
     env.DB.prepare('DELETE FROM members'),
     env.DB.prepare('DELETE FROM club_logo'),
     env.DB.prepare('DELETE FROM last_place_rules WHERE effective_from > ?').bind(parisDay()),
+    env.DB.prepare('DELETE FROM forfeit_rules WHERE effective_from > ?').bind(parisDay()),
     env.DB.prepare('DELETE FROM player_identities'),
     env.DB.prepare('DELETE FROM player_identity_aliases'),
     env.DB.prepare('DELETE FROM result_observations'),
@@ -132,11 +133,11 @@ describe('the challenge rules', () => {
   const tomorrow = () => dayAfter(parisDay());
   const original = { effectiveFrom: '2026-11-06', enabled: true, ties: 'none' };
 
-  test('by default, the +5 applies as it did when it was written in the code', async () => {
+  test('by default, the +5 and the −5 apply as they did when they were written in the code', async () => {
     const club = await (await call('/api/club', member)).json<{ rules: unknown }>();
-    expect(club.rules).toEqual({ lastPlace: [original] });
+    expect(club.rules).toEqual({ lastPlace: [original], forfeit: [] });
     const board = await (await call('/api/state', member)).json<{ rules: unknown }>();
-    expect(board.rules).toEqual({ lastPlace: [original] });
+    expect(board.rules).toEqual({ lastPlace: [original], forfeit: [] });
   });
 
   test('a change applies from tomorrow, and asking again for today’s rule cancels it', async () => {
@@ -144,13 +145,40 @@ describe('the challenge rules', () => {
     expect(off.status).toBe(200);
     expect(await off.json()).toEqual({
       lastPlace: [original, { effectiveFrom: tomorrow(), enabled: false, ties: 'none' }],
+      forfeit: [],
     });
     // Twice the same change keeps one row.
     await call('/api/club/rules', admin, 'PUT', { lastPlace: { enabled: false } });
     expect(await env.DB.prepare('SELECT COUNT(*) AS n FROM last_place_rules').first('n')).toBe(2);
 
     const back = await call('/api/club/rules', admin, 'PUT', { lastPlace: { enabled: true } });
-    expect(await back.json()).toEqual({ lastPlace: [original] });
+    expect(await back.json()).toEqual({ lastPlace: [original], forfeit: [] });
+  });
+
+  test('the −5 of a forfeit won switches off from tomorrow, and back on cancels it', async () => {
+    const off = await call('/api/club/rules', admin, 'PUT', { forfeit: { enabled: false } });
+    expect(off.status).toBe(200);
+    expect(await off.json()).toEqual({
+      lastPlace: [original],
+      forfeit: [{ effectiveFrom: tomorrow(), enabled: false }],
+    });
+    await call('/api/club/rules', admin, 'PUT', { forfeit: { enabled: false } });
+    expect(await env.DB.prepare('SELECT COUNT(*) AS n FROM forfeit_rules').first('n')).toBe(1);
+
+    const back = await call('/api/club/rules', admin, 'PUT', { forfeit: { enabled: true } });
+    expect(await back.json()).toEqual({ lastPlace: [original], forfeit: [] });
+    expect(await env.DB.prepare('SELECT COUNT(*) AS n FROM forfeit_rules').first('n')).toBe(0);
+  });
+
+  test('both rules change in one request', async () => {
+    const both = await call('/api/club/rules', admin, 'PUT', {
+      lastPlace: { enabled: false },
+      forfeit: { enabled: false },
+    });
+    expect(await both.json()).toEqual({
+      lastPlace: [original, { effectiveFrom: tomorrow(), enabled: false, ties: 'none' }],
+      forfeit: [{ effectiveFrom: tomorrow(), enabled: false }],
+    });
   });
 
   test('the board follows a change of rule', async () => {
@@ -162,6 +190,14 @@ describe('the challenge rules', () => {
     }>();
     expect(after.version).toBeGreaterThan(before.version);
     expect(after.rules.lastPlace).toHaveLength(2);
+
+    await call('/api/club/rules', admin, 'PUT', { forfeit: { enabled: false } });
+    const again = await (await call(`/api/state?since=${after.version}`, member)).json<{
+      version: number;
+      rules: { forfeit: unknown[] };
+    }>();
+    expect(again.version).toBeGreaterThan(after.version);
+    expect(again.rules.forfeit).toEqual([{ effectiveFrom: tomorrow(), enabled: false }]);
   });
 
   test('only an administrator changes them, with a valid rule', async () => {
@@ -171,6 +207,12 @@ describe('the challenge rules', () => {
     expect(invalid.status).toBe(400);
     expect(await invalid.json()).toEqual({ error: 'Règle des défis invalide.' });
     expect(await env.DB.prepare('SELECT COUNT(*) AS n FROM last_place_rules').first('n')).toBe(1);
+    expect((await call('/api/club/rules', null, 'PUT', { forfeit: { enabled: false } })).status).toBe(401);
+    expect((await call('/api/club/rules', member, 'PUT', { forfeit: { enabled: false } })).status).toBe(403);
+    const empty = await call('/api/club/rules', admin, 'PUT', {});
+    expect(empty.status).toBe(400);
+    expect(await empty.json()).toEqual({ error: 'Règle des défis invalide.' });
+    expect(await env.DB.prepare('SELECT COUNT(*) AS n FROM forfeit_rules').first('n')).toBe(0);
   });
 
   test('the database itself refuses to rewrite a rule already in force', async () => {
@@ -178,6 +220,7 @@ describe('the challenge rules', () => {
       "UPDATE last_place_rules SET enabled = 0 WHERE effective_from = '2026-11-06'",
       "DELETE FROM last_place_rules WHERE effective_from = '2026-11-06'",
       "INSERT INTO last_place_rules (effective_from, enabled) VALUES ('2026-11-01', 1)",
+      "INSERT INTO forfeit_rules (effective_from, enabled) VALUES ('2026-11-01', 0)",
     ];
     for (const attempt of attempts) {
       await expect(env.DB.prepare(attempt).run()).rejects.toThrow(/the past never changes/);

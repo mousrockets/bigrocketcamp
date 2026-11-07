@@ -1,7 +1,7 @@
 import type { BoardChanges, BoardExercise, BoardReaction, FullBoard } from './board';
 import type { Roster } from './club';
 import type { BuiltResult } from './match-builds';
-import { defaultLastPlaceRules } from './match-rules';
+import { defaultForfeitRules, defaultLastPlaceRules } from './match-rules';
 import { undoMs } from './monthly-mmr';
 import { rankSourceStale } from './rank-source';
 import { compareResults, reliabilityOf } from './reconcile';
@@ -114,6 +114,6 @@ export function boardView(board: SyncedBoard, roster: Roster, now: number = Date
       ? { ...small.rankSource, stale: rankSourceStale(small.rankSource.lastReadAt, now) }
       : null,
     // A board kept from an older API, or received from one, has no rules: the default ones apply.
-    rules: small?.rules ?? { lastPlace: defaultLastPlaceRules },
+    rules: small?.rules ?? { lastPlace: defaultLastPlaceRules, forfeit: defaultForfeitRules },
   } as FullBoard;
 }

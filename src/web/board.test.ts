@@ -40,7 +40,7 @@ const changes = (parts: Partial<BoardChanges>): BoardChanges => ({
     debts: [],
   },
   rankSource: null,
-  rules: { lastPlace: [] },
+  rules: { lastPlace: [], forfeit: [] },
   ...parts,
 });
 

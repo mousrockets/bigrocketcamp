@@ -1,4 +1,5 @@
 import { platforms } from '../club';
+import { defaultForfeitRules } from '../match-rules';
 import { says, z } from '../validation';
 import { ownProfile } from './profile';
 import type { Known } from './shared';
@@ -15,9 +16,12 @@ export const clubName = z.object({
 export type ClubNameInput = z.input<typeof clubName>;
 
 export const invalidRuleChange = 'Règle des défis invalide.';
-export const ruleChange = z.object({
-  lastPlace: z.object({ enabled: z.boolean(says(invalidRuleChange)) }, says(invalidRuleChange)),
-});
+/** One rule turned on or off from tomorrow. */
+export const ruleSwitch = z.object({ enabled: z.boolean(says(invalidRuleChange)) }, says(invalidRuleChange));
+/** The rules an admin changes: the +5, the −5 of a forfeit won, or both; a rule left out stays as it is. */
+export const ruleChange = z
+  .object({ lastPlace: ruleSwitch.optional(), forfeit: ruleSwitch.optional() }, says(invalidRuleChange))
+  .refine((change) => change.lastPlace || change.forfeit, says(invalidRuleChange));
 export type RuleChange = z.input<typeof ruleChange>;
 
 /** What a visitor sees of the club before signing in; the page still works without it. */
@@ -38,8 +42,18 @@ export const lastPlaceRule = z.looseObject({
   ties: z.enum(['none', 'all']).catch('none'),
 });
 
+/** The −5 of a win the opponents forfeited, as it applies from `effectiveFrom` (a day in Paris). */
+export const forfeitRule = z.looseObject({ enabled: z.boolean(), effectiveFrom: z.string() });
+
 /** Also the answer to a change of the rules. Every change, oldest first: a match counts with its own day's rule. */
-export const challengeRules = z.looseObject({ lastPlace: z.array(lastPlaceRule).readonly() });
+export const challengeRules = z.looseObject({
+  lastPlace: z.array(lastPlaceRule).readonly(),
+  /** Absent from an API older than the switch of the −5: it then applies every day, as it did. */
+  forfeit: z
+    .array(forfeitRule)
+    .readonly()
+    .catch(() => defaultForfeitRules.map((rule) => ({ ...rule }))),
+});
 export type ChallengeRules = Known<z.output<typeof challengeRules>>;
 
 /** The club as a signed-in member sees it. */

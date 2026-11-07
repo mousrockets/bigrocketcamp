@@ -2,7 +2,7 @@ import { expect, test } from 'vitest';
 import { readChallengeRules } from '../lib/club-rules';
 import { summarize } from '../lib/domain';
 import { defaultLastPlaceRules } from '../lib/match-rules';
-import { databaseBefore, runMigration } from './migration-history';
+import { databaseBefore, runMigration, runMigrationsFrom } from './migration-history';
 
 // Replays migration 0021 on data shaped like production's: the +5 keeps counting exactly as the code did,
 // nothing already stored moves, closed months and drinks first, and the board follows the new rules.
@@ -71,7 +71,10 @@ test('the +5 counts as before, and nothing stored changes', async () => {
   expect((await kept(db)).map((answer) => answer.results)).toEqual(before.map((answer) => answer.results));
   expect(await db.prepare('SELECT COUNT(*) AS n FROM club_logo').first('n')).toBe(0);
 
-  const { lastPlace } = await readChallengeRules(db);
+  // Today's code reads the database as the later migrations leave it.
+  await runMigrationsFrom(db, '0022_');
+  const { lastPlace, forfeit } = await readChallengeRules(db);
+  expect(forfeit).toEqual([]);
   expect(lastPlace).toEqual(defaultLastPlaceRules);
   // The day before the rule, the defeat costs 5; from its day on, bob takes the +5.
   const rows = [...defeat('m-1105', '2026-11-05'), ...defeat('m-1106', '2026-11-06')];
