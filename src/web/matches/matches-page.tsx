@@ -85,7 +85,6 @@ const signed = (value: number) =>
 
 function PlayerSummary({ player }: { player: SummaryPlayer }) {
   const defeats = player.losses * 5;
-  const dodged = player.owed - defeats - player.bonus;
   return (
     <Card variant="glass" className="gap-4 p-4">
       <div className="flex items-start justify-between gap-3">
@@ -121,7 +120,7 @@ function PlayerSummary({ player }: { player: SummaryPlayer }) {
       <div className="grid grid-cols-3 gap-2 border-line border-t-[.5px] pt-3.5">
         <Figure label="Défaites × 5" value={defeats} />
         <Figure label="Bonus" value={player.bonus} />
-        <Figure label="Esquivées" value={dodged} credit />
+        <Figure label="Esquivées" value={-player.dodged} credit />
       </div>
     </Card>
   );
