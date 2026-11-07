@@ -19,7 +19,7 @@ describe('strategyFor', () => {
     expect(strategyFor(request('/', { method: 'POST' }), origin)).toBe('network');
     expect(strategyFor(request('https://cdn.example.net/logo.png'), origin)).toBe('network');
     expect(strategyFor(request('/sw.js'), origin)).toBe('network');
-    expect(strategyFor(request('/favicon.svg', { range: true }), origin)).toBe('network');
+    expect(strategyFor(request('/club-photo.jpg', { range: true }), origin)).toBe('network');
   });
 
   it('opens every page from the network first, then from the app shell', () => {
