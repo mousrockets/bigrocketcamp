@@ -4,10 +4,12 @@ import {
   debtOf,
   figure,
   highestTier,
+  isLive,
   latest,
   litSegments,
   rankRgb,
   readingAge,
+  receptionLabel,
   shortRankLabel,
   splitRankLabel,
 } from './stats';
@@ -63,4 +65,18 @@ test('a reading says how old it is', () => {
 test('figures keep a visible space between thousands', () => {
   expect(figure(1509)).toBe('1\u00a0509');
   expect(figure(35)).toBe('35');
+});
+
+test('the club is live while a match came in within a quarter of an hour', () => {
+  const now = Date.parse('2026-11-07T18:30:00Z');
+  expect(isLive('2026-11-07T18:20:00Z', now)).toBe(true);
+  expect(isLive('2026-11-07T18:10:00Z', now)).toBe(false);
+  expect(isLive(null, now)).toBe(false);
+});
+
+test('the last reception says its time, and its date when it was not today', () => {
+  const now = Date.parse('2026-11-07T18:30:00Z');
+  expect(receptionLabel('2026-11-07T18:42:00Z', now)).toBe('Actualisé à 19 h 42');
+  expect(receptionLabel('2026-11-05T21:10:00Z', now)).toBe('Actualisé le 5 nov. à 22 h 10');
+  expect(receptionLabel(null, now)).toBe('En attente du premier match');
 });

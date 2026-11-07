@@ -6,18 +6,11 @@ import { platformLabels, useClub } from '../club';
 import { ClubBadge } from '../shell/club-badge';
 import { DebtHero } from './debt-hero';
 import type { CardPlayer, CardRank } from './player-card';
-import { currentStreak, debtOf, highestTier, latest } from './stats';
+import { currentStreak, debtOf, highestTier, isLive, latest, receptionLabel } from './stats';
 import { TeamCarousel } from './team-carousel';
+import { useNow } from './use-now';
 
 const noRank: CardRank = { mmr: null, label: 'Rang pas encore relevé', tier: null, peak: null };
-
-const today = new Intl.DateTimeFormat('fr-FR', {
-  timeZone: 'Europe/Paris',
-  weekday: 'long',
-  day: 'numeric',
-  month: 'long',
-});
-const capitalized = (text: string) => text.charAt(0).toLocaleUpperCase('fr') + text.slice(1);
 
 /** Every player's card, the member's first. */
 function cardPlayers(
@@ -81,8 +74,7 @@ export function TeamPage() {
           <ClubBadge className="lg:hidden" />
           <h1 className="title-display hidden text-[28px] lg:block">L’équipe</h1>
           <span className="flex items-center gap-[18px] text-[13px] text-t2">
-            <LiveStatus live={board !== null && !error} />
-            <span className="hidden lg:inline">{capitalized(today.format(new Date()))}</span>
+            <LiveStatus lastReceived={board?.collectors[0]?.last_seen ?? null} />
           </span>
         </header>
 
@@ -98,12 +90,24 @@ export function TeamPage() {
   );
 }
 
-/** A red dot that breathes while the board follows the club live; grey when it lost the connection. */
-function LiveStatus({ live }: { live: boolean }) {
+/**
+ * "Direct", with a red dot that breathes, while someone plays and their collector sends matches; beside it, or alone
+ * on a phone once nobody plays, when the last match came in.
+ */
+function LiveStatus({ lastReceived }: { lastReceived: string | null }) {
+  const now = useNow(30_000);
+  const live = isLive(lastReceived, now);
   return (
-    <span className="flex items-center gap-1.5 font-medium text-[12px] lg:font-normal lg:text-[13px]">
-      <i aria-hidden="true" className={cn('size-1.5 rounded-full', live ? 'animate-breathe bg-[#ff453a]' : 'bg-t3')} />
-      {live ? 'Direct' : 'Hors ligne'}
-    </span>
+    <>
+      {live && (
+        <span className="flex items-center gap-1.5 font-medium text-[12px] lg:font-normal lg:text-[13px]">
+          <i aria-hidden="true" className="size-1.5 animate-breathe rounded-full bg-[#ff453a]" />
+          Direct
+        </span>
+      )}
+      <span className={cn('text-[12px] lg:inline lg:text-[13px]', live && 'hidden')}>
+        {receptionLabel(lastReceived, now)}
+      </span>
+    </>
   );
 }

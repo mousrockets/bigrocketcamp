@@ -86,3 +86,25 @@ export const latest = (...dates: (string | null | undefined)[]): string | null =
 /** "1 509": figures keep a full space between thousands, which the condensed font would squeeze to nothing. */
 export const figure = (value: number): string =>
   new Intl.NumberFormat('fr-FR', { useGrouping: 'always' }).format(value).replace(/[\u202f\u00a0]/g, '\u00a0');
+
+/**
+ * The collector sends each match once it ends, and a match lasts about seven minutes: a match received within the
+ * last quarter of an hour means someone is playing.
+ */
+const liveWindow = 15 * 60_000;
+
+export const isLive = (lastReceived: string | null, now: number): boolean =>
+  lastReceived !== null && now - Date.parse(lastReceived) < liveWindow;
+
+const parisDayOf = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' });
+const parisTime = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit' });
+const parisDate = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', day: 'numeric', month: 'short' });
+
+/** "Actualisé à 19 h 42", or with its date when it was not today: when the last match came in. */
+export function receptionLabel(lastReceived: string | null, now: number): string {
+  if (lastReceived === null) return 'En attente du premier match';
+  const at = new Date(lastReceived);
+  const time = parisTime.format(at).replace(':', ' h ');
+  if (parisDayOf.format(at) === parisDayOf.format(now)) return `Actualisé à ${time}`;
+  return `Actualisé le ${parisDate.format(at)} à ${time}`;
+}
