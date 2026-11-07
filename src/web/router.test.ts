@@ -22,7 +22,6 @@ test.each([
   ['/', '/_shell/'],
   ['/defis', '/_shell/defis'],
   ['/matchs', '/_shell/matchs'],
-  ['/declarer', '/_shell/declarer'],
   ['/reglages', '/_shell/reglages'],
 ])('the tab %s opens in the shell', (address, route) => {
   expect(open(address)).toMatchObject({ routes: ['__root__', '/_shell', route], notFoundAt: null });
@@ -36,6 +35,12 @@ test.each([
   ['/profil/', '/profil'],
 ])('%s opens its page', (address, route) => {
   expect(open(address)).toMatchObject({ routes: ['__root__', route], notFoundAt: null });
+});
+
+test('the declaration sheet opens over the tab, from its search', () => {
+  const location = router.parseLocation(createMemoryHistory({ initialEntries: ['/matchs?declarer=true'] }).location);
+  expect(location.search).toEqual({ declarer: true });
+  expect(open('/matchs?declarer=true')).toMatchObject({ routes: ['__root__', '/_shell', '/_shell/matchs'] });
 });
 
 test('an anchor stays on its page', () => {

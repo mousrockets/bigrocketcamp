@@ -1,4 +1,4 @@
-import { Link, Outlet, useMatchRoute } from '@tanstack/react-router';
+import { Link, Outlet, useMatchRoute, useNavigate, useSearch } from '@tanstack/react-router';
 import { cn } from 'cn';
 import type { ComponentType, CSSProperties } from 'react';
 import { BoardProvider } from '../board';
@@ -12,6 +12,8 @@ import {
   SidebarMenuItem,
   SidebarProvider,
 } from '../components/ui/sidebar';
+import { DeclareFlow } from '../declare/declare-flow';
+import { DeclareLink } from '../declare/declare-link';
 import { ClubBadge } from './club-badge';
 import { useFreshVersion } from './fresh-version';
 import { ChallengesIcon, MatchesIcon, PlusIcon, SettingsIcon, TeamIcon } from './icons';
@@ -27,9 +29,16 @@ const tabs: { to: '/' | '/defis' | '/matchs' | '/reglages'; label: string; Icon:
   ];
 
 export function AppShell() {
-  useFreshVersion();
+  const { declarer = false } = useSearch({ from: '/_shell' });
+  const navigate = useNavigate();
+  // A series being declared or still undoable keeps the page as it is: no reload to a newer build meanwhile.
+  useFreshVersion(declarer);
   return (
     <BoardProvider>
+      <DeclareFlow
+        open={declarer}
+        onClose={() => void navigate({ to: '.', search: (previous) => ({ ...previous, declarer: undefined }) })}
+      />
       <SidebarProvider className="flex-wrap bg-black text-t1" style={{ '--sidebar-width': 'auto' } as CSSProperties}>
         <AppSidebar />
         <div className="relative min-w-0 flex-[999_1_560px]">
@@ -98,13 +107,12 @@ export function TabBar() {
             </Link>
           ))}
         </div>
-        <Link
-          to="/declarer"
+        <DeclareLink
           aria-label="Déclarer un exercice"
           className={cn(buttonVariants({ variant: 'glass' }), 'size-[62px]')}
         >
           <PlusIcon />
-        </Link>
+        </DeclareLink>
       </nav>
     </>
   );
