@@ -146,18 +146,25 @@ describe('sending with the collector token', () => {
 
   test('the clock sent with a match tells how it ended, on every row; an older collector leaves it unknown', async () => {
     const token = await pairedToken();
-    const forfeit = livePayload({ guid: 'synthetic-forfeit', clock: { TimeSeconds: 143, bOvertime: false } });
+    const clockTrace = [
+      { TimeSeconds: 143, bOvertime: false, ended: false },
+      { TimeSeconds: 0, bOvertime: false, ended: true },
+    ];
+    const forfeit = {
+      ...livePayload({ guid: 'synthetic-forfeit', clock: { TimeSeconds: 143, bOvertime: false } }),
+      clockTrace,
+    };
     const overtime = livePayload({ guid: 'synthetic-overtime', clock: { TimeSeconds: 41, bOvertime: true } });
     for (const body of [forfeit, overtime, livePayload({ guid: 'synthetic-older' })]) {
       expect((await call('/api/live', { method: 'POST', token, body })).status).toBe(200);
     }
     const reports = await env.DB.prepare(
-      'SELECT match_guid, time_seconds, overtime FROM source_reports ORDER BY match_guid',
+      'SELECT match_guid, time_seconds, overtime, clock_trace FROM source_reports ORDER BY match_guid',
     ).all();
     expect(reports.results).toEqual([
-      { match_guid: 'synthetic-forfeit', time_seconds: 143, overtime: 0 },
-      { match_guid: 'synthetic-older', time_seconds: null, overtime: null },
-      { match_guid: 'synthetic-overtime', time_seconds: 41, overtime: 1 },
+      { match_guid: 'synthetic-forfeit', time_seconds: 143, overtime: 0, clock_trace: JSON.stringify(clockTrace) },
+      { match_guid: 'synthetic-older', time_seconds: null, overtime: null, clock_trace: null },
+      { match_guid: 'synthetic-overtime', time_seconds: 41, overtime: 1, clock_trace: null },
     ]);
     const endings = await env.DB.prepare(
       `SELECT match_guid, forfeit, overtime, COUNT(*) AS players FROM match_results

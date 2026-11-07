@@ -67,7 +67,23 @@ export interface LiveMatch {
   startedAt: number;
   endedAt: number | null;
   seenIds: unknown[];
+  /** The clock's last changes before MatchEnded and its first ones after. Absent from older collectors. */
+  clockTrace?: ClockSample[];
 }
+
+/**
+ * One change of the game's clock near the end of a match. The trace shows how the game ends a forfeit, which no
+ * documentation says: whether the clock keeps the time left, or goes to 0:00 at once or after MatchEnded.
+ */
+export interface ClockSample {
+  TimeSeconds?: number;
+  bOvertime?: boolean;
+  /** Whether MatchEnded had come. */
+  ended: boolean;
+}
+
+/** How many changes of the clock the trace keeps on each side of MatchEnded. */
+export const clockTraceSide = 6;
 
 const finished = 'Fin de match absente ou incohérente.';
 const dated = 'Date du match invalide.';
@@ -140,6 +156,17 @@ export function liveMatchInput(now: () => number = Date.now) {
         bOvertime: z.boolean().optional().catch(undefined),
       }),
     }),
+    clockTrace: z
+      .array(
+        z.object({
+          TimeSeconds: z.number().min(0).max(10_800).optional(),
+          bOvertime: z.boolean().optional(),
+          ended: z.boolean(),
+        }),
+      )
+      .max(clockTraceSide * 2)
+      .optional()
+      .catch(undefined),
   });
   const team = z.looseObject(
     {
@@ -277,8 +304,9 @@ export function liveMatchRows(roster: Roster, match: LiveMatch): { rows: Receive
     ...(typeof TimeSeconds === 'number' ? { timeSeconds: TimeSeconds } : {}),
     ...(typeof bOvertime === 'boolean' ? { overtime: bOvertime } : {}),
   };
+  const trace = match.clockTrace ? { clockTrace: JSON.stringify(match.clockTrace) } : {};
   const rosters = validateMatchRosters([{ MatchGuid: rows[0]?.matchGuid, PlayerCount: rows.length }], rows).map(
-    (roster) => ({ ...roster, ...clock }),
+    (roster) => ({ ...roster, ...clock, ...trace }),
   );
   return { rows, rosters };
 }
@@ -385,6 +413,7 @@ interface CurrentMatch {
   /** The latest scoreboard seen, sent if the match is left right after its end (a forfeit, an early exit). */
   last: LiveMatch['state'] | null;
   clock: MatchClock;
+  trace: ClockSample[];
   sent: boolean;
 }
 
@@ -394,19 +423,40 @@ interface MatchClock {
 }
 
 /**
- * The clock of the last update before MatchEnded, which the API reads a forfeit from. An update after the end
- * can only lower the time left: the tick that reached 0:00 may arrive after MatchEnded.
+ * The clock of the last update before MatchEnded, which the API reads a forfeit from. The tick that reaches 0:00
+ * may arrive after MatchEnded, so an update after the end lowers a clock that showed one second at most. More
+ * time left stays: the game may set the clock to 0:00 once a team forfeits, and the forfeit would be lost.
  */
 function keptClock(kept: MatchClock, game: MatchClock | undefined, ended: boolean): MatchClock {
   const seen = { TimeSeconds: game?.TimeSeconds, bOvertime: game?.bOvertime };
   if (!ended) return seen;
+  const lastSecond = typeof kept.TimeSeconds !== 'number' || kept.TimeSeconds <= 1;
   const lower =
+    lastSecond &&
     typeof seen.TimeSeconds === 'number' &&
     (typeof kept.TimeSeconds !== 'number' || seen.TimeSeconds < kept.TimeSeconds);
   return {
     TimeSeconds: lower ? seen.TimeSeconds : kept.TimeSeconds,
     bOvertime: kept.bOvertime === undefined ? seen.bOvertime : kept.bOvertime,
   };
+}
+
+/** The trace with an update's clock when it changed: the last changes before the end, the first ones after. */
+function tracedClock(trace: ClockSample[], game: MatchClock | undefined, ended: boolean): ClockSample[] {
+  const sample: ClockSample = {
+    ...(typeof game?.TimeSeconds === 'number' ? { TimeSeconds: game.TimeSeconds } : {}),
+    ...(typeof game?.bOvertime === 'boolean' ? { bOvertime: game.bOvertime } : {}),
+    ended,
+  };
+  const previous = trace.at(-1);
+  if (
+    previous?.TimeSeconds === sample.TimeSeconds &&
+    previous?.bOvertime === sample.bOvertime &&
+    previous?.ended === ended
+  )
+    return trace;
+  if (!ended) return [...trace, sample].slice(-clockTraceSide);
+  return trace.filter((kept) => kept.ended).length < clockTraceSide ? [...trace, sample] : trace;
 }
 
 // A live match must be observed from its creation/initialization. Never import
@@ -438,6 +488,7 @@ export function matchCapture(onComplete: (payload: LiveMatch) => void, now: () =
           startedAt: ended.startedAt,
           endedAt: ended.endedAt,
           seenIds: [...ended.seen],
+          clockTrace: ended.trace,
         };
         try {
           checkLiveMatch(payload, now());
@@ -459,6 +510,7 @@ export function matchCapture(onComplete: (payload: LiveMatch) => void, now: () =
             candidate: null,
             last: null,
             clock: {},
+            trace: [],
             sent: false,
           };
         return;
@@ -476,8 +528,10 @@ export function matchCapture(onComplete: (payload: LiveMatch) => void, now: () =
         current = null;
         return;
       }
-      if (data.Game?.bReplay === false && data.Players.length > 0)
+      if (data.Game?.bReplay === false && data.Players.length > 0) {
         current.clock = keptClock(current.clock, data.Game, current.end !== null);
+        current.trace = tracedClock(current.trace, data.Game, current.end !== null);
+      }
       const state = {
         MatchGuid: guid,
         Players: data.Players.map(({ Name, PrimaryId, TeamNum, Score, Goals, Assists, Saves }: LivePlayer) => ({
@@ -507,6 +561,7 @@ export function matchCapture(onComplete: (payload: LiveMatch) => void, now: () =
         startedAt: current.startedAt,
         endedAt: current.endedAt,
         seenIds: [...current.seen],
+        clockTrace: current.trace,
       };
       try {
         checkLiveMatch(payload, now());

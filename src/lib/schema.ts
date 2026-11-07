@@ -199,6 +199,8 @@ export const sourceReports = sqliteTable(
     /** Seconds left on the game's clock at the end (counting up in overtime); null from older collectors. */
     timeSeconds: integer('time_seconds'),
     overtime: integer('overtime', { mode: 'boolean' }),
+    /** The clock's changes around the end of the match as the collector saw them (JSON); null from older ones. */
+    clockTrace: text('clock_trace'),
   },
   (table) => [index('source_reports_match').on(table.matchGuid)],
 );

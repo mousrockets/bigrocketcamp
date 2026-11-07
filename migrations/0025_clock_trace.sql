@@ -1,0 +1,1 @@
+ALTER TABLE `source_reports` ADD `clock_trace` text;

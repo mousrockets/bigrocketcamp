@@ -369,6 +369,7 @@ export async function observationWrites(
         received: now,
         timeSeconds: roster.timeSeconds ?? null,
         overtime: roster.overtime ?? null,
+        clockTrace: roster.clockTrace ?? null,
       })
       .onConflictDoUpdate({
         target: sourceReports.id,
@@ -377,6 +378,7 @@ export async function observationWrites(
           // The same scoreboard sent again by a newer collector brings the clock an older one left out.
           timeSeconds: sql`coalesce(${excluded(sourceReports.timeSeconds)}, ${sourceReports.timeSeconds})`,
           overtime: sql`coalesce(${excluded(sourceReports.overtime)}, ${sourceReports.overtime})`,
+          clockTrace: sql`coalesce(${excluded(sourceReports.clockTrace)}, ${sourceReports.clockTrace})`,
         },
       });
     writes.push(statementOf(db, report));
