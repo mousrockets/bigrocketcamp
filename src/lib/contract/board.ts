@@ -36,6 +36,12 @@ export const boardResult = z.looseObject({
   source_difference: z.enum(['result', 'stats', 'identity']).nullable().catch(null),
   /** Set on every row of a match whose full scoreboard a source confirmed. */
   expected_players: z.number().nullable(),
+  /**
+   * How the match ended, on every row of it: its losing team forfeited, it went to overtime. Null while no
+   * source sent the game's clock (older collectors), and absent from an API older than these fields.
+   */
+  forfeit: z.boolean().nullable().catch(null),
+  overtime: z.boolean().nullable().catch(null),
 });
 export type BoardResult = Known<z.output<typeof boardResult>>;
 

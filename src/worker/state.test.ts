@@ -123,6 +123,23 @@ describe('an open board follows what the collector and the rank source send, wit
     );
   });
 
+  test('a forfeit: the same match sent again with its clock tells the open board how it ended', async () => {
+    const guid = 'synthetic-state-forfeit';
+    const send = (clock = {}) =>
+      exports.default.fetch('https://app.test/api/live', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Cookie: cookie, Origin: 'https://app.test' },
+        body: JSON.stringify(livePayload({ guid, clock })),
+      });
+    expect((await send()).status).toBe(200);
+    const version = await openBoard();
+    expect((await send({ TimeSeconds: 143, bOvertime: false })).status).toBe(200);
+    const changes = await changesSince(version);
+    expect(changes.results).toContainEqual(
+      expect.objectContaining({ match_guid: guid, name: 'alice', forfeit: true, overtime: false }),
+    );
+  });
+
   test('a reading: rank, rating, season peak, matches played and the month standings', async () => {
     const version = await openBoard();
     const first = new Date().toISOString();

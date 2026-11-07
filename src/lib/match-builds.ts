@@ -51,6 +51,8 @@ interface StoredRow {
   selected_source: string;
   source_difference: MergedResult['source_difference'];
   expected_players: number | null;
+  forfeit: boolean | null;
+  overtime: boolean | null;
 }
 
 /** The stored results' columns, under the names the board receives. */
@@ -73,6 +75,8 @@ export const storedColumns = {
   selected_source: matchResults.selectedSource,
   source_difference: matchResults.sourceDifference,
   expected_players: matchResults.expectedPlayers,
+  forfeit: matchResults.forfeit,
+  overtime: matchResults.overtime,
 } satisfies Record<keyof StoredRow, AnySQLiteColumn>;
 
 const columns = Object.keys(storedColumns) as (keyof StoredRow)[];
@@ -96,6 +100,8 @@ export const builtResult = (row: StoredRow): BuiltResult => ({
   selected_source: row.selected_source,
   source_difference: row.source_difference,
   expected_players: row.expected_players,
+  forfeit: row.forfeit,
+  overtime: row.overtime,
 });
 
 const storedRow = (row: MergedResult, expected: number | null): StoredRow => ({
@@ -117,6 +123,8 @@ const storedRow = (row: MergedResult, expected: number | null): StoredRow => ({
   selected_source: row.selected_source,
   source_difference: row.source_difference,
   expected_players: expected,
+  forfeit: row.forfeit,
+  overtime: row.overtime,
 });
 
 const sameRow = (a: StoredRow, b: StoredRow) => columns.every((column) => a[column] === b[column]);

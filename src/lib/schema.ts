@@ -185,6 +185,9 @@ export const sourceReports = sqliteTable(
     expectedPlayers: integer('expected_players').notNull(),
     players: text('players').notNull(),
     received: text('received').notNull(),
+    /** Seconds left on the game's clock at the end (counting up in overtime); null from older collectors. */
+    timeSeconds: integer('time_seconds'),
+    overtime: integer('overtime', { mode: 'boolean' }),
   },
   (table) => [index('source_reports_match').on(table.matchGuid)],
 );
@@ -247,6 +250,10 @@ export const matchResults = sqliteTable(
     sourceDifference: text('source_difference'),
     /** Set on every row of a match whose full scoreboard a source confirmed. */
     expectedPlayers: integer('expected_players'),
+    /** Set on every row of a match whose losing team forfeited; null while no source sent the clock. */
+    forfeit: integer('forfeit', { mode: 'boolean' }),
+    /** Set on every row of a match that went to overtime; null while no source sent the clock. */
+    overtime: integer('overtime', { mode: 'boolean' }),
     seq: integer('seq').notNull().default(0),
   },
   (table) => [primaryKey({ columns: [table.matchGuid, table.playerId] }), index('match_results_seq').on(table.seq)],

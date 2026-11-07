@@ -63,6 +63,8 @@ export const aResult = (parts: Partial<BoardResult> & Pick<BoardResult, 'name' |
   source_types: ['collector'],
   selected_source: 'collector',
   source_difference: null,
+  forfeit: null,
+  overtime: null,
   ...parts,
 });
 

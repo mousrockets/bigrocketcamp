@@ -104,6 +104,15 @@ describe('an answer from an older API, without the fields added since, still par
     expect(boardChanges.parse(older).rules).toEqual({ lastPlace: defaultLastPlaceRules });
   });
 
+  test('a result without how its match ended: unknown', () => {
+    expect(boardChanges.parse(changes).results[0]).toMatchObject({
+      forfeit: null,
+      overtime: null,
+    });
+    const newer = boardChanges.parse({ ...changes, results: [{ ...result, forfeit: true, overtime: false }] });
+    expect(newer.results[0]).toMatchObject({ forfeit: true, overtime: false });
+  });
+
   test('a health check without its deployment date', () => {
     expect(health.parse({ status: 'ok', commit: 'a1b2c3d' })).toMatchObject({ deployedAt: null });
   });

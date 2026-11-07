@@ -21,21 +21,28 @@ test('the board migration keeps every value and builds every match already recei
   const db = await databaseBefore('0016_');
   await joinTestClub(db);
   const game = { day: '2026-11-04', kind: 'match', winner: 0, goals: 1, assists: 0, saves: 2 };
+  const rows = [
+    { ...game, matchGuid: 'live-match', playerId: 'Epic|alice-test|0', name: 'alice', team: 0, score: 300 },
+    { ...game, matchGuid: 'live-match', playerId: 'Steam|opponent|0', name: 'Opponent', team: 1, score: 200 },
+  ];
   const writes = await observationWrites(
     db,
-    {
-      rows: [
-        { ...game, matchGuid: 'live-match', playerId: 'Epic|alice-test|0', name: 'alice', team: 0, score: 300 },
-        { ...game, matchGuid: 'live-match', playerId: 'Steam|opponent|0', name: 'Opponent', team: 1, score: 200 },
-      ],
-      rosters: [{ matchGuid: 'live-match', playerCount: 2 }],
-      sourceId: 'live-alice',
-      sourceType: 'collector',
-    },
+    { rows, sourceId: 'live-alice', sourceType: 'collector' },
     '2026-11-04T21:00:00.000Z',
   );
+  // Raw: the scoreboard as source_reports held it then; observationWrites writes the columns added since.
+  const scoreboard = rows.map(({ matchGuid, playerId, ...row }) => ({
+    match_guid: matchGuid,
+    player_id: playerId,
+    ...row,
+  }));
   await db.batch([
     ...(writes as D1PreparedStatement[]),
+    db
+      .prepare(
+        "INSERT INTO source_reports VALUES ('report-live-match', 'live-match', 'live-alice', 'collector', 2, ?, '2026-11-04T21:00:00.000Z')",
+      )
+      .bind(JSON.stringify(scoreboard)),
     db.prepare(
       "INSERT INTO results VALUES ('Old-Match', 'Epic|bob-test|0', 'bob', '2026-10-20', 'match', 0, 0, 250, 0, 1, 1, '2026-10-20T20:00:00.000Z')",
     ),

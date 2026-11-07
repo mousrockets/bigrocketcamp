@@ -1,7 +1,7 @@
 import { desc, sql } from 'drizzle-orm';
 import type { Roster } from './club';
 import type { Database, Statement } from './db';
-import type { ReceivedRoster } from './match-rules';
+import { endingOf, type MatchEnding, type ReceivedRoster, unknownEnding } from './match-rules';
 import { excluded, orm, rowid, sqlNamed, statementOf } from './orm';
 import {
   playerIdentityAliases,
@@ -27,7 +27,7 @@ export interface StoredResult {
   received?: string;
 }
 
-export interface MergedResult extends StoredResult {
+export interface MergedResult extends StoredResult, MatchEnding {
   received: string;
   review_required: boolean;
   verification: 'review' | 'corrected' | 'confirmed' | 'single';
@@ -52,6 +52,9 @@ export interface SourceReport {
   expected_players: number;
   players: string | StoredResult[];
   received: string;
+  /** The clock the source read at the end of the match; null or absent when it sent none. */
+  time_seconds?: number | null;
+  overtime?: boolean | null;
 }
 
 export interface CompleteRoster {
@@ -156,6 +159,7 @@ export function reconcile(
       source_types: types,
       selected_source: chosen.type,
       source_difference: outcomeConflict ? 'result' : scoreConflict ? 'stats' : null,
+      ...unknownEnding,
     });
   }
   // Different platform IDs with the same group nickname cannot silently count twice.
@@ -177,7 +181,8 @@ export function reconcile(
     if (duplicates.length === 1) keep.push(first);
     else keep.push({ ...first, review_required: true, verification: 'review', source_difference: 'identity' });
   }
-  rows = keep.sort(compareResults);
+  const endings = matchEndings(reports);
+  rows = keep.map((row) => ({ ...row, ...endings.get(row.match_guid) })).sort(compareResults);
   const byMatch = new Map<string, MergedResult[]>();
   for (const row of rows) {
     const group = byMatch.get(row.match_guid);
@@ -226,6 +231,31 @@ export function reconcile(
     }
   }
   return { rows, rosters: complete, reliability: reliabilityOf(roster, rows) };
+}
+
+/** The one value the sources that know agree on; null when none knows, or when they disagree. */
+function agreed<Value>(values: readonly (Value | null)[]): Value | null {
+  const known = new Set(values.filter((value) => value !== null));
+  return known.size === 1 ? ([...known][0] ?? null) : null;
+}
+
+/** How each match ended, from the clocks its sources read: several collectors may have sent the same match. */
+function matchEndings(reports: readonly SourceReport[]): Map<string, MatchEnding> {
+  const byMatch = new Map<string, MatchEnding[]>();
+  for (const report of reports) {
+    const guid = matchKey(report.match_guid);
+    const ending = endingOf({ timeSeconds: report.time_seconds, overtime: report.overtime });
+    byMatch.set(guid, [...(byMatch.get(guid) ?? []), ending]);
+  }
+  return new Map(
+    [...byMatch].map(([guid, endings]) => [
+      guid,
+      {
+        forfeit: agreed(endings.map((ending) => ending.forfeit)),
+        overtime: agreed(endings.map((ending) => ending.overtime)),
+      },
+    ]),
+  );
 }
 
 /** Newest day first, then newest reception: the order the board lists results in. */
@@ -337,10 +367,17 @@ export async function observationWrites(
         expectedPlayers: roster.playerCount,
         players: payload,
         received: now,
+        timeSeconds: roster.timeSeconds ?? null,
+        overtime: roster.overtime ?? null,
       })
       .onConflictDoUpdate({
         target: sourceReports.id,
-        set: { received: sql`max(${sourceReports.received}, ${excluded(sourceReports.received)})` },
+        set: {
+          received: sql`max(${sourceReports.received}, ${excluded(sourceReports.received)})`,
+          // The same scoreboard sent again by a newer collector brings the clock an older one left out.
+          timeSeconds: sql`coalesce(${excluded(sourceReports.timeSeconds)}, ${sourceReports.timeSeconds})`,
+          overtime: sql`coalesce(${excluded(sourceReports.overtime)}, ${sourceReports.overtime})`,
+        },
       });
     writes.push(statementOf(db, report));
   }
