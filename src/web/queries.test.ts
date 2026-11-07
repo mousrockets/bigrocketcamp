@@ -2,7 +2,7 @@ import { MutationObserver, onlineManager, QueryObserver } from '@tanstack/react-
 import { afterEach, expect, test, vi } from 'vitest';
 import { timeoutMessage } from '../lib/timeout';
 import { isSignInRequired } from './api';
-import { ApiError, clubQuery, deployedVersionQuery, identitiesQuery, livePlayersQuery, membersQuery } from './queries';
+import { ApiError, clubQuery, deployedVersionQuery, identitiesQuery, membersQuery } from './queries';
 import { createQueryClient } from './query-client';
 import { declareExercise } from './writes';
 
@@ -100,9 +100,4 @@ test("a refused read of the identities carries the API's reason, for each page t
     .catch((error: unknown) => error);
   expect(failure).toBeInstanceOf(ApiError);
   expect(failure).toMatchObject({ status: 403, reason: 'Réservé aux membres.' });
-});
-
-test('an answer without players is refused', async () => {
-  serve(() => Response.json({ players: 'chat-pris-tea' }));
-  await expect(createQueryClient().fetchQuery(livePlayersQuery)).rejects.toThrow('Réponse de connexion invalide.');
 });

@@ -1,10 +1,8 @@
-import { createRootRoute, createRoute, createRouter, type RouterHistory } from '@tanstack/react-router';
+import { createRootRoute, createRoute, createRouter, type RouterHistory, redirect } from '@tanstack/react-router';
 import { z } from '../lib/validation';
 import { App, NotFound } from './app';
 import { ChallengesPage } from './challenges/challenges-page';
-import { Connections } from './connections';
 import { MatchesPage } from './matches/matches-page';
-import { Profile } from './profile';
 import { AccountSettings } from './settings/account';
 import { ClubSettings } from './settings/club-info';
 import { CollectorSettings } from './settings/collector';
@@ -41,8 +39,21 @@ const settingsScreens = (
   ] as const
 ).map(([path, component]) => createRoute({ getParentRoute: () => shellRoute, path, component }));
 
-const connectionsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/connexions', component: Connections });
-const profileRoute = createRoute({ getParentRoute: () => rootRoute, path: '/profil', component: Profile });
+// The former pages' addresses, kept by installed apps and bookmarks, lead to their place in Réglages.
+const connectionsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/connexions',
+  beforeLoad: () => {
+    throw redirect({ to: '/reglages/identites', replace: true });
+  },
+});
+const profileRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/profil',
+  beforeLoad: () => {
+    throw redirect({ to: '/reglages/compte', replace: true });
+  },
+});
 
 export const routeTree = rootRoute.addChildren([
   shellRoute.addChildren([teamRoute, challengesRoute, matchesRoute, settingsRoute, ...settingsScreens]),

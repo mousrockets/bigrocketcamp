@@ -3,15 +3,12 @@ import {
   done,
   type Invitation,
   type MemberToRemove,
-  monthsClosed,
   type ProfileInput,
   pairingCodeCreated,
   type RoleChange,
   type RuleChange,
-  reaction,
 } from '../lib/contract';
 import type { ExerciseType } from '../lib/domain';
-import { parseOrThrow } from '../lib/validation';
 import { api, dataOf, errorOf, guestApi, sent } from './api';
 
 // Every write to the API, run by the pages as TanStack Query mutations. None is retried by the cache:
@@ -97,20 +94,6 @@ export async function declareExercise(exercise: Declaration): Promise<void> {
 
 export async function undoExercise(id: string): Promise<void> {
   await dataOf(api.exercise.$delete({ json: { id } }), done, 'Impossible d’annuler cette série.');
-}
-
-export async function reactToExercise({ exerciseId, emoji }: { exerciseId: string; emoji: string }): Promise<void> {
-  // The page offers only the API's emojis: checked here with the API's own rule and message.
-  const json = parseOrThrow(reaction, { exerciseId, emoji }, 'Réaction impossible.');
-  await dataOf(api.reaction.$post({ json }), done, 'Réaction impossible.');
-}
-
-/** Asks the API to close the finished months now; returns how many it closed, or null if it could not. */
-export async function closeDueMonths(): Promise<number | null> {
-  const response = await api.monthly.$post({ json: { action: 'refresh' } });
-  if (!response.ok) return null;
-  const answer = monthsClosed.safeParse(await response.json());
-  return answer.success ? answer.data.closed : null;
 }
 
 /** Marks a drink as offered, or takes that back. */

@@ -70,7 +70,7 @@ describe('networkFirst', () => {
     const { cache, network } = setup(async () => answers.shift() ?? html('unexpected'));
     await cache.put('/', html('shell'));
     for (let call = 0; call < 3; call++) {
-      await networkFirst(new Request(`${origin}/club-photo.jpg`), network, { key: '/', page: true });
+      await networkFirst(new Request(`${origin}/icons/icon-512.png`), network, { key: '/', page: true });
     }
     expect(await (await cache.match('/'))?.text()).toBe('shell');
   });
