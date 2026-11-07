@@ -85,3 +85,7 @@ export function Panel({ className, ...props }: React.ComponentProps<typeof Card>
 export function Note({ className, ...props }: React.ComponentProps<'p'>) {
   return <p className={cn('px-1 text-xs leading-[1.45] text-muted-foreground', className)} {...props} />;
 }
+
+/** The tall fields of the design: dark, rounded, the action colour on focus. */
+export const fieldClass =
+  'h-[52px] rounded-[14px] border-input bg-secondary px-4 text-base font-medium md:text-base dark:bg-secondary placeholder:text-[#6f7178]';
