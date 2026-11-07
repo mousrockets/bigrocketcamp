@@ -2,7 +2,7 @@ import { desc, sql } from 'drizzle-orm';
 import type { Roster } from './club';
 import type { Database, Statement } from './db';
 import type { ReceivedRoster } from './match-rules';
-import { orm, rowid, sqlNamed, statementOf } from './orm';
+import { excluded, orm, rowid, sqlNamed, statementOf } from './orm';
 import {
   playerIdentityAliases,
   prototypeMatchRosters,
@@ -316,7 +316,7 @@ export async function observationWrites(
       .values({ id, matchGuid: row.match_guid, playerId: row.player_id, sourceId, sourceType, payload, received: now })
       .onConflictDoUpdate({
         target: resultObservations.id,
-        set: { received: sql`max(${resultObservations.received}, excluded.received)` },
+        set: { received: sql`max(${resultObservations.received}, ${excluded(resultObservations.received)})` },
       });
     writes.push(statementOf(db, observation));
   }
@@ -340,7 +340,7 @@ export async function observationWrites(
       })
       .onConflictDoUpdate({
         target: sourceReports.id,
-        set: { received: sql`max(${sourceReports.received}, excluded.received)` },
+        set: { received: sql`max(${sourceReports.received}, ${excluded(sourceReports.received)})` },
       });
     writes.push(statementOf(db, report));
   }

@@ -1,7 +1,10 @@
+import { and, desc, eq, isNotNull, isNull, lt, lte, max, or, type SQLWrapper, sql } from 'drizzle-orm';
 import { type Platform, readClubPlayers } from './club';
 import { parisDay } from './days';
-import type { Database, Statement } from './db';
+import type { Database } from './db';
 import { projectMmrRankWrite } from './mmr-ledger';
+import { excluded, type Orm, orm, rowid, statementOf } from './orm';
+import { collectors, members, mmrEntries, playerIdentities, playerRanks, soloMmrEntries, soloRanks } from './schema';
 import { currentSeason } from './season';
 
 // A rank source is a separate service that reads the players' ranked 2v2 rating and posts it here.
@@ -66,22 +69,24 @@ const sameName = (a: unknown, b: string) => typeof a === 'string' && a.toLowerCa
 
 /** Every account of the club's players to read: each duo account, and each solo account named in a profile. */
 export async function readRankTargets(db: Database): Promise<RankTarget[]> {
+  const query = orm(db);
   const [players, identities, solo] = await Promise.all([
     readClubPlayers(db),
-    db.prepare('SELECT slot, player_id FROM player_identities').all<{ slot: string; player_id: string }>(),
-    db
-      .prepare(
-        'SELECT duo_pseudo AS player, solo_pseudo AS name, solo_player_id AS playerId FROM members WHERE duo_pseudo IS NOT NULL AND solo_pseudo IS NOT NULL',
-      )
-      .all<{ player: string; name: string; playerId: string | null }>(),
+    query.select({ slot: playerIdentities.slot, playerId: playerIdentities.playerId }).from(playerIdentities),
+    query
+      .select({ player: members.duoPseudo, name: members.soloPseudo, playerId: members.soloPlayerId })
+      .from(members)
+      .where(and(isNotNull(members.duoPseudo), isNotNull(members.soloPseudo))) as Promise<
+      { player: string; name: string; playerId: string | null }[]
+    >,
   ]);
   const platformOf = new Map(players.map((player) => [player.slot, player.platform]));
   // The source answers in the format with account kinds as soon as one target has a kind: every target has one.
-  const duo: DuoTarget[] = identities.results
+  const duo: DuoTarget[] = identities
     .filter((identity) => platformOf.has(identity.slot))
-    .map((identity) => ({ player: identity.slot, kind: 'duo', playerId: identity.player_id }));
+    .map((identity) => ({ player: identity.slot, kind: 'duo', playerId: identity.playerId }));
   const soloTargets: SoloTarget[] = players.flatMap((player) => {
-    const account = solo.results.find((candidate) => candidate.player === player.slot);
+    const account = solo.find((candidate) => candidate.player === player.slot);
     if (!account) return [];
     const platform = player.platform ? psynetPlatforms[player.platform] : undefined;
     return [
@@ -164,13 +169,22 @@ async function entryId(rank: ObservedRank): Promise<string> {
  * The season peak is the highest rating read this season, with the rank it came with: the game gives none.
  * The first reading of a new season starts it over.
  */
-const peakWrite = (db: Database, table: 'player_ranks' | 'solo_ranks', rank: ObservedRank) =>
-  db
-    .prepare(
-      `UPDATE ${table} SET season = ?1, peak_mmr = ?2, peak_tier = ?3, peak_division = ?4, peak_at = ?5
-        WHERE player = ?6 AND (season IS NOT ?1 OR peak_mmr IS NULL OR ?2 > peak_mmr)`,
-    )
-    .bind(currentSeason.number, rank.mmr, rank.tier, rank.division, rank.observedAt, rank.player);
+const peakWrite = (query: Orm, table: typeof playerRanks | typeof soloRanks, rank: ObservedRank) =>
+  query
+    .update(table)
+    .set({
+      season: currentSeason.number,
+      peakMmr: rank.mmr,
+      peakTier: rank.tier,
+      peakDivision: rank.division,
+      peakAt: rank.observedAt,
+    })
+    .where(
+      and(
+        eq(table.player, rank.player),
+        or(sql`${table.season} IS NOT ${currentSeason.number}`, isNull(table.peakMmr), lt(table.peakMmr, rank.mmr)),
+      ),
+    );
 
 interface LatestEntry {
   mmr: number;
@@ -190,90 +204,139 @@ const repeats = (latest: LatestEntry | null, rank: ObservedRank) =>
   latest.division === rank.division &&
   parisDay(new Date(latest.recordedAt)) === parisDay(new Date(rank.observedAt));
 
-async function duoWrites(db: Database, rank: ObservedRank): Promise<{ writes: Statement[]; changed: boolean }> {
-  const latest = await db
-    .prepare(
-      'SELECT mmr, tier, division, recorded_at AS recordedAt FROM mmr_entries WHERE player = ? ORDER BY recorded_at DESC, rowid DESC LIMIT 1',
-    )
-    .bind(rank.player)
-    .first<LatestEntry>();
-  const writes: Statement[] = [];
+type Ledger = typeof mmrEntries | typeof soloMmrEntries;
+
+const entryColumns = (ledger: Ledger) => ({
+  mmr: ledger.mmr,
+  tier: ledger.tier,
+  division: ledger.division,
+  recordedAt: ledger.recordedAt,
+});
+
+/** Ties on the reading time go to the entry written last. */
+const newestFirst = (ledger: Ledger) => [desc(ledger.recordedAt), desc(rowid)];
+
+interface Writes {
+  writes: SQLWrapper[];
+  changed: boolean;
+}
+
+async function duoWrites(query: Orm, rank: ObservedRank): Promise<Writes> {
+  const latest =
+    (await query
+      .select(entryColumns(mmrEntries))
+      .from(mmrEntries)
+      .where(eq(mmrEntries.player, rank.player))
+      .orderBy(...newestFirst(mmrEntries))
+      .limit(1)
+      .get()) ?? null;
+  const writes: SQLWrapper[] = [];
   const changed = !repeats(latest, rank);
   if (changed) {
     const id = await entryId(rank);
     writes.push(
-      db
-        .prepare(
-          'INSERT INTO mmr_entries (id, player, mmr, tier, division, recorded_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO NOTHING',
-        )
-        .bind(id, rank.player, rank.mmr, rank.tier, rank.division, rank.observedAt),
-      projectMmrRankWrite(db, { playerId: rank.playerId, id, player: rank.player }),
+      query
+        .insert(mmrEntries)
+        .values({
+          id,
+          player: rank.player,
+          mmr: rank.mmr,
+          tier: rank.tier,
+          division: rank.division,
+          recordedAt: rank.observedAt,
+        })
+        .onConflictDoNothing({ target: mmrEntries.id }),
+      projectMmrRankWrite({ playerId: rank.playerId, id, player: rank.player }),
     );
   } else {
     writes.push(
-      db
-        .prepare("UPDATE player_ranks SET fetched_at = ?, last_attempt = ?, status = 'ready' WHERE player = ?")
-        .bind(rank.observedAt, rank.observedAt, rank.player),
+      query
+        .update(playerRanks)
+        .set({ fetchedAt: rank.observedAt, lastAttempt: rank.observedAt, status: 'ready' })
+        .where(eq(playerRanks.player, rank.player)),
     );
   }
   if (rank.matches !== null) {
     writes.push(
-      db.prepare('UPDATE player_ranks SET matches_played = ? WHERE player = ?').bind(rank.matches, rank.player),
+      query.update(playerRanks).set({ matchesPlayed: rank.matches }).where(eq(playerRanks.player, rank.player)),
     );
   }
-  writes.push(peakWrite(db, 'player_ranks', rank));
+  writes.push(peakWrite(query, playerRanks, rank));
   return { writes, changed };
 }
 
 /** Null when another member's profile already holds this solo account. */
-async function soloWrites(
-  db: Database,
-  rank: ObservedRank,
-  target: SoloTarget,
-): Promise<{ writes: Statement[]; changed: boolean } | null> {
-  const writes: Statement[] = [];
+async function soloWrites(query: Orm, rank: ObservedRank, target: SoloTarget): Promise<Writes | null> {
+  const writes: SQLWrapper[] = [];
   if (target.playerId === null) {
-    const holder = await db
-      .prepare('SELECT duo_pseudo FROM members WHERE solo_player_id = ?')
-      .bind(rank.playerId)
-      .first<{ duo_pseudo: string | null }>();
+    const holder = await query
+      .select({ duoPseudo: members.duoPseudo })
+      .from(members)
+      .where(eq(members.soloPlayerId, rank.playerId))
+      .get();
     if (holder) return null;
     writes.push(
-      db
-        .prepare(
-          'UPDATE members SET solo_player_id = ? WHERE duo_pseudo = ? AND solo_pseudo = ? AND solo_player_id IS NULL',
-        )
-        .bind(rank.playerId, rank.player, target.name),
+      query
+        .update(members)
+        .set({ soloPlayerId: rank.playerId })
+        .where(
+          and(eq(members.duoPseudo, rank.player), eq(members.soloPseudo, target.name), isNull(members.soloPlayerId)),
+        ),
     );
   }
-  const latest = await db
-    .prepare(
-      'SELECT mmr, tier, division, recorded_at AS recordedAt, player_id AS playerId FROM solo_mmr_entries WHERE player = ? ORDER BY recorded_at DESC, rowid DESC LIMIT 1',
-    )
-    .bind(rank.player)
-    .first<LatestEntry & { playerId: string }>();
+  const latest =
+    (await query
+      .select({ ...entryColumns(soloMmrEntries), playerId: soloMmrEntries.playerId })
+      .from(soloMmrEntries)
+      .where(eq(soloMmrEntries.player, rank.player))
+      .orderBy(...newestFirst(soloMmrEntries))
+      .limit(1)
+      .get()) ?? null;
   const changed = !repeats(latest, rank) || latest?.playerId !== rank.playerId;
   if (changed) {
     writes.push(
-      db
-        .prepare(
-          'INSERT INTO solo_mmr_entries (id, player, player_id, mmr, tier, division, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO NOTHING',
-        )
-        .bind(await entryId(rank), rank.player, rank.playerId, rank.mmr, rank.tier, rank.division, rank.observedAt),
+      query
+        .insert(soloMmrEntries)
+        .values({
+          id: await entryId(rank),
+          player: rank.player,
+          playerId: rank.playerId,
+          mmr: rank.mmr,
+          tier: rank.tier,
+          division: rank.division,
+          recordedAt: rank.observedAt,
+        })
+        .onConflictDoNothing({ target: soloMmrEntries.id }),
     );
   }
   writes.push(
-    db
-      .prepare(
-        `INSERT INTO solo_ranks (player, player_id, mmr, tier, division, matches_played, fetched_at, status)
-          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'ready')
-          ON CONFLICT(player) DO UPDATE SET player_id = excluded.player_id, mmr = excluded.mmr, tier = excluded.tier,
-            division = excluded.division, matches_played = COALESCE(excluded.matches_played, solo_ranks.matches_played),
-            fetched_at = excluded.fetched_at, status = 'ready'
-          WHERE solo_ranks.fetched_at IS NULL OR solo_ranks.fetched_at <= excluded.fetched_at`,
-      )
-      .bind(rank.player, rank.playerId, rank.mmr, rank.tier, rank.division, rank.matches, rank.observedAt),
-    peakWrite(db, 'solo_ranks', rank),
+    query
+      .insert(soloRanks)
+      .values({
+        player: rank.player,
+        playerId: rank.playerId,
+        mmr: rank.mmr,
+        tier: rank.tier,
+        division: rank.division,
+        matchesPlayed: rank.matches,
+        fetchedAt: rank.observedAt,
+        status: 'ready',
+      })
+      .onConflictDoUpdate({
+        target: soloRanks.player,
+        set: {
+          playerId: excluded(soloRanks.playerId),
+          mmr: excluded(soloRanks.mmr),
+          tier: excluded(soloRanks.tier),
+          division: excluded(soloRanks.division),
+          matchesPlayed: sql`coalesce(${excluded(soloRanks.matchesPlayed)}, ${soloRanks.matchesPlayed})`,
+          fetchedAt: excluded(soloRanks.fetchedAt),
+          status: 'ready',
+        },
+        // A reading older than the one held never overwrites it.
+        setWhere: sql`${isNull(soloRanks.fetchedAt)} OR ${lte(soloRanks.fetchedAt, excluded(soloRanks.fetchedAt))}`,
+      }),
+    peakWrite(query, soloRanks, rank),
   );
   return { writes, changed };
 }
@@ -287,16 +350,17 @@ export async function recordObservedRanks(
   report: RankReport,
   targets: RankTarget[],
 ): Promise<{ changed: number; ignored: number }> {
-  const writes: Statement[] = [];
+  const query = orm(db);
+  const writes: SQLWrapper[] = [];
   let changed = 0;
   let ignored = report.ignored;
   for (const rank of report.ranks) {
     const target = targets.find((candidate) => candidate.kind === 'solo' && candidate.player === rank.player);
     const written =
       rank.kind === 'duo'
-        ? await duoWrites(db, rank)
+        ? await duoWrites(query, rank)
         : target?.kind === 'solo'
-          ? await soloWrites(db, rank, target)
+          ? await soloWrites(query, rank, target)
           : null;
     if (!written) {
       ignored++;
@@ -308,14 +372,18 @@ export async function recordObservedRanks(
   for (const { player, reason } of report.unresolved) {
     // An account read before keeps its last known rank; only its status says the reading failed.
     writes.push(
-      db
-        .prepare(
-          'INSERT INTO solo_ranks (player, status) VALUES (?, ?) ON CONFLICT(player) DO UPDATE SET status = excluded.status WHERE solo_ranks.status IS NOT excluded.status',
-        )
-        .bind(player, reason),
+      query
+        .insert(soloRanks)
+        .values({ player, status: reason })
+        .onConflictDoUpdate({
+          target: soloRanks.player,
+          set: { status: excluded(soloRanks.status) },
+          setWhere: sql`${soloRanks.status} IS NOT ${excluded(soloRanks.status)}`,
+        }),
     );
   }
-  if (writes.length) await db.batch(writes);
+  // One D1 batch, one transaction; a plain one, as it carries a raw insert (projectMmrRankWrite).
+  if (writes.length) await db.batch(writes.map((write) => statementOf(db, write)));
   return { changed, ignored };
 }
 
@@ -324,7 +392,10 @@ export async function recordObservedRanks(
  * match instead of waiting for its next turn. One row per live source, so asking every minute costs little.
  */
 export async function readLastRankedMatch(db: Database): Promise<string | null> {
-  const row = await db.prepare('SELECT MAX(last_ranked_at) AS last FROM collectors').first<{ last: string | null }>();
+  const row = await orm(db)
+    .select({ last: max(collectors.lastRankedAt) })
+    .from(collectors)
+    .get();
   return row?.last ?? null;
 }
 
@@ -338,9 +409,11 @@ export interface RankSourceHealth {
 
 /** Only the rank source marks a rank `ready`: its newest one tells when the source last reported. */
 export async function readRankSourceHealth(db: Database, now: number = Date.now()): Promise<RankSourceHealth> {
-  const row = await db
-    .prepare("SELECT MAX(fetched_at) AS last FROM player_ranks WHERE status = 'ready'")
-    .first<{ last: string | null }>();
+  const row = await orm(db)
+    .select({ last: max(playerRanks.fetchedAt) })
+    .from(playerRanks)
+    .where(eq(playerRanks.status, 'ready'))
+    .get();
   const lastReadAt = row?.last ?? null;
   return { lastReadAt, stale: rankSourceStale(lastReadAt, now) };
 }
