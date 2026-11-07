@@ -3,8 +3,8 @@ import { z } from '../lib/validation';
 import { App, NotFound } from './app';
 import { ChallengesPage } from './challenges/challenges-page';
 import { Connections } from './connections';
-import { Dashboard } from './dashboard';
 import { Direct } from './direct';
+import { MatchesPage } from './matches/matches-page';
 import { Profile } from './profile';
 import { Settings } from './settings';
 import { AppShell } from './shell/app-shell';
@@ -24,8 +24,7 @@ const shellRoute = createRoute({
 });
 const teamRoute = createRoute({ getParentRoute: () => shellRoute, path: '/', component: TeamPage });
 const challengesRoute = createRoute({ getParentRoute: () => shellRoute, path: '/defis', component: ChallengesPage });
-// Until its own step of the redesign, Matchs opens the former board.
-const matchesRoute = createRoute({ getParentRoute: () => shellRoute, path: '/matchs', component: Dashboard });
+const matchesRoute = createRoute({ getParentRoute: () => shellRoute, path: '/matchs', component: MatchesPage });
 const settingsRoute = createRoute({ getParentRoute: () => shellRoute, path: '/reglages', component: Settings });
 
 // "/direct/" opens it too: an address matches with or without its final slash, and keeps it.
