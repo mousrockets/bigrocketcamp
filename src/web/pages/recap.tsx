@@ -22,6 +22,9 @@ const choiceItems: { value: Choice; label: string }[] = [
 const titleDay = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', weekday: 'long', day: 'numeric' });
 const validDay = (day: unknown): day is string => typeof day === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(day);
 
+/** The design's .mini figures: Archivo at 70 %, wider than the other figures, and proportional. */
+const mini = 'block font-heading text-xl font-extrabold [font-stretch:70%] text-foreground';
+
 function Stat({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
   return (
     <div className={cn('flex flex-col gap-1 px-3 py-3.5', className)}>
@@ -52,10 +55,11 @@ export function RecapPage() {
   const generated = recap?.players.reduce((sum, p) => sum + p.generated, 0) ?? 0;
   const top = recap ? [...recap.players].sort((a, b) => b.generated - a.generated)[0] : undefined;
   const spotless = recap?.players.filter((p) => p.played > 0 && p.losses === 0) ?? [];
-  const when = day === today ? 'aujourd’hui' : day === yesterday ? 'hier' : 'ce jour-là';
   const line = [
-    top && top.generated > 0 ? `${top.name} a généré le plus de pompes ${when}.` : '',
-    ...spotless.map((p) => `${p.name} n’a perdu aucun match.`),
+    top && top.generated > 0
+      ? `Lanterne rouge : ${top.name}, ${top.generated} pompe${top.generated > 1 ? 's' : ''} générée${top.generated > 1 ? 's' : ''}.`
+      : '',
+    ...spotless.map((p) => `${p.name} rentre les mains propres.`),
   ]
     .filter(Boolean)
     .join(' ');
@@ -132,19 +136,17 @@ export function RecapPage() {
                 </div>
                 <div className="grid grid-cols-3 gap-2 text-xs text-muted-foreground">
                   <span>
-                    <b className="block font-numeral text-xl text-foreground">{p.played}</b>
+                    <b className={mini}>{p.played}</b>
                     parties
                   </span>
                   <span>
-                    <b className="block font-numeral text-xl text-foreground">
+                    <b className={mini}>
                       {p.wins}–{p.losses}
                     </b>
                     V–D
                   </span>
                   <span>
-                    <b className="block font-numeral text-xl text-foreground">
-                      {p.compared > 0 ? `${p.lowest} / ${p.compared}` : '—'}
-                    </b>
+                    <b className={mini}>{p.compared > 0 ? `${p.lowest} / ${p.compared}` : '—'}</b>
                     {p.compared > 0 ? 'moins de pts*' : 'non comparable'}
                   </span>
                 </div>
@@ -168,12 +170,11 @@ export function RecapPage() {
             </p>
           )}
           <Note>
-            * Entre joueurs du club d’une même équipe, quand ils sont au moins deux. Les égalités sont indiquées.{' '}
+            * Entre joueurs du club d’une même équipe.{' '}
             {rule.enabled
               ? `Une défaite vaut 5 pompes, avec 5 de plus pour celui du club qui a le moins de points${rule.ties === 'none' ? ', sauf égalité' : ''}.`
               : 'Ce jour-là, une défaite vaut 5 pompes, sans supplément pour le dernier aux points.'}{' '}
-            Journée en heure de Paris, {day === today ? 'bilan en cours' : 'journée passée'} ; calculé sur les matchs
-            reçus, même synchronisés plus tard.
+            Journée en heure de Paris, {day === today ? 'bilan en cours' : 'journée passée'}.
           </Note>
         </>
       )}

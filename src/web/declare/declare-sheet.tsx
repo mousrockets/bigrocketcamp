@@ -1,9 +1,10 @@
 import { cn } from 'cn';
-import { MinusIcon, PlusIcon, XIcon } from 'lucide-react';
+import { XIcon } from 'lucide-react';
 import { type CSSProperties, useEffect, useRef } from 'react';
 import { exerciseDescription, exerciseEffect, formatNumber } from '../../lib/domain';
 import { payoffFor } from '../board/model';
 import type { Declaration, ExerciseType } from '../board/types';
+import { PlusIcon } from '../components/club/icons';
 import { Segmented } from '../components/club/segmented';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { Button } from '../components/ui/button';
@@ -29,11 +30,30 @@ const unitLabels: Record<ExerciseType, string> = { pushups: 'pompes', plank: 'mi
 const limitOf = (type: ExerciseType) => (type === 'plank' ? 1000 : 10000);
 const round = (value: number) => Math.round(value * 100) / 100;
 
+/** The design's minus: its plus without the upright, 22 px, 2.6 thick. */
+function MinusIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      aria-hidden="true"
+      width="22"
+      height="22"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.6"
+      strokeLinecap="round"
+      className={className}
+    >
+      <path d="M5 12h14" />
+    </svg>
+  );
+}
+
 function Cell({ label, value, className }: { label: string; value: string; className?: string | undefined }) {
   return (
-    <div className="flex flex-col items-center gap-0.5 p-2.5">
+    <div className="flex flex-col items-center gap-0.5 p-2.5 lg:p-3">
       <small className="text-[11px] font-semibold text-muted-foreground">{label}</small>
-      <b className={cn('font-numeral text-[22px]', className)}>{value}</b>
+      <b className={cn('font-numeral text-[22px] lg:text-2xl lg:leading-[normal]', className)}>{value}</b>
     </div>
   );
 }
@@ -92,6 +112,8 @@ export function DeclareSheet({
       <DialogContent
         ref={content}
         showCloseButton={false}
+        // The design's page behind the sheet: blurred, faded to 35 % (30 % wide) under a 55 % black (60 % wide) veil.
+        overlayClassName="bg-[rgb(2_2_2/0.84)] backdrop-blur-[2px] supports-backdrop-filter:backdrop-blur-[2px] lg:bg-[rgb(2_2_2/0.88)] lg:backdrop-blur-[3px] lg:supports-backdrop-filter:backdrop-blur-[3px]"
         data-keyboard={keyboard ? '' : undefined}
         style={
           keyboard
@@ -102,23 +124,24 @@ export function DeclareSheet({
             : undefined
         }
         className={cn(
-          'group/sheet *:shrink-0 top-auto bottom-[var(--keyboard-bottom,0px)] left-0 flex max-h-[min(92dvh,calc(var(--keyboard-top,100dvh)-12px))] w-full max-w-none translate-x-0 translate-y-0 flex-col gap-4 overflow-y-auto rounded-t-[30px] rounded-b-none border-t border-border bg-popover px-[18px] pt-2.5 pb-0 ring-0 sm:max-w-none',
+          'group/sheet *:shrink-0 top-auto bottom-[var(--keyboard-bottom,0px)] left-0 flex max-h-[min(92dvh,calc(var(--keyboard-top,100dvh)-12px))] w-full max-w-none translate-x-0 translate-y-0 flex-col gap-4 overflow-y-auto rounded-t-[30px] rounded-b-none border-t border-border bg-popover dark:border-white/8 px-[18px] pt-2.5 pb-0 ring-0 sm:max-w-none',
           'data-open:slide-in-from-bottom data-closed:slide-out-to-bottom data-open:zoom-in-100 data-closed:zoom-out-100',
           'lg:top-1/2 lg:bottom-auto lg:left-1/2 lg:max-w-[560px] lg:-translate-x-1/2 lg:-translate-y-1/2 lg:gap-[18px] lg:rounded-[28px] lg:border lg:p-7 lg:shadow-[0_40px_120px_rgb(0_0_0/0.6)] lg:data-open:slide-in-from-bottom-4',
         )}
       >
-        <i aria-hidden="true" className="h-[5px] w-[38px] self-center rounded-full bg-faint lg:hidden" />
+        <i aria-hidden="true" className="h-[5px] w-[38px] self-center rounded-[3px] bg-[#3a3c42] lg:hidden" />
         <div className="flex items-end justify-between gap-3 lg:items-start">
           <div className="flex flex-col gap-1">
-            <span className="kicker">Pour aujourd’hui</span>
-            <DialogTitle className="font-display text-[26px] leading-tight lg:text-3xl">
-              Déclarer un exercice
+            <span className="kicker">À toi de jouer</span>
+            {/* The dialog title's own weight and line would win over font-display's: set them again. */}
+            <DialogTitle className="font-display text-[26px] leading-[normal] font-extrabold lg:text-3xl lg:leading-[normal]">
+              Vas-y champion !
             </DialogTitle>
           </div>
           <DialogClose
             render={<Button variant="ghost" size="icon-xl" className="size-9 bg-surface text-soft lg:size-10" />}
           >
-            <XIcon />
+            <XIcon strokeWidth={2.6} />
             <span className="sr-only">Fermer</span>
           </DialogClose>
         </div>
@@ -132,7 +155,7 @@ export function DeclareSheet({
           value={pending?.player ?? form.player}
           disabled={locked}
           onChange={(player) => onChange({ player })}
-          className="bg-surface"
+          className="bg-surface *:h-10 *:px-1.5"
         />
         <Segmented
           label="Exercice"
@@ -140,7 +163,7 @@ export function DeclareSheet({
           value={pending?.type ?? type}
           disabled={locked}
           onChange={(next) => onChange({ type: next })}
-          className="bg-surface"
+          className="bg-surface *:h-10 *:px-1.5"
         />
 
         <div className="grid grid-cols-[60px_1fr_60px] items-center gap-2 lg:grid-cols-[64px_1fr_64px]">
@@ -150,9 +173,9 @@ export function DeclareSheet({
             aria-label="Moins"
             disabled={locked || !valid || count <= stepOf[type]}
             onClick={() => add(-stepOf[type])}
-            className="size-[60px] rounded-[20px] border border-input bg-surface lg:size-16"
+            className="size-[60px] rounded-[20px] border border-input bg-surface lg:size-16 dark:border-white/10"
           >
-            <MinusIcon className="size-6" />
+            <MinusIcon className="size-[22px]" />
           </Button>
           <div className="flex flex-col items-center gap-0.5">
             <label htmlFor="declare-count" className="sr-only">
@@ -174,7 +197,7 @@ export function DeclareSheet({
               value={Number.isNaN(count) ? '' : count}
               onChange={(event) => onChange({ count: event.target.valueAsNumber })}
               aria-describedby="declare-credit"
-              className="h-auto w-full appearance-none border-0 bg-transparent p-0 text-center font-numeral text-[88px] leading-[0.85] shadow-none focus-visible:ring-0 lg:text-[104px] dark:bg-transparent [&::-webkit-inner-spin-button]:appearance-none"
+              className="h-[0.85em] w-full appearance-none border-0 bg-transparent p-0 text-center font-numeral text-[88px] leading-[0.85] font-black shadow-none focus-visible:ring-0 lg:text-[104px] dark:bg-transparent [&::-webkit-inner-spin-button]:appearance-none"
             />
             <span aria-hidden="true" className="text-[13px] font-semibold text-muted-foreground">
               {unitLabels[type]}
@@ -186,15 +209,15 @@ export function DeclareSheet({
             aria-label="Plus"
             disabled={locked}
             onClick={() => add(stepOf[type])}
-            className="size-[60px] rounded-[20px] border border-input bg-surface lg:size-16"
+            className="size-[60px] rounded-[20px] border border-input bg-surface lg:size-16 dark:border-white/10"
           >
-            <PlusIcon className="size-6" />
+            <PlusIcon className="size-[22px]" />
           </Button>
         </div>
 
         <fieldset
           aria-label="Quantités rapides"
-          className="no-scrollbar -mx-[18px] flex min-w-0 gap-2 overflow-x-auto px-[18px] lg:mx-0 lg:flex-wrap lg:justify-center lg:px-0"
+          className="no-scrollbar flex min-w-0 gap-2 overflow-x-auto lg:flex-wrap lg:justify-center"
         >
           {quickSteps[type].map((amount) => (
             <Button
@@ -214,7 +237,7 @@ export function DeclareSheet({
             variant="outline"
             disabled={locked || !payoff}
             onClick={() => onChange({ count: payoff })}
-            className="h-10 rounded-full border-primary/50 bg-transparent px-3.5 text-sm font-semibold text-link dark:bg-transparent"
+            className="h-10 rounded-full border-primary/50 bg-transparent px-3.5 text-sm font-semibold text-link dark:bg-transparent dark:text-[#a9cbff]"
           >
             Tout rembourser{payoff ? ` (${formatNumber(payoff)}${type === 'plank' ? ' min' : ''})` : ''}
           </Button>
@@ -238,7 +261,7 @@ export function DeclareSheet({
               : `${formatNumber(effect.excess)} équiv. pompes de plus que la dette : le solde reste à zéro, toute la série est gardée dans l’historique.`}
           </p>
         )}
-        <p className="-mt-1 text-center text-xs text-muted-foreground">
+        <p className="-mt-1 text-center text-xs text-muted-foreground lg:-mt-1.5">
           1 min de gainage = 15 pompes · 20 abdos = 10 pompes
           {type === 'plank' && ' · par tranches de 15 s'}
         </p>
@@ -257,12 +280,13 @@ export function DeclareSheet({
           </Alert>
         )}
 
-        <div className="sticky bottom-0 z-10 -mx-[18px] -mt-2 flex gap-2.5 bg-popover px-[18px] pt-2 pb-[max(env(safe-area-inset-bottom),24px)] group-data-[keyboard]/sheet:pb-3 lg:static lg:mx-0 lg:mt-0 lg:p-0">
+        <div className="sticky bottom-0 z-10 -mx-[18px] -mt-2 flex gap-2.5 bg-popover px-[18px] pt-2 pb-[max(env(safe-area-inset-bottom),34px)] group-data-[keyboard]/sheet:pb-3 lg:static lg:mx-0 lg:mt-0 lg:p-0">
+          {/* The design's "Annuler" is 56 px inside its border (content-box): 58 px, beside a 56 px button. */}
           <DialogClose
             render={
               <Button
                 variant="outline"
-                className="hidden h-14 rounded-2xl border-input bg-transparent px-[22px] text-[15px] font-semibold text-soft lg:inline-flex dark:bg-transparent"
+                className="hidden h-[58px] rounded-2xl border-input bg-transparent px-[22px] text-[15px] font-semibold text-soft lg:inline-flex dark:bg-transparent"
               />
             }
           >
@@ -273,9 +297,9 @@ export function DeclareSheet({
             variant="action"
             disabled={busy || (!pending && !valid)}
             onClick={onSubmit}
-            className="h-14 flex-1 rounded-2xl text-lg"
+            className="h-14 flex-1 rounded-2xl border-0 text-lg shadow-none"
           >
-            {busy ? 'Enregistrement…' : pending ? 'Réessayer la déclaration' : 'Valider la série'}
+            {busy ? 'Enregistrement…' : pending ? 'Réessayer la déclaration' : 'Boost à 100 % !'}
           </Button>
         </div>
       </DialogContent>
