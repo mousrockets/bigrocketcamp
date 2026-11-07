@@ -58,6 +58,18 @@ test('sums up the day of each player, the member first', async () => {
   expect(bob).toHaveTextContent('Esquivées−5');
 });
 
+test('a forfeit won dodges nothing the days the club turned the −5 off', async () => {
+  const rules = { ...board.rules, forfeit: [{ effectiveFrom: '2026-11-07', enabled: false }] };
+  renderInApp(<MatchesPage />, { board: { ...board, rules } });
+  const summary = await screen.findByRole('region', { name: 'Bilan du jour' });
+  const [alice, bob] = within(summary)
+    .getAllByText(/parties/)
+    .map((line) => line.closest('[data-slot=card]') as HTMLElement);
+  expect(alice).toHaveTextContent('5pompes à faire');
+  expect(bob).toHaveTextContent('10pompes à faire');
+  expect(bob).not.toHaveTextContent('Esquivées−5');
+});
+
 test('replays the week by part of day, with how each match ended', async () => {
   renderInApp(<MatchesPage />, { board });
   const replay = await screen.findByRole('region', { name: 'Derniers matchs' });

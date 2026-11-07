@@ -4,7 +4,7 @@ import type { FullBoard } from '../lib/board';
 import { applyChanges, boardView, emptyBoard, type SyncedBoard } from '../lib/board-sync';
 import { boardChanges } from '../lib/contract';
 import { parisDay } from '../lib/days';
-import { defaultLastPlaceRules, summarize } from '../lib/domain';
+import { defaultForfeitRules, defaultLastPlaceRules, summarize } from '../lib/domain';
 import { defaultTimeoutMs } from '../lib/timeout';
 import { parseOrThrow } from '../lib/validation';
 import { apiWithin } from './api';
@@ -82,6 +82,7 @@ export const playerStats = (board: Board, roster: readonly string[]) =>
     parisDay(),
     board.matchRosters ?? [],
     board.rules?.lastPlace ?? defaultLastPlaceRules,
+    board.rules?.forfeit ?? defaultForfeitRules,
   );
 
 export interface BoardState {
