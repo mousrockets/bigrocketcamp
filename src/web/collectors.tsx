@@ -1,15 +1,10 @@
-import { useCallback, useEffect, useState } from 'react';
-import { apiFetch } from './api';
-import { errorOf } from './club';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
 import { Button } from './components/ui/button';
+import { collectorsQuery } from './queries';
+import { createPairingCode, revokeCollector } from './writes';
 
 // The Windows collector pairs with a code shown here once; the member sees and revokes their collectors.
-
-interface CollectorDevice {
-  id: string;
-  created: string;
-  lastSeen: string | null;
-}
 
 interface Pairing {
   code: string;
@@ -34,22 +29,20 @@ const parisDateTime = (date: string) =>
 const shownCode = (code: string) => `${code.slice(0, 4)} ${code.slice(4)}`;
 
 export function CollectorSection() {
-  const [devices, setDevices] = useState<CollectorDevice[]>([]);
+  const queryClient = useQueryClient();
+  const { data, error: readError, refetch } = useQuery(collectorsQuery);
+  const devices = data ?? [];
+  const newPairingCode = useMutation({ mutationFn: createPairingCode }).mutateAsync;
+  const revokeDevice = useMutation({ mutationFn: revokeCollector }).mutateAsync;
   const [pairing, setPairing] = useState<Pairing | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
-  const refresh = useCallback(async () => {
-    const response = await apiFetch('/api/collectors', { cache: 'no-store' });
-    if (!response.ok) throw Error(await errorOf(response, 'Liste des collecteurs indisponible.'));
-    const list = ((await response.json()) as { devices: CollectorDevice[] }).devices;
-    setDevices(list);
-    return list;
-  }, []);
-
+  // Only a list never read says it failed: while a code is shown, the next tick simply tries again.
+  const unread = data === undefined ? readError : null;
   useEffect(() => {
-    refresh().catch((e) => setError(networkError(e)));
-  }, [refresh]);
+    if (unread) setError(networkError(unread));
+  }, [unread]);
 
   // While a code is shown, the list follows: the code goes away once used or expired.
   useEffect(() => {
@@ -59,24 +52,18 @@ export function CollectorSection() {
         setPairing(null);
         return;
       }
-      try {
-        const list = await refresh();
-        if (list.some((device) => !pairing.knownIds.includes(device.id))) setPairing(null);
-      } catch {
-        // The next tick tries again.
-      }
+      const { data: list } = await refetch();
+      if (list?.some((device) => !pairing.knownIds.includes(device.id))) setPairing(null);
     }, 4000);
     return () => clearInterval(timer);
-  }, [pairing, refresh]);
+  }, [pairing, refetch]);
 
   async function newCode() {
     if (busy) return;
     setBusy(true);
     setError('');
     try {
-      const response = await apiFetch('/api/collectors', { method: 'POST' });
-      if (!response.ok) throw Error(await errorOf(response, 'Code impossible à créer.'));
-      const { code, expires } = (await response.json()) as { code: string; expires: string };
+      const { code, expires } = await newPairingCode();
       setPairing({ code, expires, knownIds: devices.map((device) => device.id) });
     } catch (e) {
       setError(networkError(e));
@@ -90,13 +77,8 @@ export function CollectorSection() {
     setBusy(true);
     setError('');
     try {
-      const response = await apiFetch('/api/collectors', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id }),
-      });
-      if (!response.ok && response.status !== 404) throw Error(await errorOf(response, 'Révocation impossible.'));
-      await refresh();
+      await revokeDevice(id);
+      await queryClient.fetchQuery({ ...collectorsQuery, staleTime: 0 });
     } catch (e) {
       setError(networkError(e));
     } finally {

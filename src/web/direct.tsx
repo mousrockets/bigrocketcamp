@@ -1,7 +1,9 @@
+import { useQuery } from '@tanstack/react-query';
+import { Link } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
 import { liveBridge } from '../lib/live-bridge';
-import { apiFetch } from './api';
 import { Brand } from './brand';
+import { livePlayersQuery } from './queries';
 
 type Info = { active: boolean; queued: number; connection: string; message: string; lastReceived: number | null };
 type LiveBridge = ReturnType<typeof liveBridge>;
@@ -10,7 +12,7 @@ const enabledKey = 'rl-live-enabled-v1';
 const config = '[TAGame.MatchStatsExporter_TA]\nPacketSendRate=10\nPort=0\nWebPort=49124';
 
 export function Direct() {
-  const [players, setPlayers] = useState<string[] | null>(null);
+  const { data: players = null, error: readError } = useQuery(livePlayersQuery);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
   const [info, setInfo] = useState<Info>({
@@ -21,6 +23,8 @@ export function Direct() {
     lastReceived: null,
   });
   const bridge = useRef<LiveBridge | null>(null);
+  /** Whether this page's bridge already had its chance to resume. */
+  const resumed = useRef(false);
 
   useEffect(() => {
     let stopped = false;
@@ -30,22 +34,7 @@ export function Direct() {
       },
     });
     bridge.current = controller;
-    apiFetch('/api/live')
-      .then(async (response) => {
-        if (!response.ok) throw Error('Connecte-toi à RL-Pompes pour activer le direct.');
-        const data = (await response.json()) as { players: string[] };
-        if (!Array.isArray(data.players)) throw Error('Réponse de connexion invalide.');
-        if (stopped) return;
-        setPlayers(data.players);
-        try {
-          if (data.players.length && localStorage.getItem(enabledKey) === 'true') controller.start();
-        } catch {
-          // Without storage, the direct waits for the button instead of resuming on its own.
-        }
-      })
-      .catch((e: Error) => {
-        if (!stopped) setError(e.message);
-      });
+    resumed.current = false;
     const onOnline = () => controller.retry();
     window.addEventListener('online', onOnline);
     return () => {
@@ -55,6 +44,21 @@ export function Direct() {
       window.removeEventListener('online', onOnline);
     };
   }, []);
+
+  useEffect(() => {
+    if (readError) setError(readError.message);
+  }, [readError]);
+
+  // Once the players are known, a direct left on resumes by itself.
+  useEffect(() => {
+    if (!players?.length || resumed.current) return;
+    resumed.current = true;
+    try {
+      if (localStorage.getItem(enabledKey) === 'true') bridge.current?.start();
+    } catch {
+      // Without storage, the direct waits for the button instead of resuming on its own.
+    }
+  }, [players]);
 
   function start() {
     setError('');
@@ -88,7 +92,9 @@ export function Direct() {
     <main>
       <header>
         <Brand />
-        <a href="/">← Tableau de l’équipe</a>
+        <Link to="/" reloadDocument>
+          ← Tableau de l’équipe
+        </Link>
       </header>
       <section>
         <p className="eyebrow">DIRECT DEPUIS LE PC · À TESTER</p>
@@ -120,7 +126,10 @@ export function Direct() {
           players && (
             <p className="alert">
               Aucune identité de jeu n’est associée à ce compte. Consulte{' '}
-              <a href="/connexions">les identités des joueurs</a>.
+              <Link to="/connexions" reloadDocument>
+                les identités des joueurs
+              </Link>
+              .
             </p>
           )
         )}
@@ -184,9 +193,12 @@ export function Direct() {
         </p>
         <p className="muted">
           Un seul PC peut couvrir les amis présents dans son match, y compris les joueurs sur console après confirmation
-          de leur identifiant de console sur <a href="/connexions">la page des joueurs</a>. Les parties sur console en
-          solo ne sont pas récupérées automatiquement. PC éteint ou onglet fermé : le direct local s’arrête ; les
-          données reçues restent disponibles.
+          de leur identifiant de console sur{' '}
+          <Link to="/connexions" reloadDocument>
+            la page des joueurs
+          </Link>
+          . Les parties sur console en solo ne sont pas récupérées automatiquement. PC éteint ou onglet fermé : le
+          direct local s’arrête ; les données reçues restent disponibles.
         </p>
       </section>
     </main>

@@ -1,16 +1,19 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 import { parisDay } from '../lib/domain';
 import { defaultLastPlaceRules, lastPlaceRuleOn } from '../lib/match-rules';
 import type { Profile, Role } from '../lib/members';
-import { apiFetch } from './api';
 import { Brand } from './brand';
-import { errorOf, platformLabels, useClub, useClubLogo } from './club';
+import { platformLabels, useClub, useClubLogo } from './club';
 import { Button } from './components/ui/button';
 import { Input } from './components/ui/input';
 import { Label } from './components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './components/ui/select';
-import { type Identity, shortId } from './connections';
+import { shortId } from './connections';
 import { resizeLogo } from './logo-image';
+import { ApiError, identitiesQuery, membersQuery } from './queries';
+import { removeClubLogo, sendJson, uploadClubLogo } from './writes';
 
 const roleItems: { value: Role; label: string }[] = [
   { value: 'member', label: 'Membre' },
@@ -30,51 +33,43 @@ const dayLabel = (day: string) =>
 const networkError = (e: unknown) =>
   e instanceof TypeError ? 'Connexion Internet indisponible. Réessaie dans un instant.' : (e as Error).message;
 
-async function send(path: string, method: string, body: unknown, fallback: string): Promise<void> {
-  const response = await apiFetch(path, {
-    method,
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  if (!response.ok) throw Error(await errorOf(response, fallback));
-}
+/** This page's wording of a failed read of the members or of their identities. */
+const readError = (e: Error) =>
+  e instanceof ApiError ? e.reason || 'Identités de jeu indisponibles.' : networkError(e);
 
 export function Settings() {
   const club = useClub();
   const [name, setName] = useState(club.name);
-  const [members, setMembers] = useState<Profile[]>([]);
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<Role>('member');
   const [removing, setRemoving] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
-  const [identities, setIdentities] = useState<Identity[]>([]);
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const logo = useClubLogo();
   const isAdmin = club.me.role === 'admin';
+  const queryClient = useQueryClient();
+  const membersRead = useQuery({ ...membersQuery, enabled: isAdmin });
+  const identitiesRead = useQuery({ ...identitiesQuery, enabled: isAdmin });
+  const members: Profile[] = membersRead.data ?? [];
+  const identities = identitiesRead.data?.identities ?? [];
+  const failedRead = membersRead.error ?? identitiesRead.error;
+  const send = useMutation({ mutationFn: sendJson }).mutateAsync;
+  const uploadLogoImage = useMutation({ mutationFn: uploadClubLogo }).mutateAsync;
+  const resetLogo = useMutation({ mutationFn: removeClubLogo }).mutateAsync;
   const today = parisDay();
   const lastPlaceRules = club.rules?.lastPlace ?? defaultLastPlaceRules;
   const ruleToday = lastPlaceRuleOn(lastPlaceRules, today);
   const comingRule = lastPlaceRules.find((rule) => rule.effectiveFrom > today);
   const [lastPlaceChoice, setLastPlaceChoice] = useState((comingRule ?? ruleToday).enabled ? 'on' : 'off');
 
-  async function refresh() {
-    const response = await apiFetch('/api/members', { cache: 'no-store' });
-    if (!response.ok) throw Error(await errorOf(response, 'Liste des membres indisponible.'));
-    setMembers(((await response.json()) as { members: Profile[] }).members);
-  }
+  /** Reads the members again after a change; a failure is the action's. */
+  const refresh = () => queryClient.fetchQuery({ ...membersQuery, staleTime: 0 });
 
-  async function loadIdentities() {
-    const response = await apiFetch('/api/identities', { cache: 'no-store' });
-    if (!response.ok) throw Error(await errorOf(response, 'Identités de jeu indisponibles.'));
-    setIdentities(((await response.json()) as { identities: Identity[] }).identities);
-  }
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: loads the list once.
   useEffect(() => {
-    if (isAdmin) Promise.all([refresh(), loadIdentities()]).catch((e) => setError(networkError(e)));
-  }, []);
+    if (failedRead) setError(readError(failedRead));
+  }, [failedRead]);
 
   async function act(task: () => Promise<void>, done: string) {
     if (busy) return;
@@ -93,7 +88,7 @@ export function Settings() {
 
   const renameClub = () =>
     act(async () => {
-      await send('/api/club', 'PUT', { name }, 'Nom du club invalide.');
+      await send({ path: '/api/club', method: 'PUT', body: { name }, fallback: 'Nom du club invalide.' });
       // The name shows in every header: a fresh load updates them all.
       location.reload();
     }, 'Nom du club enregistré.');
@@ -101,34 +96,32 @@ export function Settings() {
   const uploadLogo = () =>
     act(async () => {
       if (!logoFile) return;
-      const image = await resizeLogo(logoFile);
-      const response = await apiFetch('/api/club/logo', {
-        method: 'PUT',
-        headers: { 'Content-Type': image.type },
-        body: image,
-      });
-      if (!response.ok) throw Error(await errorOf(response, 'Envoi du logo impossible.'));
+      await uploadLogoImage(await resizeLogo(logoFile));
       // The logo shows in every header: a fresh load updates them all.
       location.reload();
     }, 'Logo enregistré.');
 
   const removeLogo = () =>
     act(async () => {
-      const response = await apiFetch('/api/club/logo', { method: 'DELETE' });
-      if (!response.ok) throw Error(await errorOf(response, 'Retrait du logo impossible.'));
+      await resetLogo();
       location.reload();
     }, 'Logo retiré.');
 
   const saveRules = () =>
     act(async () => {
-      await send('/api/club/rules', 'PUT', { lastPlace: { enabled: lastPlaceChoice === 'on' } }, 'Règle invalide.');
+      await send({
+        path: '/api/club/rules',
+        method: 'PUT',
+        body: { lastPlace: { enabled: lastPlaceChoice === 'on' } },
+        fallback: 'Règle invalide.',
+      });
       // The board counts the pushups with these rules: a fresh load reads them again.
       location.reload();
     }, 'Règle enregistrée.');
 
   const invite = () =>
     act(async () => {
-      await send('/api/members', 'POST', { email, role }, 'Invitation impossible.');
+      await send({ path: '/api/members', method: 'POST', body: { email, role }, fallback: 'Invitation impossible.' });
       setEmail('');
       setRole('member');
       await refresh();
@@ -137,7 +130,12 @@ export function Settings() {
   const changeRole = (member: Profile, next: Role) =>
     act(
       async () => {
-        await send('/api/members', 'PATCH', { id: member.id, role: next }, 'Changement de rôle impossible.');
+        await send({
+          path: '/api/members',
+          method: 'PATCH',
+          body: { id: member.id, role: next },
+          fallback: 'Changement de rôle impossible.',
+        });
         if (member.id === club.me.id) location.reload();
         else await refresh();
       },
@@ -146,7 +144,7 @@ export function Settings() {
 
   const remove = (member: Profile) =>
     act(async () => {
-      await send('/api/members', 'DELETE', { id: member.id }, 'Retrait impossible.');
+      await send({ path: '/api/members', method: 'DELETE', body: { id: member.id }, fallback: 'Retrait impossible.' });
       setRemoving(null);
       await refresh();
     }, `${member.email} ne fait plus partie du club.`);
@@ -162,9 +160,9 @@ export function Settings() {
       <main>
         <header>
           <Brand />
-          <a className="back-link" href="/">
+          <Link className="back-link" to="/" reloadDocument>
             ← Retour au tableau
-          </a>
+          </Link>
         </header>
         <section className="settings">
           <h1>Réglages du club</h1>
@@ -178,9 +176,9 @@ export function Settings() {
     <main>
       <header>
         <Brand />
-        <a className="back-link" href="/">
+        <Link className="back-link" to="/" reloadDocument>
           ← Retour au tableau
-        </a>
+        </Link>
       </header>
       <section className="settings">
         <p className="eyebrow">ADMINISTRATION</p>
@@ -367,8 +365,11 @@ export function Settings() {
           dans l’historique, sous son pseudo duo.
         </p>
         <p className="small muted">
-          Chaque membre confirme lui-même ses identités de jeu sur la page <a href="/connexions">Nos joueurs</a>, en
-          choisissant son joueur dans un tableau de fin de match reçu.
+          Chaque membre confirme lui-même ses identités de jeu sur la page{' '}
+          <Link to="/connexions" reloadDocument>
+            Nos joueurs
+          </Link>
+          , en choisissant son joueur dans un tableau de fin de match reçu.
         </p>
       </section>
 

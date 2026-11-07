@@ -1,18 +1,11 @@
+import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
-import { fetchWithin } from '../lib/timeout';
 import { Brand } from './brand';
-import { errorOf, useClubName } from './club';
+import { useClubName } from './club';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from './components/ui/input-otp';
+import { requestSignInCode, verifySignInCode } from './writes';
 
 type Step = 'email' | 'code';
-
-async function postJson(path: string, body: Record<string, string>) {
-  return fetchWithin(fetch, path, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-}
 
 export function SignIn() {
   const clubName = useClubName() || 'ce club';
@@ -22,6 +15,8 @@ export function SignIn() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const sendCode = useMutation({ mutationFn: requestSignInCode }).mutateAsync;
+  const checkCode = useMutation({ mutationFn: verifySignInCode }).mutateAsync;
 
   async function requestCode() {
     if (busy) return;
@@ -29,8 +24,7 @@ export function SignIn() {
     setError('');
     setNotice('');
     try {
-      const response = await postJson('/api/auth/code', { email: email.trim() });
-      if (!response.ok) throw Error(await errorOf(response, 'Impossible d’envoyer le code. Réessaie dans un instant.'));
+      await sendCode(email.trim());
       setStep('code');
       setCode('');
       setNotice('Code envoyé. Pense à regarder dans les courriers indésirables.');
@@ -49,8 +43,7 @@ export function SignIn() {
     setError('');
     setNotice('');
     try {
-      const response = await postJson('/api/auth/verify', { email: email.trim(), code: typed });
-      if (!response.ok) throw Error(await errorOf(response, 'Code incorrect ou expiré.'));
+      await checkCode({ email: email.trim(), code: typed });
       // The session cookie is set: reloading opens the page that was asked for.
       location.reload();
     } catch (e) {

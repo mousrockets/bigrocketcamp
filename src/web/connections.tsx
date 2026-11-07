@@ -1,10 +1,12 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
-import { apiFetch } from './api';
 import { Brand } from './brand';
+import { ApiError, identitiesQuery } from './queries';
+import { changeIdentity, type IdentityChange } from './writes';
 
-type Alias = { playerId: string; primary: boolean };
-export type Identity = { slot: string; known: boolean; owned: boolean; aliases: Alias[] };
-type Candidate = { playerId: string; name: string; day: string };
+/** This page's wording of a failed read of the identities. */
+const loadError = (e: Error) => (e instanceof ApiError ? 'Connexion au club requise.' : e.message);
 
 // "platform|id": the platform and the end of the id are enough to recognise one's own account.
 export function shortId(id: string) {
@@ -13,49 +15,33 @@ export function shortId(id: string) {
 }
 
 export function Connections() {
-  const [identities, setIdentities] = useState<Identity[]>([]);
-  const [candidates, setCandidates] = useState<Candidate[]>([]);
+  const queryClient = useQueryClient();
+  const { data, error: readError } = useQuery(identitiesQuery);
+  const identities = data?.identities ?? [];
+  const candidates = data?.candidates ?? [];
+  const change = useMutation({ mutationFn: changeIdentity }).mutateAsync;
   const [choices, setChoices] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
 
-  async function refresh() {
-    try {
-      const response = await apiFetch('/api/identities');
-      if (!response.ok) throw Error('Connexion au club requise.');
-      const data = (await response.json()) as { identities: Identity[]; candidates: Candidate[] };
-      setIdentities(data.identities);
-      setCandidates(data.candidates);
-    } catch (e) {
-      setError((e as Error).message);
-    }
-  }
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: loads the page once.
   useEffect(() => {
-    refresh();
-  }, []);
+    if (readError) setError(loadError(readError));
+  }, [readError]);
 
-  async function act(slot: string, playerId: string | undefined, action = 'confirm') {
+  async function act(slot: string, playerId: string | undefined, action: IdentityChange['action'] = 'confirm') {
     if (busy || !playerId) return;
     setBusy(true);
     setError('');
     setMessage('');
     try {
-      const response = await apiFetch('/api/identities', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slot, playerId, action }),
-      });
-      const result = (await response.json()) as { error?: string };
-      if (!response.ok) throw Error(result.error || 'Confirmation impossible.');
+      await change({ slot, playerId, action });
       setMessage(
         action === 'remove'
           ? 'Identifiant supplémentaire retiré.'
           : 'Identifiant confirmé. Les tableaux du Direct utiliseront cette identité.',
       );
-      await refresh();
+      await queryClient.refetchQueries(identitiesQuery);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -67,9 +53,9 @@ export function Connections() {
     <main>
       <header>
         <Brand />
-        <a className="back-link" href="/">
+        <Link className="back-link" to="/" reloadDocument>
           ← Retour au tableau
-        </a>
+        </Link>
       </header>
       <section>
         <p className="eyebrow">IDENTITÉS DE JEU</p>
@@ -78,7 +64,9 @@ export function Connections() {
           Chaque joueur confirme son identifiant de jeu à partir d’un tableau reçu : c’est lui qui rattache les tableaux
           du Direct au bon joueur.
         </p>
-        <a href="/direct">Configurer le Direct PC →</a>
+        <Link to="/direct" reloadDocument>
+          Configurer le Direct PC →
+        </Link>
       </section>
       {error && (
         <p className="alert" role="alert">

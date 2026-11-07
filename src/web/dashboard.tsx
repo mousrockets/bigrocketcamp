@@ -1,3 +1,5 @@
+import { useMutation } from '@tanstack/react-query';
+import { Link } from '@tanstack/react-router';
 import type { CSSProperties, ReactNode } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import type { Roster } from '../lib/club';
@@ -22,7 +24,7 @@ import { matchHistory } from '../lib/match-history';
 import type { LastPlaceRules } from '../lib/match-rules';
 import { currentSeason, seasonEndLabel, seasonTiming } from '../lib/season';
 import { versionLabel } from '../lib/version';
-import { apiFetch, signOut } from './api';
+import { signOut } from './api';
 import { useBoard } from './board-client';
 import { Brand } from './brand';
 import { playerPlatform, useClub } from './club';
@@ -30,6 +32,7 @@ import type { MonthlyState } from './monthly-mmr';
 import { MonthlyMmr } from './monthly-mmr';
 import { playerInitials } from './players';
 import { loadedCommit, useDeployedVersion } from './version';
+import { declareExercise, reactToExercise, undoExercise } from './writes';
 
 type ExerciseType = 'pushups' | 'plank' | 'crunches';
 type Declaration = { id: string; player: string; type: ExerciseType; count: number; day: string };
@@ -663,6 +666,9 @@ export function Dashboard() {
   soundRef.current = sound;
 
   const refresh = useBoard<State>(roster, setData, setError);
+  const sendExercise = useMutation({ mutationFn: declareExercise }).mutateAsync;
+  const cancelExercise = useMutation({ mutationFn: undoExercise }).mutateAsync;
+  const sendReaction = useMutation({ mutationFn: reactToExercise }).mutateAsync;
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: restores preferences once.
   useEffect(() => {
@@ -973,13 +979,7 @@ export function Dashboard() {
       const debtBefore = stats.find((line) => line.name === payload.player)?.remaining ?? 0;
       // A storage restriction must not prevent saving the exercise on the server.
       writeStorage('rl-pending', JSON.stringify(payload));
-      const response = await apiFetch('/api/exercise', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      const result = (await response.json()) as { error?: string };
-      if (!response.ok) throw Error(result.error || 'Impossible d’enregistrer cet exercice.');
+      await sendExercise(payload);
       setPending(null);
       removeStorage('rl-pending');
       setNotice(`Exercice enregistré pour ${payload.player} : ${exerciseDescription(payload)}.`);
@@ -1005,13 +1005,7 @@ export function Dashboard() {
     if (ask && !window.confirm(`Annuler la série « ${exerciseDescription(exercise)} » de ${exercise.player} ?`)) return;
     setError('');
     try {
-      const response = await apiFetch('/api/exercise', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: exercise.id }),
-      });
-      const result = (await response.json()) as { error?: string };
-      if (!response.ok) throw Error(result.error || 'Impossible d’annuler cette série.');
+      await cancelExercise(exercise.id);
       setUndoable(null);
       setNotice(`Série annulée : ${exerciseDescription(exercise)} pour ${exercise.player}.`);
       await refresh();
@@ -1022,12 +1016,7 @@ export function Dashboard() {
 
   async function react(exerciseId: string, emoji: string) {
     try {
-      const response = await apiFetch('/api/reaction', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ exerciseId, emoji }),
-      });
-      if (!response.ok) throw Error(((await response.json()) as { error?: string }).error || 'Réaction impossible.');
+      await sendReaction({ exerciseId, emoji });
       try {
         navigator.vibrate?.(15);
       } catch {
@@ -1208,14 +1197,30 @@ export function Dashboard() {
               )}
               {/* biome-ignore lint/a11y/useKeyWithClickEvents: the click comes from the links inside, which the keyboard also activates. */}
               <nav onClick={closeMenu}>
-                <a href="#team">Le tableau de l’équipe</a>
-                <a href="#exercise">Déclarer un exercice</a>
-                <a href="#recap-title">Récap du jour</a>
-                <a href="#week">La semaine</a>
-                <a href="#monthly-mmr">MMR du mois et boissons</a>
-                <a href="#history">Derniers matchs</a>
-                <a href="/connexions">Identités des joueurs</a>
-                <a href="/direct">Direct depuis le PC · à tester</a>
+                <Link to="/" hash="team">
+                  Le tableau de l’équipe
+                </Link>
+                <Link to="/" hash="exercise">
+                  Déclarer un exercice
+                </Link>
+                <Link to="/" hash="recap-title">
+                  Récap du jour
+                </Link>
+                <Link to="/" hash="week">
+                  La semaine
+                </Link>
+                <Link to="/" hash="monthly-mmr">
+                  MMR du mois et boissons
+                </Link>
+                <Link to="/" hash="history">
+                  Derniers matchs
+                </Link>
+                <Link to="/connexions" reloadDocument>
+                  Identités des joueurs
+                </Link>
+                <Link to="/direct" reloadDocument>
+                  Direct depuis le PC · à tester
+                </Link>
                 <SignOutLink />
               </nav>
             </div>
@@ -1304,8 +1309,10 @@ export function Dashboard() {
             Les compteurs indiquent les parties reçues. Le MMR affiche le dernier relevé de la source de rangs.
           </p>
           <p className="small">
-            <a href="/direct">Configurer le direct depuis un PC ↗</a> · Un onglet sur le PC qui joue ; premier essai à
-            valider.
+            <Link to="/direct" reloadDocument>
+              Configurer le direct depuis un PC ↗
+            </Link>{' '}
+            · Un onglet sur le PC qui joue ; premier essai à valider.
           </p>
         </details>
         <SeasonCountdown />
@@ -1554,9 +1561,9 @@ export function Dashboard() {
         </p>
       </section>
       {!exerciseVisible && (
-        <a className="fab" href="#exercise">
+        <Link className="fab" to="/" hash="exercise">
           + Exercice
-        </a>
+        </Link>
       )}
       {cheer && (
         <div className={`cheer ${cheer.kind}`} key={cheer.id} aria-hidden="true">
@@ -1706,7 +1713,10 @@ export function Dashboard() {
                     ? `${bestMmr.name} a le meilleur MMR 2v2 reçu ce mois.`
                     : 'Les MMR du mois restent à renseigner.'}{' '}
                   Classement provisoire ; les boissons sont attribuées seulement après clôture.{' '}
-                  <a href="#monthly-mmr">Voir le défi du mois</a>.
+                  <Link to="/" hash="monthly-mmr">
+                    Voir le défi du mois
+                  </Link>
+                  .
                 </>
               ) : (
                 <>
@@ -1846,7 +1856,9 @@ export function Dashboard() {
             <p className="small">{data.reliability.review} résultat(s) à vérifier, exclus du calcul des pompes.</p>
           )}
         </div>
-        <a href="/connexions">Identités des joueurs →</a>
+        <Link to="/connexions" reloadDocument>
+          Identités des joueurs →
+        </Link>
       </section>
       <footer>
         <span>
@@ -1859,8 +1871,14 @@ export function Dashboard() {
           d’Epic.
         </p>
         <nav className="footer-links" aria-label="Mon compte">
-          <a href="/profil">Mon profil</a>
-          {me.role === 'admin' && <a href="/reglages">Réglages du club</a>}
+          <Link to="/profil" reloadDocument>
+            Mon profil
+          </Link>
+          {me.role === 'admin' && (
+            <Link to="/reglages" reloadDocument>
+              Réglages du club
+            </Link>
+          )}
           <SignOutLink />
         </nav>
         <p className="small muted">

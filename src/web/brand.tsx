@@ -1,3 +1,4 @@
+import { Link } from '@tanstack/react-router';
 import { useClubLogo, useClubName } from './club';
 
 export function Brand() {
@@ -8,12 +9,12 @@ export function Brand() {
   const clubNameLead = lastSpace > 0 ? clubName.slice(0, lastSpace) : '';
   const clubNameMain = lastSpace > 0 ? clubName.slice(lastSpace + 1) : clubName;
   return (
-    <a className="brand" href="/" aria-label={clubName ? `${clubName}, accueil` : 'Accueil'}>
+    <Link className="brand" to="/" reloadDocument aria-label={clubName ? `${clubName}, accueil` : 'Accueil'}>
       <img className="club-logo" src={logo} alt="" width={64} height={64} />
       <span className="brand-name">
         {clubNameLead && <span>{clubNameLead}</span>}
         <strong>{clubNameMain}</strong>
       </span>
-    </a>
+    </Link>
   );
 }

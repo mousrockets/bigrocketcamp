@@ -1,6 +1,7 @@
+import { useMutation } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { monthBounds, monthCloseGraceMs, nextMonth, parisMonth } from '../lib/monthly-mmr';
-import { apiFetch } from './api';
+import { closeDueMonths, settleDrink } from './writes';
 
 type MonthlyRow = {
   player: string;
@@ -52,13 +53,6 @@ const monthLabel = (month: string) =>
   new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', month: 'long', year: 'numeric' }).format(
     new Date(`${month}-15T12:00:00Z`),
   );
-function postMonthly(body: Record<string, unknown>) {
-  return apiFetch('/api/monthly', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-}
 
 /** Whether a finished month waits to be closed: only then is the API asked to close it. */
 function closeIsDue(data: MonthlyState, now: number = Date.now()): boolean {
@@ -77,6 +71,8 @@ export function MonthlyMmr({ data, onRefresh }: { data: MonthlyState; onRefresh:
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const writing = useRef(false);
+  const closeMonths = useMutation({ mutationFn: closeDueMonths }).mutateAsync;
+  const settle = useMutation({ mutationFn: settleDrink }).mutateAsync;
 
   // Runs once: asks the API to close a finished month while the page is open, as soon as one is due.
   // biome-ignore lint/correctness/useExhaustiveDependencies: the polling must not restart on every parent refresh.
@@ -87,9 +83,8 @@ export function MonthlyMmr({ data, onRefresh }: { data: MonthlyState; onRefresh:
       if (!active || running || document.hidden || !closeIsDue(latest.current)) return;
       running = true;
       try {
-        const response = await postMonthly({ action: 'refresh' });
-        const result = response.ok ? ((await response.json()) as { closed?: number }) : null;
-        if (active && result?.closed) await onRefresh();
+        const closed = await closeMonths();
+        if (active && closed) await onRefresh();
       } catch {
         // The next tick retries; closing the month is also done by the server.
       } finally {
@@ -106,16 +101,14 @@ export function MonthlyMmr({ data, onRefresh }: { data: MonthlyState; onRefresh:
     };
   }, []);
 
-  async function action(body: Record<string, unknown>, done: string) {
+  async function action(body: Parameters<typeof settleDrink>[0], done: string) {
     if (writing.current) return;
     writing.current = true;
     setBusy(true);
     setError('');
     setMessage('');
     try {
-      const response = await postMonthly(body);
-      const result = (await response.json()) as { error?: string; ok?: boolean };
-      if (!response.ok || !result.ok) throw Error(result.error || 'Action impossible.');
+      await settle(body);
       setMessage(done);
       await onRefresh();
     } catch (e) {
