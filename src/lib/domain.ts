@@ -164,16 +164,14 @@ const invalidExercise = 'Déclaration invalide.';
 /** An exercise as the page declares it; whether the player is in the club is checked against the roster. */
 export const exerciseInput = z
   .object({
-    id: z.string(says(invalidExercise)).check(z.regex(/^[a-zA-Z0-9-]{16,80}$/, says(invalidExercise))),
+    id: z.string(says(invalidExercise)).regex(/^[a-zA-Z0-9-]{16,80}$/, says(invalidExercise)),
     player: z.string(says(invalidExercise)),
-    type: z._default(z.enum(exerciseTypes, says(invalidExercise)), 'pushups'),
+    type: z.enum(exerciseTypes, says(invalidExercise)).default('pushups'),
     // Repetitions, or whole seconds for the plank.
-    count: z.int(says(invalidExercise)).check(z.gte(1, says(invalidExercise))),
-    day: z.string(says(invalidExercise)).check(z.refine(validDay, says(invalidExercise))),
+    count: z.int(says(invalidExercise)).min(1, says(invalidExercise)),
+    day: z.string(says(invalidExercise)).refine(validDay, says(invalidExercise)),
   })
-  .check(
-    z.refine((exercise) => exercise.count <= (exercise.type === 'plank' ? 60_000 : 10_000), says(invalidExercise)),
-  );
+  .refine((exercise) => exercise.count <= (exercise.type === 'plank' ? 60_000 : 10_000), says(invalidExercise));
 
 export function validateExercise(roster: Roster, input: unknown): Exercise {
   const exercise = parseOrThrow(exerciseInput, input, invalidExercise);

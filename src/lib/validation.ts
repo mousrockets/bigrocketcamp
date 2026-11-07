@@ -1,10 +1,9 @@
-import * as z from 'zod/mini';
+import * as z from 'zod';
 import type * as core from 'zod/v4/core';
 
-// Input schemas shared with the web app use Zod Mini, which keeps the app light; the API's own schemas
-// use Zod (src/worker/inputs.ts). Both share this setting: every rule names its own French message, and a
-// rule that would not gets an empty one, which the input's general message replaces. Zod's English never
-// reaches a member.
+// Every schema of the project uses Zod, with this setting: every rule names its own French message, and a rule
+// that would not gets an empty one, which the input's general message replaces. Zod's English never reaches a
+// member.
 z.config({ customError: () => '' });
 
 export { type core, z };
