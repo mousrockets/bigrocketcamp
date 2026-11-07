@@ -1,4 +1,7 @@
+import { eq, type SQLWrapper, sql } from 'drizzle-orm';
 import type { Database } from './db';
+import { excluded, orm } from './orm';
+import { clubLogo } from './schema';
 
 // The club's logo lives in D1, resized by the browser before sending: a small square of a few tens of kB.
 
@@ -35,30 +38,36 @@ async function versionOf(image: Uint8Array<ArrayBuffer>): Promise<string> {
 /** The address the app shows the logo at: a new image gets a new address, so browsers may keep each one. */
 export const logoUrl = (version: string) => `/api/club/logo?v=${version}`;
 
+const theLogo = eq(clubLogo.id, 1);
+
+// The Worker has no Node Buffer, which Drizzle's blob column reads and writes: the bytes go through as they are.
+const asStored = (image: SQLWrapper | Uint8Array) => sql<number[] | ArrayBuffer>`${image}`;
+
 export async function readLogoVersion(db: Database): Promise<string | null> {
-  return (await db.prepare('SELECT version FROM club_logo WHERE id = 1').first<{ version: string }>())?.version ?? null;
+  const row = await orm(db).select({ version: clubLogo.version }).from(clubLogo).where(theLogo).get();
+  return row?.version ?? null;
 }
 
 export async function readLogo(db: Database): Promise<ClubLogo | null> {
-  const row = await db
-    .prepare('SELECT image, content_type, version FROM club_logo WHERE id = 1')
-    .first<{ image: number[] | ArrayBuffer; content_type: LogoType; version: string }>();
+  const row = await orm(db)
+    .select({ image: asStored(clubLogo.image), contentType: clubLogo.contentType, version: clubLogo.version })
+    .from(clubLogo)
+    .where(theLogo)
+    .get();
   if (!row) return null;
-  return { image: new Uint8Array(row.image), contentType: row.content_type, version: row.version };
+  return { image: new Uint8Array(row.image), contentType: row.contentType, version: row.version };
 }
 
 export async function saveLogo(db: Database, image: Uint8Array<ArrayBuffer>, contentType: LogoType): Promise<string> {
   const version = await versionOf(image);
-  await db
-    .prepare(
-      `INSERT INTO club_logo (id, image, content_type, version, updated_at) VALUES (1, ?1, ?2, ?3, strftime('%Y-%m-%dT%H:%M:%fZ','now'))
-        ON CONFLICT(id) DO UPDATE SET image = ?1, content_type = ?2, version = ?3, updated_at = excluded.updated_at`,
-    )
-    .bind(image, contentType, version)
-    .run();
+  const logo = { image: asStored(image), contentType, version };
+  await orm(db)
+    .insert(clubLogo)
+    .values({ id: 1, ...logo })
+    .onConflictDoUpdate({ target: clubLogo.id, set: { ...logo, updatedAt: excluded(clubLogo.updatedAt) } });
   return version;
 }
 
 export async function removeLogo(db: Database): Promise<void> {
-  await db.prepare('DELETE FROM club_logo WHERE id = 1').run();
+  await orm(db).delete(clubLogo).where(theLogo);
 }
