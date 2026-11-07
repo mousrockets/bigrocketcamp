@@ -11,6 +11,8 @@ export interface MatchRow {
   winner: number;
   score: number;
   review_required?: boolean;
+  /** The losing team forfeited; null or absent while no source sent the game's clock. */
+  forfeit?: boolean | null;
 }
 
 export interface RosterSize {
@@ -127,6 +129,14 @@ export function lastPlaceBonus<Row extends MatchRow>(
   if (!rule.enabled || row.team === row.winner) return 0;
   const place = teamPlace(row, matches, roster);
   return place.lowest && (rule.ties === 'all' || !place.tied) ? 5 : 0;
+}
+
+/**
+ * « Si les adversaires FF, 5 pompes de moins »: a win the opponents forfeited takes 5 pushups off each club
+ * player of the winning team. Only a match whose clock a source sent can be known as a forfeit.
+ */
+export function dodgedPushups(row: MatchRow): number {
+  return row.kind === 'match' && !row.review_required && row.team === row.winner && row.forfeit === true ? 5 : 0;
 }
 
 export interface ReceivedRoster {

@@ -2,6 +2,7 @@ import type { Roster } from './club';
 import { count, formatNumber } from './format';
 import {
   defaultLastPlaceRules,
+  dodgedPushups,
   type LastPlaceRules,
   lastPlaceBonus,
   type MatchRow,
@@ -11,7 +12,7 @@ import {
 } from './match-rules';
 import { parseOrThrow, says, z } from './validation';
 
-export { defaultLastPlaceRules, lastPlaceBonus, lastPlaceRuleOn, matchIndex } from './match-rules';
+export { defaultLastPlaceRules, dodgedPushups, lastPlaceBonus, lastPlaceRuleOn, matchIndex } from './match-rules';
 
 export const playerName = (roster: Roster, name: unknown): string | null =>
   roster.find((player) => player === String(name).trim().toLowerCase()) ?? null;
@@ -196,8 +197,10 @@ export function summarize<Row extends MatchRow>(
   return roster.map((name) => {
     const all = rows.filter((row) => row.name === name && row.kind === 'match' && !row.review_required);
     const selected = all.filter((row) => !day || row.day === day);
+    // A forfeit won lowers what is due like an exercise would: the pushups dodged count for later defeats.
     const due = all.reduce(
-      (sum, row) => sum + (row.team !== row.winner ? 5 : 0) + lastPlaceBonus(row, matches, roster, rules),
+      (sum, row) =>
+        sum + (row.team !== row.winner ? 5 : 0) + lastPlaceBonus(row, matches, roster, rules) - dodgedPushups(row),
       0,
     );
     const performed = exercises.filter((exercise) => exercise.player === name);
@@ -239,6 +242,9 @@ export function dailyRecap<Row extends MatchRow>(
     compared: 0,
     unranked: 0,
     bonus: 0,
+    /** Pushups taken off by the wins the opponents forfeited. */
+    dodged: 0,
+    /** What the day adds to the debt: the defeats, the bonus, less what was dodged. */
     generated: 0,
   }));
   const byName = new Map(players.map((player) => [player.name, player]));
@@ -264,11 +270,12 @@ export function dailyRecap<Row extends MatchRow>(
         if (place.tied) player.lowestTies++;
       }
       player.bonus += lastPlaceBonus(row, matches, roster, rules);
+      player.dodged += dodgedPushups(row);
     }
   }
   for (const player of players) {
     player.unranked = player.played - player.compared;
-    player.generated = player.losses * 5 + player.bonus;
+    player.generated = player.losses * 5 + player.bonus - player.dodged;
   }
   return { day, matchCount, players };
 }

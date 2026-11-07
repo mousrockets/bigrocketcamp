@@ -338,6 +338,31 @@ describe('daily recap', () => {
     expect(firstPlayer(dailyRecap(roster, win, '2026-11-05', [], enabledRules).players).generated).toBe(0);
   });
 
+  test('a win the opponents forfeited takes 5 off each club player of the team; an unknown clock changes nothing', () => {
+    const day = { day: '2026-11-05' };
+    const rows = [
+      row('ff', first, 300, { ...day, winner: 0, forfeit: true }),
+      row('ff', second, 100, { ...day, winner: 0, forfeit: true }),
+      row('ff', 'opponent', 50, { ...day, team: 1, winner: 0, forfeit: true }),
+      row('loss', first, 200, { ...day, forfeit: false }),
+      row('loss', second, 100, { ...day, forfeit: false }),
+      row('older', first, 300, { ...day, winner: 0, forfeit: null }),
+      row('older', second, 100, { ...day, winner: 0 }),
+    ];
+    const recap = dailyRecap(roster, rows, '2026-11-05', complete(rows), enabledRules);
+    expect(recap.players.slice(0, 2).map((p) => [p.losses, p.bonus, p.dodged, p.generated])).toEqual([
+      [1, 0, 5, 0],
+      [1, 5, 5, 5],
+    ]);
+    const [alice, bob] = summarize(roster, rows, [{ player: first, count: 10 }], '', complete(rows), enabledRules);
+    expect([alice?.due, alice?.remaining, bob?.due, bob?.remaining]).toEqual([0, 0, 5, 5]);
+    // Club players who forfeit lose like any defeat, and a match under review counts nothing.
+    const forfeited = rows.slice(0, 3).map((r) => ({ ...r, winner: 1 }));
+    expect(firstPlayer(summarize(roster, forfeited, [], '', complete(forfeited))).due).toBe(5);
+    const doubtful = rows.slice(0, 3).map((r) => ({ ...r, review_required: true }));
+    expect(firstPlayer(summarize(roster, doubtful, [], '', complete(doubtful))).due).toBe(0);
+  });
+
   test('a tie between club players: no extra, or every tied loser pays', () => {
     const rows = [row('m', first, 0, { day: '2026-11-05' }), row('m', second, 0, { day: '2026-11-05' })];
     const none = firstPlayer(dailyRecap(roster, rows, '2026-11-05', [], enabledRules).players);
