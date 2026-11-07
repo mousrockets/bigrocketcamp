@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#000000" />
-    <title>Le club</title>
+    <title>Big Rocket Camp</title>
     <meta name="description" content="Nos matchs Rocket League, nos classements 2v2 et nos défis sportifs." />
     <link rel="icon" href="/club-photo.jpg" type="image/jpeg" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
@@ -12,21 +12,15 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <!-- Set to the club's name once it is known (src/web/app.tsx). -->
-    <meta name="apple-mobile-web-app-title" content="Le club" />
+    <meta name="apple-mobile-web-app-title" content="Big Rocket Camp" />
     <!-- The colour of the opening screen, before the style sheet arrives: no white flash in the installed app. -->
     <style>
       html { background: #000; }
-      html[data-theme='light'] { background: #eef3fb; }
     </style>
     <!-- The site is private: the manifest request must carry the session cookie. -->
     <link rel="manifest" href="/manifest.webmanifest" crossorigin="use-credentials" />
-    <!-- Applies the saved theme before first paint, and keeps the install prompt that browsers fire very early. -->
+    <!-- Keeps the install prompt, which browsers fire before React starts. -->
     <script>
-      try {
-        const saved = localStorage.getItem('rl-theme');
-        const theme = saved === 'auto' ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark') : saved;
-        if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
-      } catch {}
       addEventListener('beforeinstallprompt', (event) => {
         event.preventDefault();
         window.__rlInstall = event;

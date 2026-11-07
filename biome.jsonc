@@ -16,10 +16,11 @@
   "assist": { "actions": { "source": { "organizeImports": "on" } } },
   "overrides": [
     {
-      // The shadcn components stay close to upstream, so that a later `shadcn add --diff` remains readable.
-      "includes": ["src/web/components/ui/**"],
+      // The shadcn files stay close to upstream, so that a later `shadcn add --diff` remains readable.
+      "includes": ["src/web/components/ui/**", "src/web/hooks/**", "src/web/lib/highlighter.tsx"],
       "formatter": { "enabled": false },
-      "linter": { "enabled": false }
+      "linter": { "enabled": false },
+      "assist": { "enabled": false }
     }
   ]
 }
