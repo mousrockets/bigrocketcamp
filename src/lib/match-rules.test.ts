@@ -1,9 +1,13 @@
 import { expect, test } from 'vitest';
 import {
+  defaultDodgeRules,
   defaultForfeitRules,
+  defaultHighScoreRules,
   defaultLastPlaceRules,
   dodgedPushups,
+  dodgeRules,
   forfeitRuleOn,
+  highScoreRuleOn,
   lastPlaceBonus,
   lastPlaceRuleOn,
   matchIndex,
@@ -67,9 +71,32 @@ test('the −5 of a forfeit won is on until the club turns it off, then follows 
   expect(forfeitRuleOn(rules, '2026-11-19').enabled).toBe(false);
   expect(forfeitRuleOn(rules, '2026-11-20').enabled).toBe(true);
   const win = { name: 'alice', kind: 'match', team: 0, winner: 0, score: 300, forfeit: true };
-  expect(dodgedPushups({ ...win, day: '2026-11-09' }, rules)).toBe(5);
-  expect(dodgedPushups({ ...win, day: '2026-11-12' }, rules)).toBe(0);
+  const forfeit = { ...defaultDodgeRules, forfeit: rules };
+  expect(dodgedPushups({ ...win, day: '2026-11-09' }, forfeit)).toBe(5);
+  expect(dodgedPushups({ ...win, day: '2026-11-12' }, forfeit)).toBe(0);
   expect(dodgedPushups({ ...win, day: '2026-11-12' })).toBe(5);
+});
+
+test('the −10 above 1000 points starts on 2026-11-07, then follows each day’s rule', () => {
+  expect(highScoreRuleOn(defaultHighScoreRules, '2026-11-06').enabled).toBe(false);
+  expect(highScoreRuleOn(defaultHighScoreRules, '2026-11-07').enabled).toBe(true);
+  const rules = [...defaultHighScoreRules, { effectiveFrom: '2026-11-10', enabled: false }];
+  expect(highScoreRuleOn(rules, '2026-11-09').enabled).toBe(true);
+  expect(highScoreRuleOn(rules, '2026-11-10').enabled).toBe(false);
+  expect(highScoreRuleOn([], '2026-11-25').enabled).toBe(false);
+  const game = { name: 'alice', kind: 'match', team: 0, winner: 1, day: '2026-11-07' };
+  expect(dodgedPushups({ ...game, score: 1001 })).toBe(10);
+  expect(dodgedPushups({ ...game, score: 1001, winner: 0 })).toBe(10);
+  expect(dodgedPushups({ ...game, score: 1000 })).toBe(0);
+  expect(dodgedPushups({ ...game, score: 999 })).toBe(0);
+  expect(dodgedPushups({ ...game, score: 1001, review_required: true })).toBe(0);
+  expect(dodgedPushups({ ...game, score: 1001, kind: 'private' })).toBe(0);
+  expect(dodgedPushups({ ...game, score: 1001, day: '2026-11-06' })).toBe(0);
+  expect(dodgedPushups({ ...game, score: 1001, day: '2026-11-10' }, { ...defaultDodgeRules, highScore: rules })).toBe(
+    0,
+  );
+  expect(dodgedPushups({ ...game, score: 1001, winner: 0, forfeit: true })).toBe(15);
+  expect(dodgeRules({ forfeit: [] })).toEqual(defaultDodgeRules);
 });
 
 test('declared rosters must match a coherent scoreboard', () => {

@@ -1,5 +1,5 @@
 import { parisDay, shiftDay } from '../../lib/days';
-import { dailyRecap, defaultForfeitRules, defaultLastPlaceRules, matchIndex } from '../../lib/domain';
+import { dailyRecap, defaultLastPlaceRules, dodgeRules, matchIndex } from '../../lib/domain';
 import { formatClock, formatLongDay } from '../../lib/format';
 import { type HistoryMatch, matchHistory } from '../../lib/match-history';
 import type { Board } from '../board';
@@ -21,7 +21,7 @@ export interface SummaryPlayer {
   /** Pushups the day adds: defeats, bonus, minus the dodged ones. */
   owed: number;
   bonus: number;
-  /** Pushups off for wins the opponents forfeited. */
+  /** Pushups off for wins the opponents forfeited and games above 1000 points. */
   dodged: number;
 }
 
@@ -32,7 +32,7 @@ const historyOf = (board: Board, roster: readonly string[]) =>
     matchIndex(board.results, board.matchRosters ?? []),
     roster,
     board.rules?.lastPlace ?? defaultLastPlaceRules,
-    board.rules?.forfeit ?? defaultForfeitRules,
+    dodgeRules(board.rules),
   );
 
 const byTime = (a: HistoryMatch<Row>, b: HistoryMatch<Row>) => (a.received ?? a.day).localeCompare(b.received ?? b.day);
@@ -45,7 +45,7 @@ export function daySummary(board: Board, roster: readonly string[], me: string |
     day,
     board.matchRosters ?? [],
     board.rules?.lastPlace ?? defaultLastPlaceRules,
-    board.rules?.forfeit ?? defaultForfeitRules,
+    dodgeRules(board.rules),
   );
   const played = historyOf(board, roster)
     .filter((match) => match.day === day && !match.review)

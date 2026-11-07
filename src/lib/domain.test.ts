@@ -4,6 +4,8 @@ import { roster } from './club-fixture';
 import { parisDay } from './days';
 import {
   dailyRecap,
+  defaultDodgeRules,
+  defaultHighScoreRules,
   exerciseDescription,
   exerciseEffect,
   exerciseReceipt,
@@ -367,13 +369,54 @@ describe('daily recap', () => {
     const win = (match: string, day: string) =>
       [first, second].map((name, index) => row(match, name, 300 - index * 100, { day, winner: 0, forfeit: true }));
     const rows = [...win('before', '2026-11-09'), ...win('after', '2026-11-10')];
-    const forfeitOff = [{ effectiveFrom: '2026-11-10', enabled: false }];
+    const forfeitOff = { ...defaultDodgeRules, forfeit: [{ effectiveFrom: '2026-11-10', enabled: false }] };
     const recap = (day: string) =>
       dailyRecap(roster, rows, day, complete(rows), enabledRules, forfeitOff).players.map((p) => p.dodged);
     expect(recap('2026-11-09').slice(0, 2)).toEqual([5, 5]);
     expect(recap('2026-11-10').slice(0, 2)).toEqual([0, 0]);
     const due = summarize(roster, rows, [], '', complete(rows), enabledRules, forfeitOff).slice(0, 2);
     expect(due.map((p) => p.due)).toEqual([-5, -5]);
+  });
+
+  test('above 1000 points, a club player dodges 10, win or loss, and the credit counts for later defeats', () => {
+    const day = { day: '2026-11-07' };
+    const rows = [
+      row('loss', first, 1001, day),
+      row('loss', second, 1000, day),
+      row('win', first, 1450, { ...day, winner: 0 }),
+      row('win', second, 999, { ...day, winner: 0 }),
+      row('win', 'opponent', 1200, { ...day, team: 1, winner: 0 }),
+    ];
+    const recap = dailyRecap(roster, rows, '2026-11-07', complete(rows), enabledRules);
+    expect(recap.players.slice(0, 2).map((p) => [p.losses, p.bonus, p.dodged, p.generated])).toEqual([
+      [1, 0, 20, -15],
+      [1, 5, 0, 10],
+    ]);
+    const [alice, bob] = summarize(roster, rows, [], '', complete(rows), enabledRules);
+    expect([alice?.due, alice?.remaining, bob?.due]).toEqual([-15, 0, 10]);
+    // The credit stacks with the −5 of a forfeit won.
+    const forfeit = [row('ff', first, 1100, { ...day, winner: 0, forfeit: true })];
+    expect(firstPlayer(dailyRecap(roster, forfeit, '2026-11-07', [], enabledRules).players).dodged).toBe(15);
+  });
+
+  test('above 1000 points dodges nothing in a match under review, nor before 2026-11-07', () => {
+    const doubtful = [row('m', first, 1500, { day: '2026-11-07', review_required: true })];
+    expect(firstPlayer(summarize(roster, doubtful, [], '', [], enabledRules)).due).toBe(0);
+    const before = [row('m', first, 1500, { day: '2026-11-06' })];
+    expect(firstPlayer(dailyRecap(roster, before, '2026-11-06', [], enabledRules).players).dodged).toBe(0);
+    expect(firstPlayer(summarize(roster, before, [], '', [], enabledRules)).due).toBe(5);
+  });
+
+  test('above 1000 points dodges nothing on the days the club turned the −10 off', () => {
+    const rows = [row('on', first, 1200, { day: '2026-11-08' }), row('off', first, 1200, { day: '2026-11-09' })];
+    const highScoreOff = {
+      ...defaultDodgeRules,
+      highScore: [...defaultHighScoreRules, { effectiveFrom: '2026-11-09', enabled: false }],
+    };
+    const recap = (day: string) =>
+      firstPlayer(dailyRecap(roster, rows, day, [], enabledRules, highScoreOff).players).dodged;
+    expect([recap('2026-11-08'), recap('2026-11-09')]).toEqual([10, 0]);
+    expect(firstPlayer(summarize(roster, rows, [], '', [], enabledRules, highScoreOff)).due).toBe(0);
   });
 
   test('a tie between club players: no extra, or every tied loser pays', () => {
