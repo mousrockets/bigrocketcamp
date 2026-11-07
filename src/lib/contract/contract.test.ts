@@ -133,6 +133,12 @@ describe('an answer from an older API, without the fields added since, still par
     expect(newer.results[0]).toMatchObject({ forfeit: true, overtime: false });
   });
 
+  test('a result from an API older than departures: the player stayed to the end', () => {
+    expect(boardChanges.parse(changes).results[0]).toMatchObject({ left: false });
+    const newer = boardChanges.parse({ ...changes, results: [{ ...result, left: true }] });
+    expect(newer.results[0]).toMatchObject({ left: true });
+  });
+
   test('a health check without its deployment date', () => {
     expect(health.parse({ status: 'ok', commit: 'a1b2c3d' })).toMatchObject({ deployedAt: null });
   });

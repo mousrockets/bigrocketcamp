@@ -37,6 +37,8 @@ export interface HistoryPlayer<Row extends HistoryRow> {
   dodged: boolean;
   /** This player dodges 10 pushups: 1000 points or more in the game. */
   highScore: boolean;
+  /** This player left before the end: a defeat, whatever his team did after. */
+  left: boolean;
 }
 
 export interface HistoryMatch<Row extends HistoryRow> {
@@ -99,16 +101,18 @@ export function matchHistory<Row extends HistoryRow>(
   }
   return [...byMatch].map(([guid, rows]) => {
     const [first] = rows as [Row, ...Row[]];
+    // The match's result is that of the players present at the end; one who left lost it alone.
+    const [decided = first] = rows.filter((row) => !row.left);
     const review = rows.some((row) => row.review_required);
     const teams = new Set(rows.map((row) => row.team));
     const outcome = review
       ? 'review'
       : teams.size > 1
         ? 'between-members'
-        : first.team === first.winner
+        : decided.team === decided.winner
           ? 'victory'
           : 'defeat';
-    const all = everyone.get(guid) ?? rows;
+    const all = (everyone.get(guid) ?? rows).filter((row) => !row.left);
     const hasGoals = all.some((row) => typeof row.goals === 'number');
     const ours = teams.size === 1 ? first.team : 0;
     return {
@@ -137,6 +141,7 @@ export function matchHistory<Row extends HistoryRow>(
           lastPlace: bonus > 0,
           dodged: forfeit > 0,
           highScore: highScore > 0,
+          left: row.left === true,
         };
       }),
     };

@@ -269,13 +269,19 @@ export function dailyRecap<Row extends MatchRow>(
     generated: 0,
   }));
   const byName = new Map(players.map((player) => [player.name, player]));
-  const matches = matchIndex(
-    rows.filter((row) => row.day === day),
-    rosters,
-  );
+  const dayRows = rows.filter((row) => row.day === day);
+  const matches = matchIndex(dayRows, rosters);
+  // Players who left are not on the final scoreboard the index holds: their defeats count apart.
+  const leavers = new Map<string, Row[]>();
+  for (const row of dayRows) {
+    const guid = row.match_guid ?? row.matchGuid;
+    if (!row.left || row.kind !== 'match' || row.review_required || !byName.has(row.name) || !guid) continue;
+    leavers.set(guid, [...(leavers.get(guid) ?? []), row]);
+  }
   let matchCount = 0;
-  for (const match of matches.values()) {
-    const tracked = [...match.players.values()].filter((row) => byName.has(row.name));
+  for (const guid of new Set([...matches.keys(), ...leavers.keys()])) {
+    const present = [...(matches.get(guid)?.players.values() ?? [])].filter((row) => byName.has(row.name));
+    const tracked = [...present, ...(leavers.get(guid) ?? [])];
     if (!tracked.length) continue;
     matchCount++;
     for (const row of tracked) {

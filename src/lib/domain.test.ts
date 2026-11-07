@@ -275,6 +275,29 @@ describe('daily recap', () => {
     expect(summarize(roster, rows, [], recapDay, complete(rows)).map((p) => p.due)).toEqual([5, 5, 5]);
   });
 
+  test('a club player who left loses 5, with no bonus nor credit, and the others keep their result', () => {
+    // On the rules' days: the bonus and the −10 from 1000 points apply to everybody else.
+    const day = '2026-11-08';
+    const rows = [
+      row('left', first, 300, { day, winner: 0 }),
+      row('left', 'opponent', 400, { day, team: 1, winner: 0 }),
+      // He left with the fewest points and more than 1000 of them: neither counts.
+      row('left', second, 1200, { day, left: true }),
+      // Known only from his own departure.
+      row('alone', third, 100, { day, left: true }),
+    ];
+    const rosters = [{ match_guid: 'left', expected_players: 2 }];
+    const recap = dailyRecap(roster, rows, day, rosters, enabledRules, defaultDodgeRules);
+    expect(recap.matchCount).toBe(2);
+    expect(recap.players.map((p) => [p.name, p.played, p.wins, p.losses, p.bonus, p.dodged, p.generated])).toEqual([
+      [first, 1, 1, 0, 0, 0, 0],
+      [second, 1, 0, 1, 0, 0, 5],
+      [third, 1, 0, 1, 0, 0, 5],
+    ]);
+    const due = summarize(roster, rows, [], day, rosters, enabledRules, defaultDodgeRules).map((p) => p.due);
+    expect(due).toEqual([0, 5, 5]);
+  });
+
   test('the match day wins over a late reception; bots and other days are excluded', () => {
     const rows = [
       row('late', first, 50),

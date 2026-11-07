@@ -165,3 +165,21 @@ test('from 1000 points, a club player dodges 10, win or loss, on top of what the
   );
   expect(before[0]?.players.map(({ pushups, highScore }) => [pushups, highScore])).toEqual([[5, false]]);
 });
+
+test('a club player who left: a defeat of 5 apart from the final scoreboard, which still decides the match', () => {
+  // Bob left the early match, with the fewest points: Alice and her mate won it without him.
+  const gone = { ...line('early', bob, 0, 1, 50, 3), left: true };
+  const rows = [...scoreboard, gone];
+  const matches = matchIndex(rows, [{ match_guid: 'early', expected_players: 3 }]);
+  expect(matches.get('early')?.complete).toBe(true);
+  const [, early] = matchHistory([...club, gone], rows, matches, roster);
+  expect([early?.outcome, early?.score, early?.left]).toEqual(['victory', [3, 0], true]);
+  expect(early?.players.map(({ row, pushups, left, lastPlace }) => [row.name, pushups, left, lastPlace])).toEqual([
+    [alice, 0, false, false],
+    [bob, 5, true, false],
+  ]);
+  // Known from his own departure alone: a defeat, and no score.
+  const alone = [{ ...line('alone', carla, 1, 0, 1200, 1), left: true }];
+  const [match] = matchHistory(alone, alone, matchIndex(alone), roster, undefined, defaultDodgeRules);
+  expect([match?.outcome, match?.score, match?.players[0]?.pushups]).toEqual(['defeat', null, 5]);
+});
