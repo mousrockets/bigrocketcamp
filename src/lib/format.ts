@@ -4,6 +4,14 @@ import { sameParisDay } from './days';
 // through this module, so that "1 509", "19 h 42" or "il y a 8 min" read the same everywhere.
 
 const numbers = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2, useGrouping: 'always' });
+const longDays = new Intl.DateTimeFormat('fr-FR', {
+  timeZone: 'Europe/Paris',
+  weekday: 'long',
+  day: 'numeric',
+  month: 'long',
+});
+// A club month ("2026-11") is read at noon UTC on the 15th: the same month in every time zone.
+const monthNames = new Intl.DateTimeFormat('fr-FR', { timeZone: 'UTC', month: 'long' });
 const shortDates = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', day: 'numeric', month: 'short' });
 
 /**
@@ -30,6 +38,14 @@ export const formatTime = (at: Date | number | string): string => formatClock(at
 
 /** "5 nov.", in Paris time. */
 export const formatShortDate = (at: Date | number | string): string => shortDates.format(new Date(at));
+
+const capitalized = (text: string): string => text.charAt(0).toUpperCase() + text.slice(1);
+
+/** "Samedi 7 novembre", in Paris time: the day above a tab's title. */
+export const formatLongDay = (at: Date | number | string): string => capitalized(longDays.format(new Date(at)));
+
+/** "Novembre": the name of a club month, written "2026-11". */
+export const formatMonth = (month: string): string => capitalized(monthNames.format(new Date(`${month}-15T12:00:00Z`)));
 
 /** "à 19 h 42" today, "le 5 nov. à 22 h 10" another day. */
 export const formatWhen = (at: Date | number | string, now: Date | number = Date.now()): string =>
