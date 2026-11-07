@@ -55,7 +55,7 @@ const monthLabel = (month: string) =>
   );
 
 /** Whether a finished month waits to be closed: only then is the API asked to close it. */
-function closeIsDue(data: MonthlyState, now: number = Date.now()): boolean {
+export function closeIsDue(data: MonthlyState, now: number = Date.now()): boolean {
   const closed = new Set(data.closed.map((result) => result.month));
   const current = parisMonth(now);
   for (let month = data.startsMonth, step = 0; month < current && step < 24; month = nextMonth(month), step++) {

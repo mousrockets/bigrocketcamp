@@ -28,6 +28,8 @@ test.each([
   ['/matchs', '/matchs'],
   ['/exercices', '/exercices'],
   ['/defi', '/defi'],
+  ['/recap', '/recap'],
+  ['/tableau', '/tableau'],
 ])('%s opens its page', (address, route) => {
   expect(open(address)).toMatchObject({ routes: ['__root__', route], notFoundAt: null });
 });
