@@ -1,5 +1,8 @@
+import { and, desc, eq, isNotNull, type SQLWrapper, sql } from 'drizzle-orm';
+import type { AnySQLiteColumn } from 'drizzle-orm/sqlite-core';
 import type { Roster } from './club';
-import type { Database, Statement } from './db';
+import type { Database } from './db';
+import { inJsonList, orm, rowid, sqlNamed, statementOf } from './orm';
 import {
   type Alias,
   type CompleteRoster,
@@ -10,6 +13,15 @@ import {
   type SourceReport,
   type StoredResult,
 } from './reconcile';
+import {
+  matchBuilds,
+  matchResults,
+  prototypeMatchRosters,
+  prototypeResults,
+  resultObservations,
+  sourceReports,
+  syncState,
+} from './schema';
 
 // The board shows each match as its sources reconcile it. Reconciling the whole history on every visit
 // would not fit the free plan, so each match is rebuilt alone when it receives a source, and stored.
@@ -41,26 +53,29 @@ interface StoredRow {
   expected_players: number | null;
 }
 
-const columns = [
-  'match_guid',
-  'player_id',
-  'name',
-  'day',
-  'kind',
-  'team',
-  'winner',
-  'score',
-  'goals',
-  'assists',
-  'saves',
-  'received',
-  'review_required',
-  'verification',
-  'source_types',
-  'selected_source',
-  'source_difference',
-  'expected_players',
-] as const satisfies readonly (keyof StoredRow)[];
+/** The stored results' columns, under the names the board receives. */
+export const storedColumns = {
+  match_guid: matchResults.matchGuid,
+  player_id: matchResults.playerId,
+  name: matchResults.name,
+  day: matchResults.day,
+  kind: matchResults.kind,
+  team: matchResults.team,
+  winner: matchResults.winner,
+  score: matchResults.score,
+  goals: matchResults.goals,
+  assists: matchResults.assists,
+  saves: matchResults.saves,
+  received: matchResults.received,
+  review_required: matchResults.reviewRequired,
+  verification: matchResults.verification,
+  source_types: matchResults.sourceTypes,
+  selected_source: matchResults.selectedSource,
+  source_difference: matchResults.sourceDifference,
+  expected_players: matchResults.expectedPlayers,
+} satisfies Record<keyof StoredRow, AnySQLiteColumn>;
+
+const columns = Object.keys(storedColumns) as (keyof StoredRow)[];
 
 export const builtResult = (row: StoredRow): BuiltResult => ({
   match_guid: row.match_guid,
@@ -110,12 +125,13 @@ const rowKey = (row: { match_guid: string; player_id: string }) => JSON.stringif
 /** At most this many matches per write: the rows travel as one JSON parameter; about 2 ms of CPU. */
 const chunkSize = 40;
 
-/** The matches whose stored results no longer reflect all their sources. */
-const pendingQuery = 'SELECT match_guid FROM match_builds WHERE built_revision IS NOT revision';
-const inList = 'SELECT value FROM json_each(?1)';
+/** The matches whose stored results no longer reflect all their sources (the partial index match_builds_pending). */
+export const notBuilt = sql`${matchBuilds.builtRevision} IS NOT ${matchBuilds.revision}`;
+
 // A build only lands if no source reached the match since it was read; otherwise the match stays pending.
-const unchangedSince = `SELECT json_extract(value, '$[0]') FROM json_each(?1)
-  JOIN match_builds ON match_builds.match_guid = json_extract(value, '$[0]') AND match_builds.revision = json_extract(value, '$[1]')`;
+const unchangedSince = (guid: SQLWrapper, guard: string) =>
+  sql`${guid} IN (SELECT json_extract(value, '$[0]') FROM json_each(${guard})
+    JOIN ${matchBuilds} ON ${matchBuilds.matchGuid} = json_extract(value, '$[0]') AND ${matchBuilds.revision} = json_extract(value, '$[1]'))`;
 
 /** Rebuilds these matches from their sources; returns those whose new results were stored. */
 export async function buildMatches(
@@ -131,90 +147,106 @@ export async function buildMatches(
   return built;
 }
 
+/** Everything a build of these matches reads, in one batch: one transaction, so the revisions read are those of the sources read. */
+function readSources(db: Database, guids: readonly string[]) {
+  const query = orm(db);
+  return query.batch([
+    query
+      .select({ match_guid: matchBuilds.matchGuid, revision: matchBuilds.revision })
+      .from(matchBuilds)
+      .where(inJsonList(matchBuilds.matchGuid, guids)),
+    query
+      .select(sqlNamed(resultObservations))
+      .from(resultObservations)
+      .where(inJsonList(resultObservations.matchGuid, guids))
+      .orderBy(resultObservations.received, rowid),
+    query
+      .select(sqlNamed(sourceReports))
+      .from(sourceReports)
+      .where(inJsonList(sourceReports.matchGuid, guids))
+      .orderBy(sourceReports.received, rowid),
+    query
+      .select(sqlNamed(prototypeResults))
+      .from(prototypeResults)
+      .where(inJsonList(sql`lower(trim(${prototypeResults.matchGuid}))`, guids))
+      .orderBy(desc(prototypeResults.day), desc(prototypeResults.received), desc(rowid)),
+    query
+      .select(sqlNamed(prototypeMatchRosters))
+      .from(prototypeMatchRosters)
+      .where(inJsonList(sql`lower(trim(${prototypeMatchRosters.matchGuid}))`, guids)),
+    query.select(storedColumns).from(matchResults).where(inJsonList(matchResults.matchGuid, guids)),
+  ]);
+}
+
 async function buildChunk(db: Database, roster: Roster, aliases: readonly Alias[], guids: readonly string[]) {
-  const list = JSON.stringify(guids);
-  // One batch is one transaction: the revisions read are those of the sources read.
-  const [builds, observations, reports, legacy, legacyRosters, existing] = (await db.batch([
-    db.prepare(`SELECT match_guid, revision FROM match_builds WHERE match_guid IN (${inList})`).bind(list),
-    db.prepare(`SELECT * FROM result_observations WHERE match_guid IN (${inList}) ORDER BY received, rowid`).bind(list),
-    db.prepare(`SELECT * FROM source_reports WHERE match_guid IN (${inList}) ORDER BY received, rowid`).bind(list),
-    db
-      .prepare(
-        `SELECT * FROM prototype_results WHERE lower(trim(match_guid)) IN (${inList}) ORDER BY day DESC, received DESC, rowid DESC`,
-      )
-      .bind(list),
-    db.prepare(`SELECT * FROM prototype_match_rosters WHERE lower(trim(match_guid)) IN (${inList})`).bind(list),
-    db.prepare(`SELECT ${columns.join(', ')} FROM match_results WHERE match_guid IN (${inList})`).bind(list),
-  ])) as [
-    { results: { match_guid: string; revision: number }[] },
-    { results: (Observation & { payload: string })[] },
-    { results: (SourceReport & { players: string })[] },
-    { results: StoredResult[] },
-    { results: CompleteRoster[] },
-    { results: StoredRow[] },
-  ];
+  const [builds, observations, reports, legacy, legacyRosters, stored] = await readSources(db, guids);
+  const existing = stored as StoredRow[];
   const merged = mergeSources(roster, aliases, {
-    legacy: legacy.results,
-    observations: observations.results,
-    rosters: legacyRosters.results,
-    reports: reports.results,
+    legacy: legacy as StoredResult[],
+    observations: observations as (Observation & { payload: string })[],
+    rosters: legacyRosters as CompleteRoster[],
+    reports: reports as (SourceReport & { players: string })[],
   });
   const expected = new Map(merged.rosters.map((complete) => [complete.match_guid, complete.expected_players]));
   const wanted = new Set(guids);
   const next = merged.rows
     .filter((row) => wanted.has(row.match_guid))
     .map((row) => storedRow(row, expected.get(row.match_guid) ?? null));
-  const before = new Map(existing.results.map((row) => [rowKey(row), row]));
+  const before = new Map(existing.map((row) => [rowKey(row), row]));
   const nextKeys = new Set(next.map(rowKey));
   const changed = next.filter((row) => {
     const previous = before.get(rowKey(row));
     return !previous || !sameRow(previous, row);
   });
-  const removed = existing.results
-    .filter((row) => !nextKeys.has(rowKey(row)))
-    .map((row) => [row.match_guid, row.player_id]);
-  const guard = JSON.stringify(builds.results.map((build) => [build.match_guid, build.revision]));
-  const writes: Statement[] = [];
+  const removed = existing.filter((row) => !nextKeys.has(rowKey(row))).map((row) => [row.match_guid, row.player_id]);
+  const guard = JSON.stringify(builds.map((build) => [build.match_guid, build.revision]));
+  const query = orm(db);
+  const writes: SQLWrapper[] = [];
   if (removed.length) {
     writes.push(
-      db
-        .prepare(
-          `DELETE FROM match_results WHERE match_guid IN (${unchangedSince})
-            AND (match_guid, player_id) IN (SELECT json_extract(value, '$[0]'), json_extract(value, '$[1]') FROM json_each(?2))`,
-        )
-        .bind(guard, JSON.stringify(removed)),
+      query
+        .delete(matchResults)
+        .where(
+          and(
+            unchangedSince(matchResults.matchGuid, guard),
+            sql`(${matchResults.matchGuid}, ${matchResults.playerId}) IN (SELECT json_extract(value, '$[0]'), json_extract(value, '$[1]') FROM json_each(${JSON.stringify(removed)}))`,
+          ),
+        ),
     );
   }
   if (changed.length) {
+    // Raw: the rows come from json_each, which Drizzle's insert cannot select from without listing every column.
     writes.push(
-      db
-        .prepare(
-          `INSERT INTO match_results (${columns.join(', ')})
-            SELECT ${columns.map((column) => `json_extract(value, '$.${column}')`).join(', ')} FROM json_each(?2)
-            WHERE json_extract(value, '$.match_guid') IN (${unchangedSince})
-            ON CONFLICT (match_guid, player_id) DO UPDATE SET ${columns
-              .slice(2)
-              .map((column) => `${column} = excluded.${column}`)
-              .join(', ')}`,
-        )
-        .bind(guard, JSON.stringify(changed)),
+      sql`INSERT INTO ${matchResults} (${sql.raw(columns.join(', '))})
+        SELECT ${sql.raw(columns.map((column) => `json_extract(value, '$.${column}')`).join(', '))} FROM json_each(${JSON.stringify(changed)})
+        WHERE ${unchangedSince(sql`json_extract(value, '$.match_guid')`, guard)}
+        ON CONFLICT (match_guid, player_id) DO UPDATE SET ${sql.raw(
+          columns
+            .slice(2)
+            .map((column) => `${column} = excluded.${column}`)
+            .join(', '),
+        )}`,
     );
   }
   writes.push(
-    db
-      .prepare(
-        `UPDATE match_builds SET built_revision = revision WHERE match_guid IN (${unchangedSince}) RETURNING match_guid`,
-      )
-      .bind(guard),
+    query
+      .update(matchBuilds)
+      .set({ builtRevision: sql`${matchBuilds.revision}` })
+      .where(unchangedSince(matchBuilds.matchGuid, guard))
+      .returning({ match_guid: matchBuilds.matchGuid }),
   );
-  const results = await db.batch(writes);
+  const results = await db.batch(writes.map((write) => statementOf(db, write)));
   return ((results.at(-1)?.results ?? []) as { match_guid: string }[]).map((row) => row.match_guid);
 }
 
 /** The matches waiting for a build, oldest first, at most `limit`. */
 export async function pendingMatches(db: Database, limit: number): Promise<string[]> {
-  const pending = await db.prepare(`${pendingQuery} LIMIT ?`).bind(limit).all<{ match_guid: string }>();
-  return pending.results.map((row) => row.match_guid);
+  const pending = await orm(db)
+    .select({ match_guid: matchBuilds.matchGuid })
+    .from(matchBuilds)
+    .where(notBuilt)
+    .limit(limit);
+  return pending.map((row) => row.match_guid);
 }
 
 async function basisOf(roster: Roster, aliases: readonly Alias[]): Promise<string> {
@@ -238,13 +270,16 @@ export async function buildPendingMatches(
   { rounds = 2 }: { rounds?: number } = {},
 ): Promise<boolean> {
   const basis = await basisOf(roster, aliases);
-  const stored = await db
-    .prepare('SELECT match_basis FROM sync_state WHERE id = 1')
-    .first<{ match_basis: string | null }>();
-  if (stored?.match_basis !== basis) {
-    await db.batch([
-      db.prepare('UPDATE match_builds SET built_revision = NULL WHERE built_revision IS NOT NULL'),
-      db.prepare('UPDATE sync_state SET match_basis = ? WHERE id = 1').bind(basis),
+  const query = orm(db);
+  const stored = await query
+    .select({ matchBasis: syncState.matchBasis })
+    .from(syncState)
+    .where(eq(syncState.id, 1))
+    .get();
+  if (stored?.matchBasis !== basis) {
+    await query.batch([
+      query.update(matchBuilds).set({ builtRevision: null }).where(isNotNull(matchBuilds.builtRevision)),
+      query.update(syncState).set({ matchBasis: basis }).where(eq(syncState.id, 1)),
     ]);
   }
   for (let round = 0; round < rounds; round++) {
@@ -260,10 +295,9 @@ export async function buildPendingMatches(
  * (the comparison ignores case, as canonical game IDs do).
  */
 export async function readStoredResults(db: Database, playerId?: string): Promise<BuiltResult[]> {
-  const select = `SELECT ${columns.join(', ')} FROM match_results`;
-  const rows =
-    playerId === undefined
-      ? await db.prepare(select).all<StoredRow>()
-      : await db.prepare(`${select} WHERE lower(player_id) = lower(?)`).bind(playerId).all<StoredRow>();
-  return rows.results.map(builtResult).sort(compareResults);
+  const rows = await orm(db)
+    .select(storedColumns)
+    .from(matchResults)
+    .where(playerId === undefined ? undefined : sql`lower(${matchResults.playerId}) = lower(${playerId})`);
+  return (rows as StoredRow[]).map(builtResult).sort(compareResults);
 }
