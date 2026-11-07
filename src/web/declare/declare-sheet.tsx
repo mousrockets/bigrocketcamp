@@ -1,5 +1,6 @@
 import { cn } from 'cn';
 import { MinusIcon, PlusIcon, XIcon } from 'lucide-react';
+import { type CSSProperties, useEffect, useRef } from 'react';
 import { exerciseDescription, exerciseEffect, formatNumber } from '../../lib/domain';
 import { payoffFor } from '../board/model';
 import type { Declaration, ExerciseType } from '../board/types';
@@ -9,6 +10,7 @@ import { Button } from '../components/ui/button';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from '../components/ui/dialog';
 import { Input } from '../components/ui/input';
 import type { DeclareForm } from './declare-context';
+import { useKeyboardInset } from './keyboard-inset';
 
 // The sheet over any page (a window on a wide screen): who, which exercise, how much, and what it repays.
 
@@ -73,15 +75,34 @@ export function DeclareSheet({
     value: name,
     label: name === me ? 'Toi' : name,
   }));
+  // While the keyboard is open, the sheet sits on top of it and keeps the field and the button in view.
+  const keyboard = useKeyboardInset(open);
+  const content = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const focused = document.activeElement;
+    if (keyboard && focused instanceof HTMLElement && content.current?.contains(focused)) {
+      focused.scrollIntoView({ block: 'nearest' });
+    }
+  }, [keyboard]);
   const add = (amount: number) =>
     onChange({ count: Math.min(limit, Math.max(stepOf[type], round((Number.isFinite(count) ? count : 0) + amount))) });
 
   return (
     <Dialog open={open} onOpenChange={(next) => onOpenChange(next)}>
       <DialogContent
+        ref={content}
         showCloseButton={false}
+        data-keyboard={keyboard ? '' : undefined}
+        style={
+          keyboard
+            ? ({
+                '--keyboard-bottom': `${keyboard.bottom}px`,
+                '--keyboard-top': `${keyboard.height}px`,
+              } as CSSProperties)
+            : undefined
+        }
         className={cn(
-          'top-auto bottom-0 left-0 flex max-h-[92dvh] w-full max-w-none translate-x-0 translate-y-0 flex-col gap-4 overflow-y-auto rounded-t-[30px] rounded-b-none border-t border-border bg-popover px-[18px] pt-2.5 pb-[max(env(safe-area-inset-bottom),24px)] ring-0 sm:max-w-none',
+          'group/sheet *:shrink-0 top-auto bottom-[var(--keyboard-bottom,0px)] left-0 flex max-h-[min(92dvh,calc(var(--keyboard-top,100dvh)-12px))] w-full max-w-none translate-x-0 translate-y-0 flex-col gap-4 overflow-y-auto rounded-t-[30px] rounded-b-none border-t border-border bg-popover px-[18px] pt-2.5 pb-0 ring-0 sm:max-w-none',
           'data-open:slide-in-from-bottom data-closed:slide-out-to-bottom data-open:zoom-in-100 data-closed:zoom-out-100',
           'lg:top-1/2 lg:bottom-auto lg:left-1/2 lg:max-w-[560px] lg:-translate-x-1/2 lg:-translate-y-1/2 lg:gap-[18px] lg:rounded-[28px] lg:border lg:p-7 lg:shadow-[0_40px_120px_rgb(0_0_0/0.6)] lg:data-open:slide-in-from-bottom-4',
         )}
@@ -236,7 +257,7 @@ export function DeclareSheet({
           </Alert>
         )}
 
-        <div className="flex gap-2.5">
+        <div className="sticky bottom-0 z-10 -mx-[18px] -mt-2 flex gap-2.5 bg-popover px-[18px] pt-2 pb-[max(env(safe-area-inset-bottom),24px)] group-data-[keyboard]/sheet:pb-3 lg:static lg:mx-0 lg:mt-0 lg:p-0">
           <DialogClose
             render={
               <Button
