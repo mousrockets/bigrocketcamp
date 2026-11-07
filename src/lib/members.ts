@@ -1,4 +1,4 @@
-import { and, asc, eq, ne, sql } from 'drizzle-orm';
+import { and, asc, eq, exists, isNotNull, ne, or, sql } from 'drizzle-orm';
 import type { Platform } from './club';
 import type { Database } from './db';
 import { orm } from './orm';
@@ -6,9 +6,18 @@ import {
   clubSettings,
   collectorDevices,
   collectorPairingCodes,
+  drinkDebts,
+  exercises,
   members,
+  mmrEntries,
+  playerIdentities,
+  playerIdentityAliases,
+  playerRanks,
+  prototypeResults,
+  resultObservations,
   sessions,
   signInCodes,
+  soloMmrEntries,
   soloRanks,
 } from './schema';
 
@@ -49,21 +58,37 @@ const isUniqueViolation = (error: unknown): boolean =>
 
 /** Whether a player slot already names some game record: renaming it would orphan them. */
 export async function slotHasHistory(db: Database, slot: string): Promise<boolean> {
-  const found = await db
-    .prepare(
-      `SELECT EXISTS (SELECT 1 FROM prototype_results WHERE name = ?1)
-        OR EXISTS (SELECT 1 FROM exercises WHERE player = ?1)
-        OR EXISTS (SELECT 1 FROM mmr_entries WHERE player = ?1)
-        OR EXISTS (SELECT 1 FROM player_ranks WHERE player = ?1)
-        OR EXISTS (SELECT 1 FROM solo_ranks WHERE player = ?1 AND mmr IS NOT NULL)
-        OR EXISTS (SELECT 1 FROM solo_mmr_entries WHERE player = ?1)
-        OR EXISTS (SELECT 1 FROM player_identities WHERE slot = ?1)
-        OR EXISTS (SELECT 1 FROM player_identity_aliases WHERE slot = ?1)
-        OR EXISTS (SELECT 1 FROM drink_debts WHERE payer = ?1 OR recipient = ?1)
-        OR EXISTS (SELECT 1 FROM result_observations WHERE json_extract(payload, '$.name') = ?1) AS found`,
-    )
-    .bind(slot)
-    .first<{ found: number }>();
+  const query = orm(db);
+  const any = { one: sql`1` };
+  const hasRecord = or(
+    exists(query.select(any).from(prototypeResults).where(eq(prototypeResults.name, slot))),
+    exists(query.select(any).from(exercises).where(eq(exercises.player, slot))),
+    exists(query.select(any).from(mmrEntries).where(eq(mmrEntries.player, slot))),
+    exists(query.select(any).from(playerRanks).where(eq(playerRanks.player, slot))),
+    exists(
+      query
+        .select(any)
+        .from(soloRanks)
+        .where(and(eq(soloRanks.player, slot), isNotNull(soloRanks.mmr))),
+    ),
+    exists(query.select(any).from(soloMmrEntries).where(eq(soloMmrEntries.player, slot))),
+    exists(query.select(any).from(playerIdentities).where(eq(playerIdentities.slot, slot))),
+    exists(query.select(any).from(playerIdentityAliases).where(eq(playerIdentityAliases.slot, slot))),
+    exists(
+      query
+        .select(any)
+        .from(drinkDebts)
+        .where(or(eq(drinkDebts.payer, slot), eq(drinkDebts.recipient, slot))),
+    ),
+    exists(
+      query
+        .select(any)
+        .from(resultObservations)
+        .where(sql`json_extract(${resultObservations.payload}, '$.name') = ${slot}`),
+    ),
+  );
+  // Raw outer SELECT: Drizzle has no select without a table. (D1 refuses a UNION ALL of ten terms.)
+  const found = await query.get<{ found: number }>(sql`SELECT ${hasRecord} AS found`);
   return Boolean(found?.found);
 }
 
