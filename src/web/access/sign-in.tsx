@@ -53,7 +53,7 @@ export function SignIn() {
         <div className="flex min-h-[302px] animate-rise-in flex-col items-center gap-3.5 text-center lg:min-h-0">
           <ClubLogo className="size-[72px] rounded-[20px] text-[28px] shadow-[0_12px_40px_rgba(61,139,255,.25)]" />
           <Kicker>ESPACE RÉSERVÉ AUX JOUEURS</Kicker>
-          <GateTitle className="text-[40px] lg:text-[44px]">Prêt pour le kickoff ?</GateTitle>
+          <GateTitle className="text-[40px] lg:text-[44px]">Connexion</GateTitle>
           <GateLead className="text-balance">
             Ton e-mail, et on t’envoie un code à six chiffres. Plus rapide qu’un flip reset.
           </GateLead>
