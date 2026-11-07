@@ -17,6 +17,10 @@ const buttonVariants = cva(
         destructive:
           "bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40",
         link: "text-primary underline-offset-4 hover:underline",
+        gate: "bg-gate-text font-display font-extrabold text-[17px] text-gate [font-stretch:85%] hover:bg-white",
+        "gate-outline":
+          "border-white/14 bg-transparent font-display font-extrabold text-[17px] text-gate-text [font-stretch:85%] hover:bg-gate-field hover:text-white",
+        "gate-link": "font-semibold text-[14px] text-gate-link hover:text-[#a9d1ff]",
       },
       size: {
         default:
@@ -30,6 +34,8 @@ const buttonVariants = cva(
         "icon-sm":
           "size-7 rounded-[min(var(--radius-md),12px)] in-data-[slot=button-group]:rounded-lg",
         "icon-lg": "size-9",
+        gate: "h-[54px] gap-2 rounded-[14px] px-7 [&_svg:not([class*='size-'])]:size-[18px]",
+        "gate-link": "min-h-11 px-2",
       },
     },
     defaultVariants: {
