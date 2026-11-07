@@ -133,7 +133,7 @@ function TabBar({ onDeclare }: { onDeclare: () => void }) {
         type="button"
         onClick={onDeclare}
         aria-label="Déclarer un exercice"
-        className="flex size-[54px] items-center justify-center justify-self-center rounded-[18px] bg-primary text-primary-foreground shadow-[0_6px_18px_color-mix(in_srgb,var(--primary)_35%,transparent)]"
+        className="flex size-[54px] items-center justify-center justify-self-center rounded-[18px] bg-primary transition-transform active:scale-95 text-primary-foreground shadow-[0_6px_18px_color-mix(in_srgb,var(--primary)_35%,transparent)]"
       >
         <PlusIcon />
       </button>

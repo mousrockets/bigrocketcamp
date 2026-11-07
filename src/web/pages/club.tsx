@@ -2,7 +2,7 @@ import { Link, useLocation, useNavigate } from '@tanstack/react-router';
 import { cn } from 'cn';
 import { FlameIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { formatNumber, parisDay } from '../../lib/domain';
+import { formatNumber, lastPlaceRuleOn, parisDay } from '../../lib/domain';
 import { useBoardState } from '../board/board-context';
 import {
   daysUntil,
@@ -10,6 +10,7 @@ import {
   filledSegments,
   lastDefeatOf,
   lastMatchOf,
+  lastPlaceRulesOf,
   matchesOf,
   monthLead,
   shiftDay,
@@ -21,7 +22,9 @@ import {
 import type { BoardState } from '../board/types';
 import { playerPlatform, useClub } from '../club';
 import { ClubHeader } from '../components/club/app-shell';
+import { RuleStrip } from '../components/club/kickoff';
 import { type Match, matchTime, OutcomeTag, Pushups, Score } from '../components/club/match-parts';
+import { Odometer } from '../components/club/odometer';
 import { PageGlow, Panel } from '../components/club/page';
 import { PlayerAvatar } from '../components/club/player-avatar';
 import { Segmented } from '../components/club/segmented';
@@ -73,7 +76,7 @@ function LastMatch({ match, now }: { match: Match; now: number }) {
       to="/matchs/$guid"
       params={{ guid: match.guid }}
       aria-label={label}
-      className="flex flex-col overflow-hidden rounded-card border border-border bg-card text-foreground no-underline transition-colors hover:bg-accent/60 hover:no-underline"
+      className="flex flex-col overflow-hidden rounded-card border border-border bg-card text-foreground no-underline lift hover:bg-accent/60 hover:no-underline"
     >
       <div className="flex items-center justify-between px-4 pt-3.5 lg:px-6 lg:pt-5">
         <span className="kicker">Dernier match · {match.received ? sinceLabel(match.received, now) : match.day}</span>
@@ -145,7 +148,7 @@ function MyDebt({ data, me }: { data: BoardState; me: string }) {
         <span className="kicker">Ta dette</span>
         {streak && streak.current > 0 && (
           <span className="flex items-center gap-1 text-xs font-semibold text-streak">
-            <FlameIcon aria-hidden="true" className="size-3.5" />
+            <FlameIcon aria-hidden="true" className="size-3.5 motion-safe:animate-flame" />
             {streak.current} jour{streak.current > 1 ? 's' : ''} d’affilée
           </span>
         )}
@@ -158,7 +161,7 @@ function MyDebt({ data, me }: { data: BoardState; me: string }) {
               settled && 'text-settled',
             )}
           >
-            {formatNumber(stats.remaining)}
+            <Odometer value={formatNumber(stats.remaining)} />
           </span>
           <span className="pb-1 font-display text-lg leading-[1.05] font-bold [font-stretch:75%] text-soft lg:pb-1.5 lg:text-[22px]">
             {settled ? (
@@ -342,7 +345,7 @@ function Challenge({ data, now }: { data: BoardState; now: number }) {
   return (
     <Link
       to="/defi"
-      className="flex items-center justify-between gap-3 rounded-card border border-border bg-card p-4 text-foreground no-underline hover:bg-accent/60 hover:no-underline lg:flex-[1_1_280px] lg:flex-col lg:items-stretch lg:justify-between lg:gap-4 lg:p-5"
+      className="lift flex items-center justify-between gap-3 rounded-card border border-border bg-card p-4 text-foreground no-underline hover:bg-accent/60 hover:no-underline lg:flex-[1_1_280px] lg:flex-col lg:items-stretch lg:justify-between lg:gap-4 lg:p-5"
     >
       <div className="flex flex-col gap-1 lg:contents">
         <span className="kicker">Défi de {month}</span>
@@ -467,6 +470,15 @@ export function ClubPage() {
               <Team data={data} me={me} period={period} />
             </section>
             <Challenge data={data} now={now} />
+          </div>
+          <div className="relative">
+            <RuleStrip
+              bonus={
+                lastPlaceRuleOn(lastPlaceRulesOf(data), parisDay()).enabled
+                  ? 'Le moins de points du club dans l’équipe : +5'
+                  : 'Pas de supplément pour le dernier aux points'
+              }
+            />
           </div>
           <p className="relative hidden text-[11px] text-muted-foreground lg:block">
             Ce produit n’est pas officiel et n’a pas l’approbation d’Epic Games.

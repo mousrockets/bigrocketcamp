@@ -67,7 +67,7 @@ function MatchItem({ match, selected }: { match: Match; selected: boolean }) {
       params={{ guid: match.guid }}
       aria-current={selected ? 'true' : undefined}
       className={cn(
-        'relative flex flex-col gap-2.5 overflow-hidden rounded-[20px] border border-border bg-card py-3.5 pr-4 pl-5 text-foreground no-underline hover:bg-accent/60 hover:no-underline',
+        'relative flex flex-col gap-2.5 overflow-hidden rounded-[20px] border border-border bg-card py-3.5 pr-4 pl-5 text-foreground no-underline max-lg:lift hover:bg-accent/60 hover:no-underline',
         'lg:grid lg:grid-cols-[1fr_auto] lg:items-center lg:gap-3.5 lg:rounded-none lg:border-0 lg:border-t lg:py-3.5 lg:pl-6',
         selected && 'lg:bg-primary/8 lg:shadow-[inset_3px_0_0_var(--primary)]',
       )}
@@ -235,6 +235,12 @@ function MatchDetail({ match, data }: { match: Match; data: BoardState }) {
   );
 }
 
+/** A match arrived less than a quarter of an hour ago: the dot pulses, as the old "live" line did. */
+const recent = (data: BoardState) => {
+  const seen = data.collectors[0]?.last_seen;
+  return !!seen && Date.now() - Date.parse(seen) < 15 * 60_000;
+};
+
 function lastReception(data: BoardState): string {
   const seen = data.collectors[0]?.last_seen;
   if (!seen) return 'En attente de la première collecte';
@@ -295,7 +301,14 @@ export function MatchesPage({ guid }: { guid?: string }) {
 
   const status = data && (
     <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-      <i aria-hidden="true" className={cn('size-[7px] rounded-full', data.collectors[0] ? 'bg-settled' : 'bg-faint')} />
+      <i
+        aria-hidden="true"
+        className={cn(
+          'size-[7px] rounded-full',
+          data.collectors[0] ? 'bg-settled text-settled' : 'bg-faint',
+          recent(data) && 'motion-safe:animate-live',
+        )}
+      />
       {lastReception(data)}
     </span>
   );

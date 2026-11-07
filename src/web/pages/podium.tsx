@@ -99,7 +99,8 @@ export function PodiumPage() {
                   <span className="font-numeral text-[30px] leading-none">{step.value}</span>
                   <div
                     className={cn(
-                      'flex w-full origin-bottom animate-in justify-center rounded-t-xl pt-2.5 duration-700 slide-in-from-bottom-8 fade-in-0',
+                      'flex w-full animate-rise justify-center rounded-t-xl pt-2.5',
+                      rank === 3 && '[animation-delay:.1s]',
                       heights[rank],
                       rank === 1 ? 'bg-primary' : 'bg-secondary',
                     )}
