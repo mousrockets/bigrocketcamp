@@ -12,6 +12,8 @@ export const roster: readonly string[] = players.map((player) => player.slot);
 
 /** Makes the fictional players members of the test database's club, as the API reads them. */
 export async function joinTestClub(db: Database): Promise<void> {
+  // Raw SQL: migration tests also join databases from before the latest migrations, whose members table lacks
+  // columns Drizzle's insert would name.
   await db.batch(
     players.map((player, index) =>
       db
