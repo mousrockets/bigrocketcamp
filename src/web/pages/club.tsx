@@ -73,7 +73,7 @@ function LastMatch({ match, now }: { match: Match; now: number }) {
       to="/matchs/$guid"
       params={{ guid: match.guid }}
       aria-label={label}
-      className="flex flex-col overflow-hidden rounded-card border border-border bg-card text-foreground no-underline transition-colors hover:bg-[#141418] hover:no-underline"
+      className="flex flex-col overflow-hidden rounded-card border border-border bg-card text-foreground no-underline transition-colors hover:bg-accent/60 hover:no-underline"
     >
       <div className="flex items-center justify-between px-4 pt-3.5 lg:px-6 lg:pt-5">
         <span className="kicker">Dernier match · {match.received ? sinceLabel(match.received, now) : match.day}</span>
@@ -234,35 +234,38 @@ function Team({ data, me, period }: { data: BoardState; me: string | null; perio
       <Panel className="lg:hidden">
         <ol aria-label="L’équipe au MMR 2v2">
           {standings.map(({ name, index, rank }, position) => (
-            <li
-              key={name}
-              className={cn(
-                'grid min-h-11 grid-cols-[22px_36px_1fr_auto_40px] items-center gap-2.5 border-t border-border px-3.5 py-3 first:border-t-0',
-                name === me && 'bg-primary/7',
-              )}
-            >
-              <span className="font-numeral text-[17px] text-muted-foreground">{position + 1}</span>
-              <PlayerAvatar name={name} me={name === me} index={index} />
-              <span className="flex min-w-0 flex-col gap-0.5">
-                <b className="truncate text-[15px] font-semibold">
-                  {name}
-                  {name === me && (
-                    <Badge variant="me" className="ml-1 align-middle">
-                      Toi
-                    </Badge>
-                  )}
-                </b>
-                <small className="truncate text-xs text-muted-foreground">
-                  {[rank?.label || 'Rang non reçu', playerPlatform(players, name)].filter(Boolean).join(' · ')}
-                </small>
-              </span>
-              <span className="font-numeral text-[19px] font-bold">
-                {rank?.mmr != null ? formatNumber(rank.mmr) : '—'}
-              </span>
-              <span className={cn('text-right font-numeral text-base font-bold', debtClass(debts.get(name) ?? 0))}>
-                <span className="sr-only">Pompes dues : </span>
-                {formatNumber(debts.get(name) ?? 0)}
-              </span>
+            <li key={name} className="border-t border-border first:border-t-0">
+              <Link
+                to="/joueurs/$position"
+                params={{ position: String(index + 1) }}
+                className={cn(
+                  'grid min-h-11 grid-cols-[22px_36px_1fr_auto_40px] items-center gap-2.5 px-3.5 py-3 text-foreground no-underline hover:bg-accent/60 hover:no-underline',
+                  name === me && 'bg-primary/7',
+                )}
+              >
+                <span className="font-numeral text-[17px] text-muted-foreground">{position + 1}</span>
+                <PlayerAvatar name={name} me={name === me} index={index} />
+                <span className="flex min-w-0 flex-col gap-0.5">
+                  <b className="truncate text-[15px] font-semibold">
+                    {name}
+                    {name === me && (
+                      <Badge variant="me" className="ml-1 align-middle">
+                        Toi
+                      </Badge>
+                    )}
+                  </b>
+                  <small className="truncate text-xs text-muted-foreground">
+                    {[rank?.label || 'Rang non reçu', playerPlatform(players, name)].filter(Boolean).join(' · ')}
+                  </small>
+                </span>
+                <span className="font-numeral text-[19px] font-bold">
+                  {rank?.mmr != null ? formatNumber(rank.mmr) : '—'}
+                </span>
+                <span className={cn('text-right font-numeral text-base font-bold', debtClass(debts.get(name) ?? 0))}>
+                  <span className="sr-only">Pompes dues : </span>
+                  {formatNumber(debts.get(name) ?? 0)}
+                </span>
+              </Link>
             </li>
           ))}
         </ol>
@@ -297,11 +300,15 @@ function Team({ data, me, period }: { data: BoardState; me: string | null; perio
               return (
                 <TableRow key={name} className={cn(name === me && 'bg-primary/6')}>
                   <TableCell className="px-4 py-3">
-                    <span className="flex items-center gap-2.5">
+                    <Link
+                      to="/joueurs/$position"
+                      params={{ position: String(index + 1) }}
+                      className="flex items-center gap-2.5 text-foreground no-underline hover:underline"
+                    >
                       <PlayerAvatar name={name} me={name === me} index={index} className="size-[34px]" />
                       <b className="font-semibold">{name}</b>
                       {name === me && <Badge variant="me">Toi</Badge>}
-                    </span>
+                    </Link>
                   </TableCell>
                   <TableCell className="px-4 py-3 text-right text-soft">{rank?.label || '—'}</TableCell>
                   <TableCell className="px-4 py-3 text-right">
@@ -335,7 +342,7 @@ function Challenge({ data, now }: { data: BoardState; now: number }) {
   return (
     <Link
       to="/defi"
-      className="flex items-center justify-between gap-3 rounded-card border border-border bg-card p-4 text-foreground no-underline hover:bg-[#141418] hover:no-underline lg:flex-[1_1_280px] lg:flex-col lg:items-stretch lg:justify-between lg:gap-4 lg:p-5"
+      className="flex items-center justify-between gap-3 rounded-card border border-border bg-card p-4 text-foreground no-underline hover:bg-accent/60 hover:no-underline lg:flex-[1_1_280px] lg:flex-col lg:items-stretch lg:justify-between lg:gap-4 lg:p-5"
     >
       <div className="flex flex-col gap-1 lg:contents">
         <span className="kicker">Défi de {month}</span>

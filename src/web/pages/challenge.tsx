@@ -4,11 +4,11 @@ import { ChevronRightIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { formatNumber } from '../../lib/domain';
 import { useBoardState } from '../board/board-context';
+import type { MonthlyState } from '../board/monthly';
 import { Note, PageGlow, PageHeader, Panel } from '../components/club/page';
 import { SeasonCountdown } from '../components/club/season-countdown';
 import { Badge } from '../components/ui/badge';
 import { Skeleton } from '../components/ui/skeleton';
-import type { MonthlyState } from '../monthly-mmr';
 
 // The month's 2v2 MMR challenge: how long before the close, the provisional ranking, and the rule.
 
@@ -180,7 +180,7 @@ export function ChallengePage() {
               <Link
                 key={to}
                 to={to}
-                className="flex min-h-11 items-center justify-between border-t border-border px-4 py-3.5 text-[15px] font-semibold text-foreground no-underline first:border-t-0 hover:bg-[#141418] hover:no-underline"
+                className="flex min-h-11 items-center justify-between border-t border-border px-4 py-3.5 text-[15px] font-semibold text-foreground no-underline first:border-t-0 hover:bg-accent/60 hover:no-underline"
               >
                 {label}
                 <ChevronRightIcon aria-hidden="true" className="size-[18px] text-muted-foreground" />

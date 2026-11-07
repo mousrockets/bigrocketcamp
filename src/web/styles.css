@@ -5,7 +5,6 @@
 @import "@fontsource-variable/archivo/wdth.css";
 @import "@fontsource-variable/archivo/wdth-italic.css";
 @import "@fontsource-variable/inter";
-@import "./legacy.css";
 
 /* The light theme follows the same tokens: `dark:` utilities mean the dark one, the reference. */
 @custom-variant dark (&:where(:root:not([data-theme="light"]) *));

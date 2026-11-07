@@ -67,7 +67,7 @@ function MatchItem({ match, selected }: { match: Match; selected: boolean }) {
       params={{ guid: match.guid }}
       aria-current={selected ? 'true' : undefined}
       className={cn(
-        'relative flex flex-col gap-2.5 overflow-hidden rounded-[20px] border border-border bg-card py-3.5 pr-4 pl-5 text-foreground no-underline hover:bg-[#141418] hover:no-underline',
+        'relative flex flex-col gap-2.5 overflow-hidden rounded-[20px] border border-border bg-card py-3.5 pr-4 pl-5 text-foreground no-underline hover:bg-accent/60 hover:no-underline',
         'lg:grid lg:grid-cols-[1fr_auto] lg:items-center lg:gap-3.5 lg:rounded-none lg:border-0 lg:border-t lg:py-3.5 lg:pl-6',
         selected && 'lg:bg-primary/8 lg:shadow-[inset_3px_0_0_var(--primary)]',
       )}
