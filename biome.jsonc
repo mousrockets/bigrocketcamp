@@ -17,7 +17,7 @@
   "overrides": [
     {
       // The shadcn files stay close to upstream, so that a later `shadcn add --diff` remains readable.
-      "includes": ["src/web/components/ui/**", "src/web/hooks/**", "src/web/lib/highlighter.tsx"],
+      "includes": ["src/web/components/ui/**", "src/web/hooks/use-mobile.ts", "src/web/lib/highlighter.tsx"],
       "formatter": { "enabled": false },
       "linter": { "enabled": false },
       "assist": { "enabled": false }

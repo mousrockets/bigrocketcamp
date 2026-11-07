@@ -4,13 +4,13 @@ import { defaultLastPlaceRules, summarize } from '../../lib/domain';
 import { type Board, useBoardState } from '../board';
 import { platformLabels, useClub } from '../club';
 import { epicNotice } from '../components/epic-notice';
+import { useNow } from '../hooks/use-now';
 import { ClubBadge } from '../shell/club-badge';
 import { DebtHero } from './debt-hero';
 import type { CardPlayer } from './player-card';
 import type { CardRank } from './rank-block';
 import { currentStreak, debtOf, highestTier, isLive, latest, receptionLabel } from './stats';
 import { TeamCarousel } from './team-carousel';
-import { useNow } from './use-now';
 
 const noRank: CardRank = { mmr: null, label: 'Rang pas encore relevé', tier: null, peak: null };
 

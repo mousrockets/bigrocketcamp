@@ -9,9 +9,9 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from '../components/ui/carousel';
+import { useNow } from '../hooks/use-now';
 import { type CardPlayer, PlayerCard } from './player-card';
 import { rankRgb } from './stats';
-import { useNow } from './use-now';
 
 /**
  * On a phone, one card at a time, centred, the next ones peeking; on a computer, the cards side by side from the
