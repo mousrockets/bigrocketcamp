@@ -1,8 +1,11 @@
+import { and, asc, desc, eq, gte, isNull, lt, type SQLWrapper, sql } from 'drizzle-orm';
 import { type ClubPlayer, type Roster, rosterOf } from './club';
 import { parisDay } from './days';
 import type { Database } from './db';
 import type { MmrAccount, MmrEntry } from './mmr-ledger';
+import { inJsonList, orm, rowid, sqlNamed, statementOf } from './orm';
 import { readPlayerIdentities } from './player-identities';
+import { drinkDebts, mmrEntries, monthlyMmrPolicy, monthlyMmrResults, soloMmrEntries } from './schema';
 
 export const monthCloseGraceMs = 300_000;
 /** How long the member who marked a drink paid can take it back. */
@@ -158,16 +161,21 @@ export function monthlyRanking(
   };
 }
 
+const readPolicy = (db: Database) =>
+  orm(db)
+    .select({ starts_month: monthlyMmrPolicy.startsMonth })
+    .from(monthlyMmrPolicy)
+    .where(eq(monthlyMmrPolicy.id, 1))
+    .get();
+
 async function policy(db: Database, now: number) {
-  const read = () =>
-    db.prepare('SELECT starts_month FROM monthly_mmr_policy WHERE id=1').first<{ starts_month: string }>();
-  const config = await read();
+  const config = await readPolicy(db);
   if (config) return config;
-  await db
-    .prepare('INSERT INTO monthly_mmr_policy (id,starts_month) VALUES (1,?) ON CONFLICT(id) DO NOTHING')
-    .bind(parisMonth(now))
-    .run();
-  return read();
+  await orm(db)
+    .insert(monthlyMmrPolicy)
+    .values({ id: 1, startsMonth: parisMonth(now) })
+    .onConflictDoNothing({ target: monthlyMmrPolicy.id });
+  return readPolicy(db);
 }
 
 // Duo and solo readings live in their own tables; a ranking reads both, each tagged with its account.
@@ -176,26 +184,46 @@ const ledgers = [
   ['solo', 'solo_mmr_entries'],
 ] as const;
 
-/** The month's readings of each player's accounts, oldest first: only what one month's ranking needs. */
-const monthEntries = (db: Database, roster: Roster, month: string) => {
+/** One account's readings of the month by the roster's players. */
+const accountEntries = (
+  db: Database,
+  account: MmrAccount,
+  ledger: typeof mmrEntries | typeof soloMmrEntries,
+  roster: Roster,
+  bounds: ReturnType<typeof monthBounds>,
+) =>
+  orm(db)
+    .select({
+      sequence: rowid.as('sequence'),
+      account: sql<MmrAccount>`${account}`.as('account'),
+      id: ledger.id,
+      player: ledger.player,
+      mmr: ledger.mmr,
+      tier: ledger.tier,
+      division: ledger.division,
+      recorded_at: ledger.recordedAt,
+    })
+    .from(ledger)
+    .where(
+      and(
+        inJsonList(ledger.player, roster),
+        gte(ledger.recordedAt, bounds.startAt),
+        lt(ledger.recordedAt, bounds.cutoffAt),
+      ),
+    );
+
+/** The month's readings of each player's accounts: only what one month's ranking needs. */
+const monthEntries = (db: Database, roster: Roster, month: string): Promise<MmrEntry[]> => {
   const bounds = monthBounds(month);
-  return db
-    .prepare(
-      ledgers
-        .map(
-          ([account, table]) =>
-            `SELECT rowid AS sequence,'${account}' AS account,id,player,mmr,tier,division,recorded_at FROM ${table}
-              WHERE player IN (SELECT value FROM json_each(?1)) AND recorded_at >= ?2 AND recorded_at < ?3`,
-        )
-        .join(' UNION ALL '),
-    )
-    .bind(JSON.stringify(roster), bounds.startAt, bounds.cutoffAt)
-    .all<MmrEntry>();
+  return accountEntries(db, 'duo', mmrEntries, roster, bounds).unionAll(
+    accountEntries(db, 'solo', soloMmrEntries, roster, bounds),
+  );
 };
 
 /** The latest reading of the month of each player's accounts: all the live ranking shows. */
 const latestEntries = (db: Database, roster: Roster, month: string) => {
   const bounds = monthBounds(month);
+  // Raw: one indexed lookup per player, driven by json_each, which Drizzle cannot select from.
   return db
     .prepare(
       ledgers
@@ -218,40 +246,33 @@ export async function closeMonthlyMmr(db: Database, roster: Roster, now: number 
   const config = await policy(db, now);
   const current = parisMonth(now);
   let closed = 0;
-  const existing = (await db.prepare('SELECT month FROM monthly_mmr_results').all<{ month: string }>()).results.map(
+  const query = orm(db);
+  const existing = (await query.select({ month: monthlyMmrResults.month }).from(monthlyMmrResults)).map(
     (row) => row.month,
   );
   for (let month = config?.starts_month ?? current; month < current && closed < 24; month = nextMonth(month)) {
     const bounds = monthBounds(month);
     if (now < Date.parse(bounds.cutoffAt) + monthCloseGraceMs || existing.includes(month)) continue;
-    const snapshot = monthlyRanking(roster, (await monthEntries(db, roster, month)).results, month);
+    const snapshot = monthlyRanking(roster, await monthEntries(db, roster, month), month);
     const payload = JSON.stringify(snapshot);
     const closedAt = new Date(now).toISOString();
-    const writes = [
-      db
-        .prepare(
-          'INSERT INTO monthly_mmr_results (month,cutoff_at,closed_at,status,snapshot) VALUES (?,?,?,?,?) ON CONFLICT(month) DO NOTHING',
-        )
-        .bind(month, bounds.cutoffAt, closedAt, snapshot.status, payload),
+    const writes: SQLWrapper[] = [
+      query
+        .insert(monthlyMmrResults)
+        .values({ month, cutoffAt: bounds.cutoffAt, closedAt, status: snapshot.status, snapshot: payload })
+        .onConflictDoNothing({ target: monthlyMmrResults.month }),
     ];
     for (const debt of snapshot.debts) {
+      // Raw: a debt is only owed under the snapshot that closed the month, and Drizzle builds an insert from a
+      // select only by listing every column, in order. One D1 batch, then, rather than Drizzle's.
       writes.push(
-        db
-          .prepare(
-            "INSERT INTO drink_debts (id,month,payer,recipient) SELECT ?,?,?,? WHERE EXISTS (SELECT 1 FROM monthly_mmr_results WHERE month=? AND snapshot=? AND status='final') ON CONFLICT(id) DO NOTHING",
-          )
-          .bind(debt.id, debt.month, debt.payer, debt.recipient, month, payload),
+        sql`INSERT INTO drink_debts (id,month,payer,recipient) SELECT ${debt.id},${debt.month},${debt.payer},${debt.recipient} WHERE EXISTS (SELECT 1 FROM monthly_mmr_results WHERE month=${month} AND snapshot=${payload} AND status='final') ON CONFLICT(id) DO NOTHING`,
       );
     }
-    await db.batch(writes);
+    await db.batch(writes.map((write) => statementOf(db, write)));
     closed++;
   }
   return { ok: true, closed, month: current };
-}
-
-interface StoredDebt extends DrinkDebt {
-  paid_at: string | null;
-  paid_by: string | null;
 }
 
 export async function settleDrink(
@@ -262,7 +283,8 @@ export async function settleDrink(
   undo = false,
   now: number = Date.now(),
 ) {
-  const debt = await db.prepare('SELECT * FROM drink_debts WHERE id=?').bind(id).first<StoredDebt>();
+  const query = orm(db);
+  const debt = await query.select(sqlNamed(drinkDebts)).from(drinkDebts).where(eq(drinkDebts.id, id)).get();
   if (!debt) throw withStatus('Dette introuvable.', 404);
   const own = (await readPlayerIdentities(db, roster, userId)).map((identity) => identity.slot);
   if (!own.includes(debt.payer) && !own.includes(debt.recipient)) {
@@ -272,15 +294,15 @@ export async function settleDrink(
     if (debt.paid_by !== userId || !debt.paid_at || now - Date.parse(debt.paid_at) > undoMs) {
       throw withStatus('Annulation disponible pendant 24 h pour son auteur.', 403);
     }
-    await db
-      .prepare('UPDATE drink_debts SET paid_at=NULL,paid_by=NULL WHERE id=? AND paid_by=? AND paid_at=?')
-      .bind(id, userId, debt.paid_at)
-      .run();
+    await query
+      .update(drinkDebts)
+      .set({ paidAt: null, paidBy: null })
+      .where(and(eq(drinkDebts.id, id), eq(drinkDebts.paidBy, userId), eq(drinkDebts.paidAt, debt.paid_at)));
   } else {
-    await db
-      .prepare('UPDATE drink_debts SET paid_at=?,paid_by=? WHERE id=? AND paid_at IS NULL')
-      .bind(new Date(now).toISOString(), userId, id)
-      .run();
+    await query
+      .update(drinkDebts)
+      .set({ paidAt: new Date(now).toISOString(), paidBy: userId })
+      .where(and(eq(drinkDebts.id, id), isNull(drinkDebts.paidAt)));
   }
   return { ok: true };
 }
@@ -293,23 +315,28 @@ export async function readMonthlyMmr(
 ) {
   const roster = rosterOf(players);
   const month = parisMonth(now);
+  const query = orm(db);
   const [latest, closed, debts, identities, config] = await Promise.all([
     latestEntries(db, roster, month),
-    db
-      .prepare('SELECT month,cutoff_at,closed_at,status,snapshot FROM monthly_mmr_results ORDER BY month DESC')
-      .all<{ month: string; closed_at: string; snapshot: string }>(),
-    db.prepare('SELECT * FROM drink_debts ORDER BY month DESC,payer,recipient').all<StoredDebt>(),
+    query
+      .select({ closed_at: monthlyMmrResults.closedAt, snapshot: monthlyMmrResults.snapshot })
+      .from(monthlyMmrResults)
+      .orderBy(desc(monthlyMmrResults.month)),
+    query
+      .select(sqlNamed(drinkDebts))
+      .from(drinkDebts)
+      .orderBy(desc(drinkDebts.month), asc(drinkDebts.payer), asc(drinkDebts.recipient)),
     readPlayerIdentities(db, roster, userId),
-    db.prepare('SELECT starts_month FROM monthly_mmr_policy WHERE id=1').first<{ starts_month: string }>(),
+    readPolicy(db),
   ]);
   const allowedPlayers = identities.map((identity) => identity.slot);
   const { debts: _preview, losers: _last, ...live } = monthlyRanking(roster, latest.results, month, { live: true });
   return {
     startsMonth: config?.starts_month ?? month,
     current: { ...live, status: 'live' as const },
-    closed: closed.results.map((row) => ({ ...JSON.parse(row.snapshot), closedAt: row.closed_at })),
+    closed: closed.map((row) => ({ ...JSON.parse(row.snapshot), closedAt: row.closed_at })),
     allowedPlayers,
-    debts: debts.results.map((debt) => ({
+    debts: debts.map((debt) => ({
       id: debt.id,
       month: debt.month,
       payer: debt.payer,
