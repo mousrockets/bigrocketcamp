@@ -1,46 +1,55 @@
+import { useForm } from '@tanstack/react-form';
 import { useMutation } from '@tanstack/react-query';
 import { ArrowRight, ChevronLeft } from 'lucide-react';
 import { useState } from 'react';
+import { signInCode, signInEmail } from '../../lib/contract';
 import { useClubName } from '../club';
 import { ClubLogo } from '../components/club-logo';
 import { Button } from '../components/ui/button';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '../components/ui/input-otp';
 import { requestSignInCode, verifySignInCode } from '../writes';
-import { GateField, GateLabel, GateLead, GateMessage, GatePage, GateTitle, Kicker, networkError } from './gate';
+import {
+  GateField,
+  GateFieldError,
+  GateFormField,
+  GateLabel,
+  GateLead,
+  GateMessage,
+  GatePage,
+  GateTitle,
+  Kicker,
+  networkError,
+} from './gate';
 
 const spamHint = 'Pas de code ? Jette un œil aux indésirables, il se cache parfois mieux qu’un gardien.';
 
 /** Signing in with a six-digit code sent by email: no password, no Epic account. */
 export function SignIn() {
-  const [email, setEmail] = useState('');
-  const [codeSent, setCodeSent] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-  const sendCode = useMutation({ mutationFn: requestSignInCode }).mutateAsync;
+  const [sentTo, setSentTo] = useState<string | null>(null);
+  const sendCode = useMutation({ mutationFn: requestSignInCode });
+  const form = useForm({
+    defaultValues: { email: '' },
+    validators: { onSubmit: signInEmail },
+    onSubmit: async ({ value }) => {
+      const email = value.email.trim();
+      // A refusal stays on the mutation, which the page shows.
+      await sendCode.mutateAsync(email).then(
+        () => setSentTo(email),
+        () => {},
+      );
+    },
+  });
 
-  async function requestCode() {
-    if (busy) return;
-    setBusy(true);
-    setError('');
-    try {
-      await sendCode(email.trim());
-      setCodeSent(true);
-    } catch (e) {
-      setError(networkError(e));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  if (codeSent) {
+  if (sentTo !== null) {
     return (
       <CodeStep
-        email={email.trim()}
-        resend={requestCode}
-        resending={busy}
+        email={sentTo}
+        resend={() => sendCode.mutateAsync(sentTo).catch(() => {})}
+        resending={sendCode.isPending}
+        resendError={sendCode.error ? networkError(sendCode.error) : ''}
         changeEmail={() => {
-          setCodeSent(false);
-          setError('');
+          sendCode.reset();
+          setSentTo(null);
         }}
       />
     );
@@ -59,32 +68,40 @@ export function SignIn() {
           </GateLead>
         </div>
         <form
+          noValidate
           className="flex animate-rise-in flex-col gap-3.5 [animation-delay:.08s]"
           onSubmit={(event) => {
             event.preventDefault();
-            requestCode();
+            void form.handleSubmit();
           }}
         >
-          <div className="flex flex-col gap-2">
-            <GateLabel htmlFor="email">Adresse e-mail</GateLabel>
-            <GateField
-              id="email"
-              type="email"
-              autoComplete="email"
-              inputMode="email"
-              placeholder="toi@exemple.fr"
-              required
-              value={email}
-              disabled={busy}
-              onChange={(event) => setEmail(event.target.value)}
-            />
-          </div>
-          <Button type="submit" variant="gate" size="gate" disabled={busy}>
-            {busy ? 'Envoi…' : 'Envoie le code'}
-            {!busy && <ArrowRight strokeWidth={2.6} />}
+          <form.Field name="email">
+            {(field) => (
+              <GateFormField data-invalid={!field.state.meta.isValid || undefined}>
+                <GateLabel htmlFor={field.name}>Adresse e-mail</GateLabel>
+                <GateField
+                  id={field.name}
+                  name={field.name}
+                  type="email"
+                  autoComplete="email"
+                  inputMode="email"
+                  placeholder="toi@exemple.fr"
+                  aria-invalid={!field.state.meta.isValid || undefined}
+                  value={field.state.value}
+                  disabled={sendCode.isPending}
+                  onBlur={field.handleBlur}
+                  onChange={(event) => field.handleChange(event.target.value)}
+                />
+                <GateFieldError errors={field.state.meta.errors} />
+              </GateFormField>
+            )}
+          </form.Field>
+          <Button type="submit" variant="gate" size="gate" disabled={sendCode.isPending}>
+            {sendCode.isPending ? 'Envoi…' : 'Envoie le code'}
+            {!sendCode.isPending && <ArrowRight strokeWidth={2.6} />}
           </Button>
-          {error ? (
-            <GateMessage tone="error">{error}</GateMessage>
+          {sendCode.error ? (
+            <GateMessage tone="error">{networkError(sendCode.error)}</GateMessage>
           ) : (
             <p className="mt-0.5 mb-0 text-center text-[13px] text-gate-muted">
               Aucun compte Epic ni mot de passe demandé.
@@ -100,33 +117,29 @@ function CodeStep({
   email,
   resend,
   resending,
+  resendError,
   changeEmail,
 }: {
   email: string;
-  resend: () => Promise<void>;
+  resend: () => Promise<unknown>;
   resending: boolean;
+  resendError: string;
   changeEmail: () => void;
 }) {
   const clubName = useClubName() || 'ce club';
-  const [code, setCode] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-  const checkCode = useMutation({ mutationFn: verifySignInCode }).mutateAsync;
-  const disabled = busy || resending;
-
-  async function verify(typed: string = code) {
-    if (disabled) return;
-    setBusy(true);
-    setError('');
-    try {
-      await checkCode({ email, code: typed });
-      // The session cookie is set: reloading opens the page that was asked for.
-      location.reload();
-    } catch (e) {
-      setError(networkError(e));
-      setBusy(false);
-    }
-  }
+  const verify = useMutation({
+    mutationFn: verifySignInCode,
+    // The session cookie is set: reloading opens the page that was asked for.
+    onSuccess: () => location.reload(),
+  });
+  const form = useForm({
+    defaultValues: { email, code: '' },
+    validators: { onSubmit: signInCode },
+    onSubmit: ({ value }) => verify.mutateAsync(value).catch(() => {}),
+  });
+  // A successful check reloads the page: the form stays busy until then.
+  const busy = verify.isPending || verify.isSuccess || resending;
+  const error = verify.error ? networkError(verify.error) : resendError;
 
   return (
     <GatePage
@@ -135,14 +148,14 @@ function CodeStep({
       className="lg:py-16"
     >
       <div className="mx-auto flex w-full max-w-[400px] flex-col pt-[140px] lg:gap-8 lg:pt-0">
-        <button
-          type="button"
+        <Button
+          variant="ghost"
           aria-label="Retour"
           onClick={changeEmail}
-          className="absolute top-[58px] left-4 flex size-11 items-center justify-center rounded-full bg-gate-field text-gate-text lg:static"
+          className="absolute top-[58px] left-4 size-11 rounded-full bg-gate-field p-0 text-gate-text hover:bg-gate-field hover:text-white lg:static [&_svg:not([class*='size-'])]:size-5"
         >
-          <ChevronLeft className="size-5" strokeWidth={2.4} />
-        </button>
+          <ChevronLeft strokeWidth={2.4} />
+        </Button>
         <div className="flex min-h-[190px] flex-col gap-3 lg:min-h-0">
           <Kicker>CODE À SIX CHIFFRES</Kicker>
           <GateTitle className="text-[40px] lg:text-[44px]">Check ta boîte mail</GateTitle>
@@ -152,46 +165,55 @@ function CodeStep({
           </GateLead>
         </div>
         <form
+          noValidate
           className="flex flex-col gap-[18px]"
           onSubmit={(event) => {
             event.preventDefault();
-            verify();
+            void form.handleSubmit();
           }}
         >
-          <InputOTP
-            maxLength={6}
-            pattern="^[0-9]*$"
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            autoFocus
-            aria-label="Code à six chiffres"
-            value={code}
-            disabled={disabled}
-            onChange={setCode}
-            // Typing or pasting the sixth digit signs in, as the user expects from a one-time code.
-            onComplete={(complete: string) => verify(complete)}
-            containerClassName="w-full"
-          >
-            <InputOTPGroup className="grid w-full grid-cols-6 gap-2">
-              {[0, 1, 2, 3, 4, 5].map((index) => (
-                <InputOTPSlot
-                  key={index}
-                  index={index}
-                  caretClassName="h-7 w-0.5 bg-gate-focus"
-                  className="h-16 w-full rounded-[14px] border border-white/12 bg-gate-field font-display font-extrabold text-[34px] text-gate-text [font-stretch:70%] first:rounded-[14px] last:rounded-[14px] data-[active=true]:border-gate-focus data-[active=true]:ring-[3px] data-[active=true]:ring-gate-focus/25 dark:bg-gate-field"
-                />
-              ))}
-            </InputOTPGroup>
-          </InputOTP>
-          <Button type="submit" variant="gate" size="gate" disabled={disabled || code.length !== 6}>
-            {busy ? 'Vérification…' : 'Je rentre sur le terrain'}
-          </Button>
+          <form.Field name="code">
+            {(field) => (
+              <InputOTP
+                maxLength={6}
+                pattern="^[0-9]*$"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                autoFocus
+                aria-label="Code à six chiffres"
+                value={field.state.value}
+                disabled={busy}
+                onChange={field.handleChange}
+                // Typing or pasting the sixth digit signs in, as the member expects from a one-time code.
+                onComplete={() => void form.handleSubmit()}
+                containerClassName="w-full"
+              >
+                <InputOTPGroup className="grid w-full grid-cols-6 gap-2">
+                  {[0, 1, 2, 3, 4, 5].map((index) => (
+                    <InputOTPSlot
+                      key={index}
+                      index={index}
+                      caretClassName="h-7 w-0.5 bg-gate-focus"
+                      className="h-16 w-full rounded-[14px] border border-white/12 bg-gate-field font-display font-extrabold text-[34px] text-gate-text [font-stretch:70%] first:rounded-[14px] last:rounded-[14px] data-[active=true]:border-gate-focus data-[active=true]:ring-[3px] data-[active=true]:ring-gate-focus/25 dark:bg-gate-field"
+                    />
+                  ))}
+                </InputOTPGroup>
+              </InputOTP>
+            )}
+          </form.Field>
+          <form.Subscribe selector={(state) => state.values.code.length === 6}>
+            {(complete) => (
+              <Button type="submit" variant="gate" size="gate" disabled={busy || !complete}>
+                {verify.isPending ? 'Vérification…' : 'Je rentre sur le terrain'}
+              </Button>
+            )}
+          </form.Subscribe>
           <GateMessage tone={error ? 'error' : 'info'}>{error || spamHint}</GateMessage>
           <div className="flex justify-center gap-2">
-            <Button type="button" variant="gate-link" size="gate-link" disabled={disabled} onClick={resend}>
+            <Button type="button" variant="gate-link" size="gate-link" disabled={busy} onClick={() => void resend()}>
               {resending ? 'Envoi…' : 'Renvoyer le code'}
             </Button>
-            <Button type="button" variant="gate-link" size="gate-link" disabled={disabled} onClick={changeEmail}>
+            <Button type="button" variant="gate-link" size="gate-link" disabled={busy} onClick={changeEmail}>
               Changer d’adresse
             </Button>
           </div>

@@ -1,6 +1,7 @@
 import { cn } from 'cn';
 import type { ReactNode } from 'react';
 import { EpicNotice, RocketLeagueLogo } from '../components/epic-notice';
+import { Field, FieldDescription, FieldError, FieldLabel } from '../components/ui/field';
 import { Input } from '../components/ui/input';
 
 // The screens before the club: signing in, the first visit, the club out of reach. They share a slightly lighter
@@ -66,11 +67,34 @@ export function GateField({ className, ...props }: React.ComponentProps<typeof I
   );
 }
 
-export function GateLabel({ children, htmlFor }: { children: ReactNode; htmlFor: string }) {
+/** A field of a sign-in form: its label, its control, a hint, and what to correct. */
+export function GateFormField({ className, ...props }: React.ComponentProps<typeof Field>) {
+  return <Field className={cn('gap-2', className)} {...props} />;
+}
+
+export function GateLabel({ className, ...props }: React.ComponentProps<typeof FieldLabel>) {
   return (
-    <label htmlFor={htmlFor} className="text-[13px] font-semibold text-gate-soft">
-      {children}
-    </label>
+    <FieldLabel className={cn('font-semibold text-[13px] text-gate-soft [line-height:normal]', className)} {...props} />
+  );
+}
+
+export function GateHint({ className, ...props }: React.ComponentProps<typeof FieldDescription>) {
+  return (
+    <FieldDescription
+      className={cn('m-0 text-[12px] text-gate-muted [line-height:1.4] nth-last-2:mt-0', className)}
+      {...props}
+    />
+  );
+}
+
+/** What to correct in a field, in the words of its schema. */
+export function GateFieldError({ errors }: { errors: readonly unknown[] }) {
+  const messages = errors.map((error) => (error as { message?: string } | undefined)?.message ?? String(error));
+  return (
+    <FieldError
+      className="text-[12px] text-[#ffb4ae] [line-height:1.4]"
+      errors={messages.filter(Boolean).map((message) => ({ message }))}
+    />
   );
 }
 
