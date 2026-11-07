@@ -23,7 +23,7 @@ import { playerPlatform, useClub } from '../club';
 import { ClubHeader } from '../components/club/app-shell';
 import { PlusIcon } from '../components/club/icons';
 import { RuleStrip } from '../components/club/kickoff';
-import { type Match, matchTime, outcomeText, Pushups } from '../components/club/match-parts';
+import { type Match, matchTime, OutcomeTag, Pushups } from '../components/club/match-parts';
 import { Odometer } from '../components/club/odometer';
 import { PageGlow, Panel } from '../components/club/page';
 import { PlayerAvatar } from '../components/club/player-avatar';
@@ -141,7 +141,6 @@ function LastMatch({ match, now, me }: { match: Match; now: number; me: string |
   const players = [...match.players].sort((a, b) => Number(b.row.name === me) - Number(a.row.name === me));
   const club = players.map((p) => p.row.name).join(' · ');
   const label = `Dernier match : ${match.outcome === 'defeat' ? 'défaite' : match.outcome === 'victory' ? 'victoire' : 'résultat'}${match.score ? ` ${match.score[0]} à ${match.score[1]}` : ''}`;
-  const variant = match.outcome === 'defeat' ? 'cost' : match.outcome === 'victory' ? 'settled' : 'neutral';
   return (
     <Link
       to="/matchs/$guid"
@@ -151,9 +150,7 @@ function LastMatch({ match, now, me }: { match: Match; now: number; me: string |
     >
       <div className="flex items-center justify-between px-4 pt-3.5 lg:px-6 lg:pt-5">
         <span className="kicker">Dernier match · {match.received ? sinceLabel(match.received, now) : match.day}</span>
-        <Badge variant={variant} className="border-0">
-          {match.outcome === 'defeat' ? 'Aïe' : outcomeText(match)}
-        </Badge>
+        <OutcomeTag match={match} />
       </div>
       <div className="grid flex-1 grid-cols-[1fr_auto_1fr] items-center gap-2 px-4 pt-3 pb-3.5 lg:gap-2.5 lg:px-6 lg:py-[18px]">
         <div className="flex flex-col gap-1.5">
