@@ -21,6 +21,8 @@ const buttonVariants = cva(
         "gate-outline":
           "border-white/14 bg-transparent font-display font-extrabold text-[17px] text-gate-text [font-stretch:85%] hover:bg-gate-field hover:text-white",
         "gate-link": "font-semibold text-[14px] text-gate-link hover:text-[#a9d1ff]",
+        cta: "bg-t1 font-semibold text-[16px] text-black tracking-[-.01em] duration-300 ease-(--ease) hover:opacity-92 active:not-aria-[haspopup]:translate-y-0 active:scale-98",
+        line: "border-line bg-transparent text-t2 duration-300 hover:border-white/18 hover:text-t1",
       },
       size: {
         default:
@@ -36,6 +38,8 @@ const buttonVariants = cva(
         "icon-lg": "size-9",
         gate: "h-[54px] gap-2 rounded-[14px] px-7 [&_svg:not([class*='size-'])]:size-[18px]",
         "gate-link": "min-h-11 px-2",
+        cta: "h-[50px] gap-2 rounded-[25px] px-6 [&_svg:not([class*='size-'])]:size-3",
+        round: "size-9 rounded-full [&_svg:not([class*='size-'])]:size-3.5",
       },
     },
     defaultVariants: {

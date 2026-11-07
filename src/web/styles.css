@@ -12,6 +12,8 @@
   --t2: rgb(235 235 245 / 0.62);
   --t3: rgb(235 235 245 / 0.38);
   --line: rgb(255 255 255 / 0.08);
+  /* Every movement settles with this curve. */
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
 
   /* The colours carry meaning: orange costs pushups, green is settled or won, blue is a link. */
   --cost: #ffb15c;
@@ -96,10 +98,15 @@
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
 
-  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-expo: var(--ease);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 
   --animate-rise-in: rise-in 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  --animate-rise: rise 0.9s var(--ease) both;
+  --animate-grow: grow 1.4s var(--ease) 0.25s both;
+  --animate-segment: segment 0.6s var(--ease) both;
+  --animate-breathe: breathe 2.4s ease-in-out infinite;
+  --animate-ember: ember 2.6s ease-in-out infinite;
   --animate-drift: drift 3s ease-in-out infinite;
   --animate-caret: caret 1s steps(1) infinite;
 
@@ -111,6 +118,60 @@
     to {
       opacity: 1;
       transform: none;
+    }
+  }
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(14px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @keyframes grow {
+    from {
+      transform: scaleX(0);
+    }
+    to {
+      transform: scaleX(1);
+    }
+  }
+  @keyframes segment {
+    from {
+      opacity: 0;
+      transform: scaleY(0.3);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @keyframes breathe {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.35;
+    }
+  }
+  @keyframes ember {
+    0%,
+    100% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.06);
+    }
+  }
+  @keyframes glint {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
     }
   }
   @keyframes drift {
@@ -169,6 +230,152 @@
   }
   :where(:disabled, [aria-disabled="true"], [data-disabled]) {
     cursor: not-allowed;
+  }
+}
+
+/* Figures, titles and the small capitals above a block, in the app's tabs. */
+@utility num {
+  font-family: var(--font-display);
+  font-stretch: 66%;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+@utility title-display {
+  margin: 0;
+  font-family: var(--font-display);
+  font-stretch: 84%;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+@utility label-caps {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--t3);
+  text-transform: uppercase;
+}
+
+/* Liquid glass: the tab bar and the + button. A light border drawn by a conic gradient, masked to a 1 px ring. */
+@layer components {
+  .glass {
+    position: relative;
+    background: linear-gradient(180deg, rgb(255 255 255 / 0.11), rgb(255 255 255 / 0.045));
+    backdrop-filter: blur(22px) saturate(190%);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.24),
+      inset 0 -1px 0 rgb(255 255 255 / 0.06),
+      0 12px 32px rgb(0 0 0 / 0.55),
+      0 0 0 0.5px rgb(0 0 0 / 0.5);
+  }
+  .glass::before,
+  .player-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    mask:
+      linear-gradient(#000 0 0) content-box exclude,
+      linear-gradient(#000 0 0);
+    pointer-events: none;
+  }
+  .glass::before {
+    background: conic-gradient(
+      from 200deg,
+      rgb(255 255 255 / 0.55),
+      rgb(255 255 255 / 0.08) 18%,
+      rgb(255 255 255 / 0.03) 40%,
+      rgb(190 215 255 / 0.22) 55%,
+      rgb(255 255 255 / 0.04) 72%,
+      rgb(255 255 255 / 0.55)
+    );
+  }
+
+  /* A player's card: frosted glass, a rim of light that follows the pointer, a faint holographic sheen. */
+  .player-card {
+    --mx: 28%;
+    --my: 12%;
+    --ang: 210deg;
+    position: relative;
+    overflow: hidden;
+    border-radius: 26px;
+    color: var(--t1);
+    background: linear-gradient(
+      155deg,
+      rgb(255 255 255 / 0.1),
+      rgb(255 255 255 / 0.03) 38%,
+      rgb(255 255 255 / 0.015) 64%,
+      rgb(255 255 255 / 0.055)
+    );
+    backdrop-filter: blur(26px) saturate(170%);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.2),
+      inset 0 -1px 0 rgb(255 255 255 / 0.04),
+      0 1px 2px rgb(0 0 0 / 0.5),
+      0 30px 60px -26px rgb(0 0 0 / 0.9),
+      0 0 0 0.5px rgb(0 0 0 / 0.6);
+    transition:
+      transform 0.7s var(--ease),
+      opacity 0.6s var(--ease);
+    will-change: transform;
+  }
+  .player-card::before {
+    z-index: 6;
+    background: conic-gradient(
+      from var(--ang),
+      rgb(255 255 255 / 0.8),
+      rgb(255 255 255 / 0.14) 16%,
+      rgb(255 255 255 / 0.04) 38%,
+      rgb(190 215 255 / 0.32) 52%,
+      rgb(255 255 255 / 0.05) 68%,
+      rgb(255 255 255 / 0.18) 86%,
+      rgb(255 255 255 / 0.8)
+    );
+  }
+  .player-card-holo {
+    background: linear-gradient(
+      115deg,
+      transparent 22%,
+      rgb(255 95 170 / 0.6) 33%,
+      rgb(255 215 95 / 0.6) 41%,
+      rgb(95 255 205 / 0.6) 49%,
+      rgb(95 170 255 / 0.6) 57%,
+      rgb(195 105 255 / 0.6) 65%,
+      transparent 76%
+    );
+    background-size: 320% 320%;
+    background-position: var(--mx) var(--my);
+    mix-blend-mode: color-dodge;
+    opacity: 0.05;
+    transition: opacity 0.8s var(--ease);
+  }
+  .player-card:hover .player-card-holo {
+    opacity: 0.11;
+  }
+  .player-card-glint {
+    background: radial-gradient(
+      300px circle at var(--mx) var(--my),
+      rgb(255 255 255 / 0.035),
+      rgb(255 255 255 / 0.012) 45%,
+      rgb(255 255 255 / 0)
+        72%
+    );
+    mix-blend-mode: screen;
+    opacity: 0;
+    transition: opacity 0.8s var(--ease);
+  }
+  .player-card:hover .player-card-glint {
+    opacity: 1;
+  }
+  /* On a phone, the card in the middle of the carousel shines a little more than the others. */
+  @media (width < 64rem) {
+    .player-card[data-active] .player-card-holo {
+      opacity: 0.11;
+    }
+    .player-card[data-active] .player-card-glint {
+      animation: glint 1.2s var(--ease) 0.15s both;
+    }
   }
 }
 
