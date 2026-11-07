@@ -441,13 +441,17 @@ function keptClock(kept: MatchClock, game: MatchClock | undefined, ended: boolea
   };
 }
 
-/** The trace with an update's clock when it changed: the last changes before the end, the first ones after. */
+/**
+ * The trace with an update's clock when it changed: the last changes before the end, the first ones after. A game
+ * that sends no clock leaves it empty, and the payload without it.
+ */
 function tracedClock(trace: ClockSample[], game: MatchClock | undefined, ended: boolean): ClockSample[] {
   const sample: ClockSample = {
     ...(typeof game?.TimeSeconds === 'number' ? { TimeSeconds: game.TimeSeconds } : {}),
     ...(typeof game?.bOvertime === 'boolean' ? { bOvertime: game.bOvertime } : {}),
     ended,
   };
+  if (!('TimeSeconds' in sample) && !('bOvertime' in sample)) return trace;
   const previous = trace.at(-1);
   if (
     previous?.TimeSeconds === sample.TimeSeconds &&
@@ -488,7 +492,7 @@ export function matchCapture(onComplete: (payload: LiveMatch) => void, now: () =
           startedAt: ended.startedAt,
           endedAt: ended.endedAt,
           seenIds: [...ended.seen],
-          clockTrace: ended.trace,
+          ...(ended.trace.length ? { clockTrace: ended.trace } : {}),
         };
         try {
           checkLiveMatch(payload, now());
@@ -561,7 +565,7 @@ export function matchCapture(onComplete: (payload: LiveMatch) => void, now: () =
         startedAt: current.startedAt,
         endedAt: current.endedAt,
         seenIds: [...current.seen],
-        clockTrace: current.trace,
+        ...(current.trace.length ? { clockTrace: current.trace } : {}),
       };
       try {
         checkLiveMatch(payload, now());
