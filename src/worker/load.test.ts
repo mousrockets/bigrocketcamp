@@ -42,8 +42,11 @@ function counting(db: D1Database): { db: D1Database; usage: Usage } {
         record(result.meta);
         return result;
       },
-      async raw(options?: { columnNames?: boolean }) {
-        return statement.raw(options as { columnNames: true });
+      // Drizzle reads its rows through raw(), which gives no measures: read them with all() to count them.
+      async raw() {
+        const result = await statement.all<Record<string, unknown>>();
+        record(result.meta);
+        return result.results.map((row) => Object.values(row));
       },
     } as unknown as D1PreparedStatement;
     inner.set(proxy, statement);
