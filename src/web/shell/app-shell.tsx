@@ -68,7 +68,7 @@ function AppSidebar() {
               <SidebarMenuItem key={to} className="flex-[1_1_170px]">
                 <SidebarMenuButton
                   size="nav"
-                  isActive={Boolean(matchRoute({ to }))}
+                  isActive={Boolean(matchRoute({ to, fuzzy: to !== '/' }))}
                   render={<Link to={to} activeOptions={{ exact: to === '/' }} />}
                 >
                   <Icon size={18} />
