@@ -1,10 +1,8 @@
-import { cn } from 'cn';
 import { parisDay } from '../../lib/days';
 import { type Board, playerStats, useBoardState } from '../board';
 import { platformLabels, useClub } from '../club';
 import { epicNotice } from '../components/epic-notice';
 import { LiveStatus } from '../components/live-status';
-import { useNow } from '../hooks/use-now';
 import { ClubBadge } from '../shell/club-badge';
 import { DebtHero } from './debt-hero';
 import type { CardPlayer } from './player-card';
