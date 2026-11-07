@@ -60,7 +60,7 @@ export function PlayerCard({ player, active, now }: { player: CardPlayer; active
       onPointerMove={tilt}
       onPointerLeave={untilt}
       className={cn(
-        'player-card gap-0 rounded-[26px] bg-transparent py-0 text-[16px] ring-0 [line-height:normal]',
+        'player-card h-full gap-0 rounded-[26px] bg-transparent py-0 text-[16px] ring-0 [line-height:normal]',
         !active && 'max-lg:scale-94 max-lg:opacity-55',
       )}
     >
@@ -71,7 +71,7 @@ export function PlayerCard({ player, active, now }: { player: CardPlayer; active
       />
       <i aria-hidden="true" className="player-card-holo pointer-events-none absolute inset-0 z-2" />
       <i aria-hidden="true" className="player-card-glint pointer-events-none absolute inset-0 z-3" />
-      <div className="relative z-4 flex flex-col gap-5 px-5 pt-5 pb-[18px]">
+      <div className="relative z-4 flex flex-1 flex-col gap-5 px-5 pt-5 pb-[18px]">
         <CardHeader className="flex items-start justify-between gap-2.5 p-0">
           <span className="flex min-w-0 flex-col gap-[3px]">
             <span className="flex items-center gap-2">
@@ -94,7 +94,8 @@ export function PlayerCard({ player, active, now }: { player: CardPlayer; active
           value={percent}
           aria-label={`Dette de ${player.name}`}
           className={cn(
-            'gap-2',
+            // On a computer the cards share the row's height: the debt goes to the foot of each.
+            'gap-2 lg:mt-auto',
             progressParts,
             left > 0
               ? '[&_[data-slot=progress-indicator]]:bg-cost-strong'
