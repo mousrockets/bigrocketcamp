@@ -4,7 +4,8 @@ import { useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { parisDay } from '../../lib/domain';
 import { defaultLastPlaceRules, lastPlaceRuleOn } from '../../lib/match-rules';
-import { useClub, useClubLogo } from '../club';
+import { useClub } from '../club';
+import { ClubLogo } from '../components/club/club-logo';
 import { ListLink } from '../components/club/list';
 import { BackLink, fieldClass, PageHeader, Panel } from '../components/club/page';
 import { Button } from '../components/ui/button';
@@ -39,7 +40,6 @@ export function AdminOnly() {
 
 export function SettingsPage() {
   const club = useClub();
-  const logo = useClubLogo();
   const isAdmin = club.me.role === 'admin';
   const { data: members } = useQuery({ ...membersQuery, enabled: isAdmin });
   const [name, setName] = useState(club.name);
@@ -94,13 +94,7 @@ export function SettingsPage() {
       />
       <Panel aria-label="Identité du club" className="gap-4 p-4">
         <div className="flex items-center gap-3.5">
-          <img
-            src={logo}
-            alt="Logo actuel"
-            width={64}
-            height={64}
-            className="size-16 shrink-0 rounded-[18px] bg-inverse object-cover"
-          />
+          <ClubLogo size={64} wide={72} label="Logo actuel" />
           <div className="flex flex-col gap-2">
             <span className="text-[13px] font-semibold text-soft">Logo du club</span>
             <div className="flex gap-2">

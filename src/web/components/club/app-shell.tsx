@@ -3,8 +3,9 @@ import { cn } from 'cn';
 import type { ComponentType, ReactNode, SVGProps } from 'react';
 import { useBoardState } from '../../board/board-context';
 import { standingsOf, tierOf } from '../../board/model';
-import { useClub, useClubLogo } from '../../club';
+import { useClub } from '../../club';
 import { buttonVariants } from '../ui/button';
+import { ClubLogo } from './club-logo';
 import { ChallengeIcon, ClubIcon, ExercisesIcon, MatchIcon, PlusIcon, ProfileIcon } from './icons';
 import { type NavTarget, navSectionOf } from './nav-section';
 import { PlayerAvatar } from './player-avatar';
@@ -37,20 +38,6 @@ function useNavSection(wide: boolean): NavTarget | null {
   return navSectionOf(pathname, wide);
 }
 
-/** The club's picture and name, as its administrators set them. */
-export function ClubMark({ className }: { className?: string | undefined }) {
-  const logo = useClubLogo();
-  return (
-    <img
-      src={logo}
-      alt=""
-      width={36}
-      height={36}
-      className={cn('size-9 shrink-0 rounded-[10px] bg-inverse object-cover', className)}
-    />
-  );
-}
-
 function ClubIdentity({ compact = false }: { compact?: boolean }) {
   const { name, roster } = useClub();
   return (
@@ -59,7 +46,7 @@ function ClubIdentity({ compact = false }: { compact?: boolean }) {
       className="flex min-w-0 items-center gap-2.5 text-foreground no-underline hover:no-underline"
       aria-label={`${name}, accueil`}
     >
-      <ClubMark className={compact ? 'size-[34px]' : undefined} />
+      <ClubLogo size={compact ? 34 : 36} />
       <span className="flex min-w-0 flex-col gap-px">
         <span className="truncate font-display text-[19px] leading-none lg:text-lg">{name}</span>
         <span className={cn('text-xs text-muted-foreground', compact ? 'font-medium' : 'font-normal')}>

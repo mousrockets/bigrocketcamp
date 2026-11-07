@@ -2,7 +2,8 @@ import { useMutation } from '@tanstack/react-query';
 import { cn } from 'cn';
 import { ArrowRightIcon, ChevronLeftIcon } from 'lucide-react';
 import { useState } from 'react';
-import { useClubLogo, useClubName } from './club';
+import { useClubName } from './club';
+import { ClubLogo } from './components/club/club-logo';
 import { fieldClass } from './components/club/page';
 import { PitchArt, PitchLines } from './components/club/pitch-art';
 import { Alert, AlertDescription } from './components/ui/alert';
@@ -24,7 +25,6 @@ const epicNotice =
 
 /** The left half of a wide screen: the pitch and the club's motto. */
 function Art({ step }: { step: Step }) {
-  const logo = useClubLogo();
   return (
     <section
       aria-hidden="true"
@@ -34,7 +34,7 @@ function Art({ step }: { step: Step }) {
       <div className="relative flex max-w-[560px] flex-col gap-3.5 text-[#f4f5f7]">
         {step === 'email' ? (
           <>
-            <img src={logo} alt="" width={56} height={56} className="size-14 rounded-2xl bg-[#f4f5f7] object-cover" />
+            <ClubLogo size={56} className="bg-[#f4f5f7] text-[#060607]" />
             <p className="font-display text-[clamp(36px,4.4vw,64px)] leading-[0.95]">
               On perd ensemble.
               <br />
@@ -59,7 +59,6 @@ function Art({ step }: { step: Step }) {
 
 export function SignIn() {
   const clubName = useClubName() || 'ce club';
-  const logo = useClubLogo();
   const [step, setStep] = useState<Step>('email');
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
@@ -132,13 +131,7 @@ export function SignIn() {
           >
             <PitchLines className="absolute top-6 left-1/2 w-[390px] -translate-x-1/2 opacity-45 lg:hidden" />
             <div className="relative flex animate-up flex-col items-center gap-3.5 pt-[100px] pb-10 text-center lg:items-start lg:p-0 lg:text-left">
-              <img
-                src={logo}
-                alt=""
-                width={72}
-                height={72}
-                className="size-[72px] rounded-[20px] bg-inverse object-cover shadow-[0_12px_40px_rgb(61_139_255/0.25)] lg:hidden"
-              />
+              <ClubLogo size={72} className="text-[28px] shadow-[0_12px_40px_rgb(61_139_255/0.25)] lg:hidden" />
               <span className="kicker">Espace réservé aux joueurs</span>
               <h1 className="font-display text-[40px] leading-none">Connexion</h1>
               <p className="text-[15px] leading-[1.45] text-balance text-soft lg:mb-2 lg:leading-normal">

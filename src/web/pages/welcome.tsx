@@ -2,7 +2,8 @@ import { useMutation } from '@tanstack/react-query';
 import { cn } from 'cn';
 import { useState } from 'react';
 import { type Platform, platforms } from '../../lib/club';
-import { platformLabels, useClub, useClubLogo } from '../club';
+import { platformLabels, useClub } from '../club';
+import { ClubLogo } from '../components/club/club-logo';
 import { fieldClass } from '../components/club/page';
 import { Segmented } from '../components/club/segmented';
 import { Alert, AlertDescription } from '../components/ui/alert';
@@ -20,7 +21,6 @@ const networkError = (e: unknown) =>
 
 export function WelcomePage() {
   const { me } = useClub();
-  const logo = useClubLogo();
   const [duoPseudo, setDuoPseudo] = useState(me.duoPseudo ?? '');
   const [soloPseudo, setSoloPseudo] = useState(me.soloPseudo ?? '');
   const [platform, setPlatform] = useState<Platform | null>(me.platform);
@@ -60,13 +60,7 @@ export function WelcomePage() {
         }}
       >
         <div className="flex flex-col gap-3 lg:flex-[1_1_320px] lg:gap-3.5">
-          <img
-            src={logo}
-            alt=""
-            width={64}
-            height={64}
-            className="size-[52px] rounded-[15px] bg-inverse object-cover lg:size-16 lg:rounded-[18px]"
-          />
+          <ClubLogo size={52} wide={64} />
           <span className="kicker">Première connexion</span>
           <h1 className="font-display text-[38px] leading-none lg:text-[clamp(36px,4vw,56px)] lg:leading-[0.98]">
             Bienvenue au club
