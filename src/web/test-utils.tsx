@@ -115,9 +115,18 @@ export function renderInApp(
   );
   const root = createRootRoute({ component: Outlet });
   // Every address the app links to exists, so that a link knows whether it is the current page.
-  const routes = ['/', '/defis', '/matchs', '/reglages', '/declarer'].map((routePath) =>
-    createRoute({ getParentRoute: () => root, path: routePath, component: page }),
-  );
+  const routes = [
+    '/',
+    '/defis',
+    '/matchs',
+    '/declarer',
+    '/reglages',
+    '/reglages/compte',
+    '/reglages/collecteur',
+    '/reglages/identites',
+    '/reglages/club',
+    '/reglages/membres',
+  ].map((routePath) => createRoute({ getParentRoute: () => root, path: routePath, component: page }));
   const router = createRouter({
     routeTree: root.addChildren(routes),
     history: createMemoryHistory({ initialEntries: [path] }),
