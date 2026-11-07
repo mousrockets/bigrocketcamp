@@ -1,150 +1,116 @@
-import { useMutation } from '@tanstack/react-query';
-import { CheckIcon, CupSodaIcon } from 'lucide-react';
-import { useRef, useState } from 'react';
-import { toast } from 'sonner';
+import { cn } from 'cn';
+import { useId } from 'react';
 import { formatNumber } from '../../lib/domain';
 import { useBoardState } from '../board/board-context';
+import type { DrinkDebt, MonthResult } from '../board/monthly';
+import { DrinkButton, DrinkTile, useDrinkActions } from '../components/club/drink-parts';
 import { BackLink, PageHeader, Panel } from '../components/club/page';
-import { Button } from '../components/ui/button';
 import { Skeleton } from '../components/ui/skeleton';
-import { settleDrink } from '../writes';
-import { monthOf } from './challenge';
+import { closedMonthLine, dayMonthOf, debtsInOrder, monthOf, titleMonthOf } from './challenge-copy';
 
-// The closed months, newest first: who finished last, and the drinks they owe until each one is marked given.
+// The closed months, newest first: who finished last, and the drinks they owe until each one is marked drunk.
 
-const closedOn = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', day: '2-digit', month: '2-digit' });
 const paidOn = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', day: 'numeric', month: 'long' });
-const accountLabels = { duo: 'duo', solo: 'solo' } as const;
+
+type DrinkActions = ReturnType<typeof useDrinkActions>;
+
+/** The design's .dr: a drink, who owes it to whom, and its button. */
+function DebtRow({ debt, actions }: { debt: DrinkDebt; actions: DrinkActions }) {
+  const id = useId();
+  return (
+    <div className="grid grid-cols-[40px_1fr_auto] items-center gap-3 border-t border-border px-4 py-3">
+      <DrinkTile tone={debt.paidAt ? 'settled' : 'owed'} />
+      <span className="flex min-w-0 flex-col gap-0.5">
+        <b id={id} className="text-sm font-semibold">
+          {debt.payer} → {debt.recipient}
+        </b>
+        <small className={cn('text-xs', debt.paidAt ? 'text-muted-foreground' : 'text-cost-soft')}>
+          1 boisson · {debt.paidAt ? `bue le ${paidOn.format(new Date(debt.paidAt))}` : 'à offrir'}
+        </small>
+      </span>
+      {!debt.paidAt && debt.canSettle ? (
+        <DrinkButton kind="settle" disabled={actions.busy} onClick={() => actions.settle(debt)} describedBy={id} />
+      ) : debt.paidAt && debt.canUndo ? (
+        <DrinkButton kind="undo" disabled={actions.busy} onClick={() => actions.undo(debt)} describedBy={id} />
+      ) : (
+        <span />
+      )}
+    </div>
+  );
+}
+
+/**
+ * A closed month as the design draws it: its drinks under a line when its last owes some; when the month could
+ * not be decided, "Aucune boisson due" inside the card; a tie needs nothing more than its sentence.
+ */
+function MonthCard({ result, debts, actions }: { result: MonthResult; debts: DrinkDebt[]; actions: DrinkActions }) {
+  const head = (
+    <>
+      <div className="flex items-baseline justify-between gap-2">
+        <h2 className="font-display text-[22px]">{titleMonthOf(result.month)}</h2>
+        <span className="kicker">Clos le {dayMonthOf(result.lastDay)}</span>
+      </div>
+      <p className="text-sm leading-[1.45] text-soft">{closedMonthLine(result)}</p>
+      {result.status !== 'incomplete' && (
+        <p className="text-xs text-muted-foreground tabular-nums">
+          {result.rows
+            .map((row) => `${row.player} ${row.mmr !== null ? formatNumber(row.mmr) : 'non renseigné'}`)
+            .join(' · ')}
+        </p>
+      )}
+    </>
+  );
+  if (result.status === 'final' && debts.length > 0) {
+    return (
+      <Panel aria-label={monthOf(result.month)} className="overflow-hidden">
+        <div className="flex flex-col gap-2 p-4">{head}</div>
+        {debtsInOrder(debts).map((debt) => (
+          <DebtRow key={debt.id} debt={debt} actions={actions} />
+        ))}
+      </Panel>
+    );
+  }
+  return (
+    <Panel aria-label={monthOf(result.month)} className="gap-2 p-4">
+      {head}
+      {result.status !== 'tied' && (
+        <div className="grid grid-cols-[40px_1fr_auto] items-center gap-3 border-t border-border pt-3">
+          <DrinkTile tone="settled" />
+          <span className="flex flex-col gap-0.5">
+            <b className="text-sm font-semibold">Aucune boisson due</b>
+            <small className="text-xs text-muted-foreground">
+              Classement arrêté au {dayMonthOf(result.lastDay)}, 23 h 59
+            </small>
+          </span>
+          <span />
+        </div>
+      )}
+    </Panel>
+  );
+}
 
 export function DrinksPage() {
-  const { data, refresh } = useBoardState();
+  const { data } = useBoardState();
   const monthly = data?.monthly;
-  const [busy, setBusy] = useState(false);
-  const writing = useRef(false);
-  const settle = useMutation({ mutationFn: settleDrink }).mutateAsync;
-  const mine = new Set(monthly?.allowedPlayers ?? []);
-
-  async function act(body: Parameters<typeof settleDrink>[0], done: string) {
-    if (writing.current) return;
-    writing.current = true;
-    setBusy(true);
-    try {
-      await settle(body);
-      toast.success(done);
-      await refresh();
-    } catch (e) {
-      toast.error((e as Error).message);
-    } finally {
-      writing.current = false;
-      setBusy(false);
-    }
-  }
-
+  const actions = useDrinkActions();
   const closed = [...(monthly?.closed ?? [])].sort((a, b) => b.month.localeCompare(a.month));
   return (
     <>
-      <PageHeader
-        back={<BackLink to="/defi" label="Retour au défi" />}
-        kicker="Bilans mensuels"
-        title="Bilans et boissons"
-      />
+      <PageHeader back={<BackLink to="/defi" label="Retour au défi" />} kicker="Bilans mensuels" title="Les tournées" />
       {!data ? (
         <Skeleton className="h-[300px] rounded-card" />
       ) : !closed.length ? (
         <p className="px-1 text-sm text-muted-foreground">Le premier bilan apparaîtra à la fin de ce mois.</p>
       ) : (
         <div className="flex flex-col gap-3.5 lg:grid lg:grid-cols-2 lg:items-start lg:gap-5">
-          {closed.map((result) => {
-            const debts = (monthly?.debts ?? []).filter((debt) => debt.month === result.month);
-            return (
-              <Panel key={result.month} aria-label={monthOf(result.month)}>
-                <div className="flex flex-col gap-2 p-4">
-                  <div className="flex items-baseline justify-between gap-2">
-                    <h2 className="font-display text-[22px] first-letter:uppercase">{monthOf(result.month)}</h2>
-                    <span className="kicker">Clos le {closedOn.format(new Date(result.cutoffAt))}</span>
-                  </div>
-                  <p className="text-sm leading-[1.45] text-soft">
-                    {result.status === 'final'
-                      ? `${result.losers?.[0] ?? ''} termine dernier : une boisson à chacun des autres.`
-                      : result.status === 'tied'
-                        ? 'Ex æquo à la dernière place : aucune dette.'
-                        : `Pas de dette automatique : MMR de fin de mois manquant pour ${result.missing.join(', ')}.`}
-                  </p>
-                  <p className="text-xs text-muted-foreground tabular-nums">
-                    {result.rows
-                      .map(
-                        (row) =>
-                          `${row.player} ${row.mmr !== null ? formatNumber(row.mmr) : 'non renseigné'}${row.account ? ` (${accountLabels[row.account]})` : ''}`,
-                      )
-                      .join(' · ')}
-                  </p>
-                </div>
-                {debts.length === 0 ? (
-                  <div className="grid grid-cols-[40px_1fr] items-center gap-3 border-t border-border px-4 py-3">
-                    <span
-                      aria-hidden="true"
-                      className="flex size-10 items-center justify-center rounded-xl bg-settled/12 text-settled"
-                    >
-                      <CheckIcon className="size-5" />
-                    </span>
-                    <span className="flex flex-col gap-0.5">
-                      <b className="text-sm font-semibold">Aucune boisson due</b>
-                      <small className="text-xs text-muted-foreground">
-                        Classement arrêté au {closedOn.format(new Date(result.cutoffAt))}
-                      </small>
-                    </span>
-                  </div>
-                ) : (
-                  debts.map((debt) => (
-                    <div
-                      key={debt.id}
-                      className="grid grid-cols-[40px_1fr_auto] items-center gap-3 border-t border-border px-4 py-3"
-                    >
-                      <span
-                        aria-hidden="true"
-                        className={
-                          debt.paidAt
-                            ? 'flex size-10 items-center justify-center rounded-xl bg-settled/12 text-settled'
-                            : 'flex size-10 items-center justify-center rounded-xl bg-cost/14 text-cost-soft'
-                        }
-                      >
-                        {debt.paidAt ? <CheckIcon className="size-5" /> : <CupSodaIcon className="size-5" />}
-                      </span>
-                      <span className="flex min-w-0 flex-col gap-0.5">
-                        <b className="text-sm font-semibold">
-                          {debt.payer} → {debt.recipient}
-                        </b>
-                        <small className={debt.paidAt ? 'text-xs text-muted-foreground' : 'text-xs text-cost-soft'}>
-                          1 boisson · {debt.paidAt ? `offerte le ${paidOn.format(new Date(debt.paidAt))}` : 'à offrir'}
-                        </small>
-                      </span>
-                      {!debt.paidAt && debt.canSettle ? (
-                        <Button
-                          variant="inverse"
-                          disabled={busy}
-                          onClick={() => act({ action: 'settle', id: debt.id }, 'Boisson marquée comme offerte.')}
-                          className="h-9 rounded-full px-3 font-sans text-[13px] font-semibold"
-                        >
-                          {mine.has(debt.recipient) ? 'Boisson reçue' : 'Boisson offerte'}
-                        </Button>
-                      ) : debt.paidAt && debt.canUndo ? (
-                        <Button
-                          variant="outline"
-                          disabled={busy}
-                          onClick={() => act({ action: 'undo', id: debt.id }, 'Paiement annulé.')}
-                          className="h-9 rounded-full px-3 text-[13px]"
-                        >
-                          Annuler
-                        </Button>
-                      ) : (
-                        <span />
-                      )}
-                    </div>
-                  ))
-                )}
-              </Panel>
-            );
-          })}
+          {closed.map((result) => (
+            <MonthCard
+              key={result.month}
+              result={result}
+              debts={(monthly?.debts ?? []).filter((debt) => debt.month === result.month)}
+              actions={actions}
+            />
+          ))}
         </div>
       )}
     </>
