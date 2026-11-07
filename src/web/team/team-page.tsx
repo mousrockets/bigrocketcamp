@@ -3,7 +3,6 @@ import { type Board, playerStats, useBoardState } from '../board';
 import { platformLabels, useClub } from '../club';
 import { epicNotice } from '../components/epic-notice';
 import { LiveStatus } from '../components/live-status';
-import { tabTopTint } from '../components/tab-page';
 import { ClubBadge } from '../shell/club-badge';
 import { DebtHero } from './debt-hero';
 import type { CardPlayer } from './player-card';
@@ -58,13 +57,10 @@ export function TeamPage() {
   const mine = players.find((player) => player.me);
 
   return (
-    <main
-      data-top-tint={tabTopTint}
-      className="relative flex min-h-dvh flex-col pt-[max(60px,calc(env(safe-area-inset-top)+12px))] pb-[120px] lg:px-[clamp(20px,5vw,72px)] lg:pt-11 lg:pb-16"
-    >
+    <main className="relative flex min-h-dvh flex-col pt-[max(60px,calc(env(safe-area-inset-top)+12px))] pb-[120px] lg:px-[clamp(20px,5vw,72px)] lg:pt-11 lg:pb-16">
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-0 h-[360px] bg-[radial-gradient(90%_60%_at_50%_-12%,rgba(70,120,220,.16),rgba(0,0,0,0)_70%)] lg:h-[440px] lg:bg-[radial-gradient(60%_70%_at_30%_-15%,rgba(70,120,220,.13),rgba(0,0,0,0)_70%)]"
+        className="top-glow pointer-events-none absolute inset-x-0 top-0 h-[360px] bg-[radial-gradient(90%_60%_at_50%_-12%,rgba(70,120,220,.16),rgba(0,0,0,0)_70%)] lg:h-[440px] lg:bg-[radial-gradient(60%_70%_at_30%_-15%,rgba(70,120,220,.13),rgba(0,0,0,0)_70%)]"
       />
       <div className="relative flex w-full flex-col lg:mx-auto lg:max-w-[1060px] lg:gap-14">
         <header className="flex h-[31px] animate-rise items-center justify-between px-5 lg:h-auto lg:px-0">

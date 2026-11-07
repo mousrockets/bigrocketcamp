@@ -608,6 +608,21 @@
   }
 }
 
+/* Safari on a phone paints the band behind its status bar in one flat colour, the body's, while the page rests at its
+   top: a glow cut at that band's edge would show the band as a bar. There the glow fades in below it instead; the
+   installed app draws the glow under the status bar, as the mockups do. No fixed element may sit at the top or bottom
+   edge either: Safari would stop the page there and fill the rest of the screen with that element's colour. */
+@media (display-mode: browser) and (pointer: coarse) {
+  .top-glow {
+    mask-image: linear-gradient(transparent, #000 96px);
+  }
+}
+/* The screens before the club sit on a slightly lighter black: Safari's band takes it from the body. */
+html:has([data-gate]),
+html:has([data-gate]) body {
+  background-color: var(--gate);
+}
+
 /* Movement is decoration: with reduced motion, everything lands at once. */
 @media (prefers-reduced-motion: reduce) {
   *,

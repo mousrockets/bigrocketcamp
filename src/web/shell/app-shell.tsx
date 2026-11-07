@@ -86,9 +86,11 @@ function AppSidebar() {
 export function TabBar() {
   return (
     <>
+      {/* The shade under the tab bar, only in the installed app: in Safari, a full-width fixed element at the bottom
+          stops the page above the toolbar and fills the rest of the screen with one flat colour. */}
       <div
         aria-hidden="true"
-        className="pointer-events-none fixed inset-x-0 bottom-0 z-40 h-[130px] bg-linear-to-b from-black/0 to-black/72 lg:hidden"
+        className="pointer-events-none fixed inset-x-0 bottom-0 z-40 h-[130px] bg-linear-to-b from-black/0 to-black/72 lg:hidden [@media(display-mode:browser)]:hidden"
       />
       <nav
         aria-label="Navigation principale"
