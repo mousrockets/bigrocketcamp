@@ -87,3 +87,33 @@ test('without a scoreboard received whole, a short side is not taken for a depar
   const [match] = matchHistory(clubOnly, clubOnly, matchIndex(clubOnly), roster);
   expect(match?.left).toBe(false);
 });
+
+test('a forfeit and an overtime are told on the match, and a forfeit won takes 5 off', () => {
+  const ended = (match: string, winner: number, ending: { forfeit: boolean | null; overtime: boolean | null }) =>
+    [line(match, alice, 0, winner, 300, 1), line(match, bob, 0, winner, 100)].map((row) => ({ ...row, ...ending }));
+  const rows = [
+    ...ended('ff', 0, { forfeit: true, overtime: false }),
+    ...ended('ot', 1, { forfeit: false, overtime: true }),
+    ...ended('older', 0, { forfeit: null, overtime: null }),
+  ];
+  const history = matchHistory(rows, rows, matchIndex(rows), roster);
+  expect(history.map((match) => [match.guid, match.forfeit, match.overtime])).toEqual([
+    ['ff', true, false],
+    ['ot', false, true],
+    ['older', false, false],
+  ]);
+  expect(history.map((match) => match.players.map(({ pushups, dodged }) => [pushups, dodged]))).toEqual([
+    [
+      [-5, true],
+      [-5, true],
+    ],
+    [
+      [5, false],
+      [10, false],
+    ],
+    [
+      [0, false],
+      [0, false],
+    ],
+  ]);
+});

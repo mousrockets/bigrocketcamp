@@ -1,6 +1,7 @@
 import type { Roster } from './club';
 import {
   defaultLastPlaceRules,
+  dodgedPushups,
   type IndexedMatch,
   type LastPlaceRules,
   lastPlaceBonus,
@@ -16,14 +17,21 @@ export interface HistoryRow extends MatchRow {
   goals?: number;
   received?: string;
   review_required?: boolean;
+  /** The match went to overtime; null or absent while no source sent the game's clock. */
+  overtime?: boolean | null;
 }
 
 export interface HistoryPlayer<Row extends HistoryRow> {
   row: Row;
-  /** What the match adds: 0 for a win, 5 for a defeat, 10 for the team's lowest club player. */
+  /**
+   * What the match adds: 0 for a win, 5 for a defeat, 10 for the team's lowest club player, and -5 for a win
+   * the opponents forfeited.
+   */
   pushups: number;
   /** This player takes the extra 5 of the team's lowest club player. */
   lastPlace: boolean;
+  /** This player dodges 5 pushups: the opponents forfeited. */
+  dodged: boolean;
 }
 
 export interface HistoryMatch<Row extends HistoryRow> {
@@ -41,6 +49,10 @@ export interface HistoryMatch<Row extends HistoryRow> {
    * has fewer players on one side. It still counts like any other match.
    */
   left: boolean;
+  /** The losing team forfeited: « Les adversaires ont FF » when the club won. False while the clock is unknown. */
+  forfeit: boolean;
+  /** The match went to overtime. False while the clock is unknown. */
+  overtime: boolean;
   /** Goals of the club's team first, as received; null when the scoreboard holds no goals. */
   score: [number, number] | null;
   players: HistoryPlayer<Row>[];
@@ -105,11 +117,19 @@ export function matchHistory<Row extends HistoryRow>(
       review,
       outcome,
       left: someoneLeft(all, matches.get(guid)?.expected),
+      forfeit: rows.some((row) => row.forfeit === true),
+      overtime: rows.some((row) => row.overtime === true),
       score: hasGoals ? [goalsOf(all, ours), goalsOf(all, 1 - ours)] : null,
       players: rows.map((row) => {
         const counted = !row.review_required && row.kind === 'match' && row.team !== row.winner;
         const bonus = counted ? lastPlaceBonus(row, matches, roster, rules) : 0;
-        return { row, pushups: counted ? 5 + bonus : 0, lastPlace: bonus > 0 };
+        const dodged = dodgedPushups(row);
+        return {
+          row,
+          pushups: counted ? 5 + bonus : dodged > 0 ? -dodged : 0,
+          lastPlace: bonus > 0,
+          dodged: dodged > 0,
+        };
       }),
     };
   });
