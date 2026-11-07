@@ -210,8 +210,28 @@ export const sourceReports = sqliteTable(
     overtime: integer('overtime', { mode: 'boolean' }),
     /** The clock's changes around the end of the match as the collector saw them (JSON); null from older ones. */
     clockTrace: text('clock_trace'),
+    /** Every opponent left before the end, as the source's departures show: a forfeit; null when it showed none. */
+    opponentsGone: integer('opponents_gone', { mode: 'boolean' }),
   },
   (table) => [index('source_reports_match').on(table.matchGuid)],
+);
+
+/**
+ * A player who left a match before its end, as one source saw it (`payload`: his last line as JSON). Kept apart
+ * from the final scoreboards, which only hold the players present at the end.
+ */
+export const matchDepartures = sqliteTable(
+  'match_departures',
+  {
+    id: text('id').primaryKey(),
+    matchGuid: text('match_guid').notNull(),
+    playerId: text('player_id').notNull(),
+    sourceId: text('source_id').notNull(),
+    sourceType: text('source_type').notNull(),
+    payload: text('payload').notNull(),
+    received: text('received').notNull(),
+  },
+  (table) => [index('match_departures_match').on(table.matchGuid)],
 );
 
 /** Results imported from the prototype, never written since. */
@@ -276,6 +296,8 @@ export const matchResults = sqliteTable(
     forfeit: integer('forfeit', { mode: 'boolean' }),
     /** Set on every row of a match that went to overtime; null while no source sent the clock. */
     overtime: integer('overtime', { mode: 'boolean' }),
+    /** The player left before the end: a defeat, his line kept apart from the final scoreboard. */
+    leftEarly: integer('left_early', { mode: 'boolean' }).notNull().default(false),
     seq: integer('seq').notNull().default(0),
   },
   (table) => [primaryKey({ columns: [table.matchGuid, table.playerId] }), index('match_results_seq').on(table.seq)],
