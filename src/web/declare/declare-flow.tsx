@@ -6,10 +6,12 @@ import { parisDay } from '../../lib/days';
 import { playerStats, useBoardState } from '../board';
 import { useClub } from '../club';
 import { Dialog, DialogContent } from '../components/ui/dialog';
+import { useSounds } from '../hooks/use-sounds';
 import { debtOf } from '../team/stats';
 import { declareExercise, undoExercise } from '../writes';
 import { Celebration, type Payment } from './celebration';
 import { DeclareSheet, type Series } from './declare-sheet';
+import { playJingle } from './jingle';
 import { apiCount } from './quantities';
 
 // Declaring a series, over whatever tab is open: a sheet from the bottom on a phone, a window on a computer; once
@@ -23,6 +25,7 @@ export function DeclareFlow({ open, onClose }: { open: boolean; onClose: () => v
   const debt = debtOf(stats ?? { due: 0, done: 0 });
   const [sent, setSent] = useState<{ id: string; payment: Payment } | null>(null);
   const sheet = useRef<HTMLDivElement>(null);
+  const [sounds] = useSounds();
   const declare = useMutation({ mutationFn: declareExercise });
   const undo = useMutation({ mutationFn: undoExercise });
 
@@ -47,11 +50,13 @@ export function DeclareFlow({ open, onClose }: { open: boolean; onClose: () => v
       toast.error((error as Error).message);
       return;
     }
+    const after = Math.max(0, debt.left - series.pushups);
+    if (sounds) playJingle(after === 0 ? 'cleared' : 'series');
     setSent({
       id,
       payment: {
         before: debt.left,
-        after: Math.max(0, debt.left - series.pushups),
+        after,
         pushups: series.pushups,
         owed: debt.owed,
       },
