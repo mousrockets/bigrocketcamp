@@ -1,6 +1,7 @@
 import { createRootRoute, createRoute, createRouter, type RouterHistory } from '@tanstack/react-router';
 import { z } from '../lib/validation';
 import { App, NotFound } from './app';
+import { ChallengesPage } from './challenges/challenges-page';
 import { Connections } from './connections';
 import { Dashboard } from './dashboard';
 import { Direct } from './direct';
@@ -22,8 +23,8 @@ const shellRoute = createRoute({
   validateSearch: z.object({ declarer: z.boolean().optional().catch(undefined) }),
 });
 const teamRoute = createRoute({ getParentRoute: () => shellRoute, path: '/', component: TeamPage });
-// Until their own step of the redesign, Défis and Matchs open the former board, which has both.
-const challengesRoute = createRoute({ getParentRoute: () => shellRoute, path: '/defis', component: Dashboard });
+const challengesRoute = createRoute({ getParentRoute: () => shellRoute, path: '/defis', component: ChallengesPage });
+// Until its own step of the redesign, Matchs opens the former board.
 const matchesRoute = createRoute({ getParentRoute: () => shellRoute, path: '/matchs', component: Dashboard });
 const settingsRoute = createRoute({ getParentRoute: () => shellRoute, path: '/reglages', component: Settings });
 
