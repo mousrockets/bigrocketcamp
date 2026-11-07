@@ -35,7 +35,7 @@ import { Skeleton } from '../components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { useDeclare } from '../declare/declare-context';
 
-// The club's home: the last match, the member's debt, the team by MMR, and the month's challenge.
+// The club's home: the member's debt, the last match, the team by MMR, and the month's challenge.
 
 type Period = 'today' | 'yesterday' | 'all';
 const periodItems: { value: Period; label: string }[] = [
@@ -521,7 +521,9 @@ export function ClubPage() {
       ) : (
         <>
           <div className="relative flex flex-col gap-3.5 lg:grid lg:grid-cols-[repeat(auto-fit,minmax(min(400px,100%),1fr))] lg:gap-5">
-            <div className="lg:order-2 lg:flex">
+            {/* The debt comes first on every width: the mobile design shows it as the first card, the desktop one on the left. */}
+            <div>{me ? <MyDebt data={data} me={me} /> : null}</div>
+            <div className="lg:flex">
               {last ? (
                 <div className="flex-1 [&>a]:h-full">
                   <LastMatch match={last} now={now} me={me} />
@@ -532,7 +534,6 @@ export function ClubPage() {
                 </Panel>
               )}
             </div>
-            <div className="lg:order-1">{me ? <MyDebt data={data} me={me} /> : null}</div>
           </div>
           {/* The design's bases are content-box: 560 and 280 px inside the edge, plus the challenge's 20 px padding. */}
           <div className="relative flex flex-col gap-3.5 lg:flex-row lg:flex-wrap lg:gap-5">
