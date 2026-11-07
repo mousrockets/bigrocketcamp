@@ -42,6 +42,8 @@ export const boardResult = z.looseObject({
    */
   forfeit: z.boolean().nullable().catch(null),
   overtime: z.boolean().nullable().catch(null),
+  /** The player left before the end: a defeat, with no bonus nor credit. Absent from an API older than it. */
+  left: z.boolean().catch(false),
 });
 export type BoardResult = Known<z.output<typeof boardResult>>;
 

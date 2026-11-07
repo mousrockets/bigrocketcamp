@@ -1,4 +1,4 @@
-import { checkLiveMatch, type LiveMatch, matchCapture, statsStream } from './live-stats';
+import { checkLiveMatch, type LivePayload, matchCapture, statsStream } from './live-stats';
 import { defaultTimeoutMs, fetchWithin } from './timeout';
 
 const queueKey = 'rl-live-queue-v1';
@@ -43,7 +43,7 @@ interface BridgeOptions {
   timeoutMs?: number;
 }
 
-/** Reads final scoreboards from the game on this PC and sends them to the API, keeping them while offline. */
+/** Reads final scoreboards and matches left from the game on this PC and sends them to the API, keeping them while offline. */
 export function liveBridge({
   WebSocketType = browser.WebSocket,
   fetcher = globalThis.fetch,
@@ -54,7 +54,7 @@ export function liveBridge({
   now = Date.now,
   timeoutMs = defaultTimeoutMs,
 }: BridgeOptions = {}) {
-  let queue: LiveMatch[] = [];
+  let queue: LivePayload[] = [];
   let active = false;
   let socket: SocketLike | null = null;
   let retry: unknown = null;
@@ -114,7 +114,7 @@ export function liveBridge({
     sending = true;
     try {
       while (active && queue.length) {
-        const payload = queue[0] as LiveMatch;
+        const payload = queue[0] as LivePayload;
         try {
           checkLiveMatch(payload, now());
         } catch {

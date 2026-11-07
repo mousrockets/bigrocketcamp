@@ -41,6 +41,8 @@ interface LivePayload {
     };
   };
   clockTrace?: unknown;
+  departures?: unknown;
+  left?: boolean;
 }
 
 function payload(guid = 'synthetic-live-match'): LivePayload {
@@ -141,10 +143,10 @@ describe('live stats', () => {
 
   test('a historical replay, a mid-match connection or a vanished scoreboard is never imported', () => {
     for (const mode of ['replay', 'mid-match', 'destroyed']) {
-      const out: unknown[] = [];
+      const out: LivePayload[] = [];
       const p = payload(mode);
       const capture = matchCapture(
-        (completed) => out.push(completed),
+        (completed) => out.push(completed as LivePayload),
         () => now,
       );
       if (mode === 'replay') capture.handle(packet('ReplayCreated', { MatchGuid: mode }));
@@ -152,7 +154,11 @@ describe('live stats', () => {
       capture.handle(packet('UpdateState', p.state));
       if (mode === 'destroyed') capture.handle(packet('MatchDestroyed', { MatchGuid: mode }));
       finish(capture, p);
-      expect(out.length, mode).toBe(0);
+      // A match destroyed before its end was left: it sends no result, only its sender's departure.
+      expect(
+        out.map((sent) => sent.left === true),
+        mode,
+      ).toEqual(mode === 'destroyed' ? [true] : []);
     }
   });
 
@@ -195,7 +201,10 @@ describe('live stats', () => {
     left.handle(packet('MatchCreated', { MatchGuid: 'quit' }));
     left.handle(packet('UpdateState', payload('quit').state));
     left.handle(packet('MatchDestroyed', { MatchGuid: 'quit' }));
-    expect(out.length).toBe(1);
+    // Left before the end: no scoreboard, its sender's departure.
+    expect(out.length).toBe(2);
+    expect(out[1]?.left).toBe(true);
+    expect(out[1]?.end).toBeUndefined();
   });
 
   test('validation: no forfeit inferred from the score, no bots, private, unknown winner, duplicate or partial snapshot', () => {
@@ -318,6 +327,156 @@ describe('live stats', () => {
     // An unreadable trace is dropped, and the match still counts.
     const unreadable = { ...out[0], clockTrace: [{ TimeSeconds: 'soon', ended: true }] };
     expect(parseLiveMatch(roster, unreadable, now).rosters[0]?.clockTrace).toBeUndefined();
+  });
+
+  test('departures: a player gone before the end loses with his last line; an unreadable list is dropped', () => {
+    const p = payload('departed');
+    const [gone] = p.state.Players.splice(1, 1);
+    if (!gone) throw new Error('missing synthetic player');
+    const parsed = parseLiveMatch(roster, { ...p, departures: [gone] }, now);
+    expect(parsed.rows.length).toBe(5);
+    expect(parsed.rosters).toEqual([{ matchGuid: 'departed', playerCount: 5 }]);
+    expect(parsed.departures).toEqual([
+      expect.objectContaining({ matchGuid: 'departed', name: second, team: 0, winner: 1, score: 110, kind: 'match' }),
+    ]);
+    // Back on the final scoreboard: he did not leave.
+    expect(parseLiveMatch(roster, { ...p, departures: [gone, p.state.Players[0]] }, now).departures.length).toBe(1);
+    // An older collector sends none; an unreadable list or one over 8 players is dropped, and the match counts.
+    for (const departures of [undefined, [{ ...gone, Score: 'lots' }], [{ ...gone, PrimaryId: 'Unknown|0|0' }], 'x']) {
+      const kept = parseLiveMatch(roster, { ...p, departures }, now);
+      expect(kept.rows.length).toBe(5);
+      expect(kept.departures).toEqual([]);
+    }
+    expect(parseLiveMatch(roster, { ...p, departures: Array(9).fill(gone) }, now).departures).toEqual([]);
+  });
+
+  test('opponents all gone before the end are a forfeit; gone after it, or one unplaced, they are not', () => {
+    const p = payload('gone');
+    p.end.WinnerTeamNum = 0;
+    p.state.Game.Winner = 'Blue';
+    const opponents = p.state.Players.splice(3, 3);
+    const gone = (departures?: LivePlayer[]) =>
+      parseLiveMatch(roster, { ...p, departures }, now).rosters[0]?.opponentsGone ?? false;
+    expect(gone(opponents)).toBe(true);
+    // Losers quit during the podium: on no departure list.
+    expect(gone()).toBe(false);
+    // One of them stayed to the end: seen, and neither on the scoreboard nor among the departures.
+    expect(gone(opponents.slice(0, 2))).toBe(false);
+    // A club player who left is no opponent.
+    expect(gone([...(p.state.Players.splice(2, 1) as LivePlayer[]), ...opponents])).toBe(true);
+  });
+
+  test('a match left: its last scoreboard, every line a defeat, checked like a final one', () => {
+    const p = payload('left-match');
+    const left = {
+      left: true,
+      state: {
+        MatchGuid: 'left-match',
+        Players: p.state.Players,
+        Game: { PlaylistId: 13, Teams: p.state.Game.Teams, bReplay: false },
+      },
+      startedAt: now - 120_000,
+      leftAt: now - 1000,
+      seenIds: p.seenIds,
+    };
+    const parsed = parseLiveMatch(roster, left, now);
+    expect(parsed.rosters).toEqual([]);
+    expect(parsed.departures.map((row) => [row.name, row.team, row.winner])).toEqual([
+      ['renamed-player', 0, 1],
+      [second, 0, 1],
+      [third, 0, 1],
+      ['Opponent 1', 1, 0],
+      ['Opponent 2', 1, 0],
+      ['Opponent 3', 1, 0],
+    ]);
+    const refused: Record<string, unknown>[] = [
+      { ...left, state: { ...left.state, Game: { ...left.state.Game, bReplay: true } } },
+      { ...left, state: { ...left.state, Game: { ...left.state.Game, PlaylistId: 6 } } },
+      { ...left, state: { ...left.state, Players: [] } },
+      { ...left, leftAt: undefined },
+      { ...left, leftAt: left.startedAt - 1 },
+      { ...left, state: { ...left.state, MatchGuid: ' ' } },
+    ];
+    for (const body of refused) expect(() => parseLiveMatch(roster, body, now)).toThrow();
+  });
+
+  test('capture sends the players gone before the end, first seen first, with their last line before it', () => {
+    const out: LivePayload[] = [];
+    const p = payload('departures');
+    const capture = matchCapture(
+      (completed) => out.push(completed as LivePayload),
+      () => now,
+    );
+    const without = (...names: string[]) => ({
+      ...p.state,
+      Players: p.state.Players.filter((player) => !names.includes(player.Name)),
+    });
+    capture.handle(packet('MatchCreated', { MatchGuid: 'departures' }));
+    capture.handle(packet('UpdateState', p.state));
+    const scored = structuredClone(p.state);
+    for (const player of scored.Players) player.Score += 50;
+    capture.handle(packet('UpdateState', scored));
+    // A goal replay holds nobody's departure.
+    capture.handle(packet('UpdateState', { ...without(third), Game: { ...p.state.Game, bReplay: true } }));
+    capture.handle(packet('UpdateState', without(second, 'Opponent 3')));
+    capture.handle(packet('MatchEnded', p.end));
+    // Opponent 2 quits during the podium: after the end, no departure.
+    const podium = without(second, 'Opponent 2', 'Opponent 3');
+    capture.handle(packet('UpdateState', podium));
+    capture.handle(packet('UpdateState', podium));
+    expect(out.length).toBe(1);
+    const lineOf = (index: number) => {
+      const { Name, PrimaryId, TeamNum, Score, Goals, Assists, Saves } = scored.Players[index] as LivePlayer;
+      return { PrimaryId, Name, TeamNum, Score, Goals, Assists, Saves };
+    };
+    // The same JSON as the collector's, in its order.
+    expect(JSON.stringify(out[0])).toBe(
+      JSON.stringify({
+        state: podium,
+        end: p.end,
+        startedAt: now,
+        endedAt: now,
+        seenIds: p.seenIds,
+        departures: [lineOf(1), lineOf(5)],
+      }),
+    );
+    expect(parseLiveMatch(roster, out[0], now).departures.map((row) => [row.name, row.score])).toEqual([
+      [second, 160],
+      ['Opponent 3', 200],
+    ]);
+  });
+
+  test('capture sends a match left before its end as left, its last usable scoreboard; a closed stream sends nothing', () => {
+    const out: LivePayload[] = [];
+    const p = payload('quit');
+    const capture = matchCapture(
+      (completed) => out.push(completed as LivePayload),
+      () => now,
+    );
+    capture.handle(packet('MatchCreated', { MatchGuid: 'quit' }));
+    capture.handle(packet('UpdateState', p.state));
+    capture.handle(packet('UpdateState', { ...p.state, Players: [], Game: { ...p.state.Game, bReplay: false } }));
+    capture.handle(packet('MatchInitialized', { MatchGuid: 'next' }));
+    expect(JSON.stringify(out)).toBe(
+      JSON.stringify([
+        {
+          left: true,
+          state: {
+            MatchGuid: 'quit',
+            Players: p.state.Players,
+            Game: { PlaylistId: 13, Teams: p.state.Game.Teams, bReplay: false },
+          },
+          startedAt: now,
+          leftAt: now,
+          seenIds: p.seenIds,
+        },
+      ]),
+    );
+    expect(parseLiveMatch(roster, out[0], now).departures.length).toBe(6);
+    capture.handle(packet('UpdateState', payload('next').state));
+    capture.reset();
+    capture.handle(packet('MatchDestroyed', { MatchGuid: 'next' }));
+    expect(out.length).toBe(1);
   });
 
   test('Paris midnight: the live day uses the match start, like the Epic history', () => {
