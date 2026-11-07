@@ -35,8 +35,9 @@ export const ClubContext = createContext<Club | null>(null);
 
 export const useClubName = (): string => useContext(ClubNameContext);
 
-/** The logo the club's administrators sent, if any: without one, `ClubLogo` draws the design's tile. */
-export const useClubLogo = (): string | null => useContext(ClubLogoContext);
+/** The picture shown when the club has not uploaded a logo. */
+export const defaultLogo = '/club-photo.jpg';
+export const useClubLogo = (): string => useContext(ClubLogoContext) ?? defaultLogo;
 
 export function useClub(): Club {
   const club = useContext(ClubContext);
