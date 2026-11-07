@@ -1,4 +1,4 @@
-import { QueryClient } from '@tanstack/react-query';
+import { onlineManager, QueryClient } from '@tanstack/react-query';
 
 /**
  * The app's cache of API answers. Every page keeps its own rhythm, as before TanStack Query:
@@ -8,6 +8,8 @@ import { QueryClient } from '@tanstack/react-query';
  *   never sent twice by the cache.
  */
 export function createQueryClient(): QueryClient {
+  // The cache believes it starts online: an app opened offline must say so, or the network's return asks nothing.
+  if (globalThis.navigator?.onLine === false) onlineManager.setOnline(false);
   return new QueryClient({
     defaultOptions: {
       queries: { networkMode: 'always', retry: false, refetchOnWindowFocus: false, refetchOnReconnect: false },

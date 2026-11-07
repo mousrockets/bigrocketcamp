@@ -30,6 +30,8 @@ export function createAppRouter(history?: RouterHistory) {
   return createRouter({
     routeTree,
     ...(history && { history }),
+    // An unknown address shows the root's 404, wherever it starts ("/direct/autre" included).
+    notFoundMode: 'root',
     // Moving within the board (#exercise, #monthly-mmr…) and back puts the page where it was, as the browser did.
     scrollRestoration: true,
   });
