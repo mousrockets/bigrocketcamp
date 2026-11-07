@@ -6,6 +6,9 @@ import { Connections } from './connections';
 import { MatchesPage } from './matches/matches-page';
 import { Profile } from './profile';
 import { Settings } from './settings';
+import { AccountSettings } from './settings/account';
+import { CollectorSettings } from './settings/collector';
+import { IdentitiesSettings } from './settings/identities';
 import { AppShell } from './shell/app-shell';
 import { TeamPage } from './team/team-page';
 
@@ -25,12 +28,20 @@ const teamRoute = createRoute({ getParentRoute: () => shellRoute, path: '/', com
 const challengesRoute = createRoute({ getParentRoute: () => shellRoute, path: '/defis', component: ChallengesPage });
 const matchesRoute = createRoute({ getParentRoute: () => shellRoute, path: '/matchs', component: MatchesPage });
 const settingsRoute = createRoute({ getParentRoute: () => shellRoute, path: '/reglages', component: Settings });
+// Réglages opens its screens like iOS Settings, each with the way back to it.
+const settingsScreens = (
+  [
+    ['/reglages/compte', AccountSettings],
+    ['/reglages/collecteur', CollectorSettings],
+    ['/reglages/identites', IdentitiesSettings],
+  ] as const
+).map(([path, component]) => createRoute({ getParentRoute: () => shellRoute, path, component }));
 
 const connectionsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/connexions', component: Connections });
 const profileRoute = createRoute({ getParentRoute: () => rootRoute, path: '/profil', component: Profile });
 
 export const routeTree = rootRoute.addChildren([
-  shellRoute.addChildren([teamRoute, challengesRoute, matchesRoute, settingsRoute]),
+  shellRoute.addChildren([teamRoute, challengesRoute, matchesRoute, settingsRoute, ...settingsScreens]),
   connectionsRoute,
   profileRoute,
 ]);
