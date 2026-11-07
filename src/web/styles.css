@@ -58,6 +58,14 @@
   --color-surface: var(--surface);
   --color-inverse: var(--inverse);
   --color-inverse-foreground: var(--inverse-foreground);
+  --color-subtle: var(--subtle);
+  --color-dim: var(--dim);
+  --color-placeholder: var(--placeholder);
+  --color-hover: var(--hover);
+  --color-row-hover: var(--row-hover);
+  --color-link-hover: var(--link-hover);
+  --color-primary-hover: var(--primary-hover);
+  --color-line-strong: var(--line-strong);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -66,6 +74,17 @@
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
   --radius-card: 22px;
+  /* The design leaves line-height to the font ("normal") wherever it does not set one: so do the text sizes. */
+  --text-xs--line-height: normal;
+  --text-sm--line-height: normal;
+  --text-base--line-height: normal;
+  --text-lg--line-height: normal;
+  --text-xl--line-height: normal;
+  --text-2xl--line-height: normal;
+  --text-3xl--line-height: normal;
+  --text-4xl--line-height: normal;
+  --text-5xl--line-height: normal;
+  --text-6xl--line-height: normal;
 }
 
 /* Broadcast nocturne: the dark theme is the reference. */
@@ -86,7 +105,7 @@
   --accent: #1c1d22;
   --accent-foreground: #f4f5f7;
   --destructive: #ff7b72;
-  --border: rgb(255 255 255 / 0.07);
+  --border: rgb(255 255 255 / 0.06);
   --input: rgb(255 255 255 / 0.12);
   --ring: #3d8bff;
   --chart-1: #3d8bff;
@@ -116,9 +135,22 @@
   --surface: #1c1d22;
   --inverse: #f4f5f7;
   --inverse-foreground: #060607;
+  /* Second grey of small print ("412 pts"), the idle tab, the empty field. */
+  --subtle: #8e9097;
+  --dim: #7d7f86;
+  --placeholder: #6f7178;
+  --hover: #121317;
+  --row-hover: #15161a;
+  --link-hover: #a9d1ff;
+  --primary-hover: #5a9dff;
+  --line-strong: rgb(255 255 255 / 0.14);
+  /* The blue buttons' halo: the tab bar's + (35 %), the side bar's "Déclarer" (30 %). */
+  --primary-glow: rgb(61 139 255 / 0.35);
+  --primary-glow-soft: rgb(61 139 255 / 0.3);
   --glow: rgb(40 90 170 / 0.28);
   --glow-cost: rgb(255 159 69 / 0.14);
   --tab-bar: rgb(10 10 12 / 0.82);
+  --tab-bar-border: rgb(255 255 255 / 0.07);
 }
 
 /* The same screens by day: every colour comes from the tokens above, darkened for a white page. */
@@ -161,9 +193,20 @@
   --surface: #eef0f3;
   --inverse: #0b0c0f;
   --inverse-foreground: #ffffff;
+  --subtle: #63666e;
+  --dim: #6b6e76;
+  --placeholder: #8a8d95;
+  --hover: #e8eaee;
+  --row-hover: #eceef2;
+  --link-hover: #174ea8;
+  --primary-hover: #1a60c8;
+  --line-strong: rgb(0 0 0 / 0.18);
+  --primary-glow: rgb(31 111 229 / 0.3);
+  --primary-glow-soft: rgb(31 111 229 / 0.25);
   --glow: rgb(61 139 255 / 0.14);
   --glow-cost: rgb(255 159 69 / 0.16);
   --tab-bar: rgb(255 255 255 / 0.86);
+  --tab-bar-border: rgb(0 0 0 / 0.08);
 }
 
 @layer base {
@@ -172,13 +215,15 @@
   }
   html {
     @apply bg-background font-sans text-foreground;
+    line-height: normal;
     -webkit-tap-highlight-color: transparent;
   }
   body {
     @apply min-h-dvh bg-background text-foreground antialiased;
   }
+  /* The design's links: blue, no underline, lighter under the pointer. */
   a {
-    @apply text-link underline-offset-4 hover:underline;
+    @apply text-link no-underline hover:text-link-hover;
   }
   /* Browsers and Tailwind show the default arrow on buttons; the web convention is a hand on everything clickable. */
   :where(a[href], button, summary, select, label[for], input:is([type="checkbox"], [type="radio"], [type="file"], [type="range"], [type="submit"], [type="button"]), [role="button"], [role="link"], [role="tab"], [role="menuitem"], [role="menuitemcheckbox"], [role="menuitemradio"], [role="option"], [role="checkbox"], [role="radio"], [role="switch"]) {
@@ -193,7 +238,7 @@
   }
 }
 
-/* Titles in narrow Archivo; figures narrower still, with aligned digits. */
+/* The design's three type classes: .h (titles), .n (figures), and the buttons' Archivo, a little wider. */
 @utility font-display {
   font-family: var(--font-heading);
   font-stretch: 80%;
@@ -207,6 +252,13 @@
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
+}
+
+/* Pair it with font-extrabold: a weight utility placed after it would win. */
+@utility font-button {
+  font-family: var(--font-heading);
+  font-stretch: 85%;
+  letter-spacing: normal;
 }
 
 /* The small capitals over a block: "TA DETTE", "DERNIER MATCH". */

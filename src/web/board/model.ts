@@ -93,6 +93,11 @@ export function standingsOf(roster: Roster, state: BoardState) {
     .sort((a, b) => (b.rank?.mmr ?? -1) - (a.rank?.mmr ?? -1) || a.index - b.index);
 }
 
+/** A rank's tier alone, as the design writes it under a name: "Champion II · Division IV" → "Champion II". */
+export function tierOf(label: string): string {
+  return label.split(' · ')[0] ?? label;
+}
+
 const parisTime = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit' });
 const parisDayName = new Intl.DateTimeFormat('fr-FR', {
   timeZone: 'Europe/Paris',

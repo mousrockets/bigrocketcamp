@@ -28,7 +28,7 @@ export function AdminOnly() {
   return (
     <>
       <PageHeader
-        back={<BackLink to="/profil" label="Retour au profil" />}
+        back={<BackLink to="/profil" label="Retour au profil" wide="Profil" />}
         kicker="Administration"
         title="Réglages du club"
       />
@@ -88,7 +88,7 @@ export function SettingsPage() {
   return (
     <div className="flex flex-col gap-3.5 lg:max-w-[720px]">
       <PageHeader
-        back={<BackLink to="/profil" label="Retour au profil" />}
+        back={<BackLink to="/profil" label="Retour au profil" wide="Profil" />}
         kicker="Administration"
         title="Réglages du club"
       />

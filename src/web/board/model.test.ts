@@ -12,6 +12,7 @@ import {
   sinceLabel,
   standingsOf,
   streakOf,
+  tierOf,
   weekStart,
 } from './model';
 import type { BoardState, Result } from './types';
@@ -185,4 +186,10 @@ test('the matches summary', () => {
   expect(matchesSummary([{ outcome: 'victory' }, { outcome: 'defeat' }, { outcome: 'defeat' }], 'aujourd’hui')).toBe(
     '3 matchs reçus aujourd’hui · 1 victoire · 2 défaites',
   );
+});
+
+test('a rank under a name keeps its tier and drops its division', () => {
+  expect(tierOf('Champion II · Division IV')).toBe('Champion II');
+  expect(tierOf('Diamant III')).toBe('Diamant III');
+  expect(tierOf('Classement non reçu')).toBe('Classement non reçu');
 });

@@ -275,7 +275,7 @@ function Team({ data, me, period }: { data: BoardState; me: string | null; perio
       </Panel>
       <span className="px-1 text-xs text-muted-foreground lg:hidden">MMR 2v2 · pompes dues</span>
       <div className="hidden overflow-x-auto lg:block">
-        <Table className="text-sm tabular-nums">
+        <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
               {[
@@ -286,10 +286,7 @@ function Team({ data, me, period }: { data: BoardState; me: string | null; perio
                 'Générées',
                 'Dette',
               ].map((label, index) => (
-                <TableHead
-                  key={label}
-                  className={cn('kicker h-auto px-4 py-3 tracking-[0.08em]', index > 0 && 'text-right')}
-                >
+                <TableHead key={label} className={cn('', index > 0 && 'text-right')}>
                   {label}
                 </TableHead>
               ))}
@@ -411,8 +408,8 @@ export function ClubPage() {
           <span className="kicker">{longDay.format(now)}</span>
           <h1 className="font-display text-[40px] leading-none">Club</h1>
         </div>
-        <div className="w-[360px]">
-          <Segmented label="Période affichée" items={periodItems} value={period} onChange={setPeriod} size="sm" />
+        <div className="flex flex-wrap items-center gap-3">
+          <Segmented label="Période affichée" items={periodItems} value={period} onChange={setPeriod} layout="header" />
         </div>
       </header>
       <h1 className="sr-only lg:hidden">Club</h1>
