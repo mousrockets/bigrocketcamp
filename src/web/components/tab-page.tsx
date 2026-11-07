@@ -6,6 +6,9 @@ import { epicNotice } from './epic-notice';
 // notice at the foot. On a phone the content runs the full width and leaves room for the tab bar; on a computer it
 // sits in a 1060 px column, 56 px between blocks.
 
+/** The tabs' top light at the top of a phone's screen, for Safari's status bar (EdgeTint). */
+export const tabTopTint = '#03050a';
+
 export function TabPage({
   kicker,
   title,
@@ -20,7 +23,10 @@ export function TabPage({
   children: ReactNode;
 }) {
   return (
-    <main className="relative flex min-h-dvh flex-col pt-[max(60px,calc(env(safe-area-inset-top)+12px))] pb-[120px] lg:px-[clamp(20px,5vw,72px)] lg:pt-11 lg:pb-16">
+    <main
+      data-top-tint={tabTopTint}
+      className="relative flex min-h-dvh flex-col pt-[max(60px,calc(env(safe-area-inset-top)+12px))] pb-[120px] lg:px-[clamp(20px,5vw,72px)] lg:pt-11 lg:pb-16"
+    >
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-x-0 top-0 h-[360px] bg-[radial-gradient(90%_60%_at_50%_-12%,rgba(70,120,220,.16),rgba(0,0,0,0)_70%)] lg:h-[440px] lg:bg-[radial-gradient(60%_70%_at_30%_-15%,rgba(70,120,220,.13),rgba(0,0,0,0)_70%)]"

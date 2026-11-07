@@ -45,6 +45,7 @@ export function Welcome() {
   return (
     <GatePage
       glow="radial-gradient(120% 70% at 50% -10%,rgba(40,90,170,.26),rgba(6,6,7,0) 70%)"
+      topTint="#0a101b"
       glowHeight={380}
       className="lg:items-center lg:py-12"
     >
