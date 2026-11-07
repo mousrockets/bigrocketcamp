@@ -27,7 +27,7 @@ test('the podium counts every exercise of the week in pushups, best first', () =
   ]);
 });
 
-test('players level on pushups share a step, and nobody idle stands on the podium', () => {
+test('players level on pushups share a step, a player still at zero takes the next one, and nobody before', () => {
   const podium = weeklyPodium(
     [
       { player: 'alice', count: 20, day: today },
@@ -37,9 +37,10 @@ test('players level on pushups share a step, and nobody idle stands on the podiu
     null,
     today,
   );
-  expect(podium.map(({ name, rank }) => [name, rank])).toEqual([
-    ['alice', 1],
-    ['bob', 1],
+  expect(podium.map(({ name, rank, pushups }) => [name, rank, pushups])).toEqual([
+    ['alice', 1, 20],
+    ['bob', 1, 20],
+    ['carol', 3, 0],
   ]);
   expect(weeklyPodium([], roster, null, today)).toEqual([]);
 });
