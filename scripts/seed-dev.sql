@@ -1,7 +1,6 @@
 -- Local development data: the three players of the club the app was born in, with addresses at
 -- example.com, which never delivers mail. npm run db:seed, after npm run db:migrate; running it again changes nothing.
--- Dimitri administers the club; a renamed local club keeps its new name.
-UPDATE club_settings SET name = 'Les Trois Mousrockets' WHERE name = 'Big Rocket Camp';
+-- Dimitri administers the club, which keeps the default name, Big Rocket Camp.
 INSERT INTO members (id, email, role, duo_pseudo, platform, roster_position) VALUES
   ('member-vincent', 'vincent@example.com', 'member', 'chat-pris-tea', 'pc', 1),
   ('member-dimitri', 'dimitri@example.com', 'admin', 'nokouki', 'pc', 2),
