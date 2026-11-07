@@ -14,14 +14,18 @@ export function ListGroup({ title, children }: { title: string; children: ReactN
   );
 }
 
+// The design's rows keep their 50 (52) px under a 1 px top edge: every row but the first stands 1 px taller.
 const rowClass =
-  'flex min-h-[50px] w-full items-center justify-between gap-3 border-t border-border px-4 text-left text-[15px] text-foreground no-underline first:border-t-0 lg:min-h-[52px] lg:px-[18px]';
+  'flex min-h-[50px] w-full items-center justify-between gap-3 border-t border-border px-4 text-left text-[15px] text-foreground no-underline not-first:min-h-[51px] first:border-t-0 lg:min-h-[52px] lg:px-[18px] lg:not-first:min-h-[53px]';
 
 /** Where a row opens or acts, the design lightens it on a wide screen. */
 const actionRowClass = 'hover:text-foreground lg:hover:bg-row-hover';
 
 /** The value on the right of a row, grey, with its chevron or lock. */
 const valueClass = 'flex items-center gap-1.5 text-sm text-muted-foreground';
+
+/** The row's classes, for a row another control draws (a menu's trigger, a label around a field). */
+export const listRowClasses = { row: rowClass, action: actionRowClass, value: valueClass };
 
 /** A row: a label, and its value or control on the right. */
 export function ListRow({

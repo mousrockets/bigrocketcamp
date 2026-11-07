@@ -132,8 +132,12 @@ export function exerciseEffect(remaining: number, exercise: CountedExercise) {
   };
 }
 
+/**
+ * "1 182": thousands apart by a full-width space, as the design writes them. French formatting puts a narrow
+ * one there, which the condensed numerals draw almost closed ("1182"); a non-breaking one keeps the figure whole.
+ */
 export const formatNumber = (value: number): string =>
-  new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 }).format(value);
+  new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 }).format(value).replace(/\u202f/g, '\u00a0');
 
 export function exerciseDescription(exercise: CountedExercise): string {
   const type = exerciseType(exercise);
