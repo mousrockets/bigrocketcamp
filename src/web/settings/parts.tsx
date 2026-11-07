@@ -2,7 +2,6 @@ import { Link } from '@tanstack/react-router';
 import { cn } from 'cn';
 import type { ComponentProps, ReactNode } from 'react';
 import { epicNotice } from '../components/epic-notice';
-import { tabTopTint } from '../components/tab-page';
 import { Card } from '../components/ui/card';
 import { Field, FieldError, FieldLabel } from '../components/ui/field';
 import { Input } from '../components/ui/input';
@@ -16,7 +15,7 @@ function Glow() {
   return (
     <div
       aria-hidden="true"
-      className="pointer-events-none absolute inset-x-0 top-0 h-[360px] bg-[radial-gradient(90%_60%_at_50%_-12%,rgba(70,120,220,.16),rgba(0,0,0,0)_70%)] lg:h-[440px] lg:bg-[radial-gradient(60%_70%_at_30%_-15%,rgba(70,120,220,.13),rgba(0,0,0,0)_70%)]"
+      className="top-glow pointer-events-none absolute inset-x-0 top-0 h-[360px] bg-[radial-gradient(90%_60%_at_50%_-12%,rgba(70,120,220,.16),rgba(0,0,0,0)_70%)] lg:h-[440px] lg:bg-[radial-gradient(60%_70%_at_30%_-15%,rgba(70,120,220,.13),rgba(0,0,0,0)_70%)]"
     />
   );
 }
@@ -29,7 +28,7 @@ const contentClass =
 /** The Réglages tab itself: its title, its groups, then the version and Epic's notice among them. */
 export function SettingsHomePage({ kicker, children }: { kicker: string; children: ReactNode }) {
   return (
-    <main data-top-tint={tabTopTint} className={cn(pageClass, 'pt-[max(60px,calc(env(safe-area-inset-top)+12px))]')}>
+    <main className={cn(pageClass, 'pt-[max(60px,calc(env(safe-area-inset-top)+12px))]')}>
       <Glow />
       <div className={wrapClass}>
         <header className="flex animate-rise items-end justify-between gap-4 px-5 pt-2 lg:p-0">
@@ -47,7 +46,7 @@ export function SettingsHomePage({ kicker, children }: { kicker: string; childre
 /** A screen opened from Réglages: the way back, a small kicker above its title, its groups, Epic's notice. */
 export function SettingsPage({ kicker, title, children }: { kicker: string; title: string; children: ReactNode }) {
   return (
-    <main data-top-tint={tabTopTint} className={cn(pageClass, 'pt-[max(40px,calc(env(safe-area-inset-top)-4px))]')}>
+    <main className={cn(pageClass, 'pt-[max(40px,calc(env(safe-area-inset-top)-4px))]')}>
       <Glow />
       <div className={wrapClass}>
         <header className="flex animate-rise flex-col gap-1.5 px-5 pt-0 lg:p-0">

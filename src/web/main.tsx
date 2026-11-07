@@ -2,7 +2,6 @@ import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client
 import { RouterProvider } from '@tanstack/react-router';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { EdgeTint } from './components/edge-tint';
 import { Toaster } from './components/ui/sonner';
 import { TooltipProvider } from './components/ui/tooltip';
 import { registerServiceWorker } from './offline';
@@ -23,7 +22,6 @@ createRoot(root).render(
       <TooltipProvider>
         <RouterProvider router={router} />
         <Toaster />
-        <EdgeTint />
       </TooltipProvider>
     </PersistQueryClientProvider>
   </StrictMode>,
