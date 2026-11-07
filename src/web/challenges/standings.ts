@@ -18,8 +18,8 @@ export interface PodiumStep {
 }
 
 /**
- * The week's three strongest arms: every exercise since Monday, Paris time, counted in pushups. A player who did
- * nothing yet stays off the podium.
+ * The week's three strongest arms: every exercise since Monday, Paris time, counted in pushups. Once someone has
+ * done something, a player still at zero takes his place on the podium with 0; before that, the podium stays empty.
  */
 export function weeklyPodium(
   exercises: readonly (CountedExercise & { player: string; day: string })[],
@@ -36,8 +36,8 @@ export function weeklyPodium(
         .filter((exercise) => exercise.player === name && exercise.day >= monday && exercise.day <= today)
         .reduce((sum, exercise) => sum + pushupCredit(exercise), 0),
     }))
-    .filter((player) => player.pushups > 0)
     .sort((a, b) => b.pushups - a.pushups || roster.indexOf(a.name) - roster.indexOf(b.name));
+  if (!totals.some((player) => player.pushups > 0)) return [];
   return totals
     .slice(0, 3)
     .map((player) => ({ ...player, rank: 1 + totals.filter((other) => other.pushups > player.pushups).length }));
