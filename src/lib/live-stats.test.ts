@@ -4,6 +4,7 @@ import { roster } from './club-fixture';
 import { summarize } from './domain';
 import { liveBridge } from './live-bridge';
 import { matchCapture, parseLiveMatch, statsStream } from './live-stats';
+import { endingOf } from './match-rules';
 import { attributeLivePlayers, readIdentityBindings } from './player-identities';
 import { observationWrites, readMerged } from './reconcile';
 
@@ -35,6 +36,8 @@ interface LivePayload {
       bHasWinner: boolean;
       bReplay: boolean;
       Winner: string;
+      TimeSeconds?: unknown;
+      bOvertime?: unknown;
     };
   };
 }
@@ -244,6 +247,46 @@ describe('live stats', () => {
       mutate(p);
       expect(() => parseLiveMatch(roster, p, now)).toThrow();
     }
+  });
+
+  test('the clock at the end tells a forfeit or an overtime, and nothing from an older collector', () => {
+    const ending = (clock: { TimeSeconds?: unknown; bOvertime?: unknown }) => {
+      const p = payload();
+      Object.assign(p.state.Game, clock);
+      const [received] = parseLiveMatch(roster, p, now).rosters;
+      if (!received) throw new Error('missing scoreboard');
+      return endingOf(received);
+    };
+    expect(ending({ TimeSeconds: 143, bOvertime: false })).toEqual({ forfeit: true, overtime: false });
+    expect(ending({ TimeSeconds: 0, bOvertime: false })).toEqual({ forfeit: false, overtime: false });
+    expect(ending({ TimeSeconds: 37, bOvertime: true })).toEqual({ forfeit: false, overtime: true });
+    expect(ending({})).toEqual({ forfeit: null, overtime: null });
+    // An unreadable clock is unknown, and the match still counts.
+    expect(ending({ TimeSeconds: -1, bOvertime: 'no' })).toEqual({ forfeit: null, overtime: null });
+    expect(ending({ TimeSeconds: '143', bOvertime: false })).toEqual({ forfeit: null, overtime: false });
+  });
+
+  test('capture sends the clock of the last update before the end, which a later tick can only lower', () => {
+    const sent = (after: { TimeSeconds: number; bOvertime: boolean }) => {
+      const out: LivePayload[] = [];
+      const p = payload('clock');
+      const capture = matchCapture(
+        (completed) => out.push(completed as LivePayload),
+        () => now,
+      );
+      capture.handle(packet('MatchCreated', { MatchGuid: 'clock' }));
+      capture.handle(
+        packet('UpdateState', { ...p.state, Game: { ...p.state.Game, TimeSeconds: 143, bOvertime: false } }),
+      );
+      capture.handle(packet('MatchEnded', p.end));
+      const final = { ...p.state, Game: { ...p.state.Game, ...after } };
+      capture.handle(packet('UpdateState', final));
+      capture.handle(packet('UpdateState', final));
+      expect(out.length).toBe(1);
+      return [out[0]?.state.Game.TimeSeconds, out[0]?.state.Game.bOvertime];
+    };
+    expect(sent({ TimeSeconds: 300, bOvertime: false })).toEqual([143, false]);
+    expect(sent({ TimeSeconds: 0, bOvertime: true })).toEqual([0, false]);
   });
 
   test('Paris midnight: the live day uses the match start, like the Epic history', () => {

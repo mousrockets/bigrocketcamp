@@ -52,7 +52,16 @@ export interface LiveMatch {
   state: {
     MatchGuid: string;
     Players: LivePlayer[];
-    Game: { PlaylistId?: unknown; Teams?: LiveTeam[]; bHasWinner?: unknown; bReplay?: unknown; Winner?: unknown };
+    Game: {
+      PlaylistId?: unknown;
+      Teams?: LiveTeam[];
+      bHasWinner?: unknown;
+      bReplay?: unknown;
+      Winner?: unknown;
+      /** Seconds left on the clock at the end; counts up in overtime. Absent from older collectors. */
+      TimeSeconds?: unknown;
+      bOvertime?: unknown;
+    };
   };
   end: { MatchGuid: string; WinnerTeamNum: unknown };
   startedAt: number;
@@ -120,6 +129,16 @@ export function liveMatchInput(now: () => number = Date.now) {
         },
         says(publicMatch),
       ),
+    }),
+  });
+  // The clock at the end tells a forfeit from an overtime. Older collectors do not send it, and an unreadable
+  // one is unknown: the match still counts.
+  const clock = z.looseObject({
+    state: z.looseObject({
+      Game: z.looseObject({
+        TimeSeconds: z.number().min(0).max(10_800).optional().catch(undefined),
+        bOvertime: z.boolean().optional().catch(undefined),
+      }),
     }),
   });
   const team = z.looseObject(
@@ -217,6 +236,7 @@ export function liveMatchInput(now: () => number = Date.now) {
     ended,
     timed,
     publicGame,
+    clock,
     teams,
     winner,
     board,
@@ -252,7 +272,14 @@ export function liveMatchRows(roster: Roster, match: LiveMatch): { rows: Receive
       Saves: player.Saves,
     }),
   );
-  const rosters = validateMatchRosters([{ MatchGuid: rows[0]?.matchGuid, PlayerCount: rows.length }], rows);
+  const { TimeSeconds, bOvertime } = state.Game;
+  const clock = {
+    ...(typeof TimeSeconds === 'number' ? { timeSeconds: TimeSeconds } : {}),
+    ...(typeof bOvertime === 'boolean' ? { overtime: bOvertime } : {}),
+  };
+  const rosters = validateMatchRosters([{ MatchGuid: rows[0]?.matchGuid, PlayerCount: rows.length }], rows).map(
+    (roster) => ({ ...roster, ...clock }),
+  );
   return { rows, rosters };
 }
 
@@ -357,7 +384,29 @@ interface CurrentMatch {
   candidate: string | null;
   /** The latest scoreboard seen, sent if the match is left right after its end (a forfeit, an early exit). */
   last: LiveMatch['state'] | null;
+  clock: MatchClock;
   sent: boolean;
+}
+
+interface MatchClock {
+  TimeSeconds?: unknown;
+  bOvertime?: unknown;
+}
+
+/**
+ * The clock of the last update before MatchEnded, which the API reads a forfeit from. An update after the end
+ * can only lower the time left: the tick that reached 0:00 may arrive after MatchEnded.
+ */
+function keptClock(kept: MatchClock, game: MatchClock | undefined, ended: boolean): MatchClock {
+  const seen = { TimeSeconds: game?.TimeSeconds, bOvertime: game?.bOvertime };
+  if (!ended) return seen;
+  const lower =
+    typeof seen.TimeSeconds === 'number' &&
+    (typeof kept.TimeSeconds !== 'number' || seen.TimeSeconds < kept.TimeSeconds);
+  return {
+    TimeSeconds: lower ? seen.TimeSeconds : kept.TimeSeconds,
+    bOvertime: kept.bOvertime === undefined ? seen.bOvertime : kept.bOvertime,
+  };
 }
 
 // A live match must be observed from its creation/initialization. Never import
@@ -409,6 +458,7 @@ export function matchCapture(onComplete: (payload: LiveMatch) => void, now: () =
             endedAt: null,
             candidate: null,
             last: null,
+            clock: {},
             sent: false,
           };
         return;
@@ -426,6 +476,8 @@ export function matchCapture(onComplete: (payload: LiveMatch) => void, now: () =
         current = null;
         return;
       }
+      if (data.Game?.bReplay === false && data.Players.length > 0)
+        current.clock = keptClock(current.clock, data.Game, current.end !== null);
       const state = {
         MatchGuid: guid,
         Players: data.Players.map(({ Name, PrimaryId, TeamNum, Score, Goals, Assists, Saves }: LivePlayer) => ({
@@ -443,6 +495,8 @@ export function matchCapture(onComplete: (payload: LiveMatch) => void, now: () =
           bHasWinner: data.Game?.bHasWinner,
           bReplay: data.Game?.bReplay,
           Winner: data.Game?.Winner,
+          TimeSeconds: current.clock.TimeSeconds,
+          bOvertime: current.clock.bOvertime,
         },
       };
       current.last = state;
