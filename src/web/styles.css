@@ -20,6 +20,8 @@
   --cost-strong: #ff9f45;
   --win: #4cd38a;
   --link: #64a8ff;
+  /* An iOS switch turned on. */
+  --switch-on: #34c759;
 
   /* The sign-in screens: a slightly lighter black and a brighter blue. */
   --gate: #060607;
@@ -81,6 +83,7 @@
   --color-cost-strong: var(--cost-strong);
   --color-win: var(--win);
   --color-link: var(--link);
+  --color-switch-on: var(--switch-on);
   --color-gate: var(--gate);
   --color-gate-text: var(--gate-text);
   --color-gate-muted: var(--gate-muted);
@@ -150,6 +153,7 @@
   --animate-pop-in: pop-in 0.6s var(--ease) both;
   --animate-caret: caret 1s steps(1) infinite;
   --animate-pedestal: pedestal 1.1s var(--ease) both;
+  --animate-pulse-ring: pulse-ring 1.8s ease-out infinite;
 
   @keyframes rise-in {
     from {
@@ -248,6 +252,15 @@
     }
     to {
       transform: none;
+    }
+  }
+  /* A green dot that sends out a ring: something is live. */
+  @keyframes pulse-ring {
+    0% {
+      box-shadow: 0 0 0 0 rgb(52 199 89 / 0.55);
+    }
+    100% {
+      box-shadow: 0 0 0 14px rgb(52 199 89 / 0);
     }
   }
   @keyframes caret {

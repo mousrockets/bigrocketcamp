@@ -18,6 +18,8 @@ const badgeVariants = cva(
         ghost:
           "hover:bg-muted hover:text-muted-foreground dark:hover:bg-muted/50",
         link: "text-primary underline-offset-4 hover:underline",
+        count: "h-auto rounded-[10px] border-0 bg-white/8 px-2 py-[3px] text-[11px] font-semibold text-t2",
+        due: "h-auto rounded-[10px] border-0 bg-cost-strong/14 px-2 py-[3px] text-[11px] font-semibold text-cost",
         tag: "h-auto rounded-md border-line px-1.5 py-0.5 text-[10px] font-semibold tracking-[.06em] text-t2",
         me: "h-auto rounded-[5px] border-line px-[5px] py-px text-[9px] font-bold tracking-[.06em] text-t2",
       },
