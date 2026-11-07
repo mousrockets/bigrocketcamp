@@ -83,7 +83,7 @@ export interface BoardState {
   refresh: () => Promise<Board | null>;
 }
 
-const BoardContext = createContext<BoardState | null>(null);
+export const BoardContext = createContext<BoardState | null>(null);
 
 export function BoardProvider({ children }: { children: ReactNode }) {
   const { roster } = useClub();
