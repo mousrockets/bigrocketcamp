@@ -125,3 +125,12 @@ test('states the rules as the club set them', async () => {
     ),
   ).toBeInTheDocument();
 });
+
+test('names the −10 above 1000 points on the days the club keeps it', async () => {
+  renderInApp(<MatchesPage />, { board: boardWith() });
+  expect(
+    await screen.findByText(
+      'Une défaite coûte 5 pompes à chaque joueur du club, plus 5 de bonus pour celui qui a le moins de points dans l’équipe. Si les adversaires FF, 5 pompes de moins. Plus de 1 000 points dans une partie, 10 pompes de moins. Journée en heure de Paris.',
+    ),
+  ).toBeInTheDocument();
+});
