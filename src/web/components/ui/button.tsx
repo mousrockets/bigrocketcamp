@@ -23,6 +23,8 @@ const buttonVariants = cva(
         "gate-link": "font-semibold text-[14px] text-gate-link hover:text-[#a9d1ff]",
         cta: "bg-t1 font-semibold text-[16px] text-black tracking-[-.01em] duration-300 ease-(--ease) hover:opacity-92 active:not-aria-[haspopup]:translate-y-0 active:scale-98",
         line: "border-line bg-transparent text-t2 duration-300 hover:border-white/18 hover:text-t1",
+        tab: "h-full flex-col gap-0.5 rounded-[26px] px-0 text-[10px] font-semibold tracking-[.01em] text-t2 duration-300 hover:text-t1 active:not-aria-[haspopup]:translate-y-0 aria-[current=page]:bg-white/13 aria-[current=page]:text-t1 aria-[current=page]:shadow-[inset_0_.5px_0_rgba(255,255,255,.28),0_2px_8px_rgba(0,0,0,.25)] [&_svg:not([class*='size-'])]:size-[22px]",
+        glass: "glass rounded-full text-t1 duration-300 ease-(--ease) active:not-aria-[haspopup]:translate-y-0 active:scale-94 [&_svg:not([class*='size-'])]:size-[22px]",
       },
       size: {
         default:

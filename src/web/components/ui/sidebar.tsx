@@ -25,8 +25,6 @@ import {
 } from "@/components/ui/tooltip"
 import { PanelLeftIcon } from "lucide-react"
 
-const SIDEBAR_COOKIE_NAME = "sidebar_state"
-const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
 const SIDEBAR_WIDTH = "16rem"
 const SIDEBAR_WIDTH_MOBILE = "18rem"
 const SIDEBAR_WIDTH_ICON = "3rem"
@@ -82,8 +80,7 @@ function SidebarProvider({
         _setOpen(openState)
       }
 
-      // This sets the cookie to keep the sidebar state.
-      document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`
+      // Not kept in a cookie: the app sets no cookie that is not strictly needed (GDPR).
     },
     [setOpenProp, open]
   )
@@ -487,6 +484,7 @@ const sidebarMenuButtonVariants = cva(
         default: "h-8 text-sm",
         sm: "h-7 text-xs",
         lg: "h-12 text-sm group-data-[collapsible=icon]:p-0!",
+        nav: "h-10 gap-3 rounded-[10px] px-3 text-[14px] font-medium text-sidebar-foreground transition-colors duration-300 hover:bg-white/4 hover:text-t1 data-active:bg-sidebar-accent data-active:text-sidebar-accent-foreground [&_svg]:size-[18px]",
       },
     },
     defaultVariants: {
