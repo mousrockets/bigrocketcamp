@@ -4,7 +4,6 @@ import { sameParisDay } from './days';
 // through this module, so that "1 509", "19 h 42" or "il y a 8 min" read the same everywhere.
 
 const numbers = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2, useGrouping: 'always' });
-const times = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit' });
 const shortDates = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', day: 'numeric', month: 'short' });
 
 /**
@@ -21,8 +20,13 @@ export const plural = (count: number, word: string, pluralForm = `${word}s`): st
 export const count = (value: number, word: string, pluralWord?: string): string =>
   `${formatNumber(value)} ${plural(value, word, pluralWord)}`;
 
+const clocks = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit' });
+
+/** "21:40", in Paris time: a match's kickoff in a list, like a scoreboard writes it. */
+export const formatClock = (at: Date | number | string): string => clocks.format(new Date(at));
+
 /** "19 h 42", in Paris time. */
-export const formatTime = (at: Date | number | string): string => times.format(new Date(at)).replace(':', ' h ');
+export const formatTime = (at: Date | number | string): string => formatClock(at).replace(':', ' h ');
 
 /** "5 nov.", in Paris time. */
 export const formatShortDate = (at: Date | number | string): string => shortDates.format(new Date(at));

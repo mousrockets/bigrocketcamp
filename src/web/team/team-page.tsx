@@ -3,12 +3,13 @@ import { parisDay } from '../../lib/days';
 import { type Board, playerStats, useBoardState } from '../board';
 import { platformLabels, useClub } from '../club';
 import { epicNotice } from '../components/epic-notice';
+import { LiveStatus } from '../components/live-status';
 import { useNow } from '../hooks/use-now';
 import { ClubBadge } from '../shell/club-badge';
 import { DebtHero } from './debt-hero';
 import type { CardPlayer } from './player-card';
 import type { CardRank } from './rank-block';
-import { currentStreak, debtOf, highestTier, isLive, latest, receptionLabel } from './stats';
+import { currentStreak, debtOf, highestTier, latest } from './stats';
 import { TeamCarousel } from './team-carousel';
 
 const noRank: CardRank = { mmr: null, label: 'Rang pas encore relevé', tier: null, peak: null };
@@ -81,27 +82,5 @@ export function TeamPage() {
         </p>
       </div>
     </main>
-  );
-}
-
-/**
- * "Direct", with a red dot that breathes, while someone plays and their collector sends matches; beside it, or alone
- * on a phone once nobody plays, when the last match came in.
- */
-function LiveStatus({ lastReceived }: { lastReceived: string | null }) {
-  const now = useNow(30_000);
-  const live = isLive(lastReceived, now);
-  return (
-    <>
-      {live && (
-        <span className="flex items-center gap-1.5 font-medium text-[12px] lg:font-normal lg:text-[13px]">
-          <i aria-hidden="true" className="size-1.5 animate-breathe rounded-full bg-[#ff453a]" />
-          Direct
-        </span>
-      )}
-      <span className={cn('text-[12px] lg:inline lg:text-[13px]', live && 'hidden')}>
-        {receptionLabel(lastReceived, now)}
-      </span>
-    </>
   );
 }

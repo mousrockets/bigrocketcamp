@@ -1,5 +1,4 @@
 import { shiftDay } from '../../lib/days';
-import { formatWhen } from '../../lib/format';
 
 // What L'équipe derives from the board: streaks, the debt gauge, rank names and colours, whether someone plays.
 
@@ -66,16 +65,3 @@ export const highestTier = (...tiers: (number | null | undefined)[]): number | n
 /** The latest of several readings, or null when none was made. */
 export const latest = (...dates: (string | null | undefined)[]): string | null =>
   dates.reduce<string | null>((last, date) => (date && (!last || date > last) ? date : last), null);
-
-/**
- * The collector sends each match once it ends, and a match lasts about seven minutes: a match received within the
- * last quarter of an hour means someone is playing.
- */
-const liveWindow = 15 * 60_000;
-
-export const isLive = (lastReceived: string | null, now: number): boolean =>
-  lastReceived !== null && now - Date.parse(lastReceived) < liveWindow;
-
-/** "Actualisé à 19 h 42": when the last match came in. */
-export const receptionLabel = (lastReceived: string | null, now: number): string =>
-  lastReceived === null ? 'En attente du premier match' : `Actualisé ${formatWhen(lastReceived, now)}`;
