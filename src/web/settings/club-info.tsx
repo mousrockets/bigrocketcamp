@@ -4,7 +4,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { useRef } from 'react';
 import { clubName, ruleSwitch } from '../../lib/contract';
 import { parisDay } from '../../lib/days';
-import { defaultLastPlaceRules, lastPlaceRuleOn } from '../../lib/domain';
+import { defaultForfeitRules, defaultLastPlaceRules, forfeitRuleOn, lastPlaceRuleOn } from '../../lib/domain';
 import { networkError } from '../access/gate';
 import { useBoardState } from '../board';
 import { useClub } from '../club';
@@ -31,13 +31,22 @@ import {
 
 // The club as its admins set it: its logo, its name, its challenge rules.
 
-const clubSettings = clubName.extend({ lastPlace: ruleSwitch.shape.enabled });
+const clubSettings = clubName.extend({ lastPlace: ruleSwitch.shape.enabled, forfeit: ruleSwitch.shape.enabled });
 
-/** The +5 as it stands from tomorrow on: a change never touches the matches already played. */
-function nextLastPlaceRule(rules = defaultLastPlaceRules) {
+/** A rule as it stands from tomorrow on: a change never touches the matches already played. */
+function nextRule<Rule extends { effectiveFrom: string; enabled: boolean }>(
+  rules: readonly Rule[],
+  ruleOn: (rules: readonly Rule[], day: string) => Rule,
+): boolean {
   const today = parisDay();
-  return rules.find((rule) => rule.effectiveFrom > today) ?? lastPlaceRuleOn(rules, today);
+  return (rules.find((rule) => rule.effectiveFrom > today) ?? ruleOn(rules, today)).enabled;
 }
+
+/** The switches of the « Règles » card, in the order of the mockup. */
+const ruleSwitches = [
+  { name: 'lastPlace', label: '+5 pour le moins de points' },
+  { name: 'forfeit', label: '−5 si les adversaires FF' },
+] as const;
 
 export function ClubSettings() {
   const { me } = useClub();
@@ -50,14 +59,15 @@ function ClubForm() {
   const { refresh } = useBoardState();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const lastPlace = nextLastPlaceRule(club.rules?.lastPlace).enabled;
+  const lastPlace = nextRule(club.rules?.lastPlace ?? defaultLastPlaceRules, lastPlaceRuleOn);
+  const forfeit = nextRule(club.rules?.forfeit ?? defaultForfeitRules, forfeitRuleOn);
   // The name shows in every header and the rules count every match: the club and its board are read again.
   const reread = async () => {
     await queryClient.invalidateQueries({ queryKey: clubQuery.queryKey });
     await refresh();
   };
   const save = useMutation({
-    mutationFn: async (value: { name: string; lastPlace: boolean }) => {
+    mutationFn: async (value: { name: string; lastPlace: boolean; forfeit: boolean }) => {
       if (value.name.trim() !== club.name) {
         await sendJson({
           path: '/api/club',
@@ -66,13 +76,12 @@ function ClubForm() {
           fallback: 'Nom du club invalide.',
         });
       }
-      if (value.lastPlace !== lastPlace) {
-        await sendJson({
-          path: '/api/club/rules',
-          method: 'PUT',
-          body: { lastPlace: { enabled: value.lastPlace } },
-          fallback: 'Règle invalide.',
-        });
+      const changed = {
+        ...(value.lastPlace !== lastPlace && { lastPlace: { enabled: value.lastPlace } }),
+        ...(value.forfeit !== forfeit && { forfeit: { enabled: value.forfeit } }),
+      };
+      if (changed.lastPlace || changed.forfeit) {
+        await sendJson({ path: '/api/club/rules', method: 'PUT', body: changed, fallback: 'Règle invalide.' });
       }
     },
     onSuccess: async () => {
@@ -81,7 +90,7 @@ function ClubForm() {
     },
   });
   const form = useForm({
-    defaultValues: { name: club.name, lastPlace },
+    defaultValues: { name: club.name, lastPlace, forfeit },
     validators: { onSubmit: clubSettings },
     onSubmit: ({ value }) => save.mutateAsync(value).catch(() => {}),
   });
@@ -118,23 +127,25 @@ function ClubForm() {
         </form.Field>
         <SettingsGroup label="Règles">
           <SettingsCard>
-            <form.Field name="lastPlace">
-              {(field) => (
-                <SettingsRow>
-                  <RowIcon>
-                    <RuleIcon />
-                  </RowIcon>
-                  <RowLabel>+5 pour le moins de points</RowLabel>
-                  <Switch
-                    size="ios"
-                    aria-label="+5 pour le moins de points"
-                    checked={field.state.value}
-                    disabled={save.isPending}
-                    onCheckedChange={(checked) => field.handleChange(checked)}
-                  />
-                </SettingsRow>
-              )}
-            </form.Field>
+            {ruleSwitches.map(({ name, label }) => (
+              <form.Field key={name} name={name}>
+                {(field) => (
+                  <SettingsRow>
+                    <RowIcon>
+                      <RuleIcon />
+                    </RowIcon>
+                    <RowLabel>{label}</RowLabel>
+                    <Switch
+                      size="ios"
+                      aria-label={label}
+                      checked={field.state.value}
+                      disabled={save.isPending}
+                      onCheckedChange={(checked) => field.handleChange(checked)}
+                    />
+                  </SettingsRow>
+                )}
+              </form.Field>
+            ))}
           </SettingsCard>
         </SettingsGroup>
         {save.error && <ErrorNote errors={[networkError(save.error)]} />}
