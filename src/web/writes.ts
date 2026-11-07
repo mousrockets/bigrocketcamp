@@ -1,10 +1,10 @@
-import type { Platform } from '../lib/club';
 import {
   type ClubNameInput,
   done,
   type Invitation,
   type MemberToRemove,
   monthsClosed,
+  type ProfileInput,
   pairingCodeCreated,
   type RoleChange,
   type RuleChange,
@@ -47,13 +47,7 @@ export async function sendJson({ path, method, body, fallback }: JsonWrite): Pro
   await sent(write(body), fallback);
 }
 
-export interface ProfileFields {
-  duoPseudo: string;
-  soloPseudo: string;
-  platform: Platform;
-}
-
-export const saveProfile = (profile: ProfileFields) =>
+export const saveProfile = (profile: ProfileInput) =>
   sent(api.profile.$put({ json: profile }), 'Enregistrement impossible.');
 
 export const deleteAccount = (): Promise<void> => sent(api.profile.$delete(), 'Suppression impossible.');
