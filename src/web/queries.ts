@@ -7,7 +7,6 @@ import {
   type Identity,
   type IdentityList,
   identityList,
-  livePlayers,
   type MemberProfile,
   memberList,
 } from '../lib/contract';
@@ -101,14 +100,4 @@ export const collectorsQuery = queryOptions({
   queryKey: ['collectors'],
   queryFn: async (): Promise<CollectorDevice[]> =>
     (await dataOf(api.collectors.$get(), collectorDevices, 'Liste des collecteurs indisponible.')).devices,
-});
-
-/** The players this member can send live scoreboards for. */
-export const livePlayersQuery = queryOptions({
-  queryKey: ['live'],
-  queryFn: async () => {
-    const response = await api.live.$get();
-    if (!response.ok) throw Error('Connecte-toi à RL-Pompes pour activer le direct.');
-    return parseOrThrow(livePlayers, await response.json(), 'Réponse de connexion invalide.').players;
-  },
 });

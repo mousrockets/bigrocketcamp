@@ -1,5 +1,5 @@
 import { createContext, useContext } from 'react';
-import type { ClubPlayer, Platform, Roster } from '../lib/club';
+import type { Platform, Roster } from '../lib/club';
 import { type Club as ClubAnswer, type ClubIdentity, club as clubAnswer, clubIdentity } from '../lib/contract';
 import { api, guestApi } from './api';
 
@@ -25,10 +25,6 @@ export const ClubContext = createContext<Club | null>(null);
 
 export const useClubName = (): string => useContext(ClubNameContext);
 
-/** The picture shown when the club has not uploaded a logo. */
-export const defaultLogo = '/club-photo.jpg';
-export const useClubLogo = (): string => useContext(ClubLogoContext) ?? defaultLogo;
-
 export function useClub(): Club {
   const club = useContext(ClubContext);
   if (!club) throw new Error('useClub needs a signed-in member.');
@@ -53,10 +49,4 @@ export async function fetchClubIdentity(): Promise<ClubIdentity> {
     // Offline: the page still works without the name.
   }
   return { name: '', logo: null };
-}
-
-/** The platform shown on a player's card. */
-export function playerPlatform(players: readonly ClubPlayer[], name: string): string {
-  const platform = players.find((player) => player.slot === name)?.platform;
-  return platform ? platformLabels[platform] : '';
 }
