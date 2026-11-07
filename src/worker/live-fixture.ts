@@ -4,7 +4,17 @@ import { rankedDoublesPlaylist } from '../lib/live-stats';
 
 export const alicePlayerId = `Epic|${'b'.repeat(32)}|0`;
 
-export function livePayload({ guid = 'synthetic-collector-match', playlist = rankedDoublesPlaylist } = {}) {
+/** The game's clock at the end, which a collector older than it does not send. */
+export interface LiveClock {
+  TimeSeconds?: number;
+  bOvertime?: boolean;
+}
+
+export function livePayload({
+  guid = 'synthetic-collector-match',
+  playlist = rankedDoublesPlaylist,
+  clock = {} as LiveClock,
+} = {}) {
   const now = Date.now();
   const players = [
     ['alice', alicePlayerId],
@@ -37,6 +47,7 @@ export function livePayload({ guid = 'synthetic-collector-match', playlist = ran
         bHasWinner: true,
         bReplay: false,
         Winner: 'Blue',
+        ...clock,
       },
     },
   };

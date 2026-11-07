@@ -150,7 +150,10 @@ export const unknownEnding: MatchEnding = { forfeit: null, overtime: null };
  * A match that ends with time left, outside overtime, ended by the losers' forfeit. The clock counts up in
  * overtime, so a forfeit there cannot be told from a goal: it is an overtime.
  */
-export function endingOf(clock: { timeSeconds?: number | null; overtime?: boolean | null }): MatchEnding {
+export function endingOf(clock: {
+  timeSeconds?: number | null | undefined;
+  overtime?: boolean | null | undefined;
+}): MatchEnding {
   if (typeof clock.overtime !== 'boolean') return unknownEnding;
   if (clock.overtime) return { forfeit: false, overtime: true };
   return { forfeit: typeof clock.timeSeconds === 'number' ? clock.timeSeconds > 0 : null, overtime: false };

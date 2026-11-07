@@ -125,6 +125,33 @@ describe('reconcile', () => {
     expect(changed.rosters.length).toBe(0);
   });
 
+  test('every row of a match tells how it ended, from the clocks its sources agree on', () => {
+    const opponent = { ...row, player_id: 'Epic|opponent|0', name: 'Opponent', team: 1 };
+    const report = (source: string, clock: { time_seconds?: number | null; overtime?: boolean | null }) => ({
+      match_guid: 'm',
+      source_id: source,
+      expected_players: 2,
+      source_type: 'collector',
+      received: 'now',
+      players: JSON.stringify([row, opponent]),
+      ...clock,
+    });
+    const endings = (...reports: ReturnType<typeof report>[]) =>
+      reconcile(roster, [], [observation(row), observation(opponent)], [], reports).rows.map(
+        ({ forfeit, overtime }) => [forfeit, overtime],
+      );
+    const forfeit = report('alice', { time_seconds: 143, overtime: false });
+    expect(endings(forfeit)).toEqual([
+      [true, false],
+      [true, false],
+    ]);
+    // A source without the clock (an older collector) changes nothing; two that disagree leave it unknown.
+    expect(endings(forfeit, report('bob', { time_seconds: null, overtime: null }))[0]).toEqual([true, false]);
+    expect(endings(forfeit, report('bob', { time_seconds: 0, overtime: false }))[0]).toEqual([null, false]);
+    expect(endings(report('bob', { time_seconds: 12, overtime: true }))[0]).toEqual([false, true]);
+    expect(endings()[0]).toEqual([null, null]);
+  });
+
   test('stored observations keep each snapshot whole, with no per-column MAX, and repeats are idempotent', async () => {
     await clearSources();
     const player = {

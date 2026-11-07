@@ -144,6 +144,33 @@ describe('sending with the collector token', () => {
     expect(device?.last_seen).toBeGreaterThan(Date.now() - 60_000);
   });
 
+  test('the clock sent with a match tells how it ended, on every row; an older collector leaves it unknown', async () => {
+    const token = await pairedToken();
+    const forfeit = livePayload({ guid: 'synthetic-forfeit', clock: { TimeSeconds: 143, bOvertime: false } });
+    const overtime = livePayload({ guid: 'synthetic-overtime', clock: { TimeSeconds: 41, bOvertime: true } });
+    for (const body of [forfeit, overtime, livePayload({ guid: 'synthetic-older' })]) {
+      expect((await call('/api/live', { method: 'POST', token, body })).status).toBe(200);
+    }
+    const reports = await env.DB.prepare(
+      'SELECT match_guid, time_seconds, overtime FROM source_reports ORDER BY match_guid',
+    ).all();
+    expect(reports.results).toEqual([
+      { match_guid: 'synthetic-forfeit', time_seconds: 143, overtime: 0 },
+      { match_guid: 'synthetic-older', time_seconds: null, overtime: null },
+      { match_guid: 'synthetic-overtime', time_seconds: 41, overtime: 1 },
+    ]);
+    const endings = await env.DB.prepare(
+      `SELECT match_guid, forfeit, overtime, COUNT(*) AS players FROM match_results
+      WHERE match_guid IN ('synthetic-forfeit', 'synthetic-overtime', 'synthetic-older')
+      GROUP BY match_guid, forfeit, overtime ORDER BY match_guid`,
+    ).all();
+    expect(endings.results).toEqual([
+      { match_guid: 'synthetic-forfeit', forfeit: 1, overtime: 0, players: 4 },
+      { match_guid: 'synthetic-older', forfeit: null, overtime: null, players: 4 },
+      { match_guid: 'synthetic-overtime', forfeit: 0, overtime: 1, players: 4 },
+    ]);
+  });
+
   test('the status names the player, and a revoked token is refused', async () => {
     const token = await pairedToken();
     const status = await call('/api/collector/status', { token });
