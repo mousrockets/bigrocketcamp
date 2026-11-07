@@ -104,6 +104,7 @@ test('every write answers what the contract says', async () => {
   await answer(api.club.$put({ json: { name: 'Big Rocket Camp' } }), clubNameSaved);
   await answer(api.club.rules.$put({ json: { lastPlace: { enabled: false } } }), challengeRules);
   await answer(api.club.rules.$put({ json: { forfeit: { enabled: false } } }), challengeRules);
+  await answer(api.club.rules.$put({ json: { highScore: { enabled: false } } }), challengeRules);
   await answer(api.club.logo.$delete(), clubLogo);
   await answer(api.profile.$put({ json: { duoPseudo: 'alice', soloPseudo: 'Alice', platform: 'pc' } }), ownProfile);
   await answer(api.members.$post({ json: { email: 'dora@example.com', role: 'member' } }), memberProfile);

@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
 import { readChallengeRules } from '../lib/club-rules';
 import { summarize } from '../lib/domain';
-import { defaultLastPlaceRules } from '../lib/match-rules';
+import { defaultHighScoreRules, defaultLastPlaceRules } from '../lib/match-rules';
 import { databaseBefore, runMigration, runMigrationsFrom } from './migration-history';
 
 // Replays migration 0021 on data shaped like production's: the +5 keeps counting exactly as the code did,
@@ -73,8 +73,10 @@ test('the +5 counts as before, and nothing stored changes', async () => {
 
   // Today's code reads the database as the later migrations leave it.
   await runMigrationsFrom(db, '0022_');
-  const { lastPlace, forfeit } = await readChallengeRules(db);
+  const { lastPlace, forfeit, highScore } = await readChallengeRules(db);
   expect(forfeit).toEqual([]);
+  // The −10 above 1000 points starts where the code's default starts it.
+  expect(highScore).toEqual(defaultHighScoreRules);
   expect(lastPlace).toEqual(defaultLastPlaceRules);
   // The day before the rule, the defeat costs 5; from its day on, bob takes the +5.
   const rows = [...defeat('m-1105', '2026-11-05'), ...defeat('m-1106', '2026-11-06')];

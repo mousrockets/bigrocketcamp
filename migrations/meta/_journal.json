@@ -183,6 +183,13 @@
       "when": 1794091442042,
       "tag": "0025_clock_trace",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "6",
+      "when": 1794092109163,
+      "tag": "0026_high_score_rules",
+      "breakpoints": true
     }
   ]
 }

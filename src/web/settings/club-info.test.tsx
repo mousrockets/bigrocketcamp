@@ -43,6 +43,7 @@ test('shows the rules as they stand from tomorrow, and sends both switches in on
   const rules = {
     lastPlace: [{ effectiveFrom: '2026-11-06', enabled: true, ties: 'none' as const }],
     forfeit: [{ effectiveFrom: tomorrow, enabled: false }],
+    highScore: [{ effectiveFrom: '2026-11-07', enabled: true }],
   };
   const sent = fakeApi();
   renderInApp(<ClubSettings />, { path: '/reglages/club', club: { ...testClub, rules } });

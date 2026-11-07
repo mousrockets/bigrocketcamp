@@ -64,10 +64,11 @@ export const clubRuleRoutes = new Hono<AppEnv>().put(
   sameOriginOnly,
   ...jsonBody(ruleChange, { invalid: invalidRuleChange }),
   async (c) => {
-    const { lastPlace, forfeit } = c.req.valid('json');
+    const { lastPlace, forfeit, highScore } = c.req.valid('json');
     const rules: ChallengeRules = await changeChallengeRules(c.env.DB, {
       lastPlace: lastPlace?.enabled,
       forfeit: forfeit?.enabled,
+      highScore: highScore?.enabled,
     });
     return c.json(rules, 200, noStore);
   },

@@ -6,12 +6,15 @@ import {
   type ForfeitRule,
   type ForfeitRules,
   forfeitRuleOn,
+  type HighScoreRule,
+  type HighScoreRules,
+  highScoreRuleOn,
   type LastPlaceRule,
   type LastPlaceRules,
   lastPlaceRuleOn,
 } from './match-rules';
 import { orm } from './orm';
-import { forfeitRules, lastPlaceRules } from './schema';
+import { forfeitRules, highScoreRules, lastPlaceRules } from './schema';
 
 // The challenge rules are club settings with a history: a change applies from the next day in Paris, so the
 // matches already played, today's included, keep the pushups they were counted with.
@@ -19,12 +22,14 @@ import { forfeitRules, lastPlaceRules } from './schema';
 export interface ChallengeRules {
   lastPlace: LastPlaceRules;
   forfeit: ForfeitRules;
+  highScore: HighScoreRules;
 }
 
 /** What an admin asks for each rule from tomorrow on; a rule left out stays as it is. */
 export interface RuleChoice {
   lastPlace?: boolean | undefined;
   forfeit?: boolean | undefined;
+  highScore?: boolean | undefined;
 }
 
 /** The day after a day (YYYY-MM-DD). */
@@ -36,7 +41,7 @@ export function dayAfter(day: string): string {
 
 export async function readChallengeRules(db: Database): Promise<ChallengeRules> {
   const query = orm(db);
-  const [lastPlace, forfeit]: [LastPlaceRule[], ForfeitRule[]] = await Promise.all([
+  const [lastPlace, forfeit, highScore]: [LastPlaceRule[], ForfeitRule[], HighScoreRule[]] = await Promise.all([
     query
       .select({
         effectiveFrom: lastPlaceRules.effectiveFrom,
@@ -49,13 +54,17 @@ export async function readChallengeRules(db: Database): Promise<ChallengeRules> 
       .select({ effectiveFrom: forfeitRules.effectiveFrom, enabled: forfeitRules.enabled })
       .from(forfeitRules)
       .orderBy(asc(forfeitRules.effectiveFrom)),
+    query
+      .select({ effectiveFrom: highScoreRules.effectiveFrom, enabled: highScoreRules.enabled })
+      .from(highScoreRules)
+      .orderBy(asc(highScoreRules.effectiveFrom)),
   ]);
-  return { lastPlace, forfeit };
+  return { lastPlace, forfeit, highScore };
 }
 
 /**
- * Turns the +5 or the −5 on or off from tomorrow, both in one batch; asking again for today's rule cancels a
- * change still to come.
+ * Turns the +5, the −5 or the −10 on or off from tomorrow, all in one batch; asking again for today's rule
+ * cancels a change still to come.
  */
 export async function changeChallengeRules(
   db: Database,
@@ -79,6 +88,12 @@ export async function changeChallengeRules(
     writes.push(query.delete(forfeitRules).where(gte(forfeitRules.effectiveFrom, from)));
     if (forfeitRuleOn(rules.forfeit, today).enabled !== choice.forfeit) {
       writes.push(query.insert(forfeitRules).values({ effectiveFrom: from, enabled: choice.forfeit }));
+    }
+  }
+  if (choice.highScore !== undefined) {
+    writes.push(query.delete(highScoreRules).where(gte(highScoreRules.effectiveFrom, from)));
+    if (highScoreRuleOn(rules.highScore, today).enabled !== choice.highScore) {
+      writes.push(query.insert(highScoreRules).values({ effectiveFrom: from, enabled: choice.highScore }));
     }
   }
   const [first, ...rest] = writes;
