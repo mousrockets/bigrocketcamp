@@ -363,6 +363,19 @@ describe('daily recap', () => {
     expect(firstPlayer(summarize(roster, doubtful, [], '', complete(doubtful))).due).toBe(0);
   });
 
+  test('a forfeit won takes nothing off on the days the club turned the −5 off', () => {
+    const win = (match: string, day: string) =>
+      [first, second].map((name, index) => row(match, name, 300 - index * 100, { day, winner: 0, forfeit: true }));
+    const rows = [...win('before', '2026-11-09'), ...win('after', '2026-11-10')];
+    const forfeitOff = [{ effectiveFrom: '2026-11-10', enabled: false }];
+    const recap = (day: string) =>
+      dailyRecap(roster, rows, day, complete(rows), enabledRules, forfeitOff).players.map((p) => p.dodged);
+    expect(recap('2026-11-09').slice(0, 2)).toEqual([5, 5]);
+    expect(recap('2026-11-10').slice(0, 2)).toEqual([0, 0]);
+    const due = summarize(roster, rows, [], '', complete(rows), enabledRules, forfeitOff).slice(0, 2);
+    expect(due.map((p) => p.due)).toEqual([-5, -5]);
+  });
+
   test('a tie between club players: no extra, or every tied loser pays', () => {
     const rows = [row('m', first, 0, { day: '2026-11-05' }), row('m', second, 0, { day: '2026-11-05' })];
     const none = firstPlayer(dailyRecap(roster, rows, '2026-11-05', [], enabledRules).players);

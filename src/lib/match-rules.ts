@@ -131,12 +131,36 @@ export function lastPlaceBonus<Row extends MatchRow>(
   return place.lowest && (rule.ties === 'all' || !place.tied) ? 5 : 0;
 }
 
+/** The −5 of a win the opponents forfeited, as it applies from `effectiveFrom` (a day in Paris). */
+export interface ForfeitRule {
+  enabled: boolean;
+  effectiveFrom: string;
+}
+
+/** Every change of the −5, oldest first: a match counts with the rule of its own day, never a later one. */
+export type ForfeitRules = readonly ForfeitRule[];
+
+// The −5 applied from the first forfeit ever known (collector 0.3.0): before any change, it is on.
+export const defaultForfeitRules: ForfeitRules = [];
+
+const forfeitAlways: ForfeitRule = { enabled: true, effectiveFrom: '' };
+
+/** The −5 in force on a day: the latest change made effective on or before it, or on before any change. */
+export function forfeitRuleOn(rules: ForfeitRules, day: string): ForfeitRule {
+  return rules.reduce(
+    (current, rule) => (rule.effectiveFrom <= day && rule.effectiveFrom >= current.effectiveFrom ? rule : current),
+    forfeitAlways,
+  );
+}
+
 /**
  * « Si les adversaires FF, 5 pompes de moins »: a win the opponents forfeited takes 5 pushups off each club
- * player of the winning team. Only a match whose clock a source sent can be known as a forfeit.
+ * player of the winning team, on the days the club keeps the rule. Only a match whose clock a source sent can
+ * be known as a forfeit.
  */
-export function dodgedPushups(row: MatchRow): number {
-  return row.kind === 'match' && !row.review_required && row.team === row.winner && row.forfeit === true ? 5 : 0;
+export function dodgedPushups(row: MatchRow, rules: ForfeitRules = defaultForfeitRules): number {
+  const won = row.kind === 'match' && !row.review_required && row.team === row.winner && row.forfeit === true;
+  return won && forfeitRuleOn(rules, row.day).enabled ? 5 : 0;
 }
 
 export interface ReceivedRoster {
