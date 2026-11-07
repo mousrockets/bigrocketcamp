@@ -1,11 +1,23 @@
+import { and, count, desc, eq, exists, gt, inArray, max, sql } from 'drizzle-orm';
 import { type ClubPlayer, readClubPlayers, rosterOf } from './club';
 import { readChallengeRules } from './club-rules';
 import type { Database } from './db';
 import { readDoublesRanks } from './doubles-ranks';
-import { type BuiltResult, buildPendingMatches, builtResult } from './match-builds';
+import { type BuiltResult, buildPendingMatches, builtResult, notBuilt, storedColumns } from './match-builds';
 import { readMonthlyMmr } from './monthly-mmr';
+import { orm } from './orm';
 import { readRankSourceHealth } from './rank-source';
 import { type Alias, compareResults, reliabilityOf } from './reconcile';
+import {
+  collectors,
+  exerciseReactions,
+  exercises,
+  matchBuilds,
+  matchResults,
+  playerIdentityAliases,
+  syncRemovals,
+  syncState,
+} from './schema';
 
 // What the board shows. A board that opens reads everything once, page by page; an open board then
 // receives only what changed since its last version, so its cost follows the activity, not the history.
@@ -44,11 +56,15 @@ export interface BoardReader {
 
 /** One row read: whether anything the board shows changed, and whether matches wait for a build. */
 export async function readHead(db: Database): Promise<BoardHead> {
-  const head = await db
-    .prepare(
-      'SELECT version, EXISTS (SELECT 1 FROM match_builds WHERE built_revision IS NOT revision) AS pending FROM sync_state WHERE id = 1',
-    )
-    .first<{ version: number; pending: number }>();
+  const query = orm(db);
+  const head = await query
+    .select({
+      version: syncState.version,
+      pending: exists(query.select({ one: sql`1` }).from(matchBuilds).where(notBuilt)),
+    })
+    .from(syncState)
+    .where(eq(syncState.id, 1))
+    .get();
   return { version: head?.version ?? 0, pending: Boolean(head?.pending) };
 }
 
@@ -56,31 +72,51 @@ export async function readHead(db: Database): Promise<BoardHead> {
 export async function prepareBoard(db: Database): Promise<{ players: ClubPlayer[]; pending: boolean }> {
   const [players, aliases] = await Promise.all([
     readClubPlayers(db),
-    db.prepare('SELECT player_id, slot FROM player_identity_aliases').all<Alias>(),
+    orm(db)
+      .select({ player_id: playerIdentityAliases.playerId, slot: playerIdentityAliases.slot })
+      .from(playerIdentityAliases),
   ]);
-  const pending = await buildPendingMatches(db, rosterOf(players), aliases.results);
+  const pending = await buildPendingMatches(db, rosterOf(players), aliases satisfies Alias[]);
   return { players, pending };
 }
 
-const exerciseColumns = 'id, player, count, day, created, type, author = ?1 AS mine';
+/** Authors stay private: the board only learns whether the member is the author. */
+const exerciseColumns = (memberId: string) => ({
+  id: exercises.id,
+  player: exercises.player,
+  count: exercises.count,
+  day: exercises.day,
+  created: exercises.created,
+  type: exercises.type,
+  mine: sql<number>`${exercises.author} = ${memberId}`.as('mine'),
+});
+
+const reactionColumns = (memberId: string) => ({
+  exercise_id: exerciseReactions.exerciseId,
+  emoji: exerciseReactions.emoji,
+  count: count(),
+  mine: sql<number>`max(${exerciseReactions.author} = ${memberId})`.as('mine'),
+});
+
 const asExercise = ({ mine, ...exercise }: Omit<BoardExercise, 'mine'> & { mine: number; seq?: number }) => {
   const { seq: _seq, ...rest } = exercise;
   return { ...rest, mine: Boolean(mine) };
 };
-const resultColumns =
-  'match_guid, player_id, name, day, kind, team, winner, score, goals, assists, saves, received, review_required, verification, source_types, selected_source, source_difference, expected_players';
 type ResultRow = Parameters<typeof builtResult>[0];
 
 /** The parts of the board small enough to be sent whole with every change. */
 async function readSmallParts({ db, memberId, hasRankSource }: BoardReader, players: ClubPlayer[]) {
-  const [collectors, doublesRanks, monthly, rankSource, rules] = await Promise.all([
-    db.prepare('SELECT id, last_seen FROM collectors ORDER BY last_seen DESC').all(),
+  const [sources, doublesRanks, monthly, rankSource, rules] = await Promise.all([
+    orm(db)
+      .select({ id: collectors.id, last_seen: collectors.lastSeen })
+      .from(collectors)
+      .orderBy(desc(collectors.lastSeen)),
     readDoublesRanks(db, rosterOf(players)),
     readMonthlyMmr(db, players, memberId),
     hasRankSource ? readRankSourceHealth(db) : null,
     readChallengeRules(db),
   ]);
-  return { collectors: collectors.results, doublesRanks, monthly, rankSource, rules };
+  return { collectors: sources, doublesRanks, monthly, rankSource, rules };
 }
 
 /** Matches whose full scoreboard is confirmed, in the order of their newest result. */
@@ -98,30 +134,31 @@ function confirmedRosters(rows: readonly BuiltResult[]) {
 export async function readFullBoard(reader: BoardReader, players: ClubPlayer[]) {
   const { db, memberId } = reader;
   const roster = rosterOf(players);
-  const [stored, exercises, reactions, me, small] = await Promise.all([
-    db.prepare(`SELECT ${resultColumns} FROM match_results`).all<ResultRow>(),
-    db.prepare(`SELECT ${exerciseColumns} FROM exercises ORDER BY created DESC`).bind(memberId).all(),
-    db
-      .prepare(
-        'SELECT exercise_id, emoji, COUNT(*) AS count, MAX(author = ?) AS mine FROM exercise_reactions GROUP BY exercise_id, emoji',
-      )
-      .bind(memberId)
-      .all<BoardReaction>(),
-    db
-      .prepare(
-        'SELECT player FROM exercises WHERE author = ? GROUP BY player ORDER BY COUNT(*) DESC, MAX(created) DESC LIMIT 1',
-      )
-      .bind(memberId)
-      .first<{ player: string }>(),
+  const query = orm(db);
+  const [stored, exerciseRows, reactions, me, small] = await Promise.all([
+    query.select(storedColumns).from(matchResults),
+    query.select(exerciseColumns(memberId)).from(exercises).orderBy(desc(exercises.created)),
+    query
+      .select(reactionColumns(memberId))
+      .from(exerciseReactions)
+      .groupBy(exerciseReactions.exerciseId, exerciseReactions.emoji),
+    query
+      .select({ player: exercises.player })
+      .from(exercises)
+      .where(eq(exercises.author, memberId))
+      .groupBy(exercises.player)
+      .orderBy(desc(count()), desc(max(exercises.created)))
+      .limit(1)
+      .get(),
     readSmallParts(reader, players),
   ]);
-  const rows = stored.results.map(builtResult).sort(compareResults);
+  const rows = (stored as ResultRow[]).map(builtResult).sort(compareResults);
   return {
     results: rows.map(({ expected_players: _expected, ...row }) => row),
-    exercises: (exercises.results as Parameters<typeof asExercise>[0][]).map(asExercise),
+    exercises: exerciseRows.map(asExercise),
     matchRosters: confirmedRosters(rows),
     reliability: reliabilityOf(roster, rows),
-    reactions: reactions.results,
+    reactions: reactions satisfies BoardReaction[],
     me: me?.player ?? null,
     ...small,
   };
@@ -164,51 +201,60 @@ export async function readBoardChanges(
   { limit = pageSize, pending = false }: { limit?: number; pending?: boolean } = {},
 ): Promise<BoardChanges> {
   const { db, memberId } = reader;
-  const head = await db.prepare('SELECT version FROM sync_state WHERE id = 1').first<{ version: number }>();
+  const query = orm(db);
+  const readVersion = () => query.select({ version: syncState.version }).from(syncState).where(eq(syncState.id, 1));
+  const head = await readVersion().get();
   // A version from the future belongs to another database (a restored one): start over.
   const reset = since === 0 || since > (head?.version ?? 0);
   const from = reset ? 0 : since;
-  const changedReactions =
-    'SELECT exercise_id FROM exercise_reactions WHERE seq > ?1 UNION ALL SELECT key FROM sync_removals WHERE seq > ?1 AND collection = ?3';
+  const changedReactions = query
+    .select({ exercise_id: exerciseReactions.exerciseId })
+    .from(exerciseReactions)
+    .where(gt(exerciseReactions.seq, from))
+    .unionAll(
+      query
+        .select({ exercise_id: syncRemovals.key })
+        .from(syncRemovals)
+        .where(and(gt(syncRemovals.seq, from), eq(syncRemovals.collection, 'reactions'))),
+    );
   // One batch is one transaction: the version read is the one the rows read reflect.
-  const [state, results, exercises, removals, reactions, reactionsOf] = (await db.batch([
-    db.prepare('SELECT version FROM sync_state WHERE id = 1'),
-    db
-      .prepare(`SELECT ${resultColumns}, seq FROM match_results WHERE seq > ?1 ORDER BY seq LIMIT ?2`)
-      .bind(from, limit),
-    db
-      .prepare(`SELECT ${exerciseColumns}, seq FROM exercises WHERE seq > ?2 ORDER BY seq LIMIT ?3`)
-      .bind(memberId, from, limit),
-    db
-      .prepare('SELECT seq, collection, key, subkey FROM sync_removals WHERE seq > ?1 ORDER BY seq LIMIT ?2')
-      .bind(from, limit),
-    reset
-      ? db
-          .prepare(
-            'SELECT exercise_id, emoji, COUNT(*) AS count, MAX(author = ?1) AS mine FROM exercise_reactions GROUP BY exercise_id, emoji',
-          )
-          .bind(memberId)
-      : db
-          .prepare(
-            `SELECT exercise_id, emoji, COUNT(*) AS count, MAX(author = ?2) AS mine FROM exercise_reactions
-              WHERE exercise_id IN (${changedReactions}) GROUP BY exercise_id, emoji`,
-          )
-          .bind(from, memberId, 'reactions'),
-    reset
-      ? db.prepare('SELECT NULL AS exercise_id WHERE 0')
-      : db.prepare(changedReactions).bind(from, null, 'reactions'),
-  ])) as [
-    { results: { version: number }[] },
-    { results: (ResultRow & { seq: number })[] },
-    { results: (Parameters<typeof asExercise>[0] & { seq: number })[] },
-    { results: { seq: number; collection: string; key: string; subkey: string | null }[] },
-    { results: BoardReaction[] },
-    { results: { exercise_id: string }[] },
-  ];
-  const version = state.results[0]?.version ?? 0;
+  const [state, results, exerciseRows, removals, reactions, reactionsOf] = await query.batch([
+    readVersion(),
+    query
+      .select({ ...storedColumns, seq: matchResults.seq })
+      .from(matchResults)
+      .where(gt(matchResults.seq, from))
+      .orderBy(matchResults.seq)
+      .limit(limit),
+    query
+      .select({ ...exerciseColumns(memberId), seq: exercises.seq })
+      .from(exercises)
+      .where(gt(exercises.seq, from))
+      .orderBy(exercises.seq)
+      .limit(limit),
+    query
+      .select({
+        seq: syncRemovals.seq,
+        collection: syncRemovals.collection,
+        key: syncRemovals.key,
+        subkey: syncRemovals.subkey,
+      })
+      .from(syncRemovals)
+      .where(gt(syncRemovals.seq, from))
+      .orderBy(syncRemovals.seq)
+      .limit(limit),
+    query
+      .select(reactionColumns(memberId))
+      .from(exerciseReactions)
+      .where(reset ? undefined : inArray(exerciseReactions.exerciseId, changedReactions))
+      .groupBy(exerciseReactions.exerciseId, exerciseReactions.emoji),
+    // A reset replaces every reaction: no list of changed ones to read.
+    reset ? changedReactions.limit(0) : changedReactions,
+  ]);
+  const version = state[0]?.version ?? 0;
   // A full page may hide rows of the same kind past it: the next answer resumes after its last row.
   let cursor = version;
-  for (const page of [results.results, exercises.results, removals.results]) {
+  for (const page of [results, exerciseRows, removals]) {
     const last = page.at(-1);
     if (page.length >= limit && last) cursor = Math.min(cursor, last.seq);
   }
@@ -218,15 +264,15 @@ export async function readBoardChanges(
     version: cursor,
     more: cursor < version || pending,
     reset,
-    results: results.results.map(({ seq: _seq, ...row }) => builtResult(row)),
-    exercises: exercises.results.map(asExercise),
-    reactions: reactions.results,
-    reactionsOf: reset ? 'all' : [...new Set(reactionsOf.results.map((row) => row.exercise_id))],
+    results: results.map(({ seq: _seq, ...row }) => builtResult(row as ResultRow)),
+    exercises: exerciseRows.map(asExercise),
+    reactions,
+    reactionsOf: reset ? 'all' : [...new Set(reactionsOf.map((row) => row.exercise_id))],
     removed: {
-      results: removals.results
+      results: removals
         .filter((removal) => removal.collection === 'results')
         .map((removal) => [removal.key, removal.subkey ?? '']),
-      exercises: removals.results.filter((removal) => removal.collection === 'exercises').map((removal) => removal.key),
+      exercises: removals.filter((removal) => removal.collection === 'exercises').map((removal) => removal.key),
     },
     ...small,
   };
