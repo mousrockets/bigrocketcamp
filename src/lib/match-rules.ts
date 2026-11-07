@@ -132,6 +132,28 @@ export function lastPlaceBonus<Row extends MatchRow>(
 export interface ReceivedRoster {
   matchGuid: string;
   playerCount: number;
+  /** The clock the source read at the end of the match: absent from older collectors. */
+  timeSeconds?: number;
+  overtime?: boolean;
+}
+
+/** How a match ended; null when no source sent the clock (older collectors, Epic's history). */
+export interface MatchEnding {
+  /** The losing team forfeited: the match ended with time left on the clock. */
+  forfeit: boolean | null;
+  overtime: boolean | null;
+}
+
+export const unknownEnding: MatchEnding = { forfeit: null, overtime: null };
+
+/**
+ * A match that ends with time left, outside overtime, ended by the losers' forfeit. The clock counts up in
+ * overtime, so a forfeit there cannot be told from a goal: it is an overtime.
+ */
+export function endingOf(clock: { timeSeconds?: number | null; overtime?: boolean | null }): MatchEnding {
+  if (typeof clock.overtime !== 'boolean') return unknownEnding;
+  if (clock.overtime) return { forfeit: false, overtime: true };
+  return { forfeit: typeof clock.timeSeconds === 'number' ? clock.timeSeconds > 0 : null, overtime: false };
 }
 
 export function validateMatchRosters(
