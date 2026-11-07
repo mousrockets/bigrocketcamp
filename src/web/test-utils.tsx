@@ -9,6 +9,7 @@ import {
 } from '@tanstack/react-router';
 import { render } from '@testing-library/react';
 import type { ReactNode } from 'react';
+import { boardView, emptyBoard } from '../lib/board-sync';
 import { type Board, BoardContext } from './board';
 import { type Club, ClubContext, ClubLogoContext, ClubNameContext } from './club';
 import { createQueryClient } from './query-client';
@@ -35,7 +36,59 @@ export const testClub: Club = {
   },
 };
 
-export const emptyBoard: Board = { results: [], exercises: [], collectors: [] };
+type BoardResult = Board['results'][number];
+type BoardExercise = Board['exercises'][number];
+type DoublesRank = Board['doublesRanks'][number];
+
+/** A board as the app shows it, with nothing played nor done, then the parts a test gives. */
+export const boardWith = (parts: Partial<Board> = {}, club: Club = testClub): Board => ({
+  ...boardView(emptyBoard(), club.roster),
+  ...parts,
+});
+
+/** A player's line of a 2v2 match, lost unless the test says otherwise. */
+export const aResult = (parts: Partial<BoardResult> & Pick<BoardResult, 'name' | 'match_guid'>): BoardResult => ({
+  player_id: `Epic|${parts.name}|0`,
+  day: '2026-11-07',
+  kind: 'match',
+  team: 0,
+  winner: 1,
+  score: 300,
+  goals: 0,
+  assists: 0,
+  saves: 0,
+  received: '2026-11-07T18:00:00.000Z',
+  review_required: false,
+  verification: 'single',
+  source_types: ['collector'],
+  selected_source: 'collector',
+  source_difference: null,
+  ...parts,
+});
+
+/** A series of pushups declared by the member, unless the test says otherwise. */
+export const anExercise = (parts: Partial<BoardExercise> & Pick<BoardExercise, 'id' | 'player'>): BoardExercise => ({
+  type: 'pushups',
+  count: 10,
+  day: '2026-11-07',
+  created: '2026-11-07T18:00:00.000Z',
+  mine: true,
+  ...parts,
+});
+
+/** A player's ranks as the rank source last read them. */
+export const aRank = (parts: Partial<DoublesRank> & Pick<DoublesRank, 'player'>): DoublesRank => ({
+  mmr: null,
+  label: 'Rang non renseigné',
+  tier: null,
+  matchesPlayed: null,
+  status: 'ready',
+  fetchedAt: null,
+  lastAttempt: null,
+  peak: null,
+  solo: null,
+  ...parts,
+});
 
 interface Options {
   club?: Club;
@@ -47,7 +100,7 @@ interface Options {
 
 export function renderInApp(
   ui: ReactNode,
-  { club = testClub, board = emptyBoard, boardError = '', path = '/' }: Options = {},
+  { club = testClub, board = boardWith({}, club), boardError = '', path = '/' }: Options = {},
 ) {
   const page = () => (
     <ClubNameContext value={club.name}>

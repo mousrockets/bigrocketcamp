@@ -1,7 +1,6 @@
 import { screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
-import type { Board } from '../board';
-import { emptyBoard, renderInApp } from '../test-utils';
+import { anExercise, aRank, aResult, boardWith, renderInApp } from '../test-utils';
 import { TeamPage } from './team-page';
 
 const now = new Date('2026-11-07T18:30:00Z');
@@ -12,39 +11,27 @@ beforeEach(() => {
 });
 afterEach(() => vi.useRealTimers());
 
-/** A defeat of `player` in a 2v2 match against two strangers. */
-const defeat = (player: string, guid: string) => ({
-  match_guid: guid,
-  player_id: `Epic|${player}|0`,
-  name: player,
-  day: '2026-11-07',
-  kind: 'match',
-  team: 0,
-  winner: 1,
-  score: 300,
-});
-
-const board: Board = {
-  ...emptyBoard,
-  results: [defeat('alice', 'm1'), defeat('alice', 'm2'), defeat('bob', 'm3')],
+const board = boardWith({
+  results: [
+    aResult({ name: 'alice', match_guid: 'm1' }),
+    aResult({ name: 'alice', match_guid: 'm2' }),
+    aResult({ name: 'bob', match_guid: 'm3' }),
+  ],
   exercises: [
-    { id: 'exercise-0000000001', player: 'alice', type: 'pushups', count: 4, day: '2026-11-06', created: '' },
-    { id: 'exercise-0000000002', player: 'alice', type: 'pushups', count: 2, day: '2026-11-07', created: '' },
+    anExercise({ id: 'exercise-0000000001', player: 'alice', count: 4, day: '2026-11-06' }),
+    anExercise({ id: 'exercise-0000000002', player: 'alice', count: 2, day: '2026-11-07' }),
   ],
   doublesRanks: [
-    {
+    aRank({
       player: 'bob',
       mmr: 1362,
       label: 'Champion III · Division II',
       tier: 18,
-      matchesPlayed: 40,
-      status: 'ready',
       fetchedAt: '2026-11-07T18:22:00Z',
       peak: { mmr: 1391, label: 'Champion III · Division III', tier: 18 },
-      solo: null,
-    },
+    }),
   ],
-};
+});
 
 test('shows the member’s own debt, paid share and streak', async () => {
   renderInApp(<TeamPage />, { board });
@@ -74,13 +61,17 @@ test('puts the member’s card first, then the other players with their ranks', 
 });
 
 test('says Direct while a collector sends matches, and when the last one came in', async () => {
-  renderInApp(<TeamPage />, { board: { ...board, collectors: [{ last_seen: '2026-11-07T18:25:00Z' }] } });
+  renderInApp(<TeamPage />, {
+    board: { ...board, collectors: [{ id: 'collector', last_seen: '2026-11-07T18:25:00Z' }] },
+  });
   expect(await screen.findByText('Direct')).toBeInTheDocument();
   expect(screen.getByText('Actualisé à 19 h 25')).toBeInTheDocument();
 });
 
 test('drops Direct once nobody has played for a quarter of an hour', async () => {
-  renderInApp(<TeamPage />, { board: { ...board, collectors: [{ last_seen: '2026-11-07T18:00:00Z' }] } });
+  renderInApp(<TeamPage />, {
+    board: { ...board, collectors: [{ id: 'collector', last_seen: '2026-11-07T18:00:00Z' }] },
+  });
   expect(await screen.findByText('Actualisé à 19 h 00')).toBeInTheDocument();
   expect(screen.queryByText('Direct')).not.toBeInTheDocument();
 });

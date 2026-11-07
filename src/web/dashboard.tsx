@@ -25,7 +25,7 @@ import type { LastPlaceRules } from '../lib/match-rules';
 import { currentSeason, seasonEndLabel, seasonTiming } from '../lib/season';
 import { versionLabel } from '../lib/version';
 import { signOut } from './api';
-import { useBoard } from './board-client';
+import { useBoardState } from './board';
 import { Brand } from './brand';
 import { playerPlatform, useClub } from './club';
 import type { MonthlyState } from './monthly-mmr';
@@ -665,7 +665,12 @@ export function Dashboard() {
   const soundRef = useRef(sound);
   soundRef.current = sound;
 
-  const refresh = useBoard<State>(roster, setData, setError);
+  const { board, error: boardError, refresh: refreshBoard } = useBoardState();
+  const refresh = async () => (await refreshBoard()) as State | null;
+  useEffect(() => {
+    if (board) setData(board as State);
+    setError(boardError);
+  }, [board, boardError]);
   const sendExercise = useMutation({ mutationFn: declareExercise }).mutateAsync;
   const cancelExercise = useMutation({ mutationFn: undoExercise }).mutateAsync;
   const sendReaction = useMutation({ mutationFn: reactToExercise }).mutateAsync;

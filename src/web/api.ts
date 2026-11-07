@@ -3,7 +3,7 @@ import { apiError } from '../lib/contract';
 import { defaultTimeoutMs, fetchWithin } from '../lib/timeout';
 import { type core, parseOrThrow } from '../lib/validation';
 import type { AppType } from '../worker/app';
-import { forgetBoard } from './board-store';
+import { forgetEverything } from './persistence';
 
 // Every call to the API goes through its typed client (Hono RPC): the routes, their inputs and their answers come
 // from the Worker's own types, and each answer is parsed with its schema from src/lib/contract.
@@ -98,7 +98,7 @@ export async function dataOf<Schema extends core.$ZodType>(
 
 export async function signOut(): Promise<void> {
   try {
-    await forgetBoard();
+    await forgetEverything();
     await guestApi.auth.logout.$post();
   } finally {
     // Reloading shows the sign-in screen, or the same page if the request did not reach the server.
