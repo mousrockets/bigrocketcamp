@@ -4,7 +4,7 @@
 /* Self-hosted fonts: nothing is asked of Google Fonts (GDPR). Archivo carries the width axis for the narrow figures. */
 @import "@fontsource-variable/archivo/wdth.css";
 @import "@fontsource-variable/archivo/wdth-italic.css";
-@import "@fontsource-variable/inter";
+@import "./fonts.css";
 
 /* The light theme follows the same tokens: `dark:` utilities mean the dark one, the reference. */
 @custom-variant dark (&:where(:root:not([data-theme="light"]) *));
