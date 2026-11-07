@@ -7,8 +7,10 @@ import { MatchesPage } from './matches/matches-page';
 import { Profile } from './profile';
 import { Settings } from './settings';
 import { AccountSettings } from './settings/account';
+import { ClubSettings } from './settings/club-info';
 import { CollectorSettings } from './settings/collector';
 import { IdentitiesSettings } from './settings/identities';
+import { MembersSettings } from './settings/members';
 import { AppShell } from './shell/app-shell';
 import { TeamPage } from './team/team-page';
 
@@ -34,6 +36,8 @@ const settingsScreens = (
     ['/reglages/compte', AccountSettings],
     ['/reglages/collecteur', CollectorSettings],
     ['/reglages/identites', IdentitiesSettings],
+    ['/reglages/club', ClubSettings],
+    ['/reglages/membres', MembersSettings],
   ] as const
 ).map(([path, component]) => createRoute({ getParentRoute: () => shellRoute, path, component }));
 
