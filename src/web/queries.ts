@@ -1,9 +1,20 @@
 import { queryOptions } from '@tanstack/react-query';
-import type { Profile } from '../lib/members';
-import { fetchWithin } from '../lib/timeout';
+import {
+  type Candidate,
+  type CollectorDevice,
+  collectorDevices,
+  health,
+  type Identity,
+  type IdentityList,
+  identityList,
+  livePlayers,
+  type MemberProfile,
+  memberList,
+} from '../lib/contract';
+import { parseOrThrow } from '../lib/validation';
 import type { DeployedVersion } from '../lib/version';
-import { apiFetch, isSignInRequired } from './api';
-import { errorOf, fetchClub, fetchClubIdentity } from './club';
+import { api, dataOf, errorOf, guestApi, isSignInRequired } from './api';
+import { fetchClub, fetchClubIdentity } from './club';
 
 // Every read of the API, shared by the pages through TanStack Query. The writes are in `writes.ts`.
 // The board is not here: it keeps its own sync (board-client.ts), with the browser's copy as its source.
@@ -43,12 +54,11 @@ const versionCheckEvery = 5 * 60_000;
 export const deployedVersionQuery = queryOptions({
   queryKey: ['health'],
   queryFn: async (): Promise<DeployedVersion> => {
-    const response = await fetchWithin(fetch, '/api/health', { cache: 'no-store' });
+    const response = await guestApi.health.$get();
     if (!response.ok) throw new Error(`The health check answered ${response.status}.`);
-    const body = (await response.json()) as Partial<DeployedVersion>;
     // An API older than this check names no commit: nothing to compare.
-    if (typeof body.commit !== 'string') throw new Error('The health check names no commit.');
-    return { commit: body.commit, deployedAt: body.deployedAt ?? null };
+    const { commit, deployedAt } = parseOrThrow(health, await response.json(), 'The health check names no commit.');
+    return { commit, deployedAt };
   },
   refetchInterval: versionCheckEvery,
   refetchOnWindowFocus: 'always',
@@ -57,16 +67,11 @@ export const deployedVersionQuery = queryOptions({
 /** The club's members, for the administrators. */
 export const membersQuery = queryOptions({
   queryKey: ['members'],
-  queryFn: async () => {
-    const response = await apiFetch('/api/members', { cache: 'no-store' });
-    if (!response.ok) throw Error(await errorOf(response, 'Liste des membres indisponible.'));
-    return ((await response.json()) as { members: Profile[] }).members;
-  },
+  queryFn: async (): Promise<MemberProfile[]> =>
+    (await dataOf(api.members.$get(), memberList, 'Liste des membres indisponible.')).members,
 });
 
-type Alias = { playerId: string; primary: boolean };
-export type Identity = { slot: string; known: boolean; owned: boolean; aliases: Alias[] };
-export type Candidate = { playerId: string; name: string; day: string };
+export type { Candidate, CollectorDevice, Identity };
 
 /** An API answer that is not a success; each page words it its own way. */
 export class ApiError extends Error {
@@ -84,37 +89,26 @@ export class ApiError extends Error {
 /** The game identities of the club's players, and the players seen in received scoreboards. */
 export const identitiesQuery = queryOptions({
   queryKey: ['identities'],
-  queryFn: async () => {
-    const response = await apiFetch('/api/identities', { cache: 'no-store' });
+  queryFn: async (): Promise<IdentityList> => {
+    const response = await api.identities.$get();
     if (!response.ok) throw new ApiError(response.status, await errorOf(response, ''));
-    return (await response.json()) as { identities: Identity[]; candidates: Candidate[] };
+    return parseOrThrow(identityList, await response.json(), 'Identités de jeu indisponibles.');
   },
 });
-
-export interface CollectorDevice {
-  id: string;
-  created: string;
-  lastSeen: string | null;
-}
 
 /** The member's paired Windows collectors. */
 export const collectorsQuery = queryOptions({
   queryKey: ['collectors'],
-  queryFn: async () => {
-    const response = await apiFetch('/api/collectors', { cache: 'no-store' });
-    if (!response.ok) throw Error(await errorOf(response, 'Liste des collecteurs indisponible.'));
-    return ((await response.json()) as { devices: CollectorDevice[] }).devices;
-  },
+  queryFn: async (): Promise<CollectorDevice[]> =>
+    (await dataOf(api.collectors.$get(), collectorDevices, 'Liste des collecteurs indisponible.')).devices,
 });
 
 /** The players this member can send live scoreboards for. */
 export const livePlayersQuery = queryOptions({
   queryKey: ['live'],
   queryFn: async () => {
-    const response = await apiFetch('/api/live');
+    const response = await api.live.$get();
     if (!response.ok) throw Error('Connecte-toi à RL-Pompes pour activer le direct.');
-    const data = (await response.json()) as { players: string[] };
-    if (!Array.isArray(data.players)) throw Error('Réponse de connexion invalide.');
-    return data.players;
+    return parseOrThrow(livePlayers, await response.json(), 'Réponse de connexion invalide.').players;
   },
 });

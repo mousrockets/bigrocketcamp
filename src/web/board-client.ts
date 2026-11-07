@@ -2,8 +2,10 @@ import { useEffect, useRef } from 'react';
 import type { BoardChanges, FullBoard } from '../lib/board';
 import { applyChanges, boardView, emptyBoard } from '../lib/board-sync';
 import type { Roster } from '../lib/club';
+import { boardChanges } from '../lib/contract';
 import { defaultTimeoutMs } from '../lib/timeout';
-import { apiFetch } from './api';
+import { parseOrThrow } from '../lib/validation';
+import { apiWithin } from './api';
 import { loadBoard, saveBoard } from './board-store';
 
 // Keeps the board up to date while the page is visible. The API holds each request until something changes
@@ -71,22 +73,22 @@ export class BoardClient {
     let changed = false;
     for (let page = 0; ; page++) {
       const holding = wait && page === 0 && this.synced && !this.whole;
-      const response = await apiFetch(
-        `/api/state?since=${this.board.version}${holding ? `&wait=${waitSeconds}` : ''}`,
-        { cache: 'no-store', signal },
-        // A held request answers within its wait; past it, the connection is gone.
-        { timeoutMs: (holding ? waitSeconds * 1000 : 0) + this.timeoutMs },
+      // A held request answers within its wait; past it, the connection is gone.
+      const response = await apiWithin((holding ? waitSeconds * 1000 : 0) + this.timeoutMs).state.$get(
+        { query: { since: String(this.board.version), ...(holding ? { wait: String(waitSeconds) } : {}) } },
+        { init: { signal } },
       );
       if (response.status === 204) return changed;
       if (!response.ok) throw Error(loadError);
-      const body: unknown = await response.json();
+      const raw: unknown = await response.json();
       // A newer request took over: its answer wins.
       if (generation !== this.generation) return false;
-      if (!isChanges(body)) {
-        this.whole = body as FullBoard;
+      if (!isChanges(raw)) {
+        this.whole = raw as FullBoard;
         return true;
       }
       this.whole = null;
+      const body = parseOrThrow(boardChanges, raw, loadError);
       // A board kept for another member on this browser: start over, its "mine" marks are not this member's.
       if (this.board.viewer !== null && body.viewer !== this.board.viewer) {
         this.board = emptyBoard();
