@@ -2,6 +2,8 @@ import { env } from 'cloudflare:workers';
 
 // For the migration tests: a database as production held it right before a given migration, whatever the
 // migrations that came after changed. It lives in its own binding, apart from the tests' migrated database.
+// Raw SQL throughout: it runs the migration files themselves, and reads and drops what sqlite_master lists,
+// none of which the Drizzle schema (the latest one) describes.
 
 const historical = () => env.MIGRATION_DB;
 
