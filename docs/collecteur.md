@@ -36,12 +36,12 @@ Authorization: Bearer <jeton>
 ```
 
 - **`GET /api/collector/status`** → `200 {"player":"<pseudo duo>"}`, ou `401` si le jeton est inconnu ou révoqué (le collecteur repasse alors en mode « à associer »).
-- **`POST /api/live`** : même corps, même validation et même attribution au membre que depuis la page `/direct`. Avec un jeton, pas de contrôle d'origine. Réponses : `200 {"ok":true,"match":"…","received":N}`, `400` envoi invalide, `403` le tableau ne contient aucun identifiant de joueur du membre, `413` corps de plus de 64 000 caractères, `401` jeton inconnu ou révoqué.
+- **`POST /api/live`** : le tableau de fin de match (schéma `liveMatchInput` dans `src/lib/live-stats.ts`). Depuis la version 0.3.0, `state.Game` porte aussi `TimeSeconds` (temps restant) et `bOvertime` au dernier état avant la fin : un match gagné avec du temps restant hors prolongation est un abandon des adversaires (« pompes esquivées », 5 de moins). Un collecteur plus ancien ne les envoie pas : ni abandon ni prolongation ne sont alors connus. Avec un jeton, pas de contrôle d'origine. Réponses : `200 {"ok":true,"match":"…","received":N}`, `400` envoi invalide, `403` le tableau ne contient aucun identifiant de joueur du membre, `413` corps de plus de 64 000 caractères, `401` jeton inconnu ou révoqué.
 - `GET /api/live` accepte aussi le jeton : `{"players":["<emplacements du membre>"]}`.
 
 Chaque requête authentifiée met à jour le dernier contact du collecteur (à la minute près).
 
 ## Côté membre
 
-- Le Profil liste les collecteurs associés (date d'association, dernier contact) avec un bouton « Révoquer ».
+- Réglages → Collecteur liste les collecteurs associés (date d'association, dernier contact) avec un bouton « Révoquer ».
 - Supprimer son compte, ou en être retiré par un administrateur, supprime ses collecteurs et son code en attente.

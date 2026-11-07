@@ -126,7 +126,7 @@ export const collectorDevices = sqliteTable(
 );
 
 /**
- * The last contact of each live source: a member's collector or /direct page, under an anonymous name
+ * The last contact of each live source: a member's collector, under an anonymous name
  * (`live-` and a hash of the member). Written with every match received.
  */
 export const collectors = sqliteTable('collectors', {
