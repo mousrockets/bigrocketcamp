@@ -28,14 +28,14 @@ export const clubIdentity = z.looseObject({
 });
 export type ClubIdentity = Known<z.output<typeof clubIdentity>>;
 
-export const clubPlayer = z.looseObject({ slot: z.string(), platform: z.enum(platforms).nullable() });
+export const clubPlayer = z.looseObject({ slot: z.string(), platform: z.enum(platforms).nullable().catch(null) });
 export type ClubPlayer = Known<z.output<typeof clubPlayer>>;
 
 /** The +5 as it applies from `effectiveFrom` (a day in Paris) until the next change. */
 export const lastPlaceRule = z.looseObject({
   enabled: z.boolean(),
   effectiveFrom: z.string(),
-  ties: z.enum(['none', 'all']),
+  ties: z.enum(['none', 'all']).catch('none'),
 });
 
 /** Also the answer to a change of the rules. Every change, oldest first: a match counts with its own day's rule. */

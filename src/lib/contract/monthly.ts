@@ -24,7 +24,7 @@ export const monthlyRow = z.looseObject({
   recordedAt: z.string().nullable(),
   confirmedForClose: z.boolean(),
   /** The account the player counts with; absent from months closed before solo accounts counted. */
-  account: z.enum(['duo', 'solo']).nullable().optional(),
+  account: z.enum(['duo', 'solo']).nullable().optional().catch(null),
 });
 
 const monthBounds = {

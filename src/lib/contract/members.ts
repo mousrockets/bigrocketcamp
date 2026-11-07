@@ -27,10 +27,10 @@ export type MemberToRemove = z.input<typeof memberToRemove>;
 export const memberProfile = z.looseObject({
   id: z.string(),
   email: z.string(),
-  role: z.enum(roles),
+  role: z.enum(roles).catch('member'),
   duoPseudo: z.string().nullable(),
   soloPseudo: z.string().nullable(),
-  platform: z.enum(platforms).nullable(),
+  platform: z.enum(platforms).nullable().catch(null),
 });
 export type MemberProfile = Known<z.output<typeof memberProfile>>;
 
