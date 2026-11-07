@@ -296,3 +296,12 @@
     scroll-behavior: auto !important;
   }
 }
+
+@keyframes brc-shrink {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}

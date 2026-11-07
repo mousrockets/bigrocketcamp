@@ -4,6 +4,8 @@ import { App, NotFound } from './app';
 import { Connections } from './connections';
 import { Dashboard } from './dashboard';
 import { Direct } from './direct';
+import { ClubPage } from './pages/club';
+import { RecapPage } from './pages/recap';
 import { Profile } from './profile';
 import { Settings } from './settings';
 
@@ -28,10 +30,19 @@ const LegacyProfile = () => <Legacy page={Profile} />;
 const LegacySettings = () => <Legacy page={Settings} />;
 
 // New addresses whose page is not built yet: the board section that holds them for now.
-const MatchesOnBoard = () => <Navigate to="/" hash="history" replace />;
-const ChallengeOnBoard = () => <Navigate to="/" hash="monthly-mmr" replace />;
+const MatchesOnBoard = () => <Navigate to="/tableau" hash="history" replace />;
+const ChallengeOnBoard = () => <Navigate to="/tableau" hash="monthly-mmr" replace />;
 
-const boardRoute = createRoute({ getParentRoute: () => rootRoute, path: '/', component: LegacyDashboard });
+const clubRoute = createRoute({ getParentRoute: () => rootRoute, path: '/', component: ClubPage });
+// The old board, while its last sections (matches, challenge, player cards) move to their own pages.
+const boardRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tableau', component: LegacyDashboard });
+const recapRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/recap',
+  validateSearch: (search: Record<string, unknown>): { jour?: string } =>
+    typeof search.jour === 'string' ? { jour: search.jour } : {},
+  component: RecapPage,
+});
 const matchesRoute = createRoute({ getParentRoute: () => rootRoute, path: '/matchs', component: MatchesOnBoard });
 const exercisesRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -54,7 +65,9 @@ const profileRoute = createRoute({ getParentRoute: () => rootRoute, path: '/prof
 const settingsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/reglages', component: LegacySettings });
 
 export const routeTree = rootRoute.addChildren([
+  clubRoute,
   boardRoute,
+  recapRoute,
   matchesRoute,
   exercisesRoute,
   challengeRoute,

@@ -1,13 +1,15 @@
 import { useQuery } from '@tanstack/react-query';
-import { Link, Navigate, Outlet, useMatchRoute, useNavigate } from '@tanstack/react-router';
+import { Link, Navigate, Outlet, useMatchRoute } from '@tanstack/react-router';
 import { cn } from 'cn';
 import { useEffect, useSyncExternalStore } from 'react';
 import { isSignInRequired, subscribeToSignInRequired } from './api';
+import { BoardProvider } from './board/board-context';
 import { ClubContext, ClubLogoContext, ClubNameContext } from './club';
 import { AppShell } from './components/club/app-shell';
 import { EmptyPitch } from './components/club/icons';
 import { buttonVariants } from './components/ui/button';
 import { Toaster } from './components/ui/sonner';
+import { DeclareProvider, useDeclare } from './declare/declare-context';
 import { clubIdentityQuery, clubQuery } from './queries';
 import { SignIn } from './sign-in';
 import { useTheme } from './theme';
@@ -23,6 +25,15 @@ export function NotFound() {
         Retour au club
       </Link>
     </section>
+  );
+}
+
+function Shell() {
+  const { openDeclare } = useDeclare();
+  return (
+    <AppShell onDeclare={() => openDeclare()}>
+      <Outlet />
+    </AppShell>
   );
 }
 
@@ -47,7 +58,6 @@ export function App() {
   const { data: club = null, isError: failed } = useQuery(clubQuery);
   const { data: identity = noIdentity } = useQuery({ ...clubIdentityQuery, enabled: signInRequired });
   const onProfile = useMatchRoute()({ to: '/profil' }) !== false;
-  const navigate = useNavigate();
   useTheme();
 
   const clubName = club?.name ?? identity.name;
@@ -75,9 +85,11 @@ export function App() {
     <ClubNameContext value={club.name}>
       <ClubLogoContext value={club.logo}>
         <ClubContext value={club}>
-          <AppShell onDeclare={() => navigate({ to: '/', hash: 'exercise' })}>
-            <Outlet />
-          </AppShell>
+          <BoardProvider>
+            <DeclareProvider>
+              <Shell />
+            </DeclareProvider>
+          </BoardProvider>
           <Toaster position="top-center" />
         </ClubContext>
       </ClubLogoContext>
