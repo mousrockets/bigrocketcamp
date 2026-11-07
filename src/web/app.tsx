@@ -1,32 +1,20 @@
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { Link, Navigate, Outlet, useMatchRoute } from '@tanstack/react-router';
+import { useEffect, useSyncExternalStore } from 'react';
 import { isSignInRequired, subscribeToSignInRequired } from './api';
 import { Brand } from './brand';
-import {
-  type Club,
-  ClubContext,
-  type ClubIdentity,
-  ClubLogoContext,
-  ClubNameContext,
-  fetchClub,
-  fetchClubIdentity,
-} from './club';
-import { Connections } from './connections';
-import { Dashboard } from './dashboard';
-import { Direct } from './direct';
-import { Profile } from './profile';
-import { Settings } from './settings';
+import { ClubContext, ClubLogoContext, ClubNameContext } from './club';
+import { clubIdentityQuery, clubQuery } from './queries';
 import { SignIn } from './sign-in';
 
-export const profilePath = '/profil';
-
-function NotFound() {
+export function NotFound() {
   return (
     <main>
       <header>
         <Brand />
-        <a className="back-link" href="/">
+        <Link className="back-link" to="/" reloadDocument>
           ← Retour au tableau
-        </a>
+        </Link>
       </header>
       <section>
         <p className="eyebrow">ERREUR 404</p>
@@ -50,53 +38,14 @@ function Unavailable() {
   );
 }
 
-function Page({ path }: { path: string }) {
-  if (path === '/') return <Dashboard />;
-  if (path === '/direct') return <Direct />;
-  if (path === '/connexions') return <Connections />;
-  if (path === profilePath) return <Profile />;
-  if (path === '/reglages') return <Settings />;
-  return <NotFound />;
-}
+const noIdentity = { name: '', logo: null };
 
+/** Stands in front of every page: signing in, then the club, then a new member's profile. */
 export function App() {
   const signInRequired = useSyncExternalStore(subscribeToSignInRequired, isSignInRequired);
-  const [club, setClub] = useState<Club | null>(null);
-  const [identity, setIdentity] = useState<ClubIdentity>({ name: '', logo: null });
-  const [failed, setFailed] = useState(false);
-  // "/direct/" and "/direct" are the same page.
-  const path = location.pathname.replace(/\/+$/, '') || '/';
-
-  useEffect(() => {
-    let loading = false;
-    function load() {
-      if (loading || document.hidden) return;
-      loading = true;
-      fetchClub()
-        .then((loaded) => {
-          setFailed(!loaded && !isSignInRequired());
-          if (loaded) setClub(loaded);
-          if (loaded || isSignInRequired()) stopRetrying();
-        })
-        .catch(() => setFailed(true))
-        .finally(() => {
-          loading = false;
-        });
-    }
-    // An installed app opened offline has no reload button: it tries again once the network or the member is back.
-    function stopRetrying() {
-      removeEventListener('online', load);
-      document.removeEventListener('visibilitychange', load);
-    }
-    load();
-    addEventListener('online', load);
-    document.addEventListener('visibilitychange', load);
-    return stopRetrying;
-  }, []);
-
-  useEffect(() => {
-    if (signInRequired) fetchClubIdentity().then(setIdentity);
-  }, [signInRequired]);
+  const { data: club = null, isError: failed } = useQuery(clubQuery);
+  const { data: identity = noIdentity } = useQuery({ ...clubIdentityQuery, enabled: signInRequired });
+  const onProfile = useMatchRoute()({ to: '/profil' }) !== false;
 
   const clubName = club?.name ?? identity.name;
   useEffect(() => {
@@ -105,12 +54,6 @@ export function App() {
     // The name under the icon on an iPhone home screen (Android reads the manifest).
     document.querySelector('meta[name="apple-mobile-web-app-title"]')?.setAttribute('content', clubName);
   }, [clubName]);
-
-  // A new member chooses their duo pseudo before anything else: every game record is keyed by it.
-  const mustFillProfile = club !== null && club.me.duoPseudo === null && path !== profilePath;
-  useEffect(() => {
-    if (mustFillProfile) location.replace(profilePath);
-  }, [mustFillProfile]);
 
   if (signInRequired) {
     return (
@@ -122,12 +65,14 @@ export function App() {
     );
   }
   if (failed) return <Unavailable />;
-  if (!club || mustFillProfile) return null;
+  if (!club) return null;
+  // A new member chooses their duo pseudo before anything else: every game record is keyed by it.
+  if (club.me.duoPseudo === null && !onProfile) return <Navigate to="/profil" replace />;
   return (
     <ClubNameContext value={club.name}>
       <ClubLogoContext value={club.logo}>
         <ClubContext value={club}>
-          <Page path={path} />
+          <Outlet />
         </ClubContext>
       </ClubLogoContext>
     </ClubNameContext>

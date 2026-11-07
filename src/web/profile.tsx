@@ -1,13 +1,15 @@
+import { useMutation } from '@tanstack/react-query';
+import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import { type Platform, platforms } from '../lib/club';
-import { apiFetch } from './api';
 import { Brand } from './brand';
-import { errorOf, platformLabels, useClub } from './club';
+import { platformLabels, useClub } from './club';
 import { CollectorSection } from './collectors';
 import { Button } from './components/ui/button';
 import { Input } from './components/ui/input';
 import { Label } from './components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './components/ui/select';
+import { deleteAccount, saveProfile } from './writes';
 
 const platformItems = platforms.map((value) => ({ value, label: platformLabels[value] }));
 
@@ -23,8 +25,10 @@ export function Profile() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [confirmingDeletion, setConfirmingDeletion] = useState(false);
+  const save = useMutation({ mutationFn: saveProfile }).mutateAsync;
+  const erase = useMutation({ mutationFn: deleteAccount }).mutateAsync;
 
-  async function save() {
+  async function submit() {
     if (busy) return;
     if (!platform) {
       setError('Choisis ta plateforme.');
@@ -33,12 +37,7 @@ export function Profile() {
     setBusy(true);
     setError('');
     try {
-      const response = await apiFetch('/api/profile', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ duoPseudo, soloPseudo, platform }),
-      });
-      if (!response.ok) throw Error(await errorOf(response, 'Enregistrement impossible.'));
+      await save({ duoPseudo, soloPseudo, platform });
       // The roster and the cards depend on the profile: a fresh load shows them as saved.
       if (firstVisit) location.assign('/');
       else location.reload();
@@ -48,13 +47,12 @@ export function Profile() {
     }
   }
 
-  async function deleteAccount() {
+  async function remove() {
     if (busy) return;
     setBusy(true);
     setError('');
     try {
-      const response = await apiFetch('/api/profile', { method: 'DELETE' });
-      if (!response.ok) throw Error(await errorOf(response, 'Suppression impossible.'));
+      await erase();
       location.assign('/');
     } catch (e) {
       setError(networkError(e));
@@ -67,9 +65,9 @@ export function Profile() {
       <header>
         <Brand />
         {!firstVisit && (
-          <a className="back-link" href="/">
+          <Link className="back-link" to="/" reloadDocument>
             ← Retour au tableau
-          </a>
+          </Link>
         )}
       </header>
       <section className="settings">
@@ -84,7 +82,7 @@ export function Profile() {
           className="settings-panel"
           onSubmit={(event) => {
             event.preventDefault();
-            save();
+            submit();
           }}
         >
           <div className="settings-field">
@@ -158,7 +156,7 @@ export function Profile() {
         </p>
         {confirmingDeletion ? (
           <div className="settings-actions">
-            <Button variant="destructive" className="danger" disabled={busy} onClick={deleteAccount}>
+            <Button variant="destructive" className="danger" disabled={busy} onClick={remove}>
               Oui, supprimer mon compte
             </Button>
             <Button variant="outline" disabled={busy} onClick={() => setConfirmingDeletion(false)}>
