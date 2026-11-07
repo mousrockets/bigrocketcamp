@@ -1,6 +1,12 @@
 import { cn } from 'cn';
 import { parisDay } from '../../lib/days';
-import { defaultForfeitRules, defaultLastPlaceRules, forfeitRuleOn, lastPlaceRuleOn } from '../../lib/domain';
+import {
+  defaultForfeitRules,
+  defaultLastPlaceRules,
+  forfeitRuleOn,
+  highScorePoints,
+  lastPlaceRuleOn,
+} from '../../lib/domain';
 import { formatLongDay, formatNumber } from '../../lib/format';
 import { type Board, useBoardState } from '../board';
 import { useClub } from '../club';
@@ -182,6 +188,7 @@ function MatchRow({ match }: { match: ReplayMatch }) {
               {player.name}{' '}
               <span className="text-t3">
                 · {formatNumber(player.points)} pts{player.lastPlace ? ' · moins de pts' : ''}
+                {player.highScore ? ` · ${formatNumber(highScorePoints)}+ pts` : ''}
               </span>
             </span>
             <b

@@ -77,7 +77,7 @@ export interface ReplayMatch {
   tags: string[];
   /** The club's goals first. */
   score: [number, number] | null;
-  players: { name: string; points: number; lastPlace: boolean; cost: number }[];
+  players: { name: string; points: number; lastPlace: boolean; highScore: boolean; cost: number }[];
 }
 
 export interface ReplayGroup {
@@ -126,7 +126,13 @@ export function replay(board: Board, roster: readonly string[], now: number): Re
       score: match.score,
       players: [...match.players]
         .sort((a, b) => b.row.score - a.row.score)
-        .map(({ row, pushups, lastPlace }) => ({ name: row.name, points: row.score, lastPlace, cost: pushups })),
+        .map(({ row, pushups, lastPlace, highScore }) => ({
+          name: row.name,
+          points: row.score,
+          lastPlace,
+          highScore,
+          cost: pushups,
+        })),
     });
   }
   return groups;
