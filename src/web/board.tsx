@@ -3,6 +3,8 @@ import { createContext, type ReactNode, useContext, useEffect, useMemo } from 'r
 import type { FullBoard } from '../lib/board';
 import { applyChanges, boardView, emptyBoard, type SyncedBoard } from '../lib/board-sync';
 import { boardChanges } from '../lib/contract';
+import { parisDay } from '../lib/days';
+import { defaultLastPlaceRules, summarize } from '../lib/domain';
 import { defaultTimeoutMs } from '../lib/timeout';
 import { parseOrThrow } from '../lib/validation';
 import { apiWithin } from './api';
@@ -70,6 +72,17 @@ export const boardQuery = (memberId: string) =>
     staleTime: Number.POSITIVE_INFINITY,
     gcTime: keptQueryTime,
   });
+
+/** Each player's matches, debt and exercises, as the rules count them today. */
+export const playerStats = (board: Board, roster: readonly string[]) =>
+  summarize(
+    roster,
+    board.results,
+    board.exercises,
+    parisDay(),
+    board.matchRosters ?? [],
+    board.rules?.lastPlace ?? defaultLastPlaceRules,
+  );
 
 export interface BoardState {
   /** Null until the first copy arrives, from the browser or the API. */

@@ -42,7 +42,7 @@ test('shows the member’s own debt, paid share and streak', async () => {
   expect(within(debt).getByText('6 / 10')).toBeInTheDocument();
   expect(within(debt).getByText('60 %')).toBeInTheDocument();
   expect(within(debt).getByText('2 jours')).toBeInTheDocument();
-  expect(within(debt).getByRole('link', { name: 'Lancer une série' })).toHaveAttribute('href', '/declarer');
+  expect(within(debt).getByRole('link', { name: 'Lancer une série' })).toHaveAttribute('href', '/?declarer=true');
 });
 
 test('puts the member’s card first, then the other players with their ranks', async () => {

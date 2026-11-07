@@ -1,7 +1,6 @@
 import { cn } from 'cn';
 import { parisDay } from '../../lib/days';
-import { defaultLastPlaceRules, summarize } from '../../lib/domain';
-import { type Board, useBoardState } from '../board';
+import { type Board, playerStats, useBoardState } from '../board';
 import { platformLabels, useClub } from '../club';
 import { epicNotice } from '../components/epic-notice';
 import { useNow } from '../hooks/use-now';
@@ -22,14 +21,7 @@ function cardPlayers(
   platforms: Map<string, string | null>,
 ) {
   const day = parisDay();
-  const stats = summarize(
-    roster,
-    board.results,
-    board.exercises,
-    day,
-    board.matchRosters ?? [],
-    board.rules?.lastPlace ?? defaultLastPlaceRules,
-  );
+  const stats = playerStats(board, roster);
   const players = stats.map((stat): CardPlayer => {
     const ranks = board.doublesRanks?.find((rank) => rank.player === stat.name);
     const solo = ranks?.solo ?? null;

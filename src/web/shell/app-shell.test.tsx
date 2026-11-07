@@ -16,5 +16,8 @@ test('the tab bar links every tab and marks the open one', async () => {
   }
   expect(within(navigation).getByRole('link', { name: 'Matchs' })).toHaveAttribute('aria-current', 'page');
   expect(within(navigation).getByRole('link', { name: 'L’équipe' })).not.toHaveAttribute('aria-current');
-  expect(within(navigation).getByRole('link', { name: 'Déclarer un exercice' })).toHaveAttribute('href', '/declarer');
+  expect(within(navigation).getByRole('link', { name: 'Déclarer un exercice' })).toHaveAttribute(
+    'href',
+    '/matchs?declarer=true',
+  );
 });
