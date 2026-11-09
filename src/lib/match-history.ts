@@ -112,8 +112,11 @@ export function matchHistory<Row extends HistoryRow>(
         : decided.team === decided.winner
           ? 'victory'
           : 'defeat';
-    const all = (everyone.get(guid) ?? rows).filter((row) => !row.left);
-    const hasGoals = all.some((row) => typeof row.goals === 'number');
+    const all = everyone.get(guid) ?? rows;
+    const present = all.filter((row) => !row.left);
+    // A goal still counts once its scorer has left: the score adds everyone, but only a final scoreboard gives one.
+    const scorers = all.filter((row) => !row.left || !present.some((other) => other.player_id === row.player_id));
+    const hasGoals = present.some((row) => typeof row.goals === 'number');
     const ours = teams.size === 1 ? first.team : 0;
     return {
       guid,
@@ -126,10 +129,10 @@ export function matchHistory<Row extends HistoryRow>(
       kind: first.kind,
       review,
       outcome,
-      left: someoneLeft(all, matches.get(guid)?.expected),
+      left: someoneLeft(present, matches.get(guid)?.expected),
       forfeit: rows.some((row) => row.forfeit === true),
       overtime: rows.some((row) => row.overtime === true),
-      score: hasGoals ? [goalsOf(all, ours), goalsOf(all, 1 - ours)] : null,
+      score: hasGoals ? [goalsOf(scorers, ours), goalsOf(scorers, 1 - ours)] : null,
       players: rows.map((row) => {
         const counted = !row.review_required && row.kind === 'match' && row.team !== row.winner;
         const bonus = counted ? lastPlaceBonus(row, matches, roster, rules) : 0;

@@ -166,6 +166,28 @@ test('from 1000 points, a club player dodges 10, win or loss, on top of what the
   expect(before[0]?.players.map(({ pushups, highScore }) => [pushups, highScore])).toEqual([[5, false]]);
 });
 
+test('the goals of an opponent who left stay in the score of an overtime', () => {
+  const rows = [
+    { ...line('overtime', alice, 0, 0, 700, 4), overtime: true },
+    { ...line('overtime', bob, 0, 0, 400, 2), overtime: true },
+    { ...line('overtime', 'Opponent 1', 1, 0, 300), overtime: true },
+    { ...line('overtime', 'Opponent 2', 1, 0, 600, 5), left: true },
+  ];
+  const club = rows.filter((row) => roster.includes(row.name));
+  const [match] = matchHistory(club, rows, matchIndex(rows), roster);
+  expect([match?.overtime, match?.score]).toEqual([true, [6, 5]]);
+});
+
+test('a player seen both leaving and on the final scoreboard scores once', () => {
+  const rows = [
+    line('back', alice, 0, 0, 500, 2),
+    { ...line('back', alice, 0, 1, 200, 1), left: true },
+    line('back', 'Opponent 1', 1, 0, 100, 1),
+  ];
+  const [match] = matchHistory(rows.slice(0, 1), rows, matchIndex(rows), roster);
+  expect(match?.score).toEqual([2, 1]);
+});
+
 test('a club player who left: a defeat of 5 apart from the final scoreboard, which still decides the match', () => {
   // Bob left the early match, with the fewest points: Alice and her mate won it without him.
   const gone = { ...line('early', bob, 0, 1, 50, 3), left: true };
@@ -173,7 +195,8 @@ test('a club player who left: a defeat of 5 apart from the final scoreboard, whi
   const matches = matchIndex(rows, [{ match_guid: 'early', expected_players: 3 }]);
   expect(matches.get('early')?.complete).toBe(true);
   const [, early] = matchHistory([...club, gone], rows, matches, roster);
-  expect([early?.outcome, early?.score, early?.left]).toEqual(['victory', [3, 0], true]);
+  // His 3 goals still count.
+  expect([early?.outcome, early?.score, early?.left]).toEqual(['victory', [6, 0], true]);
   expect(early?.players.map(({ row, pushups, left, lastPlace }) => [row.name, pushups, left, lastPlace])).toEqual([
     [alice, 0, false, false],
     [bob, 5, true, false],
