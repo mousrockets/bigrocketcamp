@@ -1,5 +1,6 @@
 import { useSearch } from '@tanstack/react-router';
 import { cn } from 'cn';
+import { UsersRound } from 'lucide-react';
 import { parisDay } from '../../lib/days';
 import { highScorePoints } from '../../lib/domain';
 import { formatDayDate, formatLongDay, formatNumber } from '../../lib/format';
@@ -223,6 +224,11 @@ function MatchRow({ match }: { match: ReplayMatch }) {
           <span key={player.name} className="flex items-baseline justify-between gap-2.5 text-[13px]">
             <span className="min-w-0 truncate text-t2">
               {player.account}{' '}
+              {player.party && (
+                <Badge variant="party" role="img" aria-label="En groupe" className="align-[-3px]">
+                  <UsersRound aria-hidden="true" />
+                </Badge>
+              )}{' '}
               <span className="text-t3">
                 · {formatNumber(player.points)} pts{player.lastPlace ? ' · moins de pts' : ''}
                 {player.left ? ' · a quitté' : ''}
