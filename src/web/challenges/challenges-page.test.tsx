@@ -63,6 +63,8 @@ const ranks = [
       matchesPlayed: null,
       fetchedAt: null,
       peak: null,
+      pseudo: null,
+      best: null,
       status: 'ready',
     },
   }),

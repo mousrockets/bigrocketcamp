@@ -62,8 +62,10 @@ test('each card shows the season peak, and the solo account its profile names, a
     status: 'ready',
     fetchedAt: now,
     peak: null,
+    pseudo: 'Solo',
+    best: null,
   });
-  expect(firstRank?.solo).toMatchObject({ mmr: null, status: 'waiting' });
+  expect(firstRank?.solo).toMatchObject({ mmr: null, status: 'waiting', pseudo: 'Solo' });
   expect(thirdRank?.solo).toBeNull();
   await env.DB.prepare("INSERT INTO solo_ranks (player, status) VALUES (?, 'not_found')").bind(first).run();
   expect((await readDoublesRanks(env.DB, roster))[0]?.solo).toMatchObject({ mmr: null, status: 'not_found' });

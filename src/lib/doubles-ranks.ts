@@ -45,6 +45,10 @@ export interface PlayerSoloRank {
   status: SoloRankStatus;
   fetchedAt: string | null;
   peak: SeasonPeak | null;
+  /** The solo pseudo the member's profile gives; null on a board from an API older than it. */
+  pseudo: string | null;
+  /** The account's best rating, every season; null until one is known. */
+  best: number | null;
 }
 
 export interface PlayerDoublesRank {
@@ -97,7 +101,7 @@ async function readSoloRanks(db: Database): Promise<Map<string, PlayerSoloRank>>
   const query = orm(db);
   const [accounts, stored] = await Promise.all([
     query
-      .select({ player: members.duoPseudo })
+      .select({ player: members.duoPseudo, pseudo: members.soloPseudo })
       .from(members)
       .where(and(isNotNull(members.duoPseudo), isNotNull(members.soloPseudo))),
     query
@@ -109,12 +113,13 @@ async function readSoloRanks(db: Database): Promise<Map<string, PlayerSoloRank>>
         matchesPlayed: soloRanks.matchesPlayed,
         fetchedAt: soloRanks.fetchedAt,
         status: soloRanks.status,
+        bestMmr: soloRanks.bestMmr,
         ...peakColumns(soloRanks),
       })
       .from(soloRanks),
   ]);
   return new Map(
-    accounts.map(({ player }) => {
+    accounts.map(({ player, pseudo }) => {
       const rank = stored.find((candidate) => candidate.player === player);
       const status = soloStatuses.find((known) => known === rank?.status) ?? 'waiting';
       return [
@@ -127,6 +132,8 @@ async function readSoloRanks(db: Database): Promise<Map<string, PlayerSoloRank>>
           status,
           fetchedAt: rank?.fetchedAt ?? null,
           peak: peakOf(rank),
+          pseudo,
+          best: rank?.bestMmr ?? null,
         },
       ];
     }),

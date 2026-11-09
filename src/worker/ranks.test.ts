@@ -1,6 +1,7 @@
 import { env, exports } from 'cloudflare:workers';
 import { beforeEach, describe, expect, test } from 'vitest';
 import { joinTestClub } from '../lib/club-fixture';
+import { saveOwnProfile } from '../lib/members';
 import { readRankSourceHealth } from '../lib/rank-source';
 import { currentSeason } from '../lib/season';
 
@@ -34,7 +35,7 @@ beforeEach(async () => {
   (env as { RANK_SOURCE_KEY?: string }).RANK_SOURCE_KEY = key;
   await joinTestClub(env.DB);
   await env.DB.batch([
-    env.DB.prepare('UPDATE members SET solo_pseudo = NULL, solo_player_id = NULL'),
+    env.DB.prepare('UPDATE members SET solo_pseudo = NULL, solo_player_id = NULL, solo_changed_at = NULL'),
     env.DB.prepare('DELETE FROM mmr_entries'),
     env.DB.prepare('DELETE FROM player_ranks'),
     env.DB.prepare('DELETE FROM solo_mmr_entries'),
@@ -234,6 +235,22 @@ describe('the solo accounts', () => {
     await post([solo(1200)]);
     expect(await soloRank()).toMatchObject({ peak: 1200 });
     expect(await env.DB.prepare("SELECT peak_mmr FROM player_ranks WHERE player = 'bob'").first('peak_mmr')).toBe(1500);
+  });
+
+  test('a solo account’s best rating stays across seasons, rises with a higher reading, and goes with the account', async () => {
+    await soloPseudo('Bob Solo');
+    const best = () => env.DB.prepare("SELECT best_mmr FROM solo_ranks WHERE player = 'bob'").first('best_mmr');
+    await post([solo(1320)]);
+    expect(await best()).toBe(1320);
+    await env.DB.prepare("UPDATE solo_ranks SET best_mmr = 1560, season = ? WHERE player = 'bob'")
+      .bind(currentSeason.number - 1)
+      .run();
+    await post([solo(1400)]);
+    expect(await best()).toBe(1560);
+    await post([solo(1580)]);
+    expect(await best()).toBe(1580);
+    await saveOwnProfile(env.DB, 'member-bob', { duoPseudo: 'bob', soloPseudo: 'Bob Other', platform: 'pc' });
+    expect(await best()).toBeNull();
   });
 
   test('the health of the source only follows the duo accounts', async () => {

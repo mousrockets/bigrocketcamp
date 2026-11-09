@@ -92,6 +92,10 @@ export const soloRank = z.looseObject({
   status: z
     .enum(['waiting', 'ready', 'not_found', 'needs_player_id', 'lookup_unavailable', 'read_failed'])
     .catch('waiting'),
+  /** Absent from an API older than solo pseudos on the board. */
+  pseudo: z.string().nullable().catch(null),
+  /** The account's best rating, every season; absent from an API older than it. */
+  best: z.number().nullable().catch(null),
 });
 export type SoloRank = Known<z.output<typeof soloRank>>;
 

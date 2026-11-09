@@ -337,6 +337,16 @@ async function soloWrites(query: Orm, rank: ObservedRank, target: SoloTarget): P
         setWhere: sql`${isNull(soloRanks.fetchedAt)} OR ${lte(soloRanks.fetchedAt, excluded(soloRanks.fetchedAt))}`,
       }),
     peakWrite(query, soloRanks, rank),
+    query
+      .update(soloRanks)
+      .set({ bestMmr: rank.mmr })
+      .where(
+        and(
+          eq(soloRanks.player, rank.player),
+          eq(soloRanks.playerId, rank.playerId),
+          or(isNull(soloRanks.bestMmr), lt(soloRanks.bestMmr, rank.mmr)),
+        ),
+      ),
   );
   return { writes, changed };
 }

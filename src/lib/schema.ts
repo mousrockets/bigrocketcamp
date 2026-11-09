@@ -391,6 +391,11 @@ export const soloRanks = sqliteTable('solo_ranks', {
   /** `ready`, or why the rank source could not read the account (`not_found`, `needs_player_id`…). */
   status: text('status').notNull(),
   ...seasonPeak,
+  /**
+   * The account's best rating, every season: set by hand from what the game showed before the app read the
+   * account, then raised by each higher reading. It goes with the row when the profile names another account.
+   */
+  bestMmr: integer('best_mmr'),
 });
 
 /** Each change of a solo account's rating, as the rank source read it. */
