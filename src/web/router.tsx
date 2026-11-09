@@ -17,12 +17,13 @@ import { TeamPage } from './team/team-page';
 
 const rootRoute = createRootRoute({ component: App, notFoundComponent: NotFound });
 
-// `?declarer=true` opens the declaration sheet over whatever tab is open.
+// `?declarer=true` opens the declaration sheet over whatever tab is open, `?ranks=true` the ranks' ladder.
+const sheetParameter = z.boolean().optional().catch(undefined);
 const shellRoute = createRoute({
   getParentRoute: () => rootRoute,
   id: '_shell',
   component: AppShell,
-  validateSearch: z.object({ declarer: z.boolean().optional().catch(undefined) }),
+  validateSearch: z.object({ declarer: sheetParameter, ranks: sheetParameter }),
 });
 const teamRoute = createRoute({ getParentRoute: () => shellRoute, path: '/', component: TeamPage });
 const challengesRoute = createRoute({ getParentRoute: () => shellRoute, path: '/defis', component: ChallengesPage });

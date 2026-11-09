@@ -67,6 +67,25 @@ export function PlusIcon({ className, size = 22 }: IconProps) {
   );
 }
 
+/** Three chevrons climbing, the lower ones fading: the ranks' ladder. */
+export function LadderIcon({ className, size = 18 }: IconProps) {
+  return (
+    <svg
+      aria-hidden="true"
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      className={className}
+      {...line}
+      strokeWidth="2.1"
+    >
+      <path d="M6 11.5l6-5 6 5" />
+      <path d="M6 16.5l6-5 6 5" opacity=".62" />
+      <path d="M6 21l6-5 6 5" opacity=".3" />
+    </svg>
+  );
+}
+
 export function PlayIcon({ className, size = 12 }: IconProps) {
   return (
     <svg aria-hidden="true" width={size} height={size} viewBox="0 0 24 24" className={className} fill="currentColor">

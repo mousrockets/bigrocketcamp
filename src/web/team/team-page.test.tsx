@@ -60,6 +60,11 @@ test('puts the member’s card first, then the other players with their ranks', 
   expect(cards[1]).toHaveTextContent('Pas de compte solo');
 });
 
+test('opens the ranks’ ladder from the team', async () => {
+  renderInApp(<TeamPage />, { board });
+  expect(await screen.findByRole('link', { name: 'Les ranks' })).toHaveAttribute('href', '/?ranks=true');
+});
+
 test('says Direct while a collector sends matches, and when the last one came in', async () => {
   renderInApp(<TeamPage />, {
     board: { ...board, collectors: [{ id: 'collector', last_seen: '2026-11-07T18:25:00Z' }] },

@@ -2,6 +2,7 @@ import { Link, Outlet, useMatchRoute, useNavigate, useSearch } from '@tanstack/r
 import { cn } from 'cn';
 import type { ComponentType, CSSProperties } from 'react';
 import { BoardProvider } from '../board';
+import { SheetLink, type ShellSheet } from '../components/sheet-link';
 import { buttonVariants } from '../components/ui/button';
 import {
   Sidebar,
@@ -13,7 +14,7 @@ import {
   SidebarProvider,
 } from '../components/ui/sidebar';
 import { DeclareFlow } from '../declare/declare-flow';
-import { DeclareLink } from '../declare/declare-link';
+import { RanksSheet } from '../team/ranks-sheet';
 import { ClubBadge } from './club-badge';
 import { useFreshVersion } from './fresh-version';
 import { ChallengesIcon, MatchesIcon, PlusIcon, SettingsIcon, TeamIcon } from './icons';
@@ -29,16 +30,16 @@ const tabs: { to: '/' | '/defis' | '/matchs' | '/reglages'; label: string; Icon:
   ];
 
 export function AppShell() {
-  const { declarer = false } = useSearch({ from: '/_shell' });
+  const { declarer = false, ranks = false } = useSearch({ from: '/_shell' });
   const navigate = useNavigate();
+  const close = (sheet: ShellSheet) =>
+    void navigate({ to: '.', search: (previous) => ({ ...previous, [sheet]: undefined }) });
   // A series being declared or still undoable keeps the page as it is: no reload to a newer build meanwhile.
   useFreshVersion(declarer);
   return (
     <BoardProvider>
-      <DeclareFlow
-        open={declarer}
-        onClose={() => void navigate({ to: '.', search: (previous) => ({ ...previous, declarer: undefined }) })}
-      />
+      <DeclareFlow open={declarer} onClose={() => close('declarer')} />
+      <RanksSheet open={ranks} onClose={() => close('ranks')} />
       <SidebarProvider className="flex-wrap bg-black text-t1" style={{ '--sidebar-width': 'auto' } as CSSProperties}>
         <AppSidebar />
         <div className="relative min-w-0 flex-[999_1_560px]">
@@ -109,12 +110,13 @@ export function TabBar() {
             </Link>
           ))}
         </div>
-        <DeclareLink
+        <SheetLink
+          sheet="declarer"
           aria-label="Déclarer un exercice"
           className={cn(buttonVariants({ variant: 'glass' }), 'size-[62px]')}
         >
           <PlusIcon />
-        </DeclareLink>
+        </SheetLink>
       </nav>
     </>
   );
