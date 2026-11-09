@@ -47,6 +47,38 @@ export const formatLongDay = (at: Date | number | string): string => capitalized
 /** "Novembre": the name of a club month, written "2026-11". */
 export const formatMonth = (month: string): string => capitalized(monthNames.format(new Date(`${month}-15T12:00:00Z`)));
 
+/** A club day, "2026-11-07", read at noon in Paris: the same day whatever the time zone. */
+const noonOf = (day: string) => `${day}T12:00:00+01:00`;
+
+const shortDays = new Intl.DateTimeFormat('fr-FR', {
+  timeZone: 'Europe/Paris',
+  weekday: 'short',
+  day: 'numeric',
+  month: 'short',
+});
+const shortMonths = new Intl.DateTimeFormat('fr-FR', { timeZone: 'UTC', month: 'short', year: 'numeric' });
+
+/** "Mar. 3 nov.": a club day, written "2026-11-03", in a few letters. */
+export const formatShortDay = (day: string): string => capitalized(shortDays.format(new Date(noonOf(day))));
+
+const dayMonths = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', day: 'numeric', month: 'long' });
+
+/** "31 octobre": a club day, written "2026-10-31", in a sentence. */
+export const formatDayMonth = (day: string): string => dayMonths.format(new Date(noonOf(day)));
+
+/** "3 nov.": a club day, written "2026-11-03". */
+export const formatDayDate = (day: string): string => formatShortDate(noonOf(day));
+
+/** "26 oct. – 1 nov.": the days of a club week, from its Monday. */
+export const formatWeek = (monday: string): string => {
+  const sunday = new Date(Date.parse(noonOf(monday)) + 6 * 86_400_000);
+  return `${formatDayDate(monday)} – ${formatShortDate(sunday)}`;
+};
+
+/** "Oct. 2026": a club month, written "2026-10", in a few letters. */
+export const formatShortMonth = (month: string): string =>
+  capitalized(shortMonths.format(new Date(`${month}-15T12:00:00Z`)));
+
 /** "à 19 h 42" today, "le 5 nov. à 22 h 10" another day. */
 export const formatWhen = (at: Date | number | string, now: Date | number = Date.now()): string =>
   sameParisDay(at, now) ? `à ${formatTime(at)}` : `le ${formatShortDate(at)} à ${formatTime(at)}`;

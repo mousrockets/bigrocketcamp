@@ -1,4 +1,4 @@
-import { weekStart } from '../../lib/days';
+import { shiftDay, weekStart } from '../../lib/days';
 import { type CountedExercise, pushupCredit } from '../../lib/domain';
 import type { Board } from '../board';
 import { splitRankLabel } from '../team/stats';
@@ -18,35 +18,45 @@ export interface PodiumStep {
 }
 
 /**
- * The week's three strongest arms: every exercise since Monday, Paris time, counted in pushups. Once someone has
- * done something, a player still at zero takes his place on the podium with 0; before that, the podium stays empty.
+ * The three strongest arms of the week of `day`: every exercise from its Monday to its Sunday, Paris time, counted in
+ * pushups. Only a player who did something climbs on the podium: a step nobody earned stays empty.
  */
 export function weeklyPodium(
   exercises: readonly (CountedExercise & { player: string; day: string })[],
   roster: readonly string[],
   me: string | null,
-  today: string,
+  day: string,
 ): PodiumStep[] {
-  const monday = weekStart(today);
+  const monday = weekStart(day);
+  const sunday = shiftDay(monday, 6);
   const totals = roster
     .map((name) => ({
       name,
       me: name === me,
       pushups: exercises
-        .filter((exercise) => exercise.player === name && exercise.day >= monday && exercise.day <= today)
+        .filter((exercise) => exercise.player === name && exercise.day >= monday && exercise.day <= sunday)
         .reduce((sum, exercise) => sum + pushupCredit(exercise), 0),
     }))
+    .filter((player) => player.pushups > 0)
     .sort((a, b) => b.pushups - a.pushups || roster.indexOf(a.name) - roster.indexOf(b.name));
-  if (!totals.some((player) => player.pushups > 0)) return [];
   return totals
     .slice(0, 3)
     .map((player) => ({ ...player, rank: 1 + totals.filter((other) => other.pushups > player.pushups).length }));
 }
 
+/** The Monday of the first week with an exercise, or null before the first one. */
+export function firstWeek(exercises: readonly { day: string }[]): string | null {
+  const first = exercises.reduce<string | null>(
+    (earliest, { day }) => (earliest && earliest <= day ? earliest : day),
+    null,
+  );
+  return first && weekStart(first);
+}
+
 export interface MonthlyRow {
   player: string;
   mmr: number | null;
-  account?: 'duo' | 'solo' | null;
+  account?: 'duo' | 'solo' | null | undefined;
 }
 
 export interface StandingLine {

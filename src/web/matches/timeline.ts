@@ -1,15 +1,11 @@
-import { parisDay, shiftDay } from '../../lib/days';
 import { dailyRecap, defaultLastPlaceRules, dodgeRules, matchIndex } from '../../lib/domain';
-import { formatClock, formatLongDay } from '../../lib/format';
+import { formatClock } from '../../lib/format';
 import { type HistoryMatch, matchHistory } from '../../lib/match-history';
 import type { Board } from '../board';
 
 // What the Matchs tab reads from the board: the day's summary per player, and the latest matches by part of day.
 
 type Row = Board['results'][number];
-
-/** How long the replay looks back. */
-const replayDays = 7;
 
 export interface SummaryPlayer {
   name: string;
@@ -85,13 +81,12 @@ export interface ReplayGroup {
   matches: ReplayMatch[];
 }
 
-/** « Ce soir », « Cet après-midi », « Ce matin », « Hier », then the day in full. */
-function partOf(match: HistoryMatch<Row>, today: string): string {
-  if (match.day === shiftDay(today, -1)) return 'Hier';
-  if (match.day !== today) return formatLongDay(`${match.day}T12:00:00Z`);
-  if (!match.received) return 'Aujourd’hui';
+/** « Ce soir », « Cet après-midi », « Ce matin » today; « Le soir », « L’après-midi », « Le matin » another day. */
+function partOf(match: HistoryMatch<Row>, today: boolean): string {
+  if (!match.received) return today ? 'Aujourd’hui' : 'Dans la journée';
   const hour = Number(formatClock(match.received).slice(0, 2));
-  return hour < 12 ? 'Ce matin' : hour < 18 ? 'Cet après-midi' : 'Ce soir';
+  if (hour < 12) return today ? 'Ce matin' : 'Le matin';
+  return hour < 18 ? (today ? 'Cet après-midi' : 'L’après-midi') : today ? 'Ce soir' : 'Le soir';
 }
 
 /** What made the match special, in the words of the replay. */
@@ -103,16 +98,14 @@ function tagsOf(match: HistoryMatch<Row>): string[] {
   return tags;
 }
 
-/** The matches of the last days, newest first, grouped by part of day. */
-export function replay(board: Board, roster: readonly string[], now: number): ReplayGroup[] {
-  const today = parisDay(now);
-  const since = shiftDay(today, 1 - replayDays);
+/** The matches of `day`, newest first, grouped by part of day. */
+export function replay(board: Board, roster: readonly string[], day: string, today: string): ReplayGroup[] {
   const groups: ReplayGroup[] = [];
   for (const match of historyOf(board, roster)
-    .filter((entry) => entry.day >= since)
+    .filter((entry) => entry.day === day)
     .sort(byTime)
     .reverse()) {
-    const label = partOf(match, today);
+    const label = partOf(match, day === today);
     let group = groups.at(-1);
     if (group?.label !== label) {
       group = { label, matches: [] };
@@ -138,3 +131,9 @@ export function replay(board: Board, roster: readonly string[], now: number): Re
   }
   return groups;
 }
+
+/** The days the club played a match, oldest first. */
+export const playedDays = (board: Board, roster: readonly string[]): string[] =>
+  [
+    ...new Set(board.results.filter((row) => roster.includes(row.name) && row.kind === 'match').map((row) => row.day)),
+  ].sort();
