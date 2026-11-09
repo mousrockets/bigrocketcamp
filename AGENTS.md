@@ -160,9 +160,7 @@ Une seule façon de faire chaque chose. Si tu ne trouves pas laquelle, cherche u
 ## Validation d'un mainteneur
 
 - `.github/`, `wrangler.jsonc` et ce fichier l'exigent (`.github/CODEOWNERS`).
-- L'apparence des écrans existants (couleurs, mise en page, typographie, logo) suit les maquettes d'un mainteneur. Avant de la changer, demande à la personne d'obtenir son accord, et attends-le.
-- Un écran nouveau se construit avec les composants, variantes et variables existants, dans le style des écrans voisins. Ouvre sa PR en brouillon et demande à la personne de la faire relire par un mainteneur.
-- Tout le reste fusionne sans attendre.
+- Tout le reste fusionne sans attendre, écrans compris : un écran changé ou nouveau se construit avec les composants, variantes et variables existants, dans le style des écrans voisins.
 
 ## Jamais
 
