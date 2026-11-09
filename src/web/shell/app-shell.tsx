@@ -1,8 +1,8 @@
-import { Link, Outlet, useMatchRoute, useNavigate, useSearch } from '@tanstack/react-router';
+import { Link, Outlet, useMatchRoute, useSearch } from '@tanstack/react-router';
 import { cn } from 'cn';
 import type { ComponentType, CSSProperties } from 'react';
 import { BoardProvider } from '../board';
-import { SheetLink, type ShellSheet } from '../components/sheet-link';
+import { SheetLink, useCloseSheet } from '../components/sheet-link';
 import { buttonVariants } from '../components/ui/button';
 import {
   Sidebar,
@@ -32,9 +32,7 @@ const tabs: { to: '/' | '/defis' | '/matchs' | '/reglages'; label: string; Icon:
 
 export function AppShell() {
   const { declarer = false, ranks = false, regles = false } = useSearch({ from: '/_shell' });
-  const navigate = useNavigate();
-  const close = (sheet: ShellSheet) =>
-    void navigate({ to: '.', search: (previous) => ({ ...previous, [sheet]: undefined }) });
+  const close = useCloseSheet();
   // A series being declared or still undoable keeps the page as it is: no reload to a newer build meanwhile.
   useFreshVersion(declarer);
   return (

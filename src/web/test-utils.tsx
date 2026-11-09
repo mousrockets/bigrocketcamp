@@ -131,6 +131,8 @@ export function renderInApp(
   const router = createRouter({
     routeTree: root.addChildren(routes),
     history: createMemoryHistory({ initialEntries: [path] }),
+    // As in the app: a new page starts at the top, unless the navigation says otherwise.
+    scrollRestoration: true,
   });
   return render(
     <QueryClientProvider client={createQueryClient()}>
