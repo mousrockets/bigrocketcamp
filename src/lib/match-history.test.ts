@@ -223,7 +223,7 @@ test('a club player who left: a defeat of 5 apart from the final scoreboard, whi
   expect([match?.outcome, match?.score, match?.players[0]?.pushups]).toEqual(['defeat', null, 5]);
 });
 
-test('a group: a club teammate at once, a stranger teammate from three matches in a row on the same account', () => {
+test('a group: a club teammate at once, a stranger teammate from the second of three matches in a row on the same account', () => {
   const match = (guid: string, minute: number, mate: string) =>
     [line(guid, alice, 0, 0, 300), line(guid, mate, 0, 0, 200), line(guid, `Opponent ${guid}`, 1, 0, 100)].map(
       (row) => ({ ...row, received: `2026-11-06T20:${minute}:00.000Z` }),
@@ -239,7 +239,7 @@ test('a group: a club teammate at once, a stranger teammate from three matches i
   const partied = partiedAccounts(rows, roster);
   const aliceId = `Epic|${alice}|0`;
   expect(['a', 'b', 'c', 'd', 'e', 'f'].map((guid) => partied.get(guid)?.has(aliceId) ?? false)).toEqual([
-    true,
+    false,
     true,
     true,
     false,
@@ -248,5 +248,5 @@ test('a group: a club teammate at once, a stranger teammate from three matches i
   ]);
   expect(partied.get('f')?.has(`Epic|${bob}|0`)).toBe(true);
   // A stranger of the other team is never a group.
-  expect(partied.get('a')?.size).toBe(1);
+  expect(partied.get('b')?.size).toBe(1);
 });

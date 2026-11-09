@@ -192,7 +192,7 @@ const playedAt = (rows: readonly HistoryRow[]) =>
 /**
  * The club players' accounts that played in a group, by match. The game never says who is in a group: a club
  * player in the team makes one at once, and a stranger in the team `strangerPartyStreak` matches in a row on the
- * same account makes one for each of those matches.
+ * same account makes one from the second of them: the first match met him by chance.
  */
 export function partiedAccounts(scoreboard: readonly HistoryRow[], roster: Roster): Map<string, Set<string>> {
   const partied = new Map<string, Set<string>>();
@@ -225,7 +225,7 @@ export function partiedAccounts(scoreboard: readonly HistoryRow[], roster: Roste
         let end = start;
         while (sequence[end]?.strangers.has(stranger)) end++;
         if (end - start < strangerPartyStreak) continue;
-        for (const { guid } of sequence.slice(start, end)) mark(guid, account);
+        for (const { guid } of sequence.slice(start + 1, end)) mark(guid, account);
       }
     });
   }

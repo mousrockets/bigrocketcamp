@@ -257,8 +257,8 @@ test('a player in a group with a club player or the same stranger three matches 
   };
   // Alice and Bob, both of the club: a group at once.
   expect(grouped('21:10')).toBe(2);
-  // Three matches in a row with the same stranger: a group, for each of them.
-  expect(['21:00', '20:50', '20:40'].map(grouped)).toEqual([1, 1, 1]);
+  // Three matches in a row with the same stranger: a group from the second, the first met him by chance.
+  expect(['21:00', '20:50', '20:40'].map(grouped)).toEqual([1, 1, 0]);
   // Twice in a row can be chance.
   expect(['20:30', '20:20', '20:10', '20:00'].map(grouped)).toEqual([0, 0, 0, 0]);
 });
