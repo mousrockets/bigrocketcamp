@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import { roster } from './club-fixture';
-import { matchHistory } from './match-history';
+import { matchHistory, partiedAccounts } from './match-history';
 import { defaultDodgeRules, matchIndex } from './match-rules';
 
 const [alice = '', bob = '', carla = ''] = roster;
@@ -221,4 +221,32 @@ test('a club player who left: a defeat of 5 apart from the final scoreboard, whi
   const alone = [{ ...line('alone', carla, 1, 0, 1200, 1), left: true }];
   const [match] = matchHistory(alone, alone, matchIndex(alone), roster, undefined, defaultDodgeRules);
   expect([match?.outcome, match?.score, match?.players[0]?.pushups]).toEqual(['defeat', null, 5]);
+});
+
+test('a group: a club teammate at once, a stranger teammate from the second of three matches in a row on the same account', () => {
+  const match = (guid: string, minute: number, mate: string) =>
+    [line(guid, alice, 0, 0, 300), line(guid, mate, 0, 0, 200), line(guid, `Opponent ${guid}`, 1, 0, 100)].map(
+      (row) => ({ ...row, received: `2026-11-06T20:${minute}:00.000Z` }),
+    );
+  const rows = [
+    ...match('c', 30, 'Friend'),
+    ...match('a', 10, 'Friend'),
+    ...match('b', 20, 'Friend'),
+    ...match('d', 40, 'Stranger'),
+    ...match('e', 50, 'Stranger'),
+    ...match('f', 55, bob),
+  ];
+  const partied = partiedAccounts(rows, roster);
+  const aliceId = `Epic|${alice}|0`;
+  expect(['a', 'b', 'c', 'd', 'e', 'f'].map((guid) => partied.get(guid)?.has(aliceId) ?? false)).toEqual([
+    false,
+    true,
+    true,
+    false,
+    false,
+    true,
+  ]);
+  expect(partied.get('f')?.has(`Epic|${bob}|0`)).toBe(true);
+  // A stranger of the other team is never a group.
+  expect(partied.get('b')?.size).toBe(1);
 });

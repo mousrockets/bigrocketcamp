@@ -227,3 +227,38 @@ test('keeps each match under its own day, even one received later', async () => 
       .map((label) => label.textContent),
   ).toEqual(['Aujourd’hui', 'Hier · vendredi 6', 'Jeudi 5 novembre']);
 });
+
+test('a player in a group with a club player or the same stranger three matches in a row shows the group icon', async () => {
+  /** Alice alone with a teammate the matchmaking gave her, against two other strangers. */
+  const withMate = (guid: string, received: string, mate: string) => {
+    const common = { match_guid: guid, received };
+    return [
+      aResult({ ...common, name: 'alice' }),
+      aResult({ ...common, name: mate, player_id: `Epic|${mate}|0` }),
+      aResult({ ...common, name: `${guid}-1`, player_id: `Epic|${guid}-1|0`, team: 1 }),
+      aResult({ ...common, name: `${guid}-2`, player_id: `Epic|${guid}-2|0`, team: 1 }),
+    ];
+  };
+  const results = [
+    ...withMate('random', '2026-11-07T19:00:00Z', 'nice-guy'),
+    ...withMate('again', '2026-11-07T19:10:00Z', 'nice-guy'),
+    ...withMate('chance', '2026-11-07T19:20:00Z', 'other-guy'),
+    ...withMate('chance-again', '2026-11-07T19:30:00Z', 'other-guy'),
+    ...withMate('party-1', '2026-11-07T19:40:00Z', 'new-friend'),
+    ...withMate('party-2', '2026-11-07T19:50:00Z', 'new-friend'),
+    ...withMate('party-3', '2026-11-07T20:00:00Z', 'new-friend'),
+    ...duo('with-bob', '2026-11-07T20:10:00Z', { won: true }),
+  ];
+  renderInApp(<MatchesPage />, { board: { ...board, results }, path: today });
+  const replay = await screen.findByRole('region', { name: 'Derniers matchs' });
+  const grouped = (clock: string) => {
+    const match = within(replay).getByText(new RegExp(`^${clock}`)).parentElement?.parentElement as HTMLElement;
+    return within(match).queryAllByRole('img', { name: 'En groupe' }).length;
+  };
+  // Alice and Bob, both of the club: a group at once.
+  expect(grouped('21:10')).toBe(2);
+  // Three matches in a row with the same stranger: a group from the second, the first met him by chance.
+  expect(['21:00', '20:50', '20:40'].map(grouped)).toEqual([1, 1, 0]);
+  // Twice in a row can be chance.
+  expect(['20:30', '20:20', '20:10', '20:00'].map(grouped)).toEqual([0, 0, 0, 0]);
+});

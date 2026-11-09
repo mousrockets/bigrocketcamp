@@ -1,7 +1,7 @@
 import { shiftDay } from '../../lib/days';
 import { dailyRecap, defaultLastPlaceRules, dodgeRules, matchIndex } from '../../lib/domain';
 import { formatClock, formatRecentDay } from '../../lib/format';
-import { type HistoryMatch, matchHistory } from '../../lib/match-history';
+import { type HistoryMatch, matchHistory, partiedAccounts } from '../../lib/match-history';
 import type { Board } from '../board';
 
 // What the Matchs tab reads from the board: each player's summary over the days shown, and their matches, by day
@@ -132,6 +132,8 @@ export interface ReplayMatch {
     lastPlace: boolean;
     highScore: boolean;
     left: boolean;
+    /** Played in a group: with a club player, or with the same stranger several matches in a row. */
+    party: boolean;
     cost: number;
   }[];
 }
@@ -164,6 +166,7 @@ function tagsOf(match: HistoryMatch<Row>): string[] {
 export function replay(board: Board, roster: readonly string[], days: readonly string[], today: string): ReplayGroup[] {
   const groups: ReplayGroup[] = [];
   const solo = soloAccounts(board);
+  const partied = partiedAccounts(board.results, roster);
   for (const match of historyOf(board, roster)
     .filter((entry) => days.includes(entry.day))
     .sort(byTime)
@@ -189,6 +192,7 @@ export function replay(board: Board, roster: readonly string[], days: readonly s
           lastPlace,
           highScore,
           left,
+          party: partied.get(match.guid)?.has(row.player_id) ?? false,
           cost: pushups,
         })),
     });

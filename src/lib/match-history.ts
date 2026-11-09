@@ -169,3 +169,65 @@ export function matchHistory<Row extends HistoryRow>(
     };
   });
 }
+
+/** Matches in a row with the same stranger that make a group: twice can still be the matchmaking's chance. */
+export const strangerPartyStreak = 3;
+
+const byMatch = (rows: readonly HistoryRow[]) => {
+  const matches = new Map<string, HistoryRow[]>();
+  for (const row of rows) {
+    const group = matches.get(row.match_guid);
+    if (group) group.push(row);
+    else matches.set(row.match_guid, [row]);
+  }
+  return matches;
+};
+
+const playedAt = (rows: readonly HistoryRow[]) =>
+  rows
+    .map((row) => row.received ?? '')
+    .sort()
+    .at(-1) ?? '';
+
+/**
+ * The club players' accounts that played in a group, by match. The game never says who is in a group: a club
+ * player in the team makes one at once, and a stranger in the team `strangerPartyStreak` matches in a row on the
+ * same account makes one from the second of them: the first match met him by chance.
+ */
+export function partiedAccounts(scoreboard: readonly HistoryRow[], roster: Roster): Map<string, Set<string>> {
+  const partied = new Map<string, Set<string>>();
+  const mark = (guid: string, account: string) => {
+    const accounts = partied.get(guid) ?? new Set<string>();
+    accounts.add(account);
+    partied.set(guid, accounts);
+  };
+  // Each account's matches in the order played, with the strangers of its team.
+  const played = new Map<string, { guid: string; strangers: Set<string> }[]>();
+  const matches = [...byMatch(scoreboard.filter((row) => row.kind === 'match'))].sort(
+    ([, a], [, b]) => (a[0]?.day ?? '').localeCompare(b[0]?.day ?? '') || playedAt(a).localeCompare(playedAt(b)),
+  );
+  for (const [guid, rows] of matches) {
+    const accounts = new Set(rows.filter((row) => roster.includes(row.name)).map((row) => row.player_id));
+    for (const account of accounts) {
+      const team = rows.find((row) => row.player_id === account)?.team;
+      const mates = rows.filter((row) => row.team === team && row.player_id !== account);
+      if (mates.some((row) => roster.includes(row.name))) mark(guid, account);
+      const strangers = new Set(mates.filter((row) => !roster.includes(row.name)).map((row) => row.player_id));
+      const sequence = played.get(account) ?? [];
+      sequence.push({ guid, strangers });
+      played.set(account, sequence);
+    }
+  }
+  for (const [account, sequence] of played) {
+    sequence.forEach(({ strangers }, start) => {
+      for (const stranger of strangers) {
+        if (sequence[start - 1]?.strangers.has(stranger)) continue;
+        let end = start;
+        while (sequence[end]?.strangers.has(stranger)) end++;
+        if (end - start < strangerPartyStreak) continue;
+        for (const { guid } of sequence.slice(start + 1, end)) mark(guid, account);
+      }
+    });
+  }
+  return partied;
+}
