@@ -53,6 +53,8 @@ beforeEach(async () => {
       'collector_devices',
       'collector_pairing_codes',
       'sessions',
+      'solo_mmr_entries',
+      'solo_ranks',
       'player_identities',
       'player_identity_aliases',
       'result_observations',
@@ -142,6 +144,37 @@ describe('sending with the collector token', () => {
     expect(names.results.map((row) => row.name)).toContain('alice');
     const device = await env.DB.prepare('SELECT last_seen FROM collector_devices').first<{ last_seen: number }>();
     expect(device?.last_seen).toBeGreaterThan(Date.now() - 60_000);
+  });
+
+  test("a match played with the member's solo account counts as theirs once the rank source found it", async () => {
+    const soloId = `Epic|${'c'.repeat(32)}|0`;
+    const token = await pairedToken();
+    const payload = livePayload();
+    payload.state.Players = payload.state.Players.map((player) =>
+      player.Name === 'alice' ? { ...player, Name: 'Alice Solo', PrimaryId: soloId } : player,
+    );
+    payload.seenIds = payload.state.Players.map((player) => player.PrimaryId);
+    const send = () => call('/api/live', { method: 'POST', token, body: payload });
+    await env.DB.prepare("UPDATE members SET solo_pseudo = 'Alice Solo' WHERE id = ?").bind(memberId).run();
+    expect((await send()).status).toBe(403);
+
+    const sourceKey = 'k'.repeat(40);
+    (env as { RANK_SOURCE_KEY?: string }).RANK_SOURCE_KEY = sourceKey;
+    const reading = { player: 'alice', kind: 'solo', name: 'Alice Solo', playerId: soloId, mmr: 1200, tier: 16 };
+    const found = await exports.default.fetch(`${origin}/api/ranks`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Rank-Source-Key': sourceKey },
+      body: JSON.stringify({ ranks: [{ ...reading, division: 2, observedAt: new Date().toISOString() }] }),
+    });
+    expect(found.status).toBe(200);
+
+    expect((await send()).status).toBe(200);
+    const names = await env.DB.prepare(
+      "SELECT json_extract(payload, '$.name') AS name FROM result_observations WHERE player_id = ?",
+    )
+      .bind(soloId)
+      .all<{ name: string }>();
+    expect(names.results).toEqual([{ name: 'alice' }]);
   });
 
   test('the clock sent with a match tells how it ended, on every row; an older collector leaves it unknown', async () => {

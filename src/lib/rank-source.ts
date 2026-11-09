@@ -4,7 +4,17 @@ import { parisDay } from './days';
 import type { Database } from './db';
 import { projectMmrRankWrite } from './mmr-ledger';
 import { excluded, type Orm, orm, rowid, statementOf } from './orm';
-import { collectors, members, mmrEntries, playerIdentities, playerRanks, soloMmrEntries, soloRanks } from './schema';
+import { canonicalPlayerId } from './player-identities';
+import {
+  collectors,
+  members,
+  mmrEntries,
+  playerIdentities,
+  playerIdentityAliases,
+  playerRanks,
+  soloMmrEntries,
+  soloRanks,
+} from './schema';
 import { currentSeason } from './season';
 
 // A rank source is a separate service that reads the players' ranked 2v2 rating and posts it here.
@@ -287,6 +297,23 @@ async function soloWrites(query: Orm, rank: ObservedRank, target: SoloTarget): P
         .where(
           and(eq(members.duoPseudo, rank.player), eq(members.soloPseudo, target.name), isNull(members.soloPlayerId)),
         ),
+    );
+    // The member named this account in their profile: its matches count as theirs, like a game ID they confirmed.
+    writes.push(
+      query
+        .insert(playerIdentityAliases)
+        .select(
+          query
+            .select({
+              playerId: sql<string>`${canonicalPlayerId(rank.playerId)}`.as('player_id'),
+              slot: sql<string>`${members.duoPseudo}`.as('slot'),
+              confirmedBy: members.id,
+              confirmedAt: sql<string>`${new Date().toISOString()}`.as('confirmed_at'),
+            })
+            .from(members)
+            .where(and(eq(members.duoPseudo, rank.player), eq(members.soloPlayerId, rank.playerId))),
+        )
+        .onConflictDoNothing({ target: playerIdentityAliases.playerId }),
     );
   }
   const latest =
