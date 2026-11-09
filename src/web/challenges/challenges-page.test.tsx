@@ -250,3 +250,72 @@ test('shows no drinks block while nothing is owed', async () => {
   await screen.findByRole('list', { name: 'Classement du mois' });
   expect(screen.queryByRole('list', { name: 'Tournées à offrir' })).not.toBeInTheDocument();
 });
+
+test('shows the week’s journal: each player’s total by exercise, then every exercise, newest first', async () => {
+  const week = {
+    ...board,
+    exercises: [
+      anExercise({
+        id: 'exercise-0000000011',
+        player: 'bob',
+        count: 20,
+        day: '2026-11-07',
+        created: '2026-11-07T16:18:00Z',
+      }),
+      anExercise({
+        id: 'exercise-0000000012',
+        player: 'alice',
+        type: 'plank',
+        count: 180,
+        day: '2026-11-07',
+        created: '2026-11-07T09:05:00Z',
+      }),
+      anExercise({
+        id: 'exercise-0000000013',
+        player: 'alice',
+        count: 100,
+        day: '2026-11-06',
+        created: '2026-11-06T20:00:00Z',
+      }),
+      anExercise({
+        id: 'exercise-0000000014',
+        player: 'alice',
+        count: 20,
+        day: '2026-11-03',
+        created: '2026-11-03T19:00:00Z',
+      }),
+      anExercise({ id: 'exercise-0000000015', player: 'carol', count: 50, day: '2026-10-30' }),
+    ],
+  };
+  renderInApp(<ChallengesPage />, { club, board: week });
+  const journal = await screen.findByRole('region', { name: 'Journal des exercices' });
+  expect(within(journal).getByText('Les exercices de la semaine')).toBeInTheDocument();
+  const totals = within(within(journal).getByRole('list', { name: 'Total de la semaine' })).getAllByRole('listitem');
+  expect(totals.map((total) => total.textContent)).toEqual([
+    'aliceTOIPompes120Gainage3 minAbdos0',
+    'bobPompes20Gainage0 minAbdos0',
+  ]);
+  expect(
+    within(within(journal).getByRole('list', { name: 'Aujourd’hui' }))
+      .getAllByRole('listitem')
+      .map((entry) => entry.textContent),
+  ).toEqual(['17:18bob20 pompes', '10:05aliceTOI3 min de gainage']);
+  expect(within(journal).getByRole('list', { name: 'Hier · vendredi 6' })).toHaveTextContent('21:00aliceTOI100 pompes');
+  expect(within(journal).getByRole('list', { name: 'Mardi 3 novembre' })).toHaveTextContent('20 pompes');
+  expect(within(journal).queryByText('carol')).not.toBeInTheDocument();
+});
+
+test('follows the podium’s week, and hides while nobody sweated', async () => {
+  const user = userEvent.setup();
+  const history = {
+    ...board,
+    exercises: [anExercise({ id: 'exercise-0000000004', player: 'carol', count: 30, day: '2026-10-28' })],
+  };
+  renderInApp(<ChallengesPage />, { club, board: history, path: '/defis' });
+  await screen.findByRole('region', { name: 'Podium de la semaine' });
+  expect(screen.queryByRole('region', { name: 'Journal des exercices' })).not.toBeInTheDocument();
+  await user.click(screen.getByRole('link', { name: 'Semaine précédente' }));
+  const journal = await screen.findByRole('region', { name: 'Journal des exercices' });
+  expect(within(journal).getByText('Semaine du 26 oct. – 1 nov.')).toBeInTheDocument();
+  expect(within(journal).getByRole('list', { name: 'Mercredi 28 octobre' })).toHaveTextContent('carol30 pompes');
+});

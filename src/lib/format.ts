@@ -1,4 +1,4 @@
-import { sameParisDay } from './days';
+import { sameParisDay, shiftDay } from './days';
 
 // How the app writes numbers, times and dates, in French and in Paris time. Every text shown to a member goes
 // through this module, so that "1 509", "19 h 42" or "il y a 8 min" read the same everywhere.
@@ -68,6 +68,13 @@ export const formatWeekdayDate = (day: string): string => weekdayDates.format(ne
 
 /** "Mar. 3 nov.": a club day, written "2026-11-03", in a few letters. */
 export const formatShortDay = (day: string): string => capitalized(shortDays.format(new Date(noonOf(day))));
+
+/** « Aujourd’hui », « Hier · vendredi 6 », then the club day in full: a day heading in a list, newest first. */
+export function formatRecentDay(day: string, today: string): string {
+  if (day === today) return 'Aujourd’hui';
+  if (day === shiftDay(today, -1)) return `Hier · ${formatWeekdayDate(day)}`;
+  return formatDay(day);
+}
 
 const dayMonths = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', day: 'numeric', month: 'long' });
 
