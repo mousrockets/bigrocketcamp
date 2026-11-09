@@ -11,6 +11,7 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from '../components/ui/carousel';
+import { useMediaQuery } from '../hooks/use-media-query';
 import { useNow } from '../hooks/use-now';
 import { LadderIcon } from '../shell/icons';
 import { type CardPlayer, PlayerCard } from './player-card';
@@ -34,6 +35,7 @@ export function TeamCarousel({ players }: { players: CardPlayer[] }) {
   const [api, setApi] = useState<CarouselApi>();
   const [active, setActive] = useState(0);
   const now = useNow(60_000);
+  const computer = useMediaQuery('(min-width: 64rem)');
   const current = players[active] ?? players[0];
 
   useEffect(() => {
@@ -56,9 +58,12 @@ export function TeamCarousel({ players }: { players: CardPlayer[] }) {
       <div className="flex items-center justify-between gap-3 px-5 lg:px-0">
         <span className="flex items-baseline gap-3.5 lg:gap-4">
           <h2 className="title-display text-[22px]">La team</h2>
-          <Link to="/matchs" className="font-medium text-[13px] text-link">
-            Bilan du jour
-          </Link>
+          {/* On a phone, Matchs is one tap away in the tab bar. */}
+          {computer && (
+            <Link to="/matchs" className="font-medium text-[13px] text-link">
+              Bilan du jour
+            </Link>
+          )}
         </span>
         <span className="flex items-center gap-2">
           <SheetLink sheet="ranks" className={cn(buttonVariants({ variant: 'bubble', size: 'hint' }), 'lg:mr-2.5')}>
