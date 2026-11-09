@@ -49,9 +49,10 @@ Règles pour tout agent IA qui travaille sur ce dépôt. Elles valent aussi pour
    - attends son accord, puis arrête le serveur.
 7. Commits au format Conventional Commits (`fix: keep pushups after a reload`). Le premier commit de la PR donne son message au commit fusionné : il résume toute la PR.
 8. PR : titre et description en français (quoi, pourquoi, comment vérifier), et `Closes #N`.
-9. La PR fusionne seule, en squash, quand la CI est verte. Le label `rebase` garde des commits volontairement atomiques : mets-le sur une PR longue dont chaque commit compte.
-10. Fusion dans `main` = mise en production. Quelques minutes après la fusion, vérifie que `/api/health` de l'instance (voir `docs/deploiement.md`) annonce le dernier commit de `main` : deux fusions rapprochées peuvent laisser en ligne la plus ancienne. Sinon, préviens un mainteneur.
-11. Termine en résumant ce qui change pour l'utilisateur.
+9. Dès la PR ouverte, active la correction automatique de sa CI sans le demander à la personne : un échec de la CI, un conflit ou un commentaire de relecture se corrige jusqu'à ce que la PR fusionne. Dans l'app Claude Code, c'est l'interrupteur Auto-fix de la PR ; un outil qui n'en a pas suit lui-même les checks et corrige.
+10. La PR fusionne seule, en squash, quand la CI est verte. Le label `rebase` garde des commits volontairement atomiques : mets-le sur une PR longue dont chaque commit compte.
+11. Fusion dans `main` = mise en production. Quelques minutes après la fusion, vérifie que `/api/health` de l'instance (voir `docs/deploiement.md`) annonce le dernier commit de `main` : deux fusions rapprochées peuvent laisser en ligne la plus ancienne. Sinon, préviens un mainteneur.
+12. Termine en résumant ce qui change pour l'utilisateur.
 
 ## Architecture
 
