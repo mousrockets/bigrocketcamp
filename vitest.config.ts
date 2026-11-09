@@ -10,7 +10,7 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig(async () => {
   const migrations = await readD1Migrations('./migrations');
   return {
-    define: { __APP_COMMIT__: JSON.stringify('test') },
+    define: { __APP_COMMIT__: JSON.stringify('test'), __MATCH_BUILD_CODE__: JSON.stringify('test') },
     // The same `@/` as the app (vite.config.ts), which the shadcn components import from.
     resolve: { alias: { '@': fileURLToPath(new URL('./src/web', import.meta.url)) } },
     test: {
