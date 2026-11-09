@@ -2,7 +2,7 @@ import { Link, useLocation } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 
 /** The sheets the shell opens over any tab, each by its search parameter. */
-export type ShellSheet = 'declarer' | 'ranks';
+export type ShellSheet = 'declarer' | 'ranks' | 'regles';
 
 /** A link that opens one of the shell's sheets over the page it is on. */
 export function SheetLink({

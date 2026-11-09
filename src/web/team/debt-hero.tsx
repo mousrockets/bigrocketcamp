@@ -2,7 +2,7 @@ import { cn } from 'cn';
 import { formatNumber, plural } from '../../lib/format';
 import { SheetLink } from '../components/sheet-link';
 import { buttonVariants } from '../components/ui/button';
-import { Flame, PlayIcon } from '../shell/icons';
+import { Flame, PlayIcon, WhistleIcon } from '../shell/icons';
 import { type Debt, litSegments } from './stats';
 
 const segments = 24;
@@ -19,7 +19,13 @@ export function DebtHero({ debt, streak }: { debt: Debt; streak: number }) {
       <div className="flex flex-col gap-4 lg:max-w-[600px] lg:flex-[1_1_440px]">
         <div className="flex items-center justify-between">
           <span className="label-caps">Tes défis</span>
-          <StreakCount streak={streak} />
+          <span className="flex items-center gap-3.5">
+            <SheetLink sheet="regles" className={buttonVariants({ variant: 'bubble', size: 'hint' })}>
+              <WhistleIcon />
+              <span className="sr-only lg:not-sr-only">Les règles</span>
+            </SheetLink>
+            <StreakCount streak={streak} />
+          </span>
         </div>
         <div className="flex items-end gap-3 lg:gap-3.5">
           <b className="num text-[104px] tracking-[-.035em] [line-height:.78] lg:text-[128px]">

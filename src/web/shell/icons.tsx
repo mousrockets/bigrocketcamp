@@ -86,6 +86,25 @@ export function LadderIcon({ className, size = 18 }: IconProps) {
   );
 }
 
+/** A referee's whistle: the club's rules. */
+export function WhistleIcon({ className, size = 17 }: IconProps) {
+  return (
+    <svg
+      aria-hidden="true"
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      className={className}
+      {...line}
+      strokeWidth="1.8"
+    >
+      <path d="M8.5 8H21v3.6l-6.6 1.4a5.6 5.6 0 1 1-5.9-5z" />
+      <circle cx="8.6" cy="13.6" r="1.5" fill="currentColor" stroke="none" />
+      <path d="M12.5 8V5.5" />
+    </svg>
+  );
+}
+
 export function PlayIcon({ className, size = 12 }: IconProps) {
   return (
     <svg aria-hidden="true" width={size} height={size} viewBox="0 0 24 24" className={className} fill="currentColor">
