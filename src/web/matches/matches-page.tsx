@@ -7,13 +7,20 @@ import { useBoardState } from '../board';
 import { useClub } from '../club';
 import { LiveStatus } from '../components/live-status';
 import { PeriodKicker } from '../components/period-picker';
-import { RulesLink } from '../components/rules-link';
 import { TabPage } from '../components/tab-page';
 import { Badge } from '../components/ui/badge';
 import { Card } from '../components/ui/card';
 import { useNow } from '../hooks/use-now';
 import { DayPicker } from './day-picker';
-import { daySummary, playedDays, type ReplayMatch, replay, type SummaryPlayer } from './timeline';
+import {
+  lastDays,
+  periodSummary,
+  playedDays,
+  type ReplayMatch,
+  recentDays,
+  replay,
+  type SummaryPlayer,
+} from './timeline';
 
 export function MatchesPage() {
   const club = useClub();
@@ -21,10 +28,11 @@ export function MatchesPage() {
   const { jour } = useSearch({ strict: false });
   const now = useNow(30_000);
   const today = parisDay(now);
-  const day = jour && jour < today ? jour : today;
-  const isToday = day === today;
-  const summary = board ? daySummary(board, club.roster, club.me.duoPseudo, day) : [];
-  const groups = board ? replay(board, club.roster, day, today) : [];
+  // No day chosen: the last seven days. A day after today cannot be read and leads back to them.
+  const day = jour && jour <= today ? jour : null;
+  const days = day ? [day] : lastDays(today);
+  const summary = board ? periodSummary(board, club.roster, club.me.duoPseudo, days) : [];
+  const groups = board ? replay(board, club.roster, days, today) : [];
 
   return (
     <TabPage
@@ -41,7 +49,7 @@ export function MatchesPage() {
           >
             <span className="flex flex-col gap-1.5">
               <PeriodKicker
-                kicker="Bilan du jour"
+                kicker={day ? 'Bilan du jour' : `Bilan · ${recentDays} jours`}
                 picker={<DayPicker day={day} today={today} played={playedDays(board, club.roster)} />}
               />
               <h2 className="title-display text-[24px] [line-height:normal]">
@@ -51,12 +59,16 @@ export function MatchesPage() {
             {summary.length > 0 ? (
               <div className="flex flex-col gap-2.5">
                 {summary.map((player) => (
-                  <PlayerSummary key={player.name} player={player} />
+                  <PlayerSummary key={player.name} player={player} compact={day === null} />
                 ))}
               </div>
             ) : (
               <p className="m-0 text-[15px] text-t2">
-                {isToday ? 'Aucun match aujourd’hui. Le terrain attend son kickoff.' : 'Aucun match ce jour-là.'}
+                {day === null
+                  ? `Aucun match en ${recentDays} jours. Le terrain attend son kickoff.`
+                  : day === today
+                    ? 'Aucun match aujourd’hui. Le terrain attend son kickoff.'
+                    : 'Aucun match ce jour-là.'}
               </p>
             )}
           </section>
@@ -65,7 +77,13 @@ export function MatchesPage() {
             className="flex flex-col gap-[18px] px-5 pt-12 lg:flex-[999_1_420px] lg:p-0"
           >
             <SectionTitle
-              kicker={isToday ? 'Les matchs du jour' : `Les matchs du ${formatDayDate(day)}`}
+              kicker={
+                day === null
+                  ? `Les ${recentDays} derniers jours`
+                  : day === today
+                    ? 'Les matchs du jour'
+                    : `Les matchs du ${formatDayDate(day)}`
+              }
               title="Le replay"
             />
             {groups.map((group) => (
@@ -80,10 +98,13 @@ export function MatchesPage() {
             ))}
             {groups.length === 0 && (
               <p className="m-0 text-[15px] text-t2">
-                {isToday ? 'Pas un match aujourd’hui. Suspect.' : 'Pas un match ce jour-là. Suspect.'}
+                {day === null
+                  ? `Pas un match en ${recentDays} jours. Suspect.`
+                  : day === today
+                    ? 'Pas un match aujourd’hui. Suspect.'
+                    : 'Pas un match ce jour-là. Suspect.'}
               </p>
             )}
-            <RulesLink />
           </section>
         </div>
       )}
@@ -103,7 +124,8 @@ function SectionTitle({ kicker, title }: { kicker: string; title: string }) {
 const signed = (value: number) =>
   value > 0 ? `+${formatNumber(value)}` : value < 0 ? `−${formatNumber(-value)}` : '0';
 
-function PlayerSummary({ player }: { player: SummaryPlayer }) {
+/** A player's summary; over several days, the squares of their matches shrink to fit. */
+function PlayerSummary({ player, compact }: { player: SummaryPlayer; compact: boolean }) {
   const defeats = player.losses * 5;
   return (
     <Card variant="glass" className="gap-4 p-4">
@@ -119,7 +141,10 @@ function PlayerSummary({ player }: { player: SummaryPlayer }) {
                 <i
                   // biome-ignore lint/suspicious/noArrayIndexKey: a day's matches keep their order.
                   key={index}
-                  className={cn('size-2.5 rounded-[3px]', outcome === 'win' ? 'bg-win' : 'bg-cost-strong opacity-90')}
+                  className={cn(
+                    compact ? 'size-2 rounded-[2px]' : 'size-2.5 rounded-[3px]',
+                    outcome === 'win' ? 'bg-win' : 'bg-cost-strong opacity-90',
+                  )}
                 />
               ))}
             </span>

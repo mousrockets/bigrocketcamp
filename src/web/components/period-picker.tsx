@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router';
 import { cn } from 'cn';
-import { ChevronLeftIcon, ChevronRightIcon } from 'lucide-react';
+import { ChevronLeftIcon, ChevronRightIcon, XIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Button, buttonVariants } from './ui/button';
 
@@ -37,10 +37,7 @@ export function PeriodPicker({
   children: ReactNode;
 }) {
   return (
-    <nav
-      aria-label={label}
-      className="inline-flex h-[30px] shrink-0 items-center rounded-[15px] bg-linear-to-b from-white/11 to-white/4 shadow-[inset_0_.5px_0_rgba(255,255,255,.24),inset_0_0_0_.5px_rgba(255,255,255,.09),0_6px_16px_-8px_rgba(0,0,0,.7)]"
-    >
+    <PeriodCapsule label={label}>
       <Arrow step={previous} fallback="Précédent">
         <ChevronLeftIcon strokeWidth={2.4} />
       </Arrow>
@@ -50,7 +47,34 @@ export function PeriodPicker({
       <Arrow step={next} fallback="Suivant">
         <ChevronRightIcon strokeWidth={2.4} />
       </Arrow>
+    </PeriodCapsule>
+  );
+}
+
+const capsuleClass =
+  'inline-flex h-[30px] shrink-0 items-center rounded-[15px] bg-linear-to-b from-white/11 to-white/4 shadow-[inset_0_.5px_0_rgba(255,255,255,.24),inset_0_0_0_.5px_rgba(255,255,255,.09),0_6px_16px_-8px_rgba(0,0,0,.7)]';
+
+/** The glass capsule alone, around a period with no arrows. */
+export function PeriodCapsule({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <nav aria-label={label} className={capsuleClass}>
+      {children}
     </nav>
+  );
+}
+
+/** A round glass capsule that leaves the period chosen, back to the default one. */
+export function PeriodReset({ search, label }: { search: Record<string, undefined>; label: string }) {
+  return (
+    <Link
+      to="."
+      search={(current: Record<string, unknown>) => ({ ...current, ...search })}
+      resetScroll={false}
+      aria-label={label}
+      className={cn(capsuleClass, buttonVariants({ variant: 'capsule', size: 'capsule-arrow' }), 'text-t2')}
+    >
+      <XIcon strokeWidth={2.6} className="size-[11px]" />
+    </Link>
   );
 }
 

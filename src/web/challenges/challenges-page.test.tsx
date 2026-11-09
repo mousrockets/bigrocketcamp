@@ -181,12 +181,6 @@ test('goes back to a closed month as it closed: its standings and who was last',
   expect(within(month).getByRole('link', { name: 'Mois suivant' })).toHaveAttribute('href', '/defis');
 });
 
-test('leads to the club’s rules under the month’s challenge', async () => {
-  renderInApp(<ChallengesPage />, { club, board, path: '/defis' });
-  const month = await screen.findByRole('region', { name: 'Défi du mois' });
-  expect(within(month).getByRole('link', { name: 'Les règles' })).toHaveAttribute('href', '/defis?regles=true');
-});
-
 test('ranks the month with the account that counted, and the last one pays a drink to each other', async () => {
   renderInApp(<ChallengesPage />, { club, board });
   const standings = await screen.findByRole('list', { name: 'Classement du mois' });

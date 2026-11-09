@@ -1,9 +1,11 @@
+import { shiftDay } from '../../lib/days';
 import { dailyRecap, defaultLastPlaceRules, dodgeRules, matchIndex } from '../../lib/domain';
-import { formatClock } from '../../lib/format';
+import { formatClock, formatDay, formatWeekdayDate } from '../../lib/format';
 import { type HistoryMatch, matchHistory } from '../../lib/match-history';
 import type { Board } from '../board';
 
-// What the Matchs tab reads from the board: the day's summary per player, and the latest matches by part of day.
+// What the Matchs tab reads from the board: each player's summary over the days shown, and their matches, by day
+// or by part of day.
 
 type Row = Board['results'][number];
 
@@ -31,37 +33,61 @@ const historyOf = (board: Board, roster: readonly string[]) =>
     dodgeRules(board.rules),
   );
 
-const byTime = (a: HistoryMatch<Row>, b: HistoryMatch<Row>) => (a.received ?? a.day).localeCompare(b.received ?? b.day);
+// A match received late (an import, a source catching up) still belongs to its own day.
+const byTime = (a: HistoryMatch<Row>, b: HistoryMatch<Row>) =>
+  a.day.localeCompare(b.day) || (a.received ?? a.day).localeCompare(b.received ?? b.day);
 
-/** The day's summary of each player who played that day, the member first. */
-export function daySummary(board: Board, roster: readonly string[], me: string | null, day: string): SummaryPlayer[] {
-  const recap = dailyRecap(
-    [...roster],
-    board.results,
-    day,
-    board.matchRosters ?? [],
-    board.rules?.lastPlace ?? defaultLastPlaceRules,
-    dodgeRules(board.rules),
-  );
+/** How many days Matchs shows when no day is chosen. */
+export const recentDays = 7;
+
+/** The days Matchs shows when no day is chosen: the last week, today included, oldest first. */
+export const lastDays = (today: string): string[] =>
+  Array.from({ length: recentDays }, (_, index) => shiftDay(today, index + 1 - recentDays));
+
+const outcomeOf = (row: Row) => (row.team === row.winner ? ('win' as const) : ('loss' as const));
+
+/** The summary of each player who played on those days, added up over them, the member first. */
+export function periodSummary(
+  board: Board,
+  roster: readonly string[],
+  me: string | null,
+  days: readonly string[],
+): SummaryPlayer[] {
   const played = historyOf(board, roster)
-    .filter((match) => match.day === day && !match.review)
+    .filter((match) => days.includes(match.day) && !match.review)
     .sort(byTime);
-  const players = recap.players
-    .filter((player) => player.played > 0)
-    .map((player) => ({
-      name: player.name,
-      me: player.name === me,
-      outcomes: played.flatMap((match) =>
-        match.players
-          .filter(({ row }) => row.name === player.name)
-          .map(({ row }) => (row.team === row.winner ? ('win' as const) : ('loss' as const))),
-      ),
-      wins: player.wins,
-      losses: player.losses,
-      owed: player.generated,
-      bonus: player.bonus,
-      dodged: player.dodged,
-    }));
+  const totals = new Map<string, SummaryPlayer>();
+  for (const day of days) {
+    const recap = dailyRecap(
+      [...roster],
+      board.results,
+      day,
+      board.matchRosters ?? [],
+      board.rules?.lastPlace ?? defaultLastPlaceRules,
+      dodgeRules(board.rules),
+    );
+    for (const player of recap.players.filter((candidate) => candidate.played > 0)) {
+      const total = totals.get(player.name) ?? {
+        name: player.name,
+        me: player.name === me,
+        outcomes: played.flatMap((match) =>
+          match.players.filter(({ row }) => row.name === player.name).map(({ row }) => outcomeOf(row)),
+        ),
+        wins: 0,
+        losses: 0,
+        owed: 0,
+        bonus: 0,
+        dodged: 0,
+      };
+      total.wins += player.wins;
+      total.losses += player.losses;
+      total.owed += player.generated;
+      total.bonus += player.bonus;
+      total.dodged += player.dodged;
+      totals.set(player.name, total);
+    }
+  }
+  const players = roster.flatMap((name) => totals.get(name) ?? []);
   return [...players.filter((player) => player.me), ...players.filter((player) => !player.me)];
 }
 
@@ -89,6 +115,13 @@ function partOf(match: HistoryMatch<Row>, today: boolean): string {
   return hour < 18 ? (today ? 'Cet après-midi' : 'L’après-midi') : today ? 'Ce soir' : 'Le soir';
 }
 
+/** « Aujourd’hui », « Hier · vendredi 6 », then the day in full. */
+function dayOf(day: string, today: string): string {
+  if (day === today) return 'Aujourd’hui';
+  if (day === shiftDay(today, -1)) return `Hier · ${formatWeekdayDate(day)}`;
+  return formatDay(day);
+}
+
 /** What made the match special, in the words of the replay. */
 function tagsOf(match: HistoryMatch<Row>): string[] {
   const tags: string[] = [];
@@ -99,13 +132,16 @@ function tagsOf(match: HistoryMatch<Row>): string[] {
 }
 
 /** The matches of `day`, newest first, grouped by part of day. */
-export function replay(board: Board, roster: readonly string[], day: string, today: string): ReplayGroup[] {
+/**
+ * The matches of those days, newest first: grouped by part of day for a single day, by day for several.
+ */
+export function replay(board: Board, roster: readonly string[], days: readonly string[], today: string): ReplayGroup[] {
   const groups: ReplayGroup[] = [];
   for (const match of historyOf(board, roster)
-    .filter((entry) => entry.day === day)
+    .filter((entry) => days.includes(entry.day))
     .sort(byTime)
     .reverse()) {
-    const label = partOf(match, day === today);
+    const label = days.length === 1 ? partOf(match, match.day === today) : dayOf(match.day, today);
     let group = groups.at(-1);
     if (group?.label !== label) {
       group = { label, matches: [] };
