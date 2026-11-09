@@ -40,25 +40,30 @@ export function splitRankLabel(label: string): { rank: string; division: string 
 export const shortRankLabel = (label: string): string => label.replace(' · Division ', ' · Div. ');
 
 /**
- * The colour of a rank's family, as "r,g,b". The design draws Diamond, Champion and Grand Champion; the lower ranks
- * and Supersonic Legend follow the colours of their icons.
+ * The colours of a rank's family, as "r,g,b": `rgb` tints a card, `light` draws what shines on it, like a progress
+ * bar. The design draws Diamond, Champion and Grand Champion; the lower ranks and Supersonic Legend follow the colours
+ * of their icons.
  */
 const families = [
-  { from: 1, rgb: '176,110,60' }, // Bronze
-  { from: 4, rgb: '160,170,185' }, // Silver
-  { from: 7, rgb: '226,178,64' }, // Gold
-  { from: 10, rgb: '86,196,200' }, // Platinum
-  { from: 13, rgb: '39,163,230' }, // Diamond
-  { from: 16, rgb: '158,115,220' }, // Champion
-  { from: 19, rgb: '150,68,78' }, // Grand Champion
-  { from: 22, rgb: '225,225,240' }, // Supersonic Legend
+  { from: 1, rgb: '176,110,60', light: '222,160,108' }, // Bronze
+  { from: 4, rgb: '160,170,185', light: '204,212,224' }, // Silver
+  { from: 7, rgb: '226,178,64', light: '246,208,118' }, // Gold
+  { from: 10, rgb: '86,196,200', light: '136,226,228' }, // Platinum
+  { from: 13, rgb: '39,163,230', light: '108,196,240' }, // Diamond
+  { from: 16, rgb: '158,115,220', light: '196,162,238' }, // Champion
+  { from: 19, rgb: '150,68,78', light: '255,138,148' }, // Grand Champion
+  { from: 22, rgb: '225,225,240', light: '240,240,250' }, // Supersonic Legend
 ];
 const unrankedRgb = '120,120,132';
+const unrankedLightRgb = '170,170,182';
 
-export function rankRgb(tier: number | null | undefined): string {
-  if (!tier) return unrankedRgb;
-  return families.findLast((family) => tier >= family.from)?.rgb ?? unrankedRgb;
-}
+const familyOf = (tier: number | null | undefined) =>
+  tier ? families.findLast((family) => tier >= family.from) : undefined;
+
+export const rankRgb = (tier: number | null | undefined): string => familyOf(tier)?.rgb ?? unrankedRgb;
+
+/** The rank's colour where it shines on its own tint. */
+export const rankLightRgb = (tier: number | null | undefined): string => familyOf(tier)?.light ?? unrankedLightRgb;
 
 /** A player's colour is their highest current rank, solo or duo. */
 export const highestTier = (...tiers: (number | null | undefined)[]): number | null =>

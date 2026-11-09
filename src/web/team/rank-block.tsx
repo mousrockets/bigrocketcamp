@@ -1,9 +1,11 @@
 import { cn } from 'cn';
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import type { SeasonPeak } from '../../lib/contract';
 import { formatNumber } from '../../lib/format';
 import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle } from '../components/ui/item';
-import { rankRgb, shortRankLabel, splitRankLabel } from './stats';
+import { Progress } from '../components/ui/progress';
+import { climbOf, type RankStep } from './ladder';
+import { rankLightRgb, rankRgb, shortRankLabel, splitRankLabel } from './stats';
 
 /** What a card needs to know about a rank: the API's doubles rank or solo rank, or nothing read yet. */
 export interface CardRank {
@@ -20,12 +22,13 @@ const row = 'flex-nowrap gap-3 rounded-none border-0 p-0 [line-height:normal]';
 const media = 'w-10 translate-y-0 self-center';
 const words = 'min-w-0 *:w-full *:truncate';
 
-/** One account's rank on a player card: its icon, name, division and MMR, then its season peak. */
+/** One account's rank on a player card: its icon, name, division and MMR, the way to the next rank, its season peak. */
 export function RankBlock({
   kind,
   icon,
   rank,
   ringed = false,
+  climbing = false,
 }: {
   kind: 'Solo' | 'Duo';
   icon: ReactNode;
@@ -33,6 +36,8 @@ export function RankBlock({
   rank: CardRank | null;
   /** The duo rank stands out: it is the one the club plays. */
   ringed?: boolean;
+  /** Shows how far the rating is from the next rank. */
+  climbing?: boolean;
 }) {
   const rgb = rankRgb(rank?.tier);
   const { rank: name, division } = rank ? splitRankLabel(rank.label) : { rank: 'Pas de compte solo', division: '' };
@@ -74,6 +79,7 @@ export function RankBlock({
           </ItemActions>
         )}
       </Item>
+      {climbing && rank?.tier && rank.mmr !== null && <RankClimb tier={rank.tier} mmr={rank.mmr} />}
       {rank?.peak && (
         <Item className={cn(row, 'border-line border-t-[.5px] pt-2.5')}>
           <ItemMedia className={media}>
@@ -91,5 +97,45 @@ export function RankBlock({
         </Item>
       )}
     </div>
+  );
+}
+
+/** A bar in the rank's colour, from the MMR that wins the rank to the one that wins the next, under the rank's words. */
+function RankClimb({ tier, mmr }: { tier: number; mmr: number }) {
+  const climb = climbOf(tier, mmr);
+  if (!climb?.next) return null;
+  const { current, next, left, percent } = climb;
+  return (
+    <Progress
+      value={percent}
+      aria-label={`Vers ${next.name}`}
+      style={{ '--rank': rankLightRgb(tier) } as CSSProperties}
+      className="flex-col-reverse gap-[7px] pt-0.5 pl-[52px] [&_[data-slot=progress-indicator]]:min-w-[4%] [&_[data-slot=progress-indicator]]:origin-left [&_[data-slot=progress-indicator]]:animate-grow [&_[data-slot=progress-indicator]]:rounded-[3px] [&_[data-slot=progress-indicator]]:bg-[linear-gradient(90deg,rgba(var(--rank),.55),rgb(var(--rank)))] [&_[data-slot=progress-indicator]]:shadow-[0_0_10px_rgba(var(--rank),.55)] [&_[data-slot=progress-track]]:h-[5px] [&_[data-slot=progress-track]]:rounded-[3px] [&_[data-slot=progress-track]]:bg-white/9"
+    >
+      <div className="flex w-full items-baseline justify-between gap-2 whitespace-nowrap text-[11px] text-t3 tabular-nums">
+        <ClimbEnd step={current} />
+        <span>
+          Encore <b className="num text-[15px] text-[rgb(var(--rank))]">{formatNumber(left)}</b> MMR
+        </span>
+        <ClimbEnd step={next} named />
+      </div>
+    </Progress>
+  );
+}
+
+/** One end of the bar: a rank's icon and the MMR that wins it; the next rank's icon is named, the current one's is not. */
+function ClimbEnd({ step, named = false }: { step: RankStep; named?: boolean }) {
+  return (
+    <span className={cn('flex min-w-0 items-baseline gap-[5px]', named && 'flex-row-reverse')}>
+      <img
+        src={rankIcon(step.tier)}
+        alt={named ? step.name : ''}
+        title={named ? step.name : undefined}
+        width={16}
+        height={16}
+        className="size-4 shrink-0 self-center object-contain"
+      />
+      {formatNumber(step.mmr)}
+    </span>
   );
 }
