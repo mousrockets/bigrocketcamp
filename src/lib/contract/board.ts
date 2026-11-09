@@ -98,6 +98,8 @@ export const soloRank = z.looseObject({
   pseudo: z.string().nullable().catch(null),
   /** The account's best rating, every season; absent from an API older than it. */
   best: z.number().nullable().catch(null),
+  /** The account's game ID once found: the matches played on it. Absent from an API older than it. */
+  playerId: z.string().nullable().catch(null),
 });
 export type SoloRank = Known<z.output<typeof soloRank>>;
 

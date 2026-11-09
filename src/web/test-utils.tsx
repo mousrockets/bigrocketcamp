@@ -107,6 +107,7 @@ export const aSoloRank = (parts: Partial<SoloRank> = {}): SoloRank => ({
   status: 'ready',
   pseudo: null,
   best: null,
+  playerId: null,
   ...parts,
 });
 

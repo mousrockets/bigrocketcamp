@@ -51,6 +51,8 @@ export interface PlayerSoloRank {
   pseudo: string | null;
   /** The account's best rating, every season; null until one is known. */
   best: number | null;
+  /** The account's game ID once the rank source found it: the matches played on it. */
+  playerId: string | null;
 }
 
 export interface PlayerDoublesRank {
@@ -105,7 +107,7 @@ async function readSoloRanks(db: Database): Promise<Map<string, PlayerSoloRank>>
   const query = orm(db);
   const [accounts, stored] = await Promise.all([
     query
-      .select({ player: members.duoPseudo, pseudo: members.soloPseudo })
+      .select({ player: members.duoPseudo, pseudo: members.soloPseudo, playerId: members.soloPlayerId })
       .from(members)
       .where(and(isNotNull(members.duoPseudo), isNotNull(members.soloPseudo))),
     query
@@ -124,7 +126,7 @@ async function readSoloRanks(db: Database): Promise<Map<string, PlayerSoloRank>>
       .from(soloRanks),
   ]);
   return new Map(
-    accounts.map(({ player, pseudo }) => {
+    accounts.map(({ player, pseudo, playerId }) => {
       const rank = stored.find((candidate) => candidate.player === player);
       const status = soloStatuses.find((known) => known === rank?.status) ?? 'waiting';
       return [
@@ -140,6 +142,7 @@ async function readSoloRanks(db: Database): Promise<Map<string, PlayerSoloRank>>
           peak: peakOf(rank),
           pseudo,
           best: rank?.bestMmr ?? null,
+          playerId,
         },
       ];
     }),

@@ -21,6 +21,7 @@ export interface SummaryPlayer {
   bonus: number;
   /** Pushups off for wins the opponents forfeited and games from 1000 points. */
   dodged: number;
+  accounts: Accounts;
 }
 
 const historyOf = (board: Board, roster: readonly string[]) =>
@@ -44,6 +45,23 @@ export const recentDays = 7;
 export const lastDays = (today: string): string[] =>
   Array.from({ length: recentDays }, (_, index) => shiftDay(today, index + 1 - recentDays));
 
+/** Each player's solo account, once the rank source found it: its game ID, in lower case, and its pseudo. */
+function soloAccounts(board: Board): Map<string, { id: string; pseudo: string }> {
+  return new Map(
+    board.doublesRanks.flatMap(({ player, solo }) =>
+      solo?.playerId && solo.pseudo
+        ? [[player, { id: solo.playerId.toLowerCase(), pseudo: solo.pseudo }] as const]
+        : [],
+    ),
+  );
+}
+
+const playedSolo = (accounts: ReturnType<typeof soloAccounts>, row: Row) =>
+  accounts.get(row.name)?.id === row.player_id.toLowerCase();
+
+/** Which of the player's accounts their matches were played on. */
+export type Accounts = 'duo' | 'solo' | 'both';
+
 const outcomeOf = (row: Row) => (row.team === row.winner ? ('win' as const) : ('loss' as const));
 
 /** The summary of each player who played on those days, added up over them, the member first. */
@@ -56,6 +74,12 @@ export function periodSummary(
   const played = historyOf(board, roster)
     .filter((match) => days.includes(match.day) && !match.review)
     .sort(byTime);
+  const solo = soloAccounts(board);
+  const accountsOf = (name: string): Accounts => {
+    const rows = played.flatMap((match) => match.players.filter(({ row }) => row.name === name).map(({ row }) => row));
+    const onSolo = rows.filter((row) => playedSolo(solo, row)).length;
+    return onSolo === 0 ? 'duo' : onSolo === rows.length ? 'solo' : 'both';
+  };
   const totals = new Map<string, SummaryPlayer>();
   for (const day of days) {
     const recap = dailyRecap(
@@ -78,6 +102,7 @@ export function periodSummary(
         owed: 0,
         bonus: 0,
         dodged: 0,
+        accounts: accountsOf(player.name),
       };
       total.wins += player.wins;
       total.losses += player.losses;
@@ -99,7 +124,16 @@ export interface ReplayMatch {
   tags: string[];
   /** The club's goals first. */
   score: [number, number] | null;
-  players: { name: string; points: number; lastPlace: boolean; highScore: boolean; left: boolean; cost: number }[];
+  players: {
+    name: string;
+    /** The pseudo of the account the match was played on: the player's own, or their solo account's. */
+    account: string;
+    points: number;
+    lastPlace: boolean;
+    highScore: boolean;
+    left: boolean;
+    cost: number;
+  }[];
 }
 
 export interface ReplayGroup {
@@ -124,12 +158,12 @@ function tagsOf(match: HistoryMatch<Row>): string[] {
   return tags;
 }
 
-/** The matches of `day`, newest first, grouped by part of day. */
 /**
  * The matches of those days, newest first: grouped by part of day for a single day, by day for several.
  */
 export function replay(board: Board, roster: readonly string[], days: readonly string[], today: string): ReplayGroup[] {
   const groups: ReplayGroup[] = [];
+  const solo = soloAccounts(board);
   for (const match of historyOf(board, roster)
     .filter((entry) => days.includes(entry.day))
     .sort(byTime)
@@ -150,6 +184,7 @@ export function replay(board: Board, roster: readonly string[], days: readonly s
         .sort((a, b) => b.row.score - a.row.score)
         .map(({ row, pushups, lastPlace, highScore, left }) => ({
           name: row.name,
+          account: playedSolo(solo, row) ? (solo.get(row.name)?.pseudo ?? row.name) : row.name,
           points: row.score,
           lastPlace,
           highScore,
