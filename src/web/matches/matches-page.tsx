@@ -13,6 +13,7 @@ import { Card } from '../components/ui/card';
 import { useNow } from '../hooks/use-now';
 import { DayPicker } from './day-picker';
 import {
+  type Accounts,
   lastDays,
   periodSummary,
   playedDays,
@@ -148,10 +149,16 @@ function PlayerSummary({ player, compact }: { player: SummaryPlayer; compact: bo
                 />
               ))}
             </span>
-            <span className="text-[13px] text-t2">
-              {player.wins + player.losses} {player.wins + player.losses > 1 ? 'parties' : 'partie'} ·{' '}
-              <span className="text-win">{player.wins} W</span> ·{' '}
-              <span className="text-cost-strong">{player.losses} L</span>
+            {/* A narrow card breaks the line between its parts, never inside one. */}
+            <span className="text-[13px] text-t2 [&>span]:whitespace-nowrap">
+              <span>{accountLabels[player.accounts]} ·</span>{' '}
+              <span>
+                {player.wins + player.losses} {player.wins + player.losses > 1 ? 'parties' : 'partie'} ·
+              </span>{' '}
+              <span>
+                <span className="text-win">{player.wins} W</span> ·{' '}
+                <span className="text-cost-strong">{player.losses} L</span>
+              </span>
             </span>
           </span>
         </span>
@@ -181,6 +188,8 @@ function Figure({ label, value, credit = false }: { label: string; value: number
     </span>
   );
 }
+
+const accountLabels = { duo: 'Duo', solo: 'Solo', both: 'Solo et Duo' } satisfies Record<Accounts, string>;
 
 const outcomes = {
   victory: { label: 'GG', className: 'bg-[rgba(76,211,138,.14)] text-win' },
@@ -213,7 +222,7 @@ function MatchRow({ match }: { match: ReplayMatch }) {
         {match.players.map((player) => (
           <span key={player.name} className="flex items-baseline justify-between gap-2.5 text-[13px]">
             <span className="min-w-0 truncate text-t2">
-              {player.name}{' '}
+              {player.account}{' '}
               <span className="text-t3">
                 · {formatNumber(player.points)} pts{player.lastPlace ? ' · moins de pts' : ''}
                 {player.left ? ' · a quitté' : ''}

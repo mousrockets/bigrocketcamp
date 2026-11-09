@@ -26,6 +26,7 @@ test('shows the member’s ranks under their pseudo', async () => {
           peak: null,
           pseudo: null,
           best: null,
+          playerId: null,
         },
       }),
     ],

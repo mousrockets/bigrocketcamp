@@ -52,6 +52,9 @@ test('each card shows the season peak, and the solo account its profile names, a
   await env.DB.prepare('UPDATE members SET solo_pseudo = ? WHERE duo_pseudo IN (?, ?)')
     .bind('Solo', first, second)
     .run();
+  await env.DB.prepare('UPDATE members SET solo_player_id = ? WHERE duo_pseudo = ?')
+    .bind(`Epic|${'d'.repeat(32)}|0`, second)
+    .run();
   const [firstRank, secondRank, thirdRank] = await readDoublesRanks(env.DB, roster);
   expect(secondRank?.peak).toEqual({ mmr: 1310, label: 'Grand Champion I · Division I', tier: 19 });
   expect(secondRank?.solo).toEqual({
@@ -65,8 +68,9 @@ test('each card shows the season peak, and the solo account its profile names, a
     peak: null,
     pseudo: 'Solo',
     best: null,
+    playerId: `Epic|${'d'.repeat(32)}|0`,
   });
-  expect(firstRank?.solo).toMatchObject({ mmr: null, status: 'waiting', pseudo: 'Solo' });
+  expect(firstRank?.solo).toMatchObject({ mmr: null, status: 'waiting', pseudo: 'Solo', playerId: null });
   expect(thirdRank?.solo).toBeNull();
   await env.DB.prepare("INSERT INTO solo_ranks (player, status) VALUES (?, 'not_found')").bind(first).run();
   expect((await readDoublesRanks(env.DB, roster))[0]?.solo).toMatchObject({ mmr: null, status: 'not_found' });
