@@ -1,6 +1,6 @@
 import { screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
-import { anExercise, aRank, aResult, boardWith, renderInApp, setViewportWidth } from '../test-utils';
+import { anExercise, aRank, aResult, aSoloRank, boardWith, renderInApp, setViewportWidth } from '../test-utils';
 import { TeamPage } from './team-page';
 
 const now = new Date('2026-11-07T18:30:00Z');
@@ -58,6 +58,37 @@ test('puts the member’s card first, then the other players with their ranks', 
   expect(cards[1]).toHaveTextContent('Champion III · Div. III');
   expect(cards[1]).toHaveTextContent('Actualisé il y a 8 min');
   expect(cards[1]).toHaveTextContent('Pas de compte solo');
+});
+
+/** Bob's card, his solo account read at a rating. */
+async function bobsCardAt(solo: { mmr: number; tier: number; label: string }) {
+  const bob = aRank({ player: 'bob', mmr: 1362, label: 'Champion III · Division II', tier: 18, solo: aSoloRank(solo) });
+  renderInApp(<TeamPage />, { board: { ...board, doublesRanks: [bob] } });
+  const cards = await screen.findAllByRole('group');
+  return cards[1] as HTMLElement;
+}
+
+test('shows how far a solo account is from its next rank, not the duo’s', async () => {
+  const card = await bobsCardAt({ mmr: 1509, tier: 19, label: 'Grand Champion I · Division III' });
+  const climb = within(card).getByRole('progressbar', { name: 'Vers Grand Champion II' });
+  // Grand Champion I is won at 1 435, Grand Champion II at 1 575.
+  expect(climb).toHaveAttribute('aria-valuenow', '53');
+  expect(climb).toHaveTextContent('1 435Encore 66 MMR1 575');
+  expect(within(climb).getByRole('img', { name: 'Grand Champion II' })).toHaveAttribute(
+    'src',
+    '/rocket-league/ranks/20.png',
+  );
+  expect(within(card).getAllByRole('progressbar', { name: /^Vers / })).toHaveLength(1);
+});
+
+test('counts no MMR left once the next rank’s MMR is won, before the game promotes', async () => {
+  const card = await bobsCardAt({ mmr: 1200, tier: 16, label: 'Champion I · Division IV' });
+  expect(within(card).getByRole('progressbar', { name: 'Vers Champion II' })).toHaveTextContent('Encore 0 MMR');
+});
+
+test('shows no way up at the top of the ladder', async () => {
+  const card = await bobsCardAt({ mmr: 1900, tier: 22, label: 'Supersonic Legend' });
+  expect(within(card).queryByRole('progressbar', { name: /^Vers / })).not.toBeInTheDocument();
 });
 
 test('opens the ranks’ ladder from the team', async () => {

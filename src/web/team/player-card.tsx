@@ -86,7 +86,7 @@ export function PlayerCard({ player, active, now }: { player: CardPlayer; active
         </CardHeader>
 
         <CardContent className="flex flex-col gap-2 p-0">
-          <RankBlock kind="Solo" icon={<SoloIcon />} rank={player.solo} />
+          <RankBlock kind="Solo" icon={<SoloIcon />} rank={player.solo} climbing />
           <RankBlock kind="Duo" icon={<DuoIcon />} rank={player.duo} ringed />
         </CardContent>
 
