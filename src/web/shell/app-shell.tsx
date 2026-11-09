@@ -15,6 +15,7 @@ import {
 } from '../components/ui/sidebar';
 import { DeclareFlow } from '../declare/declare-flow';
 import { RanksSheet } from '../team/ranks-sheet';
+import { RulesSheet } from '../team/rules-sheet';
 import { ClubBadge } from './club-badge';
 import { useFreshVersion } from './fresh-version';
 import { ChallengesIcon, MatchesIcon, PlusIcon, SettingsIcon, TeamIcon } from './icons';
@@ -30,7 +31,7 @@ const tabs: { to: '/' | '/defis' | '/matchs' | '/reglages'; label: string; Icon:
   ];
 
 export function AppShell() {
-  const { declarer = false, ranks = false } = useSearch({ from: '/_shell' });
+  const { declarer = false, ranks = false, regles = false } = useSearch({ from: '/_shell' });
   const navigate = useNavigate();
   const close = (sheet: ShellSheet) =>
     void navigate({ to: '.', search: (previous) => ({ ...previous, [sheet]: undefined }) });
@@ -40,6 +41,7 @@ export function AppShell() {
     <BoardProvider>
       <DeclareFlow open={declarer} onClose={() => close('declarer')} />
       <RanksSheet open={ranks} onClose={() => close('ranks')} />
+      <RulesSheet open={regles} onClose={() => close('regles')} />
       <SidebarProvider className="flex-wrap bg-black text-t1" style={{ '--sidebar-width': 'auto' } as CSSProperties}>
         <AppSidebar />
         <div className="relative min-w-0 flex-[999_1_560px]">

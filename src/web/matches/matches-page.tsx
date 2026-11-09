@@ -1,18 +1,11 @@
 import { cn } from 'cn';
 import { parisDay } from '../../lib/days';
-import {
-  defaultForfeitRules,
-  defaultHighScoreRules,
-  defaultLastPlaceRules,
-  forfeitRuleOn,
-  highScorePoints,
-  highScoreRuleOn,
-  lastPlaceRuleOn,
-} from '../../lib/domain';
+import { highScorePoints } from '../../lib/domain';
 import { formatLongDay, formatNumber } from '../../lib/format';
-import { type Board, useBoardState } from '../board';
+import { useBoardState } from '../board';
 import { useClub } from '../club';
 import { LiveStatus } from '../components/live-status';
+import { RulesLink } from '../components/rules-link';
 import { TabPage } from '../components/tab-page';
 import { Badge } from '../components/ui/badge';
 import { Card } from '../components/ui/card';
@@ -69,27 +62,12 @@ export function MatchesPage() {
               </div>
             ))}
             {groups.length === 0 && <p className="m-0 text-[15px] text-t2">Pas un match cette semaine. Suspect.</p>}
-            <p className="m-0 text-[12px] text-t3 [line-height:1.5]">{rulesText(board, parisDay(now))}</p>
+            <RulesLink />
           </section>
         </div>
       )}
     </TabPage>
   );
-}
-
-/** The rules as the club set them today, in one paragraph. */
-function rulesText(board: Board, today: string): string {
-  const bonus = lastPlaceRuleOn(board.rules?.lastPlace ?? defaultLastPlaceRules, today).enabled;
-  const forfeit = forfeitRuleOn(board.rules?.forfeit ?? defaultForfeitRules, today).enabled;
-  const highScore = highScoreRuleOn(board.rules?.highScore ?? defaultHighScoreRules, today).enabled;
-  return [
-    `Une défaite coûte 5 pompes à chaque joueur du club${bonus ? ', plus 5 de bonus pour celui qui a le moins de points dans l’équipe' : ''}.`,
-    forfeit ? 'Si les adversaires FF, 5 pompes de moins.' : '',
-    highScore ? `Dès ${formatNumber(highScorePoints)} points dans une partie, 10 pompes de moins.` : '',
-    'Journée en heure de Paris.',
-  ]
-    .filter(Boolean)
-    .join(' ');
 }
 
 function SectionTitle({ kicker, title }: { kicker: string; title: string }) {

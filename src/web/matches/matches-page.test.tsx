@@ -141,28 +141,7 @@ test('says when nobody played today', async () => {
   expect(screen.getByText('Pas un match cette semaine. Suspect.')).toBeInTheDocument();
 });
 
-test('states the rules as the club set them', async () => {
-  renderInApp(<MatchesPage />, {
-    board: boardWith({
-      rules: {
-        lastPlace: [{ enabled: false, effectiveFrom: '2026-11-01', ties: 'none' }],
-        forfeit: [{ enabled: true, effectiveFrom: '2026-11-01' }],
-        highScore: [],
-      },
-    }),
-  });
-  expect(
-    await screen.findByText(
-      'Une défaite coûte 5 pompes à chaque joueur du club. Si les adversaires FF, 5 pompes de moins. Journée en heure de Paris.',
-    ),
-  ).toBeInTheDocument();
-});
-
-test('names the −10 from 1000 points on the days the club keeps it', async () => {
-  renderInApp(<MatchesPage />, { board: boardWith() });
-  expect(
-    await screen.findByText(
-      'Une défaite coûte 5 pompes à chaque joueur du club, plus 5 de bonus pour celui qui a le moins de points dans l’équipe. Si les adversaires FF, 5 pompes de moins. Dès 1 000 points dans une partie, 10 pompes de moins. Journée en heure de Paris.',
-    ),
-  ).toBeInTheDocument();
+test('leads to the club’s rules', async () => {
+  renderInApp(<MatchesPage />, { board: boardWith(), path: '/matchs' });
+  expect(await screen.findByRole('link', { name: 'Les règles' })).toHaveAttribute('href', '/matchs?regles=true');
 });
