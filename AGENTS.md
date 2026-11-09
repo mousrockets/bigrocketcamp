@@ -42,11 +42,16 @@ Règles pour tout agent IA qui travaille sur ce dépôt. Elles valent aussi pour
 3. Issue : contexte, résultat attendu, critères d'acceptation, assignée à la personne qui la demande (son compte GitHub). Si tu ne peux pas créer l'issue, mets ces points dans la PR.
 4. Branche courte en anglais : `feat/…`, `fix/…`, `docs/…`, `refactor/…`, `chore/…`.
 5. Change le minimum utile. Un comportement nouveau arrive avec son test ; un bug corrigé, avec le test qui l'aurait détecté.
-6. Commits au format Conventional Commits (`fix: keep pushups after a reload`). Le premier commit de la PR donne son message au commit fusionné : il résume toute la PR.
-7. PR : titre et description en français (quoi, pourquoi, comment vérifier), et `Closes #N`.
-8. La PR fusionne seule, en squash, quand la CI est verte. Le label `rebase` garde des commits volontairement atomiques : mets-le sur une PR longue dont chaque commit compte.
-9. Fusion dans `main` = mise en production. Quelques minutes après la fusion, vérifie que `/api/health` de l'instance (voir `docs/deploiement.md`) annonce le dernier commit de `main` : deux fusions rapprochées peuvent laisser en ligne la plus ancienne. Sinon, préviens un mainteneur.
-10. Termine en résumant ce qui change pour l'utilisateur.
+6. Fais valider le changement par la personne avant de pousser :
+   - lance le serveur de dev (`npm run dev`) et laisse-le tourner pendant la validation ;
+   - pour un changement visible, envoie-lui des captures de chaque écran touché, sur téléphone et sur ordinateur, dans chacun de ses cas (vide, passé, égalité, erreur…). Si la base locale ne montre pas un cas, ajoute des données fictives, puis retire-les après les captures, du cache hors ligne du navigateur aussi ;
+   - dis-lui comment tester elle-même : l'adresse à ouvrir, comment se connecter (le code s'affiche dans le terminal), et quoi essayer ;
+   - attends son accord, puis arrête le serveur.
+7. Commits au format Conventional Commits (`fix: keep pushups after a reload`). Le premier commit de la PR donne son message au commit fusionné : il résume toute la PR.
+8. PR : titre et description en français (quoi, pourquoi, comment vérifier), et `Closes #N`.
+9. La PR fusionne seule, en squash, quand la CI est verte. Le label `rebase` garde des commits volontairement atomiques : mets-le sur une PR longue dont chaque commit compte.
+10. Fusion dans `main` = mise en production. Quelques minutes après la fusion, vérifie que `/api/health` de l'instance (voir `docs/deploiement.md`) annonce le dernier commit de `main` : deux fusions rapprochées peuvent laisser en ligne la plus ancienne. Sinon, préviens un mainteneur.
+11. Termine en résumant ce qui change pour l'utilisateur.
 
 ## Architecture
 
