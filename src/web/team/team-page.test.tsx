@@ -106,6 +106,15 @@ test('says how many placement matches an account played, in place of its divisio
   expect(within(card).getByText('Placement · 3/10')).toBeInTheDocument();
 });
 
+test('shows on each card the share of pushups paid back, then how many', async () => {
+  renderInApp(<TeamPage />, { board });
+  const [mine] = await screen.findAllByRole('group');
+  const card = mine as HTMLElement;
+  expect(within(card).getByText('60 %')).toBeInTheDocument();
+  expect(within(card).getByRole('progressbar', { name: 'Dette de alice' })).toHaveAttribute('aria-valuenow', '60');
+  expect(within(card).getByText('6 / 10 remboursées')).toBeInTheDocument();
+});
+
 test('opens the ranks’ ladder from the team', async () => {
   renderInApp(<TeamPage />, { board });
   expect(await screen.findByRole('link', { name: 'Les ranks' })).toHaveAttribute('href', '/?ranks=true');
