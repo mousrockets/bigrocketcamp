@@ -277,27 +277,31 @@ export async function pendingMatches(db: Database, limit: number): Promise<strin
   return pending.map((row) => row.match_guid);
 }
 
-async function basisOf(roster: Roster, aliases: readonly Alias[]): Promise<string> {
+async function basisOf(roster: Roster, aliases: readonly Alias[], code: string): Promise<string> {
   const relevant = aliases
     .filter((alias) => roster.includes(alias.slot))
     .map((alias) => [alias.player_id, alias.slot])
     .sort((a, b) => String(a).localeCompare(String(b)));
-  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify([roster, relevant])));
+  const digest = await crypto.subtle.digest(
+    'SHA-256',
+    new TextEncoder().encode(JSON.stringify([code, roster, relevant])),
+  );
   return [...new Uint8Array(digest).slice(0, 12)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
 /**
  * Builds the pending matches, a bounded number per request so that a large rebuild never exceeds the
- * free plan's CPU limit. A new roster or a newly confirmed game ID can rename players in any match:
- * every match is then rebuilt. Returns whether matches are still pending.
+ * free plan's CPU limit. A new roster or a newly confirmed game ID can rename players in any match, and new code
+ * can build any match differently (`code`, scripts/match-build-code.ts): every match is then rebuilt. Returns
+ * whether matches are still pending.
  */
 export async function buildPendingMatches(
   db: Database,
   roster: Roster,
   aliases: readonly Alias[],
-  { rounds = 2 }: { rounds?: number } = {},
+  { rounds = 2, code = __MATCH_BUILD_CODE__ }: { rounds?: number; code?: string } = {},
 ): Promise<boolean> {
-  const basis = await basisOf(roster, aliases);
+  const basis = await basisOf(roster, aliases, code);
   const query = orm(db);
   const stored = await query
     .select({ matchBasis: syncState.matchBasis })

@@ -3,7 +3,7 @@ import { beforeEach, expect, test } from 'vitest';
 import { type BoardReader, prepareBoard, readBoardChanges, readFullBoard, readHead } from './board';
 import { applyChanges, boardView, emptyBoard } from './board-sync';
 import { joinTestClub, players, roster } from './club-fixture';
-import { buildMatches } from './match-builds';
+import { buildMatches, buildPendingMatches } from './match-builds';
 import { unassignedPrefix } from './player-identities';
 import { observationWrites, readMerged } from './reconcile';
 
@@ -195,6 +195,23 @@ test('a board read page by page, then change by change, always equals the whole 
   await expectSameBoard(renamed);
   expect(boardView(renamed, roster).results.some((row) => row.name === carla)).toBe(true);
   expect(await readMerged(db, roster)).toMatchObject({ rows: (await readFullBoard(reader, players)).results });
+});
+
+test('new code that builds matches differently builds again every match already stored', async () => {
+  await receive('match-agreed', 'live-alice', team());
+  const aliases = (['alice', 'bob', 'carla'] as const).map((slot) => ({ player_id: ids[slot], slot }));
+  await buildPendingMatches(db, roster, aliases, { code: 'before' });
+  // The score as an older code would have stored it.
+  await db.prepare('UPDATE match_results SET score = 999 WHERE player_id = ?').bind(ids.alice).run();
+  const storedScore = async () =>
+    (await db.prepare('SELECT score FROM match_results WHERE player_id = ?').bind(ids.alice).first<{ score: number }>())
+      ?.score;
+
+  await buildPendingMatches(db, roster, aliases, { code: 'before' });
+  expect(await storedScore()).toBe(999);
+
+  await buildPendingMatches(db, roster, aliases, { code: 'after' });
+  expect(await storedScore()).toBe(300);
 });
 
 test('an unchanged board reads one row and receives nothing', async () => {
