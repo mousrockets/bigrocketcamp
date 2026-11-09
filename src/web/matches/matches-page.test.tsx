@@ -53,7 +53,7 @@ test('sums up the day of each player, the member first', async () => {
     .map((line) => line.closest('[data-slot=card]') as HTMLElement);
   expect(alice).toHaveTextContent('alice');
   expect(alice).toHaveTextContent('TOI');
-  expect(alice).toHaveTextContent('3 parties · 2 V · 1 D');
+  expect(alice).toHaveTextContent('3 parties · 2 W · 1 L');
   // One defeat (5), no bonus, one forfeit won (−5): nothing to do.
   expect(alice).toHaveTextContent('mains propres');
   // Bob scored less than Alice in the defeat: 5 + 5 bonus − 5 dodged.
@@ -83,7 +83,7 @@ test('from 1000 points, a player dodges 10 pushups, and the replay says why', as
     .getAllByText(/parties/)
     .map((line) => line.closest('[data-slot=card]') as HTMLElement);
   // Two defeats (10), one forfeit won (−5), one game from 1000 points (−10): nothing to do.
-  expect(alice).toHaveTextContent('4 parties · 2 V · 2 D');
+  expect(alice).toHaveTextContent('4 parties · 2 W · 2 L');
   expect(alice).toHaveTextContent('Esquivées−15');
   expect(alice).toHaveTextContent('mains propres');
   const replay = await screen.findByRole('region', { name: 'Derniers matchs' });
@@ -110,10 +110,10 @@ test('a player who left before the end loses the match: the replay says so, and 
   const [alice, bob] = within(summary)
     .getAllByText(/parties/)
     .map((line) => line.closest('[data-slot=card]') as HTMLElement);
-  expect(alice).toHaveTextContent('4 parties · 3 V · 1 D');
+  expect(alice).toHaveTextContent('4 parties · 3 W · 1 L');
   expect(alice).toHaveTextContent('mains propres');
   // A defeat of 5 more, with no bonus nor the −10 of his 1100 points.
-  expect(bob).toHaveTextContent('4 parties · 2 V · 2 D');
+  expect(bob).toHaveTextContent('4 parties · 2 W · 2 L');
   expect(bob).toHaveTextContent('10pompes à faire');
   expect(bob).toHaveTextContent('Bonus+5');
   expect(bob).toHaveTextContent('Esquivées−5');
@@ -148,7 +148,7 @@ test('goes back to an earlier day: its summary and its matches only', async () =
   const summary = screen.getByRole('region', { name: 'Bilan du jour' });
   expect(within(summary).getByRole('heading', { name: 'Les bras vont chauffer' })).toBeInTheDocument();
   expect(within(summary).getAllByText(/^1 partie/)).toHaveLength(2);
-  expect(summary).toHaveTextContent('1 partie · 0 V · 1 D');
+  expect(summary).toHaveTextContent('1 partie · 0 W · 1 L');
   const replay = screen.getByRole('region', { name: 'Derniers matchs' });
   expect(within(replay).getByText('Les matchs du 6 nov.')).toBeInTheDocument();
   expect(within(replay).getByText('Le soir')).toBeInTheDocument();
@@ -162,7 +162,7 @@ test('sums up and replays the last seven days by default, day by day', async () 
   expect(within(period).getByRole('button', { name: '7 derniers jours, choisir un jour' })).toBeInTheDocument();
   const summary = screen.getByRole('region', { name: 'Bilan du jour' });
   expect(within(summary).getByText('Bilan · 7 jours')).toBeInTheDocument();
-  expect(summary).toHaveTextContent('4 parties · 2 V · 2 D');
+  expect(summary).toHaveTextContent('4 parties · 2 W · 2 L');
   const replay = screen.getByRole('region', { name: 'Derniers matchs' });
   expect(within(replay).getByText('Les 7 derniers jours')).toBeInTheDocument();
   expect(

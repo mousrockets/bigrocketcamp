@@ -150,8 +150,8 @@ function PlayerSummary({ player, compact }: { player: SummaryPlayer; compact: bo
             </span>
             <span className="text-[13px] text-t2">
               {player.wins + player.losses} {player.wins + player.losses > 1 ? 'parties' : 'partie'} ·{' '}
-              <span className="text-win">{player.wins} V</span> ·{' '}
-              <span className="text-cost-strong">{player.losses} D</span>
+              <span className="text-win">{player.wins} W</span> ·{' '}
+              <span className="text-cost-strong">{player.losses} L</span>
             </span>
           </span>
         </span>
