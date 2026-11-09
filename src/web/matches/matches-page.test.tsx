@@ -11,6 +11,9 @@ beforeEach(() => {
 });
 afterEach(() => vi.useRealTimers());
 
+/** Matchs on Saturday 7 November alone. */
+const today = '/matchs?jour=2026-11-07';
+
 /** Alice and Bob in the same 2v2 match, against two strangers. */
 const duo = (guid: string, received: string, parts: { won: boolean; forfeit?: boolean; overtime?: boolean }) => {
   const common = {
@@ -42,7 +45,7 @@ const board = boardWith({
 });
 
 test('sums up the day of each player, the member first', async () => {
-  renderInApp(<MatchesPage />, { board });
+  renderInApp(<MatchesPage />, { board, path: today });
   const summary = await screen.findByRole('region', { name: 'Bilan du jour' });
   expect(within(summary).getByRole('heading', { name: 'Les bras vont chauffer' })).toBeInTheDocument();
   const [alice, bob] = within(summary)
@@ -50,7 +53,7 @@ test('sums up the day of each player, the member first', async () => {
     .map((line) => line.closest('[data-slot=card]') as HTMLElement);
   expect(alice).toHaveTextContent('alice');
   expect(alice).toHaveTextContent('TOI');
-  expect(alice).toHaveTextContent('3 parties · 2 V · 1 D');
+  expect(alice).toHaveTextContent('3 parties · 2 W · 1 L');
   // One defeat (5), no bonus, one forfeit won (−5): nothing to do.
   expect(alice).toHaveTextContent('mains propres');
   // Bob scored less than Alice in the defeat: 5 + 5 bonus − 5 dodged.
@@ -60,7 +63,7 @@ test('sums up the day of each player, the member first', async () => {
 
 test('a forfeit won dodges nothing the days the club turned the −5 off', async () => {
   const rules = { ...board.rules, forfeit: [{ effectiveFrom: '2026-11-07', enabled: false }] };
-  renderInApp(<MatchesPage />, { board: { ...board, rules } });
+  renderInApp(<MatchesPage />, { board: { ...board, rules }, path: today });
   const summary = await screen.findByRole('region', { name: 'Bilan du jour' });
   const [alice, bob] = within(summary)
     .getAllByText(/parties/)
@@ -74,13 +77,13 @@ test('from 1000 points, a player dodges 10 pushups, and the replay says why', as
   const highScore = duo('night-loss', '2026-11-07T20:50:00Z', { won: false }).map((row) =>
     row.name === 'alice' ? { ...row, score: 1240 } : row,
   );
-  renderInApp(<MatchesPage />, { board: { ...board, results: [...highScore, ...board.results] } });
+  renderInApp(<MatchesPage />, { board: { ...board, results: [...highScore, ...board.results] }, path: today });
   const summary = await screen.findByRole('region', { name: 'Bilan du jour' });
   const [alice] = within(summary)
     .getAllByText(/parties/)
     .map((line) => line.closest('[data-slot=card]') as HTMLElement);
   // Two defeats (10), one forfeit won (−5), one game from 1000 points (−10): nothing to do.
-  expect(alice).toHaveTextContent('4 parties · 2 V · 2 D');
+  expect(alice).toHaveTextContent('4 parties · 2 W · 2 L');
   expect(alice).toHaveTextContent('Esquivées−15');
   expect(alice).toHaveTextContent('mains propres');
   const replay = await screen.findByRole('region', { name: 'Derniers matchs' });
@@ -96,6 +99,7 @@ test('a player who left before the end loses the match: the replay says so, and 
     row.name === 'bob' ? { ...row, winner: 1, score: 1100, left: true } : row,
   );
   renderInApp(<MatchesPage />, {
+    path: today,
     board: {
       ...board,
       results: [...left, ...board.results],
@@ -106,10 +110,10 @@ test('a player who left before the end loses the match: the replay says so, and 
   const [alice, bob] = within(summary)
     .getAllByText(/parties/)
     .map((line) => line.closest('[data-slot=card]') as HTMLElement);
-  expect(alice).toHaveTextContent('4 parties · 3 V · 1 D');
+  expect(alice).toHaveTextContent('4 parties · 3 W · 1 L');
   expect(alice).toHaveTextContent('mains propres');
   // A defeat of 5 more, with no bonus nor the −10 of his 1100 points.
-  expect(bob).toHaveTextContent('4 parties · 2 V · 2 D');
+  expect(bob).toHaveTextContent('4 parties · 2 W · 2 L');
   expect(bob).toHaveTextContent('10pompes à faire');
   expect(bob).toHaveTextContent('Bonus+5');
   expect(bob).toHaveTextContent('Esquivées−5');
@@ -123,7 +127,7 @@ test('a player who left before the end loses the match: the replay says so, and 
 });
 
 test('replays the day by part of day, with how each match ended', async () => {
-  renderInApp(<MatchesPage />, { board });
+  renderInApp(<MatchesPage />, { board, path: today });
   const replay = await screen.findByRole('region', { name: 'Derniers matchs' });
   const labels = within(replay)
     .getAllByText(/^(Ce soir|Cet après-midi|Ce matin)$/)
@@ -138,13 +142,13 @@ test('replays the day by part of day, with how each match ended', async () => {
 test('goes back to an earlier day: its summary and its matches only', async () => {
   renderInApp(<MatchesPage />, { board, path: '/matchs?jour=2026-11-06' });
   const day = await screen.findByRole('navigation', { name: 'Jour affiché' });
-  expect(within(day).getByRole('button', { name: 'Ven. 6 nov., choisir un autre jour' })).toBeInTheDocument();
+  expect(within(day).getByRole('button', { name: 'Ven. 6 nov., choisir un jour' })).toBeInTheDocument();
   expect(within(day).getByRole('button', { name: 'Précédent' })).toBeDisabled();
-  expect(within(day).getByRole('link', { name: 'Jour suivant' })).toHaveAttribute('href', '/matchs');
+  expect(within(day).getByRole('link', { name: 'Jour suivant' })).toHaveAttribute('href', '/matchs?jour=2026-11-07');
   const summary = screen.getByRole('region', { name: 'Bilan du jour' });
   expect(within(summary).getByRole('heading', { name: 'Les bras vont chauffer' })).toBeInTheDocument();
   expect(within(summary).getAllByText(/^1 partie/)).toHaveLength(2);
-  expect(summary).toHaveTextContent('1 partie · 0 V · 1 D');
+  expect(summary).toHaveTextContent('1 partie · 0 W · 1 L');
   const replay = screen.getByRole('region', { name: 'Derniers matchs' });
   expect(within(replay).getByText('Les matchs du 6 nov.')).toBeInTheDocument();
   expect(within(replay).getByText('Le soir')).toBeInTheDocument();
@@ -152,13 +156,47 @@ test('goes back to an earlier day: its summary and its matches only', async () =
   expect(within(replay).queryByText('GG')).not.toBeInTheDocument();
 });
 
-test('says when nobody played today', async () => {
-  renderInApp(<MatchesPage />, { board: boardWith() });
-  expect(await screen.findByText('Aucun match aujourd’hui. Le terrain attend son kickoff.')).toBeInTheDocument();
-  expect(screen.getByText('Pas un match aujourd’hui. Suspect.')).toBeInTheDocument();
+test('sums up and replays the last seven days by default, day by day', async () => {
+  renderInApp(<MatchesPage />, { board, path: '/matchs' });
+  const period = await screen.findByRole('navigation', { name: 'Période affichée' });
+  expect(within(period).getByRole('button', { name: '7 derniers jours, choisir un jour' })).toBeInTheDocument();
+  const summary = screen.getByRole('region', { name: 'Bilan du jour' });
+  expect(within(summary).getByText('Bilan · 7 jours')).toBeInTheDocument();
+  expect(summary).toHaveTextContent('4 parties · 2 W · 2 L');
+  const replay = screen.getByRole('region', { name: 'Derniers matchs' });
+  expect(within(replay).getByText('Les 7 derniers jours')).toBeInTheDocument();
+  expect(
+    within(replay)
+      .getAllByText(/^(Aujourd’hui|Hier · .*)$/)
+      .map((label) => label.textContent),
+  ).toEqual(['Aujourd’hui', 'Hier · vendredi 6']);
 });
 
-test('leads to the club’s rules', async () => {
-  renderInApp(<MatchesPage />, { board: boardWith(), path: '/matchs' });
-  expect(await screen.findByRole('link', { name: 'Les règles' })).toHaveAttribute('href', '/matchs?regles=true');
+test('a day chosen leads back to the seven days', async () => {
+  renderInApp(<MatchesPage />, { board, path: '/matchs?jour=2026-11-06' });
+  expect(await screen.findByRole('link', { name: 'Revenir aux 7 derniers jours' })).toHaveAttribute('href', '/matchs');
+});
+
+test('says when nobody played in seven days', async () => {
+  renderInApp(<MatchesPage />, { board: boardWith() });
+  expect(await screen.findByText('Aucun match en 7 jours. Le terrain attend son kickoff.')).toBeInTheDocument();
+  expect(screen.getByText('Pas un match en 7 jours. Suspect.')).toBeInTheDocument();
+});
+
+test('keeps each match under its own day, even one received later', async () => {
+  const late = duo('late-import', '2026-11-07T22:00:00Z', { won: true }).map((row) => ({ ...row, day: '2026-11-05' }));
+  renderInApp(<MatchesPage />, {
+    board: {
+      ...board,
+      results: [...board.results, ...late],
+      matchRosters: [...board.matchRosters, { match_guid: 'late-import', expected_players: 4 }],
+    },
+    path: '/matchs',
+  });
+  const replay = await screen.findByRole('region', { name: 'Derniers matchs' });
+  expect(
+    within(replay)
+      .getAllByText(/^(Aujourd’hui|Hier · .*|Jeudi 5 novembre)$/)
+      .map((label) => label.textContent),
+  ).toEqual(['Aujourd’hui', 'Hier · vendredi 6', 'Jeudi 5 novembre']);
 });

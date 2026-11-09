@@ -6,7 +6,6 @@ import type { ClosedMonth } from '../../lib/contract/monthly';
 import { formatDayMonth, formatMonth, formatNumber, formatShortMonth, plural } from '../../lib/format';
 import { type Board, useBoardState } from '../board';
 import { NowDot, PeriodKicker, PeriodPicker, periodLabelClass } from '../components/period-picker';
-import { RulesLink } from '../components/rules-link';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
@@ -91,7 +90,6 @@ export function MonthlyChallenge({
       ) : (
         <LiveStandings monthly={monthly} doublesRanks={doublesRanks} me={me} now={now} />
       )}
-      <RulesLink />
     </div>
   );
 }

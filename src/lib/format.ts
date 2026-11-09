@@ -58,6 +58,14 @@ const shortDays = new Intl.DateTimeFormat('fr-FR', {
 });
 const shortMonths = new Intl.DateTimeFormat('fr-FR', { timeZone: 'UTC', month: 'short', year: 'numeric' });
 
+const weekdayDates = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', weekday: 'long', day: 'numeric' });
+
+/** "Jeudi 5 novembre": a club day, written "2026-11-05", in full. */
+export const formatDay = (day: string): string => formatLongDay(noonOf(day));
+
+/** "vendredi 6": a club day of the week going on. */
+export const formatWeekdayDate = (day: string): string => weekdayDates.format(new Date(noonOf(day)));
+
 /** "Mar. 3 nov.": a club day, written "2026-11-03", in a few letters. */
 export const formatShortDay = (day: string): string => capitalized(shortDays.format(new Date(noonOf(day))));
 

@@ -3,6 +3,7 @@ import {
   count,
   formatAge,
   formatClock,
+  formatDay,
   formatDayDate,
   formatLongDay,
   formatMonth,
@@ -11,6 +12,7 @@ import {
   formatShortMonth,
   formatTime,
   formatWeek,
+  formatWeekdayDate,
   formatWhen,
   plural,
 } from './format';
@@ -60,4 +62,6 @@ test('a day, a week and a month read short in the period pickers', () => {
   expect(formatDayDate('2026-11-03')).toBe('3 nov.');
   expect(formatWeek('2026-10-26')).toBe('26 oct. – 1 nov.');
   expect(formatShortMonth('2026-10')).toBe('Oct. 2026');
+  expect(formatDay('2026-11-05')).toBe('Jeudi 5 novembre');
+  expect(formatWeekdayDate('2026-11-06')).toBe('vendredi 6');
 });
