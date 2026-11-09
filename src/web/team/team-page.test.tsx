@@ -65,6 +65,12 @@ test('opens the ranks’ ladder from the team', async () => {
   expect(await screen.findByRole('link', { name: 'Les ranks' })).toHaveAttribute('href', '/?ranks=true');
 });
 
+test('opens the club’s rules from the member’s challenges', async () => {
+  renderInApp(<TeamPage />, { board });
+  const debt = await screen.findByRole('region', { name: 'Ta dette' });
+  expect(within(debt).getByRole('link', { name: 'Les règles' })).toHaveAttribute('href', '/?regles=true');
+});
+
 test('says Direct while a collector sends matches, and when the last one came in', async () => {
   renderInApp(<TeamPage />, {
     board: { ...board, collectors: [{ id: 'collector', last_seen: '2026-11-07T18:25:00Z' }] },

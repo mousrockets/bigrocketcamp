@@ -2,6 +2,7 @@ import { useMutation } from '@tanstack/react-query';
 import { cn } from 'cn';
 import { formatMonth, formatNumber, plural } from '../../lib/format';
 import { type Board, useBoardState } from '../board';
+import { RulesLink } from '../components/rules-link';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
@@ -53,10 +54,7 @@ export function MonthlyChallenge({
           ))}
         </ol>
       </Card>
-      <p className="m-0 text-[12px] text-t3 [line-height:1.5]">
-        On garde le meilleur MMR 2v2 de chacun, entre son compte duo et son compte solo, relevé le dernier jour du mois.
-        Le dernier offre une boisson à chacun des autres, soft ou pas. Ex æquo à la dernière place : personne ne paie.
-      </p>
+      <RulesLink />
       {debts.length > 0 && <Debts debts={debts} />}
     </div>
   );
