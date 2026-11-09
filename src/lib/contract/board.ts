@@ -44,6 +44,12 @@ export const boardResult = z.looseObject({
   overtime: z.boolean().nullable().catch(null),
   /** The player left before the end: a defeat, with no bonus nor credit. Absent from an API older than it. */
   left: z.boolean().catch(false),
+  /**
+   * The goals of each team as the game counted them, those of players who left included, on every row of the
+   * match. Null while no source sent them (older collectors, Epic's history), absent from an API older than them.
+   */
+  blue_goals: z.number().nullable().catch(null),
+  orange_goals: z.number().nullable().catch(null),
 });
 export type BoardResult = Known<z.output<typeof boardResult>>;
 

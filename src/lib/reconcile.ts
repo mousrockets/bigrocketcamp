@@ -28,7 +28,16 @@ export interface StoredResult {
   received?: string;
 }
 
-export interface MergedResult extends StoredResult, MatchEnding {
+/** The goals of each team as the game counted them, those of players who left included; null when no source sent them. */
+export interface FinalScore {
+  blue_goals: number | null;
+  orange_goals: number | null;
+}
+
+/** How a match ended, and its score, while no source told them. */
+const unknownFinish: MatchEnding & FinalScore = { ...unknownEnding, blue_goals: null, orange_goals: null };
+
+export interface MergedResult extends StoredResult, MatchEnding, FinalScore {
   received: string;
   /** The player left before the end: a defeat, kept apart from the final scoreboard. */
   left: boolean;
@@ -60,6 +69,9 @@ export interface SourceReport {
   overtime?: boolean | null;
   /** Every opponent left before the end, as the source's departures showed; null or absent otherwise. */
   opponents_gone?: boolean | null;
+  /** The goals of each team, as the game counted them; null or absent when the source sent none. */
+  blue_goals?: number | null;
+  orange_goals?: number | null;
 }
 
 /** A player who left a match before its end, as one source saw it: his last line, a defeat. */
@@ -176,7 +188,7 @@ export function reconcile(
       selected_source: chosen.type,
       source_difference: outcomeConflict ? 'result' : scoreConflict ? 'stats' : null,
       left: false,
-      ...unknownEnding,
+      ...unknownFinish,
     });
   }
   // Different platform IDs with the same group nickname cannot silently count twice.
@@ -260,7 +272,7 @@ function departedRows(
   roster: Roster,
   finals: readonly MergedResult[],
   departures: readonly Departure[],
-  endings: Map<string, MatchEnding>,
+  endings: Map<string, MatchEnding & FinalScore>,
 ): MergedResult[] {
   const finalKeys = new Set(finals.map(rowKey));
   const finalNames = new Set(finals.map((row) => JSON.stringify([row.match_guid, row.name])));
@@ -296,7 +308,7 @@ function departedRows(
       selected_source: chosen.type,
       source_difference: null,
       left: true,
-      ...(endings.get(guid) ?? unknownEnding),
+      ...(endings.get(guid) ?? unknownFinish),
     };
   });
 }
@@ -311,26 +323,40 @@ function agreed<Value>(values: readonly (Value | null)[]): Value | null {
  * How each match ended, from the clocks its sources read: several collectors may have sent the same match. A
  * source that saw every opponent leave before the end saw a forfeit, whatever the clocks say.
  */
-function matchEndings(reports: readonly SourceReport[]): Map<string, MatchEnding> {
-  const byMatch = new Map<string, { endings: MatchEnding[]; gone: boolean }>();
+function matchEndings(reports: readonly SourceReport[]): Map<string, MatchEnding & FinalScore> {
+  const byMatch = new Map<string, { endings: MatchEnding[]; scores: (string | null)[]; gone: boolean }>();
   for (const report of reports) {
     const guid = matchKey(report.match_guid);
     const ending = endingOf({ timeSeconds: report.time_seconds, overtime: report.overtime });
-    const seen = byMatch.get(guid) ?? { endings: [], gone: false };
+    const seen = byMatch.get(guid) ?? { endings: [], scores: [], gone: false };
     byMatch.set(guid, {
       endings: [...seen.endings, ending],
+      scores: [...seen.scores, scoreKey(report)],
       gone: seen.gone || Boolean(report.opponents_gone),
     });
   }
   return new Map(
-    [...byMatch].map(([guid, { endings, gone }]) => [
+    [...byMatch].map(([guid, { endings, scores, gone }]) => [
       guid,
       {
         forfeit: gone ? true : agreed(endings.map((ending) => ending.forfeit)),
         overtime: agreed(endings.map((ending) => ending.overtime)),
+        ...scoreOf(agreed(scores)),
       },
     ]),
   );
+}
+
+// Sources agree on a score as a whole: both goals compared at once, as one key.
+const scoreKey = (report: SourceReport): string | null =>
+  typeof report.blue_goals === 'number' && typeof report.orange_goals === 'number'
+    ? JSON.stringify([report.blue_goals, report.orange_goals])
+    : null;
+
+function scoreOf(key: string | null): FinalScore {
+  if (!key) return { blue_goals: null, orange_goals: null };
+  const [blue_goals, orange_goals] = JSON.parse(key) as [number, number];
+  return { blue_goals, orange_goals };
 }
 
 /** Newest day first, then newest reception: the order the board lists results in. */
@@ -454,6 +480,8 @@ export async function observationWrites(
         overtime: roster.overtime ?? null,
         clockTrace: roster.clockTrace ?? null,
         opponentsGone: roster.opponentsGone ?? null,
+        blueGoals: roster.blueGoals ?? null,
+        orangeGoals: roster.orangeGoals ?? null,
       })
       .onConflictDoUpdate({
         target: sourceReports.id,
@@ -464,6 +492,8 @@ export async function observationWrites(
           overtime: sql`coalesce(${excluded(sourceReports.overtime)}, ${sourceReports.overtime})`,
           clockTrace: sql`coalesce(${excluded(sourceReports.clockTrace)}, ${sourceReports.clockTrace})`,
           opponentsGone: sql`coalesce(${excluded(sourceReports.opponentsGone)}, ${sourceReports.opponentsGone})`,
+          blueGoals: sql`coalesce(${excluded(sourceReports.blueGoals)}, ${sourceReports.blueGoals})`,
+          orangeGoals: sql`coalesce(${excluded(sourceReports.orangeGoals)}, ${sourceReports.orangeGoals})`,
         },
       });
     writes.push(statementOf(db, report));
