@@ -141,7 +141,7 @@ Une seule façon de faire chaque chose. Si tu ne trouves pas laquelle, cherche u
 - Aucun cookie ni traceur qui ne soit strictement nécessaire : seul le cookie de session existe.
 - Les journaux de l'API ne contiennent ni texte ni jeton d'un membre, ni adresse e-mail.
 - Aucun secret ni contenu dans une URL : jeton, texte, titre.
-- Une donnée personnelle nouvelle (champ, table, envoi à un service) se signale à un mainteneur avant la PR : il faut savoir pourquoi on la garde, combien de temps, et comment l'effacer.
+- Une donnée personnelle nouvelle (champ, table, envoi à un service) : c'est toi qui la valides avant la PR. Il faut savoir pourquoi on la garde, combien de temps, et comment l'effacer ; écris-le dans la PR. Sans réponse claire aux trois, on ne la collecte pas.
 
 ### Code
 
@@ -160,9 +160,7 @@ Une seule façon de faire chaque chose. Si tu ne trouves pas laquelle, cherche u
 ## Validation d'un mainteneur
 
 - `.github/`, `wrangler.jsonc` et ce fichier l'exigent (`.github/CODEOWNERS`).
-- L'apparence des écrans existants (couleurs, mise en page, typographie, logo) suit les maquettes d'un mainteneur. Avant de la changer, demande à la personne d'obtenir son accord, et attends-le.
-- Un écran nouveau se construit avec les composants, variantes et variables existants, dans le style des écrans voisins. Ouvre sa PR en brouillon et demande à la personne de la faire relire par un mainteneur.
-- Tout le reste fusionne sans attendre.
+- Tout le reste fusionne sans attendre, écrans compris : un écran changé ou nouveau se construit avec les composants, variantes et variables existants, dans le style des écrans voisins.
 
 ## Jamais
 
