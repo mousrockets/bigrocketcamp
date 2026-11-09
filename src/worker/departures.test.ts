@@ -175,6 +175,22 @@ describe('departures', () => {
     expect(await owed('match-left')).toEqual({ alice: 0, bob: 5, carla: 0 });
   });
 
+  test('the score keeps the goals of an opponent who left, as the game counted them', async () => {
+    // Opponent 2 scored Orange's goal, then left: neither the scoreboard nor the club's departures keep his line.
+    const present = [line('alice'), line('bob'), line('Opponent 1')];
+    expect((await send('alice', ended('opponent-left', present, [line('Opponent 2')]))).status).toBe(200);
+    expect(await departuresOf('opponent-left')).toEqual([]);
+    const rows = (await readStoredResults(env.DB)).filter((row) => row.match_guid === 'opponent-left');
+    expect(rows.map((row) => [row.name, row.blue_goals, row.orange_goals])).toEqual(
+      expect.arrayContaining([
+        ['Opponent 1', 2, 1],
+        ['alice', 2, 1],
+        ['bob', 2, 1],
+      ]),
+    );
+    expect(rows.length).toBe(3);
+  });
+
   test('a departure counts for nothing once a final line of that player arrives, from any source', async () => {
     const everyone = [line('alice'), line('bob'), line('Opponent 1'), line('Opponent 2')];
     expect((await send('bob', left('came-back', everyone))).status).toBe(200);

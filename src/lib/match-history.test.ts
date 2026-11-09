@@ -178,6 +178,22 @@ test('the goals of an opponent who left stay in the score of an overtime', () =>
   expect([match?.overtime, match?.score]).toEqual([true, [6, 5]]);
 });
 
+test('the teams’ goals as the game counted them make the score, the club’s first', () => {
+  // Orange's scorer left: only the game's count still has his 5 goals.
+  const final = { overtime: true, blue_goals: 6, orange_goals: 5 };
+  const rows = [
+    { ...line('counted', alice, 0, 0, 700, 4), ...final },
+    { ...line('counted', bob, 0, 0, 400, 2), ...final },
+    { ...line('counted', 'Opponent 1', 1, 0, 300), ...final },
+  ];
+  const club = rows.filter((row) => roster.includes(row.name));
+  expect(matchHistory(club, rows, matchIndex(rows), roster)[0]?.score).toEqual([6, 5]);
+  // The same match with the club in orange: a defeat 5-6.
+  const orange = rows.map((row) => ({ ...row, team: 1 - row.team }));
+  const clubInOrange = orange.filter((row) => roster.includes(row.name));
+  expect(matchHistory(clubInOrange, orange, matchIndex(orange), roster)[0]?.score).toEqual([5, 6]);
+});
+
 test('a player seen both leaving and on the final scoreboard scores once', () => {
   const rows = [
     line('back', alice, 0, 0, 500, 2),

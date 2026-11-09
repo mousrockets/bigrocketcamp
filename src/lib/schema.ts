@@ -212,6 +212,9 @@ export const sourceReports = sqliteTable(
     clockTrace: text('clock_trace'),
     /** Every opponent left before the end, as the source's departures show: a forfeit; null when it showed none. */
     opponentsGone: integer('opponents_gone', { mode: 'boolean' }),
+    /** The goals of each team as the game counted them, those of players who left included; null from older collectors. */
+    blueGoals: integer('blue_goals'),
+    orangeGoals: integer('orange_goals'),
   },
   (table) => [index('source_reports_match').on(table.matchGuid)],
 );
@@ -298,6 +301,9 @@ export const matchResults = sqliteTable(
     overtime: integer('overtime', { mode: 'boolean' }),
     /** The player left before the end: a defeat, his line kept apart from the final scoreboard. */
     leftEarly: integer('left_early', { mode: 'boolean' }).notNull().default(false),
+    /** Set on every row of a match whose final score a source sent: the goals of each team, as the game counted them. */
+    blueGoals: integer('blue_goals'),
+    orangeGoals: integer('orange_goals'),
     seq: integer('seq').notNull().default(0),
   },
   (table) => [primaryKey({ columns: [table.matchGuid, table.playerId] }), index('match_results_seq').on(table.seq)],

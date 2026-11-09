@@ -169,7 +169,9 @@ describe('live stats', () => {
     left.state.Game.bHasWinner = false;
     left.state.Game.Winner = '';
     expect(parseLiveMatch(roster, left, now).rows.length).toBe(4);
-    expect(parseLiveMatch(roster, left, now).rosters).toEqual([{ matchGuid: 'synthetic-live-match', playerCount: 4 }]);
+    expect(parseLiveMatch(roster, left, now).rosters).toEqual([
+      { matchGuid: 'synthetic-live-match', playerCount: 4, blueGoals: 1, orangeGoals: 2 },
+    ]);
     const bot = payload();
     const opponent = bot.state.Players[5];
     if (!opponent) throw new Error('missing synthetic opponent');
@@ -335,7 +337,8 @@ describe('live stats', () => {
     if (!gone) throw new Error('missing synthetic player');
     const parsed = parseLiveMatch(roster, { ...p, departures: [gone] }, now);
     expect(parsed.rows.length).toBe(5);
-    expect(parsed.rosters).toEqual([{ matchGuid: 'departed', playerCount: 5 }]);
+    // The teams' score, as the game counted it, keeps the goals of the player who left.
+    expect(parsed.rosters).toEqual([{ matchGuid: 'departed', playerCount: 5, blueGoals: 1, orangeGoals: 2 }]);
     expect(parsed.departures).toEqual([
       expect.objectContaining({ matchGuid: 'departed', name: second, team: 0, winner: 1, score: 110, kind: 'match' }),
     ]);

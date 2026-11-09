@@ -218,6 +218,13 @@
       "when": 1794250523298,
       "tag": "0030_solo_account_aliases",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "6",
+      "when": 1794265238457,
+      "tag": "0031_final_team_goals",
+      "breakpoints": true
     }
   ]
 }

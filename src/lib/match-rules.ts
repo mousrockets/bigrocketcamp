@@ -236,6 +236,9 @@ export interface ReceivedRoster {
   clockTrace?: string;
   /** Every opponent left before the end, as the source's departures show: absent when they do not. */
   opponentsGone?: boolean;
+  /** The goals of each team as the game counted them, those of players who left included: absent from older sources. */
+  blueGoals?: number;
+  orangeGoals?: number;
 }
 
 /** How a match ended; null when no source sent the clock (older collectors, Epic's history). */

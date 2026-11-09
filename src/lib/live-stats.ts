@@ -431,8 +431,12 @@ export function liveMatchRows(roster: Roster, match: LiveMatch): LiveRows {
   };
   const trace = match.clockTrace ? { clockTrace: JSON.stringify(match.clockTrace) } : {};
   const forfeit = opponentsGone(match, gone) ? { opponentsGone: true } : {};
+  // The scoreboard only holds the players present at the end; the teams' score keeps the goals of those who left.
+  const goalsOf = (team: number) => state.Game.Teams?.find((side) => side.TeamNum === team)?.Score;
+  const [blueGoals, orangeGoals] = [goalsOf(0), goalsOf(1)];
+  const score = typeof blueGoals === 'number' && typeof orangeGoals === 'number' ? { blueGoals, orangeGoals } : {};
   const rosters = validateMatchRosters([{ MatchGuid: rows[0]?.matchGuid, PlayerCount: rows.length }], rows).map(
-    (roster) => ({ ...roster, ...clock, ...trace, ...forfeit }),
+    (roster) => ({ ...roster, ...clock, ...trace, ...forfeit, ...score }),
   );
   return { rows, rosters, departures: gone.map((player) => leaverLine(roster, state.MatchGuid, day, player)) };
 }
