@@ -118,7 +118,7 @@ function RankClimb({ tier, mmr }: { tier: number; mmr: number }) {
       value={percent}
       aria-label={`Vers ${next.name}`}
       style={{ '--rank': rankLightRgb(tier) } as CSSProperties}
-      className="flex-col-reverse gap-[7px] pt-0.5 pl-[52px] [&_[data-slot=progress-indicator]]:min-w-[4%] [&_[data-slot=progress-indicator]]:origin-left [&_[data-slot=progress-indicator]]:animate-grow [&_[data-slot=progress-indicator]]:rounded-[3px] [&_[data-slot=progress-indicator]]:bg-[linear-gradient(90deg,rgba(var(--rank),.55),rgb(var(--rank)))] [&_[data-slot=progress-indicator]]:shadow-[0_0_10px_rgba(var(--rank),.55)] [&_[data-slot=progress-track]]:h-[5px] [&_[data-slot=progress-track]]:rounded-[3px] [&_[data-slot=progress-track]]:bg-white/9"
+      className="flex-col-reverse gap-[7px] pt-0.5 pl-[52px] [&_[data-slot=progress-indicator]]:min-w-[4%] [&_[data-slot=progress-indicator]]:origin-left [&_[data-slot=progress-indicator]]:animate-grow [&_[data-slot=progress-indicator]]:rounded-[3px] [&_[data-slot=progress-indicator]]:bg-transparent [&_[data-slot=progress-indicator]]:bg-[linear-gradient(90deg,rgba(var(--rank),.55),rgb(var(--rank)))] [&_[data-slot=progress-indicator]]:shadow-[0_0_10px_rgba(var(--rank),.55)] [&_[data-slot=progress-track]]:h-[5px] [&_[data-slot=progress-track]]:rounded-[3px] [&_[data-slot=progress-track]]:bg-white/9"
     >
       <div className="flex w-full items-baseline justify-between gap-2 whitespace-nowrap text-[11px] text-t3 tabular-nums">
         <ClimbEnd step={current} />

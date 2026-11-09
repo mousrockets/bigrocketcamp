@@ -1,5 +1,5 @@
 import { cn } from 'cn';
-import type { PointerEvent } from 'react';
+import type { CSSProperties, PointerEvent } from 'react';
 import { formatAge, formatNumber } from '../../lib/format';
 import { Badge } from '../components/ui/badge';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '../components/ui/card';
@@ -7,7 +7,7 @@ import { Progress } from '../components/ui/progress';
 import { DuoIcon, RefreshIcon, SoloIcon } from '../shell/icons';
 import { StreakCount } from './debt-hero';
 import { type CardRank, RankBlock } from './rank-block';
-import { type Debt, rankRgb } from './stats';
+import { type Debt, litSegments, rankRgb } from './stats';
 
 export interface CardPlayer {
   name: string;
@@ -47,8 +47,14 @@ function untilt(event: PointerEvent<HTMLElement>) {
   for (const property of ['--mx', '--my', '--ang']) card.style.removeProperty(property);
 }
 
-const progressParts =
-  '[&_[data-slot=progress-track]]:h-[3px] [&_[data-slot=progress-track]]:rounded-[2px] [&_[data-slot=progress-track]]:bg-white/8 [&_[data-slot=progress-indicator]]:origin-left [&_[data-slot=progress-indicator]]:animate-grow [&_[data-slot=progress-indicator]]:rounded-[2px]';
+const debtSegments = 20;
+
+/**
+ * The debt in twenty segments, lit by whole segments, in orange while pushups are owed and green once paid. The
+ * track is a little wider than the card so that the last gap falls outside; the glow sits outside the cut-out track.
+ */
+const debtGauge =
+  '[filter:drop-shadow(0_0_6px_color-mix(in_srgb,var(--debt)_45%,transparent))] [&_[data-slot=progress-track]]:h-[7px] [&_[data-slot=progress-track]]:w-[calc(100%+2px)] [&_[data-slot=progress-track]]:rounded-none [&_[data-slot=progress-track]]:bg-white/8 [&_[data-slot=progress-track]]:[mask:repeating-linear-gradient(90deg,#000_0_calc(5%_-_2px),transparent_calc(5%_-_2px)_5%)] [&_[data-slot=progress-indicator]]:w-(--lit)! [&_[data-slot=progress-indicator]]:origin-left [&_[data-slot=progress-indicator]]:animate-grow [&_[data-slot=progress-indicator]]:bg-transparent [&_[data-slot=progress-indicator]]:bg-[linear-gradient(90deg,color-mix(in_srgb,var(--debt)_45%,transparent),var(--debt))]';
 
 /** A player's card: who they are, their solo and duo ranks, what they still owe, and when their rank was read. */
 export function PlayerCard({ player, active, now }: { player: CardPlayer; active: boolean; now: number }) {
@@ -90,17 +96,10 @@ export function PlayerCard({ player, active, now }: { player: CardPlayer; active
           <RankBlock kind="Duo" icon={<DuoIcon />} rank={player.duo} ringed />
         </CardContent>
 
-        <Progress
-          value={percent}
-          aria-label={`Dette de ${player.name}`}
-          className={cn(
-            // On a computer the cards share the row's height: the debt goes to the foot of each.
-            'gap-2 lg:mt-auto',
-            progressParts,
-            left > 0
-              ? '[&_[data-slot=progress-indicator]]:bg-cost-strong'
-              : '[&_[data-slot=progress-indicator]]:bg-win',
-          )}
+        {/* On a computer the cards share the row's height: the debt goes to the foot of each. */}
+        <div
+          className="flex flex-col gap-[9px] lg:mt-auto"
+          style={{ '--debt': left > 0 ? 'var(--cost-strong)' : 'var(--win)' } as CSSProperties}
         >
           <div className="flex w-full items-baseline justify-between">
             <span className="flex items-baseline gap-1.5">
@@ -109,11 +108,18 @@ export function PlayerCard({ player, active, now }: { player: CardPlayer; active
               </b>
               <span className="text-[13px] text-t2">{left > 0 ? 'pompes restantes' : 'pompes restantes, GG'}</span>
             </span>
-            <span className="text-[12px] text-t3 tabular-nums">
-              {formatNumber(paid)} / {formatNumber(owed)}
-            </span>
+            <b className="num text-[14px] text-t1">{percent} %</b>
           </div>
-        </Progress>
+          <Progress
+            value={percent}
+            aria-label={`Dette de ${player.name}`}
+            style={{ '--lit': `${litSegments(percent, debtSegments) * (100 / debtSegments)}%` } as CSSProperties}
+            className={debtGauge}
+          />
+          <span className="text-[11px] text-t3 tabular-nums">
+            {formatNumber(paid)} / {formatNumber(owed)} remboursées
+          </span>
+        </div>
 
         <CardFooter className="gap-1.5 rounded-none border-0 bg-transparent p-0 text-[11px] text-t3">
           <RefreshIcon />
