@@ -1,5 +1,7 @@
 import { cn } from 'cn';
+import type { ReactNode } from 'react';
 import { formatNumber, plural } from '../../lib/format';
+import { PeriodKicker } from '../components/period-picker';
 import { Badge } from '../components/ui/badge';
 import type { PodiumStep } from './standings';
 
@@ -11,26 +13,66 @@ const steps = {
 } as const;
 const placeOf = (index: number) => steps[(index + 1) as 1 | 2 | 3];
 
-/** « Les bras d’or »: the week's three players with the most pushups, on a podium. */
-export function WeeklyPodium({ podium }: { podium: PodiumStep[] }) {
+/**
+ * « Les bras d’or »: the three players with the most pushups in the week shown, on a podium, with the picker of the
+ * week. The podium stands even when nobody climbed it: a step nobody earned stays empty.
+ */
+export function WeeklyPodium({
+  podium,
+  picker,
+  current,
+}: {
+  podium: PodiumStep[];
+  picker: ReactNode;
+  /** The week going on, still open to anyone. */
+  current: boolean;
+}) {
   return (
     <div className="flex flex-col gap-[18px]">
       <span className="flex flex-col gap-1.5">
-        <span className="label-caps">Podium de la semaine</span>
+        <PeriodKicker kicker="Podium de la semaine" picker={picker} />
         <h2 className="title-display text-[24px]">Les bras d’or</h2>
       </span>
-      {podium.length === 0 ? (
-        <p className="m-0 text-[15px] text-t2 [line-height:1.45]">
-          Personne n’a encore sué cette semaine. L’or est à prendre.
-        </p>
-      ) : (
-        <ol className="m-0 grid list-none grid-cols-3 items-end gap-2 p-0">
-          {podium.map((step, index) => (
+      <ol className="m-0 grid list-none grid-cols-3 items-end gap-2 p-0">
+        {[0, 1, 2].map((index) => {
+          const step = podium[index];
+          return step ? (
             <Step key={step.name} step={step} place={placeOf(index)} />
-          ))}
-        </ol>
+          ) : (
+            <EmptyStep key={index} rank={index + 1} place={placeOf(index)} />
+          );
+        })}
+      </ol>
+      {podium.length === 0 && (
+        <p className="m-0 text-center text-[15px] text-t2 [line-height:1.45]">
+          {current
+            ? 'Personne n’a encore sué cette semaine. L’or est à prendre.'
+            : 'Personne n’a sué cette semaine-là.'}
+        </p>
       )}
     </div>
+  );
+}
+
+/** A step nobody earned: a dash for the name, its pedestal and its number, greyed. */
+function EmptyStep({ rank, place }: { rank: number; place: (typeof steps)[keyof typeof steps] }) {
+  return (
+    <li className={cn('row-start-1 flex min-w-0 flex-col items-center gap-2.5', place.column)}>
+      <span aria-hidden="true" className="font-semibold text-[13px] text-t3">
+        —
+      </span>
+      <span aria-hidden="true" className="h-[30px]" />
+      <div
+        className="flex w-full origin-bottom animate-pedestal justify-center rounded-[16px_16px_6px_6px] bg-linear-to-b from-white/5 to-white/1.5 pt-3 shadow-[inset_0_1px_0_rgba(255,255,255,.1),inset_0_0_0_.5px_rgba(255,255,255,.05)]"
+        style={{ height: steps[rank as 1 | 2 | 3].height, animationDelay: `${0.15 + (3 - rank) * 0.08}s` }}
+      >
+        <b className="num text-[30px] text-t3 opacity-60 [line-height:1]">
+          <span className="sr-only">Place </span>
+          {rank}
+          <span className="sr-only"> : personne</span>
+        </b>
+      </div>
+    </li>
   );
 }
 

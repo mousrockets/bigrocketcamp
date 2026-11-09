@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { countdown, payerOf, weeklyPodium } from './standings';
+import { countdown, firstWeek, payerOf, weeklyPodium } from './standings';
 
 const roster = ['alice', 'bob', 'carol', 'dave'];
 // Saturday 7 November 2026: the week started on Monday the 2nd.
@@ -27,7 +27,7 @@ test('the podium counts every exercise of the week in pushups, best first', () =
   ]);
 });
 
-test('players level on pushups share a step, a player still at zero takes the next one, and nobody before', () => {
+test('players level on pushups share a step, and only a player who did something climbs', () => {
   const podium = weeklyPodium(
     [
       { player: 'alice', count: 20, day: today },
@@ -40,9 +40,22 @@ test('players level on pushups share a step, a player still at zero takes the ne
   expect(podium.map(({ name, rank, pushups }) => [name, rank, pushups])).toEqual([
     ['alice', 1, 20],
     ['bob', 1, 20],
-    ['carol', 3, 0],
+  ]);
+  expect(weeklyPodium([{ player: 'carol', count: 5, day: today }], roster, null, today)).toEqual([
+    { name: 'carol', me: false, pushups: 5, rank: 1 },
   ]);
   expect(weeklyPodium([], roster, null, today)).toEqual([]);
+});
+
+test('the podium of an earlier week counts its own days, Monday to Sunday', () => {
+  const exercises = [
+    { player: 'alice', count: 30, day: '2026-10-26' },
+    { player: 'bob', count: 50, day: '2026-11-01' },
+    { player: 'carol', count: 70, day: '2026-11-02' },
+  ];
+  expect(weeklyPodium(exercises, roster, null, '2026-10-26').map(({ name }) => name)).toEqual(['bob', 'alice']);
+  expect(firstWeek(exercises)).toBe('2026-10-26');
+  expect(firstWeek([])).toBeNull();
 });
 
 test('the last one alone pays; a tie at the last place or a missing reading spares everyone', () => {

@@ -96,11 +96,53 @@ test('shows the week’s podium in rank order, the member marked', async () => {
   ]);
 });
 
-test('says nobody has done anything yet this week', async () => {
+test('shows an empty podium while nobody has done anything this week', async () => {
   renderInApp(<ChallengesPage />, { club, board: { ...board, exercises: [] } });
   const podium = await screen.findByRole('region', { name: 'Podium de la semaine' });
-  expect(within(podium).queryByRole('listitem')).not.toBeInTheDocument();
+  expect(
+    within(podium)
+      .getAllByRole('listitem')
+      .map((step) => step.textContent),
+  ).toEqual(['—Place 1 : personne', '—Place 2 : personne', '—Place 3 : personne']);
   expect(within(podium).getByText(/Personne n’a encore sué cette semaine/)).toBeInTheDocument();
+});
+
+test('leaves a step empty when fewer players did something', async () => {
+  const lone = {
+    ...board,
+    exercises: [anExercise({ id: 'exercise-0000000001', player: 'bob', count: 20, day: '2026-11-04' })],
+  };
+  renderInApp(<ChallengesPage />, { club, board: lone });
+  const podium = await screen.findByRole('region', { name: 'Podium de la semaine' });
+  expect(
+    within(podium)
+      .getAllByRole('listitem')
+      .map((step) => step.textContent),
+  ).toEqual(['bob20pompesPlace 1', '—Place 2 : personne', '—Place 3 : personne']);
+});
+
+test('goes back to the weeks before, down to the first exercise, and forward to this one', async () => {
+  const user = userEvent.setup();
+  const history = {
+    ...board,
+    exercises: [
+      ...board.exercises,
+      anExercise({ id: 'exercise-0000000004', player: 'carol', count: 30, day: '2026-10-28' }),
+    ],
+  };
+  renderInApp(<ChallengesPage />, { club, board: history, path: '/defis' });
+  const podium = await screen.findByRole('region', { name: 'Podium de la semaine' });
+  const week = within(podium).getByRole('navigation', { name: 'Semaine affichée' });
+  expect(week).toHaveTextContent('Cette semaine');
+  expect(within(week).getByRole('button', { name: 'Suivant' })).toBeDisabled();
+  await user.click(within(week).getByRole('link', { name: 'Semaine précédente' }));
+  expect(await within(week).findByRole('link', { name: '26 oct. – 1 nov., revenir à cette semaine' })).toHaveAttribute(
+    'href',
+    '/defis',
+  );
+  expect(within(podium).getAllByRole('listitem')[0]).toHaveTextContent('carol30pompesPlace 1');
+  expect(within(week).getByRole('button', { name: 'Précédent' })).toBeDisabled();
+  expect(within(week).getByRole('link', { name: 'Semaine suivante' })).toHaveAttribute('href', '/defis');
 });
 
 test('counts down to the month’s close', async () => {
@@ -108,7 +150,35 @@ test('counts down to the month’s close', async () => {
   expect(await screen.findByRole('timer', { name: 'Clôture dans 23 jours, 7 heures et 44 minutes' })).toHaveTextContent(
     '23jours07heures44min',
   );
-  expect(screen.getByText('Défi du mois · Novembre · 2v2')).toBeInTheDocument();
+  expect(screen.getByRole('navigation', { name: 'Mois affiché' })).toHaveTextContent('Novembre');
+  expect(screen.getByRole('heading', { name: 'Qui paie sa tournée ?' })).toBeInTheDocument();
+});
+
+test('goes back to a closed month as it closed: its standings and who was last', async () => {
+  const october = {
+    month: '2026-10',
+    lastDay: '2026-10-31',
+    cutoffAt: '2026-10-31T23:00:00.000Z',
+    closedAt: '2026-10-31T23:05:00.000Z',
+    rows: [aRow('bob', 1250, 'duo'), aRow('alice', 1180, 'solo'), aRow('carol', 1100, 'duo')],
+    status: 'final' as const,
+    missing: [],
+    losers: ['carol'],
+  };
+  const withOctober = { ...board, monthly: { ...november([aRow('alice', 1509, 'solo')]), closed: [october] } };
+  renderInApp(<ChallengesPage />, { club, board: withOctober, path: '/defis?mois=2026-10' });
+  const month = await screen.findByRole('region', { name: 'Défi du mois' });
+  expect(within(month).getByRole('navigation', { name: 'Mois affiché' })).toHaveTextContent('Oct. 2026');
+  expect(within(month).getByRole('heading', { name: 'Le verdict d’octobre' })).toBeInTheDocument();
+  expect(within(month).getByText('Mois clos, MMR relevés le 31 octobre.')).toBeInTheDocument();
+  expect(within(month).queryByRole('timer')).not.toBeInTheDocument();
+  const lines = within(within(month).getByRole('list', { name: 'Classement du mois' })).getAllByRole('listitem');
+  expect(lines.map((line) => line.textContent)).toEqual([
+    '1bobDuo · Champion II1\u00a0250',
+    '2aliceTOISolo · Champion I1\u00a0180',
+    '3carolDuo · Champion I1\u00a0100Dernier du mois2 boissons',
+  ]);
+  expect(within(month).getByRole('link', { name: 'Mois suivant' })).toHaveAttribute('href', '/defis');
 });
 
 test('leads to the club’s rules under the month’s challenge', async () => {

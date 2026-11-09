@@ -122,23 +122,40 @@ test('a player who left before the end loses the match: the replay says so, and 
   expect(within(replay).getAllByText('GG')).toHaveLength(3);
 });
 
-test('replays the week by part of day, with how each match ended', async () => {
+test('replays the day by part of day, with how each match ended', async () => {
   renderInApp(<MatchesPage />, { board });
   const replay = await screen.findByRole('region', { name: 'Derniers matchs' });
   const labels = within(replay)
-    .getAllByText(/^(Ce soir|Cet après-midi|Ce matin|Hier)$/)
+    .getAllByText(/^(Ce soir|Cet après-midi|Ce matin)$/)
     .map((label) => label.textContent);
-  expect(labels).toEqual(['Ce soir', 'Cet après-midi', 'Hier']);
+  expect(labels).toEqual(['Ce soir', 'Cet après-midi']);
   expect(within(replay).getByText('21:40 · Prolongation')).toBeInTheDocument();
   expect(within(replay).getByText('21:28 · Les adversaires ont FF')).toBeInTheDocument();
   expect(within(replay).getAllByText('GG')).toHaveLength(2);
-  expect(within(replay).getAllByText('AÏE')).toHaveLength(2);
+  expect(within(replay).getAllByText('AÏE')).toHaveLength(1);
+});
+
+test('goes back to an earlier day: its summary and its matches only', async () => {
+  renderInApp(<MatchesPage />, { board, path: '/matchs?jour=2026-11-06' });
+  const day = await screen.findByRole('navigation', { name: 'Jour affiché' });
+  expect(within(day).getByRole('button', { name: 'Ven. 6 nov., choisir un autre jour' })).toBeInTheDocument();
+  expect(within(day).getByRole('button', { name: 'Précédent' })).toBeDisabled();
+  expect(within(day).getByRole('link', { name: 'Jour suivant' })).toHaveAttribute('href', '/matchs');
+  const summary = screen.getByRole('region', { name: 'Bilan du jour' });
+  expect(within(summary).getByRole('heading', { name: 'Les bras vont chauffer' })).toBeInTheDocument();
+  expect(within(summary).getAllByText(/^1 partie/)).toHaveLength(2);
+  expect(summary).toHaveTextContent('1 partie · 0 V · 1 D');
+  const replay = screen.getByRole('region', { name: 'Derniers matchs' });
+  expect(within(replay).getByText('Les matchs du 6 nov.')).toBeInTheDocument();
+  expect(within(replay).getByText('Le soir')).toBeInTheDocument();
+  expect(within(replay).getAllByText('AÏE')).toHaveLength(1);
+  expect(within(replay).queryByText('GG')).not.toBeInTheDocument();
 });
 
 test('says when nobody played today', async () => {
   renderInApp(<MatchesPage />, { board: boardWith() });
   expect(await screen.findByText('Aucun match aujourd’hui. Le terrain attend son kickoff.')).toBeInTheDocument();
-  expect(screen.getByText('Pas un match cette semaine. Suspect.')).toBeInTheDocument();
+  expect(screen.getByText('Pas un match aujourd’hui. Suspect.')).toBeInTheDocument();
 });
 
 test('leads to the club’s rules', async () => {

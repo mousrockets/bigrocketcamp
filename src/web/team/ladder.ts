@@ -41,6 +41,10 @@ export const rankLadder: readonly RankStep[] = steps.map(([name, mmr], index) =>
 
 export const rankStep = (tier: number): RankStep | undefined => rankLadder.find((step) => step.tier === tier);
 
+/** The rank an MMR wins on the ladder: the highest step it reaches. */
+export const stepOfMmr = (mmr: number): RankStep =>
+  rankLadder.findLast((step) => mmr >= step.mmr) ?? (rankLadder[0] as RankStep);
+
 export interface Climb {
   current: RankStep;
   /** Null at the top of the ladder. */

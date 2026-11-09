@@ -3,10 +3,14 @@ import {
   count,
   formatAge,
   formatClock,
+  formatDayDate,
   formatLongDay,
   formatMonth,
   formatNumber,
+  formatShortDay,
+  formatShortMonth,
   formatTime,
+  formatWeek,
   formatWhen,
   plural,
 } from './format';
@@ -49,4 +53,11 @@ test('a tab’s day and a club month are written out in full', () => {
   expect(formatLongDay('2026-11-07T23:30:00Z')).toBe('Dimanche 8 novembre');
   expect(formatMonth('2026-11')).toBe('Novembre');
   expect(formatMonth('2027-08')).toBe('Août');
+});
+
+test('a day, a week and a month read short in the period pickers', () => {
+  expect(formatShortDay('2026-11-03')).toBe('Mar. 3 nov.');
+  expect(formatDayDate('2026-11-03')).toBe('3 nov.');
+  expect(formatWeek('2026-10-26')).toBe('26 oct. – 1 nov.');
+  expect(formatShortMonth('2026-10')).toBe('Oct. 2026');
 });

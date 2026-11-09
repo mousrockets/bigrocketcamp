@@ -1,23 +1,30 @@
+import { useSearch } from '@tanstack/react-router';
 import { cn } from 'cn';
 import { parisDay } from '../../lib/days';
 import { highScorePoints } from '../../lib/domain';
-import { formatLongDay, formatNumber } from '../../lib/format';
+import { formatDayDate, formatLongDay, formatNumber } from '../../lib/format';
 import { useBoardState } from '../board';
 import { useClub } from '../club';
 import { LiveStatus } from '../components/live-status';
+import { PeriodKicker } from '../components/period-picker';
 import { RulesLink } from '../components/rules-link';
 import { TabPage } from '../components/tab-page';
 import { Badge } from '../components/ui/badge';
 import { Card } from '../components/ui/card';
 import { useNow } from '../hooks/use-now';
-import { daySummary, type ReplayMatch, replay, type SummaryPlayer } from './timeline';
+import { DayPicker } from './day-picker';
+import { daySummary, playedDays, type ReplayMatch, replay, type SummaryPlayer } from './timeline';
 
 export function MatchesPage() {
   const club = useClub();
   const { board, error } = useBoardState();
+  const { jour } = useSearch({ strict: false });
   const now = useNow(30_000);
-  const summary = board ? daySummary(board, club.roster, club.me.duoPseudo, parisDay(now)) : [];
-  const groups = board ? replay(board, club.roster, now) : [];
+  const today = parisDay(now);
+  const day = jour && jour < today ? jour : today;
+  const isToday = day === today;
+  const summary = board ? daySummary(board, club.roster, club.me.duoPseudo, day) : [];
+  const groups = board ? replay(board, club.roster, day, today) : [];
 
   return (
     <TabPage
@@ -32,10 +39,15 @@ export function MatchesPage() {
             aria-label="Bilan du jour"
             className="flex flex-col gap-[18px] px-5 pt-8 lg:sticky lg:top-6 lg:max-w-[420px] lg:flex-[1_1_340px] lg:p-0"
           >
-            <SectionTitle
-              kicker="Bilan du jour"
-              title={summary.some((player) => player.owed > 0) ? 'Les bras vont chauffer' : 'Pas encore de casse'}
-            />
+            <span className="flex flex-col gap-1.5">
+              <PeriodKicker
+                kicker="Bilan du jour"
+                picker={<DayPicker day={day} today={today} played={playedDays(board, club.roster)} />}
+              />
+              <h2 className="title-display text-[24px] [line-height:normal]">
+                {summary.some((player) => player.owed > 0) ? 'Les bras vont chauffer' : 'Pas encore de casse'}
+              </h2>
+            </span>
             {summary.length > 0 ? (
               <div className="flex flex-col gap-2.5">
                 {summary.map((player) => (
@@ -43,14 +55,19 @@ export function MatchesPage() {
                 ))}
               </div>
             ) : (
-              <p className="m-0 text-[15px] text-t2">Aucun match aujourd’hui. Le terrain attend son kickoff.</p>
+              <p className="m-0 text-[15px] text-t2">
+                {isToday ? 'Aucun match aujourd’hui. Le terrain attend son kickoff.' : 'Aucun match ce jour-là.'}
+              </p>
             )}
           </section>
           <section
             aria-label="Derniers matchs"
             className="flex flex-col gap-[18px] px-5 pt-12 lg:flex-[999_1_420px] lg:p-0"
           >
-            <SectionTitle kicker="Derniers matchs" title="Le replay" />
+            <SectionTitle
+              kicker={isToday ? 'Les matchs du jour' : `Les matchs du ${formatDayDate(day)}`}
+              title="Le replay"
+            />
             {groups.map((group) => (
               <div key={group.label} className="flex flex-col gap-2.5">
                 <span className="font-semibold text-[13px] text-t2">{group.label}</span>
@@ -61,7 +78,11 @@ export function MatchesPage() {
                 </Card>
               </div>
             ))}
-            {groups.length === 0 && <p className="m-0 text-[15px] text-t2">Pas un match cette semaine. Suspect.</p>}
+            {groups.length === 0 && (
+              <p className="m-0 text-[15px] text-t2">
+                {isToday ? 'Pas un match aujourd’hui. Suspect.' : 'Pas un match ce jour-là. Suspect.'}
+              </p>
+            )}
             <RulesLink />
           </section>
         </div>

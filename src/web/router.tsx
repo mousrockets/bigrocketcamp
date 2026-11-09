@@ -27,8 +27,26 @@ const shellRoute = createRoute({
   validateSearch: z.object({ declarer: sheetParameter, ranks: sheetParameter, regles: sheetParameter }),
 });
 const teamRoute = createRoute({ getParentRoute: () => shellRoute, path: '/', component: TeamPage });
-const challengesRoute = createRoute({ getParentRoute: () => shellRoute, path: '/defis', component: ChallengesPage });
-const matchesRoute = createRoute({ getParentRoute: () => shellRoute, path: '/matchs', component: MatchesPage });
+// A past period has its own address: `?semaine=2026-11-02` (its Monday) and `?mois=2026-10` in Défis,
+// `?jour=2026-11-07` in Matchs. Without one, or with one that cannot be read, the tab shows the current period.
+const dayParameter = z.iso.date().optional().catch(undefined);
+const monthParameter = z
+  .string()
+  .regex(/^\d{4}-(0[1-9]|1[0-2])$/)
+  .optional()
+  .catch(undefined);
+const challengesRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: '/defis',
+  component: ChallengesPage,
+  validateSearch: z.object({ semaine: dayParameter, mois: monthParameter }),
+});
+const matchesRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: '/matchs',
+  component: MatchesPage,
+  validateSearch: z.object({ jour: dayParameter }),
+});
 const settingsRoute = createRoute({ getParentRoute: () => shellRoute, path: '/reglages', component: SettingsHome });
 // Réglages opens its screens like iOS Settings, each with the way back to it.
 const settingsScreens = (
