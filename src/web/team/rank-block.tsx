@@ -125,17 +125,31 @@ function RankClimb({ tier, mmr }: { tier: number; mmr: number }) {
 
 /** One end of the bar: a rank's icon and the MMR that wins it; the next rank's icon is named, the current one's is not. */
 function ClimbEnd({ step, named = false }: { step: RankStep; named?: boolean }) {
+  // Centred on the figures' capital height rather than on the line, which sits lower.
+  const icon = (
+    <img
+      src={rankIcon(step.tier)}
+      alt={named ? step.name : ''}
+      title={named ? step.name : undefined}
+      width={16}
+      height={16}
+      className={cn('inline-block size-4 object-contain align-[calc(.5cap_-_8px)]', named ? 'ml-1' : 'mr-1')}
+    />
+  );
+  const mmr = <span className="num font-semibold text-[12px]">{formatNumber(step.mmr)}</span>;
   return (
-    <span className={cn('flex min-w-0 items-baseline gap-[5px]', named && 'flex-row-reverse')}>
-      <img
-        src={rankIcon(step.tier)}
-        alt={named ? step.name : ''}
-        title={named ? step.name : undefined}
-        width={16}
-        height={16}
-        className="size-4 shrink-0 self-center object-contain"
-      />
-      {formatNumber(step.mmr)}
+    <span className="min-w-0">
+      {named ? (
+        <>
+          {mmr}
+          {icon}
+        </>
+      ) : (
+        <>
+          {icon}
+          {mmr}
+        </>
+      )}
     </span>
   );
 }
