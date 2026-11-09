@@ -8,6 +8,7 @@ import {
   RouterProvider,
 } from '@tanstack/react-router';
 import { render } from '@testing-library/react';
+import type { Window as HappyWindow } from 'happy-dom';
 import type { ReactNode } from 'react';
 import { boardView, emptyBoard } from '../lib/board-sync';
 import { type Board, BoardContext } from './board';
@@ -140,3 +141,7 @@ export function renderInApp(
     </QueryClientProvider>,
   );
 }
+
+/** Lays the page out at a width, as a phone (390) or a computer (1440) would; happy-dom starts at 1024. */
+export const setViewportWidth = (width: number) =>
+  (window as unknown as HappyWindow).happyDOM.setViewport({ width, height: width < 1024 ? 844 : 900 });
