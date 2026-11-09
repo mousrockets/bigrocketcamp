@@ -42,6 +42,7 @@ beforeEach(async () => {
     env.DB.prepare('DELETE FROM solo_mmr_entries'),
     env.DB.prepare('DELETE FROM solo_ranks'),
     env.DB.prepare('DELETE FROM player_identities'),
+    env.DB.prepare('DELETE FROM player_identity_aliases'),
     env.DB.prepare(
       "INSERT INTO player_identities (slot, owner, player_id) VALUES ('bob', 'member-bob', 'Epic|bob-test|0')",
     ),
@@ -180,6 +181,32 @@ describe('the solo accounts', () => {
     await post([solo(1300)]);
     expect(await soloRank()).toMatchObject({ mmr: 1300, matches: 210, peak: 1320 });
     expect(await env.DB.prepare('SELECT COUNT(*) AS n FROM solo_mmr_entries').first('n')).toBe(2);
+  });
+
+  test("the account found from the pseudo is confirmed as the member's: its matches count as theirs", async () => {
+    await soloPseudo('Bob Solo');
+    await post([solo(1320)]);
+    const aliases = () =>
+      env.DB.prepare('SELECT player_id, slot, confirmed_by FROM player_identity_aliases')
+        .all()
+        .then((r) => r.results);
+    expect(await aliases()).toEqual([{ player_id: epicId, slot: 'bob', confirmed_by: 'member-bob' }]);
+    await post([solo(1300)]);
+    expect(await aliases()).toHaveLength(1);
+  });
+
+  test('an account another player already confirmed stays theirs', async () => {
+    await soloPseudo('Bob Solo');
+    await env.DB.prepare(
+      "INSERT INTO player_identity_aliases VALUES (?, 'alice', 'member-alice', '2026-11-01T10:00:00.000Z')",
+    )
+      .bind(epicId)
+      .run();
+    await post([solo(1320)]);
+    expect(await learnedId()).toBe(epicId);
+    expect(await env.DB.prepare('SELECT slot FROM player_identity_aliases').all()).toMatchObject({
+      results: [{ slot: 'alice' }],
+    });
   });
 
   test('an account still in its placement matches says how many it played, until it is placed', async () => {

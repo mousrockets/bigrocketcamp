@@ -211,6 +211,13 @@
       "when": 1794235818043,
       "tag": "0029_placement_matches",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "6",
+      "when": 1794250523298,
+      "tag": "0030_solo_account_aliases",
+      "breakpoints": true
     }
   ]
 }
