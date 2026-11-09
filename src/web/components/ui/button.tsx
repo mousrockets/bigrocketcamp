@@ -30,6 +30,7 @@ const buttonVariants = cva(
         quiet: "bg-transparent font-medium text-[15px] text-t3 duration-300 hover:text-t1",
         pill: "border-0 bg-white/10 font-semibold [line-height:normal] text-[14px] text-t1 duration-200 hover:bg-white/15 aria-pressed:bg-t1 aria-pressed:text-black",
         "pill-danger": "border-0 bg-white/10 font-semibold [line-height:normal] text-[14px] text-destructive duration-200 hover:bg-white/15",
+        bubble: "rounded-full bg-linear-to-b from-white/12 to-white/5 font-semibold text-[13px] text-t1 shadow-[inset_0_.5px_0_rgba(255,255,255,.28),inset_0_0_0_.5px_rgba(255,255,255,.1),0_6px_16px_-6px_rgba(0,0,0,.6)] duration-300 ease-(--ease) hover:from-white/16 hover:to-white/7 active:not-aria-[haspopup]:translate-y-0 active:scale-92",
         glass: "glass rounded-full text-t1 duration-300 ease-(--ease) active:not-aria-[haspopup]:translate-y-0 active:scale-94 [&_svg:not([class*='size-'])]:size-[22px]",
       },
       size: {
@@ -53,6 +54,7 @@ const buttonVariants = cva(
         "cta-xl": "h-[54px] gap-2 rounded-[27px] px-6 text-[17px]",
         quiet: "h-11 gap-2 px-3 [&_svg:not([class*='size-'])]:size-3.5",
         pill: "h-9 gap-1.5 rounded-[18px] px-3.5 [&_svg:not([class*='size-'])]:size-3.5",
+        hint: "size-[34px] gap-[7px] lg:w-auto lg:pr-3.5 lg:pl-2.5 [&_svg:not([class*='size-'])]:size-[18px]",
         round: "size-9 rounded-full [&_svg:not([class*='size-'])]:size-3.5",
       },
     },

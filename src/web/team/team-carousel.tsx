@@ -1,6 +1,8 @@
 import { Link } from '@tanstack/react-router';
+import { cn } from 'cn';
 import { useEffect, useState } from 'react';
-import { Button } from '../components/ui/button';
+import { SheetLink } from '../components/sheet-link';
+import { Button, buttonVariants } from '../components/ui/button';
 import {
   Carousel,
   type CarouselApi,
@@ -10,6 +12,7 @@ import {
   CarouselPrevious,
 } from '../components/ui/carousel';
 import { useNow } from '../hooks/use-now';
+import { LadderIcon } from '../shell/icons';
 import { type CardPlayer, PlayerCard } from './player-card';
 import { rankRgb } from './stats';
 
@@ -50,16 +53,20 @@ export function TeamCarousel({ players }: { players: CardPlayer[] }) {
       aria-label="La team"
       className="flex animate-rise flex-col gap-4 [animation-delay:.12s] lg:gap-5"
     >
-      <div className="flex items-baseline justify-between gap-3 px-5 lg:items-center lg:px-0">
-        <span className="contents lg:flex lg:items-baseline lg:gap-4">
+      <div className="flex items-center justify-between gap-3 px-5 lg:px-0">
+        <span className="flex items-baseline gap-3.5 lg:gap-4">
           <h2 className="title-display text-[22px]">La team</h2>
           <Link to="/matchs" className="font-medium text-[13px] text-link">
             Bilan du jour
           </Link>
         </span>
-        <span className="hidden gap-2 lg:flex">
-          <CarouselPrevious aria-label="Carte précédente" className={roundButton} />
-          <CarouselNext aria-label="Carte suivante" className={roundButton} />
+        <span className="flex items-center gap-2">
+          <SheetLink sheet="ranks" className={cn(buttonVariants({ variant: 'bubble', size: 'hint' }), 'lg:mr-2.5')}>
+            <LadderIcon />
+            <span className="sr-only lg:not-sr-only">Les ranks</span>
+          </SheetLink>
+          <CarouselPrevious aria-label="Carte précédente" className={cn(roundButton, 'hidden lg:inline-flex')} />
+          <CarouselNext aria-label="Carte suivante" className={cn(roundButton, 'hidden lg:inline-flex')} />
         </span>
       </div>
 
