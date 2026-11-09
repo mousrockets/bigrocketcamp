@@ -8,6 +8,8 @@ import { NowDot, PeriodPicker, periodLabelClass } from '../components/period-pic
 import { TabPage } from '../components/tab-page';
 import { cardVariants } from '../components/ui/card';
 import { useNow } from '../hooks/use-now';
+import { weeklyJournal, weeklyTotals } from './journal';
+import { ExerciseJournal } from './journal-section';
 import { MonthlyChallenge } from './monthly-challenge';
 import { WeeklyPodium } from './podium';
 import { firstWeek, weeklyPodium } from './standings';
@@ -24,9 +26,12 @@ export function ChallengesPage() {
   const { semaine, mois } = useSearch({ strict: false });
   const now = useNow(30_000);
   const me = club.me.duoPseudo;
-  const thisWeek = weekStart(parisDay(now));
+  const today = parisDay(now);
+  const thisWeek = weekStart(today);
   const week = semaine && semaine < thisWeek ? weekStart(semaine) : thisWeek;
   const podium = board ? weeklyPodium(board.exercises, club.roster, me, week) : [];
+  // A week nobody sweated shows only the podium, which already says so.
+  const totals = board ? weeklyTotals(board.exercises, club.roster, me, week) : [];
 
   return (
     <TabPage kicker={formatLongDay(now)} title="Défis">
@@ -51,6 +56,19 @@ export function ChallengesPage() {
                 me={me}
                 now={now}
                 month={mois}
+              />
+            </section>
+          )}
+          {totals.length > 0 && (
+            <section
+              aria-label="Journal des exercices"
+              className="px-5 pt-12 max-lg:animate-rise max-lg:[animation-delay:.18s] lg:basis-full lg:px-0 lg:pt-6"
+            >
+              <ExerciseJournal
+                totals={totals}
+                days={weeklyJournal(board.exercises, club.roster, me, week, today)}
+                week={week}
+                current={week === thisWeek}
               />
             </section>
           )}

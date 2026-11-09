@@ -1,6 +1,6 @@
 import { shiftDay } from '../../lib/days';
 import { dailyRecap, defaultLastPlaceRules, dodgeRules, matchIndex } from '../../lib/domain';
-import { formatClock, formatDay, formatWeekdayDate } from '../../lib/format';
+import { formatClock, formatRecentDay } from '../../lib/format';
 import { type HistoryMatch, matchHistory } from '../../lib/match-history';
 import type { Board } from '../board';
 
@@ -115,13 +115,6 @@ function partOf(match: HistoryMatch<Row>, today: boolean): string {
   return hour < 18 ? (today ? 'Cet après-midi' : 'L’après-midi') : today ? 'Ce soir' : 'Le soir';
 }
 
-/** « Aujourd’hui », « Hier · vendredi 6 », then the day in full. */
-function dayOf(day: string, today: string): string {
-  if (day === today) return 'Aujourd’hui';
-  if (day === shiftDay(today, -1)) return `Hier · ${formatWeekdayDate(day)}`;
-  return formatDay(day);
-}
-
 /** What made the match special, in the words of the replay. */
 function tagsOf(match: HistoryMatch<Row>): string[] {
   const tags: string[] = [];
@@ -141,7 +134,7 @@ export function replay(board: Board, roster: readonly string[], days: readonly s
     .filter((entry) => days.includes(entry.day))
     .sort(byTime)
     .reverse()) {
-    const label = days.length === 1 ? partOf(match, match.day === today) : dayOf(match.day, today);
+    const label = days.length === 1 ? partOf(match, match.day === today) : formatRecentDay(match.day, today);
     let group = groups.at(-1);
     if (group?.label !== label) {
       group = { label, matches: [] };

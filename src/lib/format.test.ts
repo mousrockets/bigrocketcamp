@@ -8,6 +8,7 @@ import {
   formatLongDay,
   formatMonth,
   formatNumber,
+  formatRecentDay,
   formatShortDay,
   formatShortMonth,
   formatTime,
@@ -64,4 +65,10 @@ test('a day, a week and a month read short in the period pickers', () => {
   expect(formatShortMonth('2026-10')).toBe('Oct. 2026');
   expect(formatDay('2026-11-05')).toBe('Jeudi 5 novembre');
   expect(formatWeekdayDate('2026-11-06')).toBe('vendredi 6');
+});
+
+test('a recent day reads from today: today, yesterday, then in full', () => {
+  expect(formatRecentDay('2026-11-07', '2026-11-07')).toBe('Aujourd’hui');
+  expect(formatRecentDay('2026-11-06', '2026-11-07')).toBe('Hier · vendredi 6');
+  expect(formatRecentDay('2026-11-05', '2026-11-07')).toBe('Jeudi 5 novembre');
 });
