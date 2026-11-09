@@ -41,6 +41,8 @@ export interface ObservedRank {
   division: number | null;
   /** Ranked 2v2 matches played, when the source can read it. */
   matches: number | null;
+  /** Placement matches played while the season's ten are not done; null once placed, or from an older source. */
+  placements: number | null;
   observedAt: string;
 }
 
@@ -261,6 +263,9 @@ async function duoWrites(query: Orm, rank: ObservedRank): Promise<Writes> {
       query.update(playerRanks).set({ matchesPlayed: rank.matches }).where(eq(playerRanks.player, rank.player)),
     );
   }
+  writes.push(
+    query.update(playerRanks).set({ placementMatches: rank.placements }).where(eq(playerRanks.player, rank.player)),
+  );
   writes.push(peakWrite(query, playerRanks, rank));
   return { writes, changed };
 }
@@ -319,6 +324,7 @@ async function soloWrites(query: Orm, rank: ObservedRank, target: SoloTarget): P
         tier: rank.tier,
         division: rank.division,
         matchesPlayed: rank.matches,
+        placementMatches: rank.placements,
         fetchedAt: rank.observedAt,
         status: 'ready',
       })
@@ -330,6 +336,7 @@ async function soloWrites(query: Orm, rank: ObservedRank, target: SoloTarget): P
           tier: excluded(soloRanks.tier),
           division: excluded(soloRanks.division),
           matchesPlayed: sql`coalesce(${excluded(soloRanks.matchesPlayed)}, ${soloRanks.matchesPlayed})`,
+          placementMatches: excluded(soloRanks.placementMatches),
           fetchedAt: excluded(soloRanks.fetchedAt),
           status: 'ready',
         },

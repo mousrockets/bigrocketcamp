@@ -42,6 +42,8 @@ export interface PlayerSoloRank {
   label: string;
   tier: number | null;
   matchesPlayed: number | null;
+  /** Placement matches played while the season's ten are not done; null once placed. */
+  placements: number | null;
   status: SoloRankStatus;
   fetchedAt: string | null;
   peak: SeasonPeak | null;
@@ -58,6 +60,8 @@ export interface PlayerDoublesRank {
   /** Shown as the rank icon; null while no rank was read. */
   tier: number | null;
   matchesPlayed: number | null;
+  /** Placement matches played while the season's ten are not done; null once placed. */
+  placements: number | null;
   status: string;
   fetchedAt: string | null;
   lastAttempt: string | null;
@@ -111,6 +115,7 @@ async function readSoloRanks(db: Database): Promise<Map<string, PlayerSoloRank>>
         tier: soloRanks.tier,
         division: soloRanks.division,
         matchesPlayed: soloRanks.matchesPlayed,
+        placementMatches: soloRanks.placementMatches,
         fetchedAt: soloRanks.fetchedAt,
         status: soloRanks.status,
         bestMmr: soloRanks.bestMmr,
@@ -129,6 +134,7 @@ async function readSoloRanks(db: Database): Promise<Map<string, PlayerSoloRank>>
           label: rank?.mmr == null ? 'Compte solo non relevé' : rankLabel(rank.tier, rank.division),
           tier: rank?.mmr == null ? null : rank.tier,
           matchesPlayed: rank?.matchesPlayed ?? null,
+          placements: rank?.mmr == null ? null : rank.placementMatches,
           status,
           fetchedAt: rank?.fetchedAt ?? null,
           peak: peakOf(rank),
@@ -149,6 +155,7 @@ export async function readDoublesRanks(db: Database, roster: Roster): Promise<Pl
         tier: playerRanks.tier,
         division: playerRanks.division,
         matchesPlayed: playerRanks.matchesPlayed,
+        placementMatches: playerRanks.placementMatches,
         fetchedAt: playerRanks.fetchedAt,
         lastAttempt: playerRanks.lastAttempt,
         status: playerRanks.status,
@@ -167,6 +174,7 @@ export async function readDoublesRanks(db: Database, roster: Roster): Promise<Pl
         label: rank?.status === 'identity_conflict' ? 'Compte à vérifier' : 'Classement non reçu',
         tier: null,
         matchesPlayed: null,
+        placements: null,
         status: rank?.status || 'waiting',
         fetchedAt: null,
         lastAttempt: rank?.lastAttempt || null,
@@ -179,6 +187,7 @@ export async function readDoublesRanks(db: Database, roster: Roster): Promise<Pl
       label: rankLabel(rank.tier, rank.division),
       tier: rank.tier,
       matchesPlayed: rank.matchesPlayed,
+      placements: rank.placementMatches,
       status: rank.status,
       fetchedAt: rank.fetchedAt,
       lastAttempt: rank.lastAttempt,

@@ -15,6 +15,8 @@ const reading = z.object({
   tier: rankNumber(0, 22).nullable().default(null),
   division: rankNumber(1, 4).nullable().default(null),
   matches: rankNumber(0, 1_000_000).nullable().default(null),
+  // Absent from a source older than placements; a wrong count only goes unshown, it never refuses the report.
+  placements: rankNumber(0, 10).nullable().catch(null),
   // At most a day old, never ahead of the clock by more than a minute.
   observedAt: z
     .string(says(invalidRanks))

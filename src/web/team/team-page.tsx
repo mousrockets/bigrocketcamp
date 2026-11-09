@@ -10,7 +10,7 @@ import type { CardRank } from './rank-block';
 import { currentStreak, debtOf, highestTier, latest } from './stats';
 import { TeamCarousel } from './team-carousel';
 
-const noRank: CardRank = { mmr: null, label: 'Rang pas encore relevé', tier: null, peak: null };
+const noRank: CardRank = { mmr: null, label: 'Rang pas encore relevé', tier: null, peak: null, placements: null };
 
 /** Every player's card, the member's first. */
 function cardPlayers(
@@ -37,8 +37,17 @@ function cardPlayers(
         label: unreadable ? 'Compte solo introuvable' : solo.label,
         tier: unreadable ? null : solo.tier,
         peak: solo.peak,
+        placements: unreadable ? null : solo.placements,
       },
-      duo: ranks ? { mmr: ranks.mmr, label: ranks.label, tier: ranks.tier, peak: ranks.peak ?? null } : noRank,
+      duo: ranks
+        ? {
+            mmr: ranks.mmr,
+            label: ranks.label,
+            tier: ranks.tier,
+            peak: ranks.peak ?? null,
+            placements: ranks.placements,
+          }
+        : noRank,
       tier: highestTier(ranks?.tier, unreadable ? null : solo?.tier),
       updated: latest(ranks?.fetchedAt, solo?.fetchedAt),
     };

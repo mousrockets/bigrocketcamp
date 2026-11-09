@@ -187,6 +187,7 @@ describe('closing with the rank source readings', () => {
     tier: 16,
     division: 2,
     matches: null,
+    placements: null,
     observedAt,
   });
   const startsIn = (month: string) =>

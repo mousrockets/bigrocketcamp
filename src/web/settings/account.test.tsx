@@ -20,6 +20,7 @@ test('shows the member’s ranks under their pseudo', async () => {
           label: 'Grand Champion I · Division I',
           tier: 19,
           matchesPlayed: null,
+          placements: null,
           status: 'ready',
           fetchedAt: null,
           peak: null,

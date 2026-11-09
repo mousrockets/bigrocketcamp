@@ -1,6 +1,7 @@
 import { env, exports } from 'cloudflare:workers';
 import { beforeEach, describe, expect, test } from 'vitest';
 import { joinTestClub } from '../lib/club-fixture';
+import { readDoublesRanks } from '../lib/doubles-ranks';
 import { saveOwnProfile } from '../lib/members';
 import { readRankSourceHealth } from '../lib/rank-source';
 import { currentSeason } from '../lib/season';
@@ -179,6 +180,26 @@ describe('the solo accounts', () => {
     await post([solo(1300)]);
     expect(await soloRank()).toMatchObject({ mmr: 1300, matches: 210, peak: 1320 });
     expect(await env.DB.prepare('SELECT COUNT(*) AS n FROM solo_mmr_entries').first('n')).toBe(2);
+  });
+
+  test('an account still in its placement matches says how many it played, until it is placed', async () => {
+    await soloPseudo('Bob Solo');
+    const placing = { tier: 16, division: null, placements: 3 };
+    await post([{ ...rank(1150), ...placing }, solo(1154, placing)]);
+    const [bob] = await readDoublesRanks(env.DB, ['bob']);
+    expect(bob).toMatchObject({ label: 'Champion I', placements: 3, solo: { label: 'Champion I', placements: 3 } });
+    await post([rank(1160), solo(1170)]);
+    const [placed] = await readDoublesRanks(env.DB, ['bob']);
+    expect(placed).toMatchObject({ placements: null, solo: { placements: null } });
+  });
+
+  test('a wrong placement count goes unshown, it never refuses the readings', async () => {
+    expect(await (await post([{ ...rank(1180), placements: 42 }])).json()).toEqual({
+      ok: true,
+      changed: 1,
+      ignored: 0,
+    });
+    expect((await readDoublesRanks(env.DB, ['bob']))[0]?.placements).toBeNull();
   });
 
   test('a reading the profile no longer names is dropped, never the duo ranks with it', async () => {
