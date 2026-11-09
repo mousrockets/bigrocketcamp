@@ -1,6 +1,6 @@
 import { screen, within } from '@testing-library/react';
 import { expect, test } from 'vitest';
-import { aRank, boardWith, renderInApp, testClub } from '../test-utils';
+import { aRank, boardWith, renderInApp, setViewportWidth, testClub } from '../test-utils';
 import { RanksSheet } from './ranks-sheet';
 
 const solo = (tier: number, mmr: number) => ({
@@ -56,4 +56,14 @@ test('sends a member without a solo account to Réglages', async () => {
   expect(await screen.findByText('Pas de compte solo')).toBeInTheDocument();
   expect(screen.getByRole('link', { name: 'Réglages' })).toHaveAttribute('href', '/reglages/compte');
   expect(screen.queryByRole('region', { name: 'Ton compte solo' })).not.toBeInTheDocument();
+});
+
+test('goes away when pulled down on a phone', async () => {
+  setViewportWidth(390);
+  try {
+    open({ club, board });
+    expect(await screen.findByRole('dialog', { name: 'Les ranks' })).toHaveAttribute('data-swipe-direction', 'down');
+  } finally {
+    setViewportWidth(1024);
+  }
 });
