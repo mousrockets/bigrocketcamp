@@ -132,20 +132,25 @@ function ClubLines({ lines }: { lines: SoloLine[] }) {
               </ItemMedia>
               <ItemContent className={words}>
                 <span className="flex min-w-0 items-center gap-1.5">
-                  <ItemTitle className="truncate font-semibold text-[15px] [line-height:normal]">
-                    {line.player}
-                  </ItemTitle>
+                  <ItemTitle className="truncate font-semibold text-[15px] [line-height:normal]">{line.name}</ItemTitle>
                   {line.me && <Badge variant="me">TOI</Badge>}
                 </span>
                 <ItemDescription className="text-[12px] text-t3 [line-height:normal]">{line.step.name}</ItemDescription>
               </ItemContent>
-              <ItemActions className="gap-[7px]">
-                <i
-                  aria-hidden="true"
-                  className="size-[7px] rounded-full"
-                  style={{ background: `rgb(${rankRgb(line.step.tier)})` }}
-                />
-                <b className="num text-[20px]">{formatNumber(line.mmr)}</b>
+              <ItemActions className="flex-col items-end gap-0.5">
+                <span className="flex items-center gap-[7px]">
+                  <i
+                    aria-hidden="true"
+                    className="size-[7px] rounded-full"
+                    style={{ background: `rgb(${rankRgb(line.step.tier)})` }}
+                  />
+                  <b className="num text-[20px] [line-height:1]">{formatNumber(line.mmr)}</b>
+                </span>
+                {line.best !== null && (
+                  <span className="text-[11px] text-t3 tabular-nums [line-height:normal]">
+                    Peak <b className="num font-semibold text-t2">{formatNumber(line.best)}</b>
+                  </span>
+                )}
               </ItemActions>
             </Item>
           ))}

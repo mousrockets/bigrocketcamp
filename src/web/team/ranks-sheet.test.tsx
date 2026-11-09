@@ -1,23 +1,16 @@
 import { screen, within } from '@testing-library/react';
 import { expect, test } from 'vitest';
-import { aRank, boardWith, renderInApp, setViewportWidth, testClub } from '../test-utils';
+import { aRank, aSoloRank, boardWith, renderInApp, setViewportWidth, testClub } from '../test-utils';
 import { RanksSheet } from './ranks-sheet';
 
-const solo = (tier: number, mmr: number) => ({
-  mmr,
-  label: '',
-  tier,
-  matchesPlayed: null,
-  fetchedAt: '2026-11-07T18:22:00Z',
-  peak: null,
-  status: 'ready' as const,
-});
+const solo = (tier: number, mmr: number, more: Parameters<typeof aSoloRank>[0] = {}) =>
+  aSoloRank({ tier, mmr, fetchedAt: '2026-11-07T18:22:00Z', ...more });
 
 const club = { ...testClub, me: { ...testClub.me, soloPseudo: 'alice_solo' } };
 const board = boardWith({
   doublesRanks: [
-    aRank({ player: 'alice', mmr: 1362, tier: 18, solo: solo(19, 1509) }),
-    aRank({ player: 'bob', mmr: 1500, tier: 19, solo: solo(17, 1238) }),
+    aRank({ player: 'alice', mmr: 1362, tier: 18, solo: solo(19, 1509, { pseudo: 'alice_solo', best: 1560 }) }),
+    aRank({ player: 'bob', mmr: 1500, tier: 19, solo: solo(17, 1238, { pseudo: 'bob_solo' }) }),
   ],
 });
 
@@ -34,11 +27,12 @@ test('shows the member’s solo account and the MMR left to the next rank', asyn
   expect(within(mine).getByRole('progressbar', { name: 'Vers Grand Champion II' })).toBeInTheDocument();
 });
 
-test('ranks the club by the MMR of their solo accounts', async () => {
+test('ranks the club’s solo accounts by MMR, under their solo pseudos, with their peak', async () => {
   open({ club, board });
   const lines = within(await screen.findByRole('region', { name: 'Le club' })).getAllByRole('listitem');
-  expect(lines[0]).toHaveTextContent('1aliceTOIGrand Champion I1 509');
-  expect(lines[1]).toHaveTextContent('2bobChampion II1 238');
+  expect(lines[0]).toHaveTextContent('1alice_soloTOIGrand Champion I1 509Peak 1 560');
+  expect(lines[1]).toHaveTextContent('2bob_soloChampion II1 238');
+  expect(lines[1]).not.toHaveTextContent('Peak');
 });
 
 test('lists every rank from Supersonic Legend down, with the MMR that wins it', async () => {

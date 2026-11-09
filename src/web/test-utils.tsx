@@ -94,6 +94,22 @@ export const aRank = (parts: Partial<DoublesRank> & Pick<DoublesRank, 'player'>)
   ...parts,
 });
 
+/** A solo account as the rank source read it. */
+export const aSoloRank = (parts: Partial<SoloRank> = {}): SoloRank => ({
+  mmr: null,
+  label: '',
+  tier: null,
+  matchesPlayed: null,
+  fetchedAt: null,
+  peak: null,
+  status: 'ready',
+  pseudo: null,
+  best: null,
+  ...parts,
+});
+
+type SoloRank = NonNullable<DoublesRank['solo']>;
+
 interface Options {
   club?: Club;
   board?: Board | null;

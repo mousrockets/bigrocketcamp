@@ -1,16 +1,9 @@
 import { expect, test } from 'vitest';
-import { aRank } from '../test-utils';
+import { aRank, aSoloRank } from '../test-utils';
 import { climbOf, rankLadder, soloLines } from './ladder';
 
-const solo = (tier: number | null, mmr: number | null, status: 'ready' | 'not_found' = 'ready') => ({
-  mmr,
-  label: '',
-  tier,
-  matchesPlayed: null,
-  fetchedAt: null,
-  peak: null,
-  status,
-});
+const solo = (tier: number | null, mmr: number | null, status: 'ready' | 'not_found' = 'ready') =>
+  aSoloRank({ tier, mmr, status });
 
 test('climbs from Bronze I to Supersonic Legend, one tier and a higher MMR at a time', () => {
   expect(rankLadder).toHaveLength(22);
@@ -56,4 +49,21 @@ test('ranks the club’s solo accounts by MMR, and leaves out those never read',
     { player: 'carol', me: false, position: 2, mmr: 1100 },
   ]);
   expect(lines[0]?.step.name).toBe('Grand Champion I');
+});
+
+test('names each line after its solo account, with its best rating never below the current one', () => {
+  const lines = soloLines(
+    [
+      aRank({ player: 'alice', solo: aSoloRank({ tier: 19, mmr: 1509, pseudo: 'alice_solo', best: 1560 }) }),
+      aRank({ player: 'bob', solo: aSoloRank({ tier: 17, mmr: 1238, pseudo: 'bob_solo', best: 1200 }) }),
+      aRank({ player: 'carol', solo: aSoloRank({ tier: 16, mmr: 1100 }) }),
+    ],
+    ['alice', 'bob', 'carol'],
+    null,
+  );
+  expect(lines.map(({ name, best }) => ({ name, best }))).toEqual([
+    { name: 'alice_solo', best: 1560 },
+    { name: 'bob_solo', best: 1238 },
+    { name: 'carol', best: null },
+  ]);
 });

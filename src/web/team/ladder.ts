@@ -73,6 +73,10 @@ export interface SoloLine {
   position: number;
   step: RankStep;
   mmr: number;
+  /** The solo account's pseudo, or the player's when an older API did not send it. */
+  name: string;
+  /** The account's best rating, every season, when known. */
+  best: number | null;
 }
 
 type DoublesRank = Board['doublesRanks'][number];
@@ -91,9 +95,13 @@ export function soloLines(
   me: string | null,
 ): SoloLine[] {
   const read = roster.flatMap((player) => {
-    const reading = soloReading(doublesRanks.find((ranks) => ranks.player === player));
+    const ranks = doublesRanks.find((candidate) => candidate.player === player);
+    const solo = ranks?.solo;
+    const reading = soloReading(ranks);
     const step = reading && rankStep(reading.tier);
-    return reading && step ? [{ player, me: player === me, step, mmr: reading.mmr }] : [];
+    if (!solo || !reading || !step) return [];
+    const best = solo.best === null ? null : Math.max(solo.best, reading.mmr);
+    return [{ player, me: player === me, step, mmr: reading.mmr, name: solo.pseudo || player, best }];
   });
   return read
     .sort((a, b) => b.mmr - a.mmr || roster.indexOf(a.player) - roster.indexOf(b.player))

@@ -23,6 +23,8 @@ test('shows the member’s ranks under their pseudo', async () => {
           status: 'ready',
           fetchedAt: null,
           peak: null,
+          pseudo: null,
+          best: null,
         },
       }),
     ],
