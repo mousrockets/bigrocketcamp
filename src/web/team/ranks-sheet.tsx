@@ -147,8 +147,8 @@ function ClubLines({ lines }: { lines: SoloLine[] }) {
                   <b className="num text-[20px] [line-height:1]">{formatNumber(line.mmr)}</b>
                 </span>
                 {line.best !== null && (
-                  <span className="text-[11px] text-t3 tabular-nums [line-height:normal]">
-                    Peak <b className="num font-semibold text-t2">{formatNumber(line.best)}</b>
+                  <span className="flex items-baseline gap-1 text-[11px] text-t3 [line-height:normal]">
+                    Peak <b className="num font-semibold text-[14px] text-t2">{formatNumber(line.best)}</b>
                   </span>
                 )}
               </ItemActions>
