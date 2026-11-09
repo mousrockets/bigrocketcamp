@@ -1,6 +1,6 @@
 import { screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
-import { anExercise, aRank, aResult, boardWith, renderInApp } from '../test-utils';
+import { anExercise, aRank, aResult, boardWith, renderInApp, setViewportWidth } from '../test-utils';
 import { TeamPage } from './team-page';
 
 const now = new Date('2026-11-07T18:30:00Z');
@@ -69,6 +69,27 @@ test('opens the club’s rules from the member’s challenges', async () => {
   renderInApp(<TeamPage />, { board });
   const debt = await screen.findByRole('region', { name: 'Ta dette' });
   expect(within(debt).getByRole('link', { name: 'Les règles' })).toHaveAttribute('href', '/?regles=true');
+});
+
+test('links the day’s summary from the team on a computer', async () => {
+  setViewportWidth(1440);
+  try {
+    renderInApp(<TeamPage />, { board });
+    expect(await screen.findByRole('link', { name: 'Bilan du jour' })).toHaveAttribute('href', '/matchs');
+  } finally {
+    setViewportWidth(1024);
+  }
+});
+
+test('leaves the day’s summary to the tab bar on a phone', async () => {
+  setViewportWidth(390);
+  try {
+    renderInApp(<TeamPage />, { board });
+    await screen.findByRole('link', { name: 'Les ranks' });
+    expect(screen.queryByRole('link', { name: 'Bilan du jour' })).not.toBeInTheDocument();
+  } finally {
+    setViewportWidth(1024);
+  }
 });
 
 test('says Direct while a collector sends matches, and when the last one came in', async () => {
