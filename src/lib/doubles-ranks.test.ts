@@ -59,6 +59,7 @@ test('each card shows the season peak, and the solo account its profile names, a
     label: 'Grand Champion I · Division II',
     tier: 19,
     matchesPlayed: 40,
+    placements: null,
     status: 'ready',
     fetchedAt: now,
     peak: null,

@@ -91,6 +91,21 @@ test('shows no way up at the top of the ladder', async () => {
   expect(within(card).queryByRole('progressbar', { name: /^Vers / })).not.toBeInTheDocument();
 });
 
+test('says how many placement matches an account played, in place of its division', async () => {
+  const placing = aRank({
+    player: 'bob',
+    mmr: 1150,
+    label: 'Champion I',
+    tier: 16,
+    placements: 3,
+    solo: aSoloRank({ mmr: 1154, tier: 16, label: 'Champion I', placements: 7 }),
+  });
+  renderInApp(<TeamPage />, { board: { ...board, doublesRanks: [placing] } });
+  const card = (await screen.findAllByRole('group'))[1] as HTMLElement;
+  expect(within(card).getByText('Placement · 7/10')).toBeInTheDocument();
+  expect(within(card).getByText('Placement · 3/10')).toBeInTheDocument();
+});
+
 test('opens the ranks’ ladder from the team', async () => {
   renderInApp(<TeamPage />, { board });
   expect(await screen.findByRole('link', { name: 'Les ranks' })).toHaveAttribute('href', '/?ranks=true');

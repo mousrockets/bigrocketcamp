@@ -81,6 +81,8 @@ const rankFields = {
   /** Shown as the rank icon; null while no rank was read. */
   tier: z.number().nullable(),
   matchesPlayed: z.number().nullable(),
+  /** Placement matches played while the season's ten are not done; null once placed, or from an older API. */
+  placements: z.number().nullable().catch(null),
   fetchedAt: z.string().nullable(),
   /** Absent from an API older than the season peaks. */
   peak: seasonPeak.nullable().catch(null),

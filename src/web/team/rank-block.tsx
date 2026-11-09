@@ -13,7 +13,12 @@ export interface CardRank {
   label: string;
   tier: number | null;
   peak: SeasonPeak | null;
+  /** Placement matches played while the season's ten are not done; null once placed. */
+  placements: number | null;
 }
+
+/** The season's ten placement matches, each account plays them before it gets a division. */
+const placementMatches = 10;
 
 const rankIcon = (tier: number | null) => `/rocket-league/ranks/${tier ?? 0}.png`;
 
@@ -40,7 +45,10 @@ export function RankBlock({
   climbing?: boolean;
 }) {
   const rgb = rankRgb(rank?.tier);
-  const { rank: name, division } = rank ? splitRankLabel(rank.label) : { rank: 'Pas de compte solo', division: '' };
+  const { rank: name, division: placed } = rank
+    ? splitRankLabel(rank.label)
+    : { rank: 'Pas de compte solo', division: '' };
+  const division = rank?.placements != null ? `Placement · ${rank.placements}/${placementMatches}` : placed;
   return (
     <div
       className="flex flex-col gap-2.5 rounded-2xl p-3"

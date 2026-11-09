@@ -374,6 +374,8 @@ export const playerRanks = sqliteTable('player_ranks', {
   lastAttempt: text('last_attempt').notNull(),
   status: text('status').notNull(),
   matchesPlayed: integer('matches_played'),
+  /** Placement matches played this season while the ten are not done; null once placed, or when not read. */
+  placementMatches: integer('placement_matches'),
   ...seasonPeak,
 });
 
@@ -386,6 +388,8 @@ export const soloRanks = sqliteTable('solo_ranks', {
   tier: integer('tier'),
   division: integer('division'),
   matchesPlayed: integer('matches_played'),
+  /** Placement matches played this season while the ten are not done; null once placed, or when not read. */
+  placementMatches: integer('placement_matches'),
   /** The rank source's latest reading of the account. */
   fetchedAt: text('fetched_at'),
   /** `ready`, or why the rank source could not read the account (`not_found`, `needs_player_id`…). */

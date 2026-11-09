@@ -61,6 +61,7 @@ const ranks = [
       label: 'Grand Champion I · Division I',
       tier: 19,
       matchesPlayed: null,
+      placements: null,
       fetchedAt: null,
       peak: null,
       pseudo: null,
