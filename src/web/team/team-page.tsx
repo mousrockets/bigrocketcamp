@@ -1,3 +1,4 @@
+import { useNavigate, useSearch } from '@tanstack/react-router';
 import { parisDay } from '../../lib/days';
 import { type Board, playerStats, useBoardState } from '../board';
 import { platformLabels, useClub } from '../club';
@@ -6,6 +7,7 @@ import { LiveStatus } from '../components/live-status';
 import { ClubBadge } from '../shell/club-badge';
 import { DebtHero } from './debt-hero';
 import type { CardPlayer } from './player-card';
+import { PlayerSheet } from './player-sheet';
 import type { CardRank } from './rank-block';
 import { currentStreak, debtOf, highestTier, latest } from './stats';
 import { TeamCarousel } from './team-carousel';
@@ -28,6 +30,7 @@ function cardPlayers(
     const days = new Set(board.exercises.filter((exercise) => exercise.player === stat.name).map((e) => e.day));
     return {
       name: stat.name,
+      position: roster.indexOf(stat.name),
       me: stat.name === me,
       platform: platforms.get(stat.name) ?? null,
       streak: currentStreak(days, day),
@@ -64,6 +67,10 @@ export function TeamPage() {
   );
   const players = board ? cardPlayers(board, club.roster, me, platforms) : [];
   const mine = players.find((player) => player.me);
+  // `?fiche=2` opens the sheet of the roster's third player: a pseudo stays out of the address.
+  const { fiche } = useSearch({ strict: false });
+  const navigate = useNavigate();
+  const shown = typeof fiche === 'number' ? (club.roster[fiche] ?? null) : null;
 
   return (
     <main className="relative flex min-h-dvh flex-col pt-[max(60px,calc(env(safe-area-inset-top)+12px))] pb-[120px] lg:px-[clamp(20px,5vw,72px)] lg:pt-11 lg:pb-16">
@@ -83,6 +90,12 @@ export function TeamPage() {
         {error && !board && <p className="m-0 px-5 pt-10 text-[15px] text-t2 lg:px-0 lg:pt-0">{error}</p>}
         {mine && <DebtHero debt={mine.debt} streak={mine.streak} />}
         {players.length > 0 && <TeamCarousel players={players} />}
+        <PlayerSheet
+          name={shown}
+          onClose={() =>
+            void navigate({ to: '.', search: (previous) => ({ ...previous, fiche: undefined }), resetScroll: false })
+          }
+        />
 
         <p className="mx-6 mt-10 mb-0 text-center text-[11px] text-t3 [line-height:1.5] lg:m-0 lg:text-left lg:[line-height:normal]">
           {epicNotice}

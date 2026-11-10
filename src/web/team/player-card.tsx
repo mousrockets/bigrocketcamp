@@ -1,4 +1,6 @@
+import { Link } from '@tanstack/react-router';
 import { cn } from 'cn';
+import { ChevronRight } from 'lucide-react';
 import type { CSSProperties, PointerEvent } from 'react';
 import { formatAge, formatNumber } from '../../lib/format';
 import { Badge } from '../components/ui/badge';
@@ -11,6 +13,8 @@ import { type Debt, litSegments, rankRgb } from './stats';
 
 export interface CardPlayer {
   name: string;
+  /** The player's place in the roster: the address of their sheet. */
+  position: number;
   me: boolean;
   platform: string | null;
   streak: number;
@@ -82,7 +86,16 @@ export function PlayerCard({ player, active, now }: { player: CardPlayer; active
           <span className="flex min-w-0 flex-col gap-[3px]">
             <span className="flex items-center gap-2">
               <CardTitle className="whitespace-nowrap font-sans font-semibold text-[17px] tracking-[-.01em] [line-height:normal]">
-                {player.name}
+                <Link
+                  to="/"
+                  search={{ fiche: player.position }}
+                  resetScroll={false}
+                  aria-label={`Stats de ${player.name}`}
+                  className="flex items-center gap-0.5"
+                >
+                  {player.name}
+                  <ChevronRight aria-hidden="true" className="size-4 text-t3" />
+                </Link>
               </CardTitle>
               {player.me && <Badge variant="tag">TOI</Badge>}
             </span>

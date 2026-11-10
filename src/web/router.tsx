@@ -26,7 +26,13 @@ const shellRoute = createRoute({
   component: AppShell,
   validateSearch: z.object({ declarer: sheetParameter, ranks: sheetParameter, regles: sheetParameter }),
 });
-const teamRoute = createRoute({ getParentRoute: () => shellRoute, path: '/', component: TeamPage });
+// `?fiche=2` opens the sheet of the roster's third player over the team.
+const teamRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: '/',
+  component: TeamPage,
+  validateSearch: z.object({ fiche: z.number().int().min(0).optional().catch(undefined) }),
+});
 // A past period has its own address: `?semaine=2026-11-02` (its Monday) and `?mois=2026-10` in Défis,
 // `?jour=2026-11-07` in Matchs. Without one, or with one that cannot be read, the tab shows the current period.
 const dayParameter = z.iso.date().optional().catch(undefined);
