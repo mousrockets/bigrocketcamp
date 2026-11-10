@@ -211,6 +211,27 @@ describe('sending with the collector token', () => {
     ]);
   });
 
+  test('keeps the demolitions and crossbar hits a collector sends, and none from an older one', async () => {
+    const token = await pairedToken();
+    const counted = livePayload({ guid: 'synthetic-demos' });
+    counted.state.Players = counted.state.Players.map((player, index) => ({
+      ...player,
+      Demos: index,
+      CrossbarHits: index === 0 ? 2 : 0,
+    }));
+    for (const body of [counted, livePayload({ guid: 'synthetic-plain' })])
+      expect((await call('/api/live', { method: 'POST', token, body })).status).toBe(200);
+    const rows = await env.DB.prepare(
+      `SELECT match_guid, name, demos, crossbar_hits FROM match_results
+      WHERE name = 'alice' AND match_guid IN ('synthetic-demos', 'synthetic-plain') ORDER BY match_guid`,
+    ).all();
+    const alice = counted.state.Players.findIndex((player) => player.Name === 'alice');
+    expect(rows.results).toEqual([
+      { match_guid: 'synthetic-demos', name: 'alice', demos: alice, crossbar_hits: alice === 0 ? 2 : 0 },
+      { match_guid: 'synthetic-plain', name: 'alice', demos: null, crossbar_hits: null },
+    ]);
+  });
+
   test('the status names the player, and a revoked token is refused', async () => {
     const token = await pairedToken();
     const status = await call('/api/collector/status', { token });

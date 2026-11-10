@@ -28,6 +28,9 @@ export const boardResult = z.looseObject({
   goals: z.number(),
   assists: z.number(),
   saves: z.number(),
+  /** Null while no source sent them (older collectors, Epic's history); absent from an API older than them. */
+  demos: z.number().nullable().catch(null),
+  crossbar_hits: z.number().nullable().catch(null),
   received: z.string(),
   review_required: z.boolean(),
   verification: z.enum(['review', 'corrected', 'confirmed', 'single']).catch('single'),

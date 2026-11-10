@@ -46,6 +46,8 @@ interface StoredRow {
   goals: number;
   assists: number;
   saves: number;
+  demos: number | null;
+  crossbar_hits: number | null;
   received: string;
   review_required: number;
   verification: MergedResult['verification'];
@@ -73,6 +75,8 @@ export const storedColumns = {
   goals: matchResults.goals,
   assists: matchResults.assists,
   saves: matchResults.saves,
+  demos: matchResults.demos,
+  crossbar_hits: matchResults.crossbarHits,
   received: matchResults.received,
   review_required: matchResults.reviewRequired,
   verification: matchResults.verification,
@@ -101,6 +105,8 @@ export const builtResult = (row: StoredRow): BuiltResult => ({
   goals: row.goals,
   assists: row.assists,
   saves: row.saves,
+  demos: row.demos,
+  crossbar_hits: row.crossbar_hits,
   received: row.received,
   review_required: Boolean(row.review_required),
   verification: row.verification,
@@ -127,6 +133,8 @@ const storedRow = (row: MergedResult, expected: number | null): StoredRow => ({
   goals: row.goals,
   assists: row.assists,
   saves: row.saves,
+  demos: row.demos ?? null,
+  crossbar_hits: row.crossbar_hits ?? null,
   received: row.received,
   review_required: row.review_required ? 1 : 0,
   verification: row.verification,

@@ -203,3 +203,28 @@ test('the sheet adds up every match of the player, the disputed ones aside', asy
   const figures = within(sheet).getByRole('region', { name: 'Statistiques' });
   expect(figures).toHaveTextContent('3Buts1Passes D5Arrêts1MVP');
 });
+
+test('the sheet counts demolitions and posts once the collector sends them, and says when it does not yet', async () => {
+  const stats = boardWith({
+    results: [
+      aResult({ name: 'bob', match_guid: 'new', demos: 3, crossbar_hits: 1 }),
+      aResult({ name: 'bob', match_guid: 'newer', demos: 2, crossbar_hits: 0 }),
+      aResult({ name: 'bob', match_guid: 'old' }),
+      aResult({ name: 'alice', match_guid: 'older' }),
+    ],
+  });
+  renderInApp(<TeamPage />, { board: stats, path: '/?fiche=1' });
+  const bob = await screen.findByRole('dialog', { name: 'bob' });
+  expect(within(bob).getByRole('region', { name: 'Statistiques' })).toHaveTextContent('5Démos1Poteaux');
+  expect(within(bob).queryByText(/mise à jour du collecteur/)).not.toBeInTheDocument();
+});
+
+test('before any match with them, demolitions and posts show a dash', async () => {
+  renderInApp(<TeamPage />, {
+    board: boardWith({ results: [aResult({ name: 'bob', match_guid: 'old' })] }),
+    path: '/?fiche=1',
+  });
+  const bob = await screen.findByRole('dialog', { name: 'bob' });
+  expect(within(bob).getByRole('region', { name: 'Statistiques' })).toHaveTextContent('–Démos–Poteaux');
+  expect(within(bob).getByText('Démos et poteaux se comptent dès la mise à jour du collecteur.')).toBeInTheDocument();
+});

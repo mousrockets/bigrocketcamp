@@ -53,6 +53,9 @@ export interface ReceivedResult {
   goals: number;
   assists: number;
   saves: number;
+  /** Absent while the source sent none (older collectors, Epic's history). */
+  demos?: number;
+  crossbarHits?: number;
 }
 
 // biome-ignore lint/suspicious/noExplicitAny: the collector's payload is validated field by field below.
@@ -101,6 +104,8 @@ function normalize(roster: Roster, raw: RawResult, includeOthers: boolean): Rece
     goals: raw.Goals,
     assists: raw.Assists,
     saves: raw.Saves,
+    ...(bounded(raw.Demos) ? { demos: raw.Demos } : {}),
+    ...(bounded(raw.CrossbarHits) ? { crossbarHits: raw.CrossbarHits } : {}),
   };
 }
 

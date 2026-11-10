@@ -58,6 +58,8 @@ export const aResult = (parts: Partial<BoardResult> & Pick<BoardResult, 'name' |
   goals: 0,
   assists: 0,
   saves: 0,
+  demos: null,
+  crossbar_hits: null,
   received: '2026-11-07T18:00:00.000Z',
   review_required: false,
   verification: 'single',
