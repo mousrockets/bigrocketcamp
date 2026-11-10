@@ -167,3 +167,39 @@ test('shows a settled debt in green, with its own line', async () => {
   renderInApp(<TeamPage />, { board: { ...board, results: [] } });
   expect(await screen.findByText('Ardoise propre. Le free play t’attend.')).toBeInTheDocument();
 });
+
+test('a player’s pseudo opens the sheet of their stats', async () => {
+  const stats = boardWith({
+    results: [
+      aResult({ name: 'bob', match_guid: 'won', winner: 0, score: 620, goals: 2, assists: 1, saves: 3 }),
+      aResult({ name: 'stranger', player_id: 'Epic|s|0', match_guid: 'won', winner: 0, score: 400 }),
+      aResult({ name: 'foe', player_id: 'Epic|f|0', match_guid: 'won', team: 1, winner: 0, score: 500 }),
+      aResult({ name: 'bob', match_guid: 'lost', goals: 1, saves: 2 }),
+      aResult({ name: 'bob', match_guid: 'doubt', goals: 9, review_required: true }),
+    ],
+    matchRosters: [{ match_guid: 'won', expected_players: 3 }],
+  });
+  renderInApp(<TeamPage />, { board: stats });
+  const link = await screen.findByRole('link', { name: 'Stats de bob' });
+  expect(link).toHaveAttribute('href', '/?fiche=1');
+});
+
+test('the sheet adds up every match of the player, the disputed ones aside', async () => {
+  const stats = boardWith({
+    results: [
+      aResult({ name: 'bob', match_guid: 'won', winner: 0, score: 620, goals: 2, assists: 1, saves: 3 }),
+      aResult({ name: 'stranger', player_id: 'Epic|s|0', match_guid: 'won', winner: 0, score: 400 }),
+      aResult({ name: 'foe', player_id: 'Epic|f|0', match_guid: 'won', team: 1, winner: 0, score: 500 }),
+      aResult({ name: 'bob', match_guid: 'lost', goals: 1, saves: 2 }),
+      aResult({ name: 'bob', match_guid: 'doubt', goals: 9, review_required: true }),
+    ],
+    matchRosters: [{ match_guid: 'won', expected_players: 3 }],
+  });
+  renderInApp(<TeamPage />, { board: stats, path: '/?fiche=1' });
+  const sheet = await screen.findByRole('dialog', { name: 'bob' });
+  expect(within(sheet).getByRole('region', { name: 'Matchs joués' })).toHaveTextContent(
+    'Matchs joués1 W · 1 L · 50 % de victoires2',
+  );
+  const figures = within(sheet).getByRole('region', { name: 'Statistiques' });
+  expect(figures).toHaveTextContent('3Buts1Passes D5Arrêts1MVP');
+});
