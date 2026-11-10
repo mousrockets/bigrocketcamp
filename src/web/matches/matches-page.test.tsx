@@ -262,3 +262,11 @@ test('a player in a group with a club player or the same stranger three matches 
   // Twice in a row can be chance.
   expect(['20:30', '20:20', '20:10', '20:00'].map(grouped)).toEqual([0, 0, 0, 0]);
 });
+
+test('the replay names the MVP of each match the club won, beside their points', async () => {
+  renderInApp(<MatchesPage />, { board, path: today });
+  const replay = await screen.findByRole('region', { name: 'Derniers matchs' });
+  // Alice had the best score of the winners twice today; the strangers won the evening's loss.
+  expect(within(replay).getAllByText('MVP')).toHaveLength(2);
+  expect(within(replay).getAllByText('MVP')[0]?.parentElement).toHaveTextContent('· 400 pts · MVP');
+});

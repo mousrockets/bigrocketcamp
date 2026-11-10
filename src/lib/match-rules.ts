@@ -59,7 +59,7 @@ export function lastPlaceRuleOn(rules: LastPlaceRules, day: string): LastPlaceRu
 }
 
 const guid = (row: MatchRow | RosterSize) => row.match_guid ?? row.matchGuid;
-const identity = (row: MatchRow) => row.player_id ?? row.playerId ?? row.name;
+export const identity = (row: MatchRow) => row.player_id ?? row.playerId ?? row.name;
 
 export function matchIndex<Row extends MatchRow>(
   rows: Row[],

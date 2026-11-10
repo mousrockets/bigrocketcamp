@@ -132,6 +132,7 @@ export interface ReplayMatch {
     lastPlace: boolean;
     highScore: boolean;
     left: boolean;
+    mvp: boolean;
     /** Played in a group: with a club player, or with the same stranger several matches in a row. */
     party: boolean;
     cost: number;
@@ -185,13 +186,14 @@ export function replay(board: Board, roster: readonly string[], days: readonly s
       score: match.score,
       players: [...match.players]
         .sort((a, b) => b.row.score - a.row.score)
-        .map(({ row, pushups, lastPlace, highScore, left }) => ({
+        .map(({ row, pushups, lastPlace, highScore, left, mvp }) => ({
           name: row.name,
           account: playedSolo(solo, row) ? (solo.get(row.name)?.pseudo ?? row.name) : row.name,
           points: row.score,
           lastPlace,
           highScore,
           left,
+          mvp,
           party: partied.get(match.guid)?.has(row.player_id) ?? false,
           cost: pushups,
         })),

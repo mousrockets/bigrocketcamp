@@ -230,7 +230,14 @@ function MatchRow({ match }: { match: ReplayMatch }) {
                 </Badge>
               )}{' '}
               <span className="text-t3">
-                · {formatNumber(player.points)} pts{player.lastPlace ? ' · moins de pts' : ''}
+                · {formatNumber(player.points)} pts
+                {player.mvp && (
+                  <>
+                    {' · '}
+                    <b className="font-semibold text-t1">MVP</b>
+                  </>
+                )}
+                {player.lastPlace ? ' · moins de pts' : ''}
                 {player.left ? ' · a quitté' : ''}
                 {player.highScore ? ` · ${formatNumber(highScorePoints)}+ pts` : ''}
               </span>

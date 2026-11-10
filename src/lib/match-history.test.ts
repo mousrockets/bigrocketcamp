@@ -250,3 +250,27 @@ test('a group: a club teammate at once, a stranger teammate from the second of t
   // A stranger of the other team is never a group.
   expect(partied.get('b')?.size).toBe(1);
 });
+
+test('names the MVP: the best score of the winning team, once the scoreboard is whole', () => {
+  const rosters = [
+    { match_guid: 'late', expected_players: 4 },
+    { match_guid: 'early', expected_players: 3 },
+  ];
+  const history = matchHistory(club, scoreboard, matchIndex(scoreboard, rosters), roster);
+  const mvps = history.map((match) => match.players.filter(({ mvp }) => mvp).map(({ row }) => row.name));
+  // The opponents won the late match; Alice had the best score of her winning team in the early one.
+  expect(mvps).toEqual([[], [alice]]);
+  const partial = matchHistory(club, scoreboard, matchIndex(scoreboard), roster);
+  expect(partial.flatMap((match) => match.players.filter(({ mvp }) => mvp))).toEqual([]);
+});
+
+test('a tie for the best score of the winners names no MVP', () => {
+  const tied = [line('tie', alice, 0, 0, 300), line('tie', bob, 0, 0, 300), line('tie', 'Opponent', 1, 0, 100)];
+  const [match] = matchHistory(
+    tied.slice(0, 2),
+    tied,
+    matchIndex(tied, [{ match_guid: 'tie', expected_players: 3 }]),
+    roster,
+  );
+  expect(match?.players.map(({ mvp }) => mvp)).toEqual([false, false]);
+});

@@ -6,6 +6,7 @@ import {
   forfeitDodge,
   highScoreDodge,
   type IndexedMatch,
+  identity,
   type LastPlaceRules,
   lastPlaceBonus,
   type MatchRow,
@@ -42,6 +43,8 @@ export interface HistoryPlayer<Row extends HistoryRow> {
   highScore: boolean;
   /** This player left before the end: a defeat, whatever his team did after. */
   left: boolean;
+  /** The game named this player the match's MVP: the best score of the winning team. */
+  mvp: boolean;
 }
 
 export interface HistoryMatch<Row extends HistoryRow> {
@@ -96,6 +99,18 @@ function scoreOf(all: readonly HistoryRow[], ours: number): [number, number] | n
 }
 
 /**
+ * The account the game names MVP: the best score of the winning team, among the players present at the end. Only a
+ * scoreboard received whole tells it, and a tie for the best score leaves it unknown.
+ */
+export function mvpOf<Row extends MatchRow>(match: IndexedMatch<Row> | undefined): string | null {
+  if (!match?.complete) return null;
+  const winners = [...match.players].filter(([, row]) => row.team === row.winner);
+  const best = Math.max(...winners.map(([, row]) => row.score));
+  const top = winners.filter(([, row]) => row.score === best);
+  return top.length === 1 ? (top[0]?.[0] ?? null) : null;
+}
+
+/**
  * Groups the club's rows by match, newest first as the rows come. `scoreboard` holds every row received,
  * opponents included, for the score; `matches` is the match index the pushups are counted with.
  */
@@ -133,6 +148,7 @@ export function matchHistory<Row extends HistoryRow>(
           ? 'victory'
           : 'defeat';
     const all = everyone.get(guid) ?? rows;
+    const mvp = mvpOf(matches.get(guid));
     const ours = teams.size === 1 ? first.team : 0;
     return {
       guid,
@@ -164,6 +180,7 @@ export function matchHistory<Row extends HistoryRow>(
           dodged: forfeit > 0,
           highScore: highScore > 0,
           left: row.left === true,
+          mvp: !row.left && mvp !== null && mvp === identity(row),
         };
       }),
     };
