@@ -403,6 +403,57 @@ describe('live stats', () => {
     for (const body of refused) expect(() => parseLiveMatch(roster, body, now)).toThrow();
   });
 
+  test('capture counts the crossbar hits of the player who last touched the ball, and sends the demolitions', () => {
+    const out: LivePayload[] = [];
+    const p = payload('crossbars');
+    const capture = matchCapture(
+      (completed) => out.push(completed as LivePayload),
+      () => now,
+    );
+    // The game names a player by a shortcut in his team in its events, and in the scoreboard.
+    const state = structuredClone(p.state);
+    for (const [index, player] of state.Players.entries()) Object.assign(player, { Shortcut: index % 3, Demos: index });
+    const hit = (Shortcut: number, TeamNum: number) =>
+      packet('CrossbarHit', { MatchGuid: 'crossbars', BallLastTouch: { Player: { Name: 'x', Shortcut, TeamNum } } });
+    capture.handle(packet('MatchCreated', { MatchGuid: 'crossbars' }));
+    capture.handle(packet('UpdateState', state));
+    capture.handle(hit(1, 0));
+    capture.handle(hit(1, 0));
+    capture.handle(hit(2, 1));
+    // Nobody the scoreboard names: no one to count it for.
+    capture.handle(hit(7, 0));
+    capture.handle(packet('MatchEnded', p.end));
+    // After the end, a hit counts for nobody.
+    capture.handle(hit(0, 0));
+    capture.handle(packet('UpdateState', state));
+    capture.handle(packet('UpdateState', state));
+    expect(out.length).toBe(1);
+    const rows = parseLiveMatch(roster, out[0], now).rows;
+    expect(rows.map((row) => [row.name, row.demos, row.crossbarHits])).toEqual([
+      ['renamed-player', 0, 0],
+      [second, 1, 2],
+      [third, 2, 0],
+      ['Opponent 1', 3, 0],
+      ['Opponent 2', 4, 0],
+      ['Opponent 3', 5, 1],
+    ]);
+  });
+
+  test('a scoreboard without demolitions nor crossbar hits, or with unreadable ones, still counts without them', () => {
+    const older = payload('older');
+    expect(parseLiveMatch(roster, older, now).rows.every((row) => !('demos' in row) && !('crossbarHits' in row))).toBe(
+      true,
+    );
+    const unreadable = payload('unreadable');
+    for (const player of unreadable.state.Players) Object.assign(player, { Demos: -1, CrossbarHits: 'a lot' });
+    const rows = parseLiveMatch(roster, unreadable, now).rows;
+    expect(rows.length).toBe(6);
+    expect(rows.some((row) => 'demos' in row || 'crossbarHits' in row)).toBe(false);
+  });
+
+  /** The capture counts the crossbar hits of every player it sends: none in these matches. */
+  const unhit = (players: LivePlayer[]) => players.map((player) => ({ ...player, CrossbarHits: 0 }));
+
   test('capture sends the players gone before the end, first seen first, with their last line before it', () => {
     const out: LivePayload[] = [];
     const p = payload('departures');
@@ -430,12 +481,12 @@ describe('live stats', () => {
     expect(out.length).toBe(1);
     const lineOf = (index: number) => {
       const { Name, PrimaryId, TeamNum, Score, Goals, Assists, Saves } = scored.Players[index] as LivePlayer;
-      return { PrimaryId, Name, TeamNum, Score, Goals, Assists, Saves };
+      return { PrimaryId, Name, TeamNum, Score, Goals, Assists, Saves, CrossbarHits: 0 };
     };
     // The same JSON as the collector's, in its order.
     expect(JSON.stringify(out[0])).toBe(
       JSON.stringify({
-        state: podium,
+        state: { ...podium, Players: unhit(podium.Players) },
         end: p.end,
         startedAt: now,
         endedAt: now,
@@ -466,7 +517,7 @@ describe('live stats', () => {
           left: true,
           state: {
             MatchGuid: 'quit',
-            Players: p.state.Players,
+            Players: unhit(p.state.Players),
             Game: { PlaylistId: 13, Teams: p.state.Game.Teams, bReplay: false },
           },
           startedAt: now,

@@ -35,11 +35,17 @@ const canonical = (id: unknown) =>
 export interface LivePlayer {
   Name?: unknown;
   PrimaryId?: unknown;
+  /** How the game names the player in its events, with his team. */
+  Shortcut?: unknown;
   TeamNum?: unknown;
   Score?: unknown;
   Goals?: unknown;
   Assists?: unknown;
   Saves?: unknown;
+  /** Demolitions the player made. Absent from older collectors. */
+  Demos?: unknown;
+  /** Times the ball hit the crossbar or a post right after the player touched it. Absent from older collectors. */
+  CrossbarHits?: unknown;
 }
 
 export interface LiveTeam {
@@ -85,6 +91,8 @@ export interface LiveDeparture {
   Goals: unknown;
   Assists: unknown;
   Saves: unknown;
+  Demos?: unknown;
+  CrossbarHits?: unknown;
 }
 
 /** How many departures a payload holds at most. */
@@ -148,6 +156,9 @@ const notBlank = (text: string) => text.trim() !== '';
  * accepted scoreboard keeps only the identified players.
  */
 const statistics = { Score: statistic, Goals: statistic, Assists: statistic, Saves: statistic };
+// Older collectors send neither, and an unreadable one is unknown: the match still counts.
+const optionalStatistic = z.int().min(0).max(1_000_000).optional().catch(undefined);
+const extraStatistics = { Demos: optionalStatistic, CrossbarHits: optionalStatistic };
 const playerName = z.string(says(nameless)).max(128, says(nameless)).refine(notBlank, says(nameless));
 
 /** The checks of a scoreboard's players, end or left: each stage receives what the stage before it accepted. */
@@ -206,7 +217,12 @@ function scoreboardStages() {
   const participants = z.looseObject({
     state: z.looseObject({
       Players: z.array(
-        z.looseObject({ TeamNum: z.literal([0, 1], says(invalidResult)), ...statistics, Name: playerName }),
+        z.looseObject({
+          TeamNum: z.literal([0, 1], says(invalidResult)),
+          ...statistics,
+          ...extraStatistics,
+          Name: playerName,
+        }),
       ),
     }),
   });
@@ -283,6 +299,7 @@ export function liveMatchInput(now: () => number = Date.now) {
           Name: playerName,
           TeamNum: z.literal([0, 1]),
           ...statistics,
+          ...extraStatistics,
         }),
       )
       .max(departuresMax)
@@ -383,6 +400,8 @@ function lineOf(roster: Roster, guid: string, day: string, player: LivePlayer, w
     Goals: player.Goals,
     Assists: player.Assists,
     Saves: player.Saves,
+    Demos: player.Demos,
+    CrossbarHits: player.CrossbarHits,
   });
 }
 
@@ -562,7 +581,14 @@ interface CurrentMatch {
   /** The last usable scoreboard before MatchEnded, sent if the sender leaves the match before its end. */
   usable: LiveLeft['state'] | null;
   sent: boolean;
+  /** Each identified player by the shortcut and team the game names him with in its events. */
+  shortcuts: Map<string, string>;
+  /** Crossbar or post hits of each identified player, by his ID. */
+  crossbars: Map<string, number>;
 }
+
+/** The game names a player in its events by a shortcut, unique within his team. */
+const shortcutKey = (shortcut: unknown, team: unknown) => JSON.stringify([shortcut, team]);
 
 interface MatchClock {
   TimeSeconds?: unknown;
@@ -703,6 +729,8 @@ export function matchCapture(onComplete: (payload: LivePayload) => void, now: ()
             present: new Set(),
             usable: null,
             sent: false,
+            shortcuts: new Map(),
+            crossbars: new Map(),
           };
         }
         return;
@@ -712,6 +740,13 @@ export function matchCapture(onComplete: (payload: LivePayload) => void, now: ()
         current.end = { MatchGuid: guid, WinnerTeamNum: data.WinnerTeamNum };
         current.endedAt = now();
         current.candidate = null;
+        return;
+      }
+      if (event === 'CrossbarHit') {
+        if (current.end) return;
+        const touch = data.BallLastTouch?.Player;
+        const id = current.shortcuts.get(shortcutKey(touch?.Shortcut, touch?.TeamNum));
+        if (id) current.crossbars.set(id, (current.crossbars.get(id) ?? 0) + 1);
         return;
       }
       if (event !== 'UpdateState' || !Array.isArray(data.Players)) return;
@@ -724,21 +759,39 @@ export function matchCapture(onComplete: (payload: LivePayload) => void, now: ()
         current.clock = keptClock(current.clock, data.Game, current.end !== null);
         current.trace = tracedClock(current.trace, data.Game, current.end !== null);
       }
-      const players = data.Players.map(({ Name, PrimaryId, TeamNum, Score, Goals, Assists, Saves }: LivePlayer) => ({
-        Name,
-        PrimaryId,
-        TeamNum,
-        Score,
-        Goals,
-        Assists,
-        Saves,
-      }));
+      for (const player of data.Players as LivePlayer[])
+        if (identified(player))
+          current.shortcuts.set(shortcutKey(player.Shortcut, player.TeamNum), player.PrimaryId as string);
+      const crossbars = current.crossbars;
+      const players = data.Players.map(
+        ({ Name, PrimaryId, TeamNum, Score, Goals, Assists, Saves, Demos }: LivePlayer) => ({
+          Name,
+          PrimaryId,
+          TeamNum,
+          Score,
+          Goals,
+          Assists,
+          Saves,
+          Demos,
+          CrossbarHits: typeof PrimaryId === 'string' ? (crossbars.get(PrimaryId) ?? 0) : 0,
+        }),
+      );
       const usable = data.Game?.bReplay === false && players.some(identified);
       if (usable && !current.end) {
         const ids = new Set<string>();
         for (const player of players.filter(identified)) {
-          const { PrimaryId, Name, TeamNum, Score, Goals, Assists, Saves } = player;
-          current.players.set(PrimaryId, { PrimaryId, Name, TeamNum, Score, Goals, Assists, Saves });
+          const { PrimaryId, Name, TeamNum, Score, Goals, Assists, Saves, Demos, CrossbarHits } = player;
+          current.players.set(PrimaryId, {
+            PrimaryId,
+            Name,
+            TeamNum,
+            Score,
+            Goals,
+            Assists,
+            Saves,
+            Demos,
+            CrossbarHits,
+          });
           ids.add(PrimaryId);
         }
         current.present = ids;

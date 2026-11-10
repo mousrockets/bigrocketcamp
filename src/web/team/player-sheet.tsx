@@ -1,3 +1,4 @@
+import { cn } from 'cn';
 import { formatNumber } from '../../lib/format';
 import { useBoardState } from '../board';
 import { InfoSheet } from '../components/info-sheet';
@@ -38,14 +39,21 @@ export function PlayerSheet({ name, onClose }: { name: string | null; onClose: (
                   ['Passes D', career.assists],
                   ['Arrêts', career.saves],
                   ['MVP', career.mvps],
+                  ['Démos', career.demos],
+                  ['Poteaux', career.crossbarHits],
                 ] as const
               ).map(([label, value]) => (
                 <Card key={label} variant="tile">
-                  <b className="num text-[30px] [line-height:.85]">{formatNumber(value)}</b>
+                  <b className={cn('num text-[30px] [line-height:.85]', value === null && 'text-t3')}>
+                    {value === null ? '–' : formatNumber(value)}
+                  </b>
                   <span className="label-caps text-[10px]">{label}</span>
                 </Card>
               ))}
             </section>
+            {(career.demos === null || career.crossbarHits === null) && (
+              <p className="m-0 text-[12px] text-t3">Démos et poteaux se comptent dès la mise à jour du collecteur.</p>
+            )}
           </>
         ))}
     </InfoSheet>

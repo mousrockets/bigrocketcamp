@@ -286,6 +286,9 @@ export const matchResults = sqliteTable(
     goals: integer('goals').notNull(),
     assists: integer('assists').notNull(),
     saves: integer('saves').notNull(),
+    /** Null while no source sent them (older collectors, Epic's history). */
+    demos: integer('demos'),
+    crossbarHits: integer('crossbar_hits'),
     received: text('received').notNull(),
     reviewRequired: integer('review_required').notNull(),
     verification: text('verification').notNull(),

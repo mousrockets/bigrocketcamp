@@ -25,6 +25,9 @@ export interface StoredResult {
   goals: number;
   assists: number;
   saves: number;
+  /** Absent or null while no source sent them (older collectors, Epic's history). */
+  demos?: number | null;
+  crossbar_hits?: number | null;
   received?: string;
 }
 
@@ -39,6 +42,8 @@ const unknownFinish: MatchEnding & FinalScore = { ...unknownEnding, blue_goals: 
 
 export interface MergedResult extends StoredResult, MatchEnding, FinalScore {
   received: string;
+  demos: number | null;
+  crossbar_hits: number | null;
   /** The player left before the end: a defeat, kept apart from the final scoreboard. */
   left: boolean;
   review_required: boolean;
@@ -96,6 +101,12 @@ interface Candidate {
   source: string;
   received: string;
 }
+
+/** Demolitions and crossbar hits, which older sources never sent: unknown, not zero. */
+const extraStatisticsOf = (row: StoredResult) => ({
+  demos: typeof row.demos === 'number' ? row.demos : null,
+  crossbar_hits: typeof row.crossbar_hits === 'number' ? row.crossbar_hits : null,
+});
 
 const outcomeFields = ['day', 'kind', 'team', 'winner'] as const;
 const scoreFields = ['score', 'goals', 'assists', 'saves'] as const;
@@ -176,6 +187,7 @@ export function reconcile(
       match_guid: matchKey(chosen.row.match_guid),
       received: chosen.received,
       player_id: playerKey(chosen.row.player_id),
+      ...extraStatisticsOf(chosen.row),
       review_required: review,
       verification: review
         ? 'review'
@@ -301,6 +313,7 @@ function departedRows(
       ...chosen.row,
       match_guid: guid,
       player_id: playerKey(chosen.row.player_id),
+      ...extraStatisticsOf(chosen.row),
       received: chosen.received,
       review_required: false,
       verification: sources.size > 1 ? 'confirmed' : 'single',
@@ -402,6 +415,8 @@ interface ReceivedRow {
   goals: number;
   assists: number;
   saves: number;
+  demos?: number;
+  crossbarHits?: number;
 }
 
 const asStored = (row: ReceivedRow, now: string): StoredResult => ({
@@ -416,6 +431,8 @@ const asStored = (row: ReceivedRow, now: string): StoredResult => ({
   goals: row.goals,
   assists: row.assists,
   saves: row.saves,
+  ...(row.demos === undefined ? {} : { demos: row.demos }),
+  ...(row.crossbarHits === undefined ? {} : { crossbar_hits: row.crossbarHits }),
   received: now,
 });
 

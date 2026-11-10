@@ -11,7 +11,13 @@ export interface Career {
   assists: number;
   saves: number;
   mvps: number;
+  /** Null while no match of the player came with them: collectors older than these counts send none. */
+  demos: number | null;
+  crossbarHits: number | null;
 }
+
+const added = (total: number | null, value: number | null | undefined) =>
+  typeof value === 'number' ? (total ?? 0) + value : total;
 
 /** The player's lines of the matches no source disputes, each match once, and the MVPs among them. */
 export function careerOf(board: Board, name: string): Career {
@@ -21,7 +27,17 @@ export function careerOf(board: Board, name: string): Career {
       .filter((row) => row.name === name && row.kind === 'match' && !row.review_required)
       .map((row) => [row.match_guid, row]),
   );
-  const career: Career = { matches: 0, wins: 0, losses: 0, goals: 0, assists: 0, saves: 0, mvps: 0 };
+  const career: Career = {
+    matches: 0,
+    wins: 0,
+    losses: 0,
+    goals: 0,
+    assists: 0,
+    saves: 0,
+    mvps: 0,
+    demos: null,
+    crossbarHits: null,
+  };
   for (const [guid, row] of lines) {
     // A player who left lost the match, whatever his team did after.
     const won = !row.left && row.team === row.winner;
@@ -30,6 +46,8 @@ export function careerOf(board: Board, name: string): Career {
     career.goals += row.goals;
     career.assists += row.assists;
     career.saves += row.saves;
+    career.demos = added(career.demos, row.demos);
+    career.crossbarHits = added(career.crossbarHits, row.crossbar_hits);
     if (!row.left && mvpOf(index.get(guid)) === row.player_id) career.mvps++;
   }
   return career;
