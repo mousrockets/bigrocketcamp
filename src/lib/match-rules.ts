@@ -29,6 +29,9 @@ export interface RosterSize {
 
 export interface IndexedMatch<Row extends MatchRow> {
   players: Map<string, Row>;
+  /** Every player of the scoreboard a source sent whole is here, even when a forfeit left a single team on it. */
+  whole: boolean;
+  /** Whole, with both teams. */
   complete: boolean;
   /** How many players a source reported on the scoreboard it sent whole; null when none did. */
   expected: number | null;
@@ -74,7 +77,7 @@ export function matchIndex<Row extends MatchRow>(
     let match = matches.get(id);
     if (!match) {
       const count = expected.get(id);
-      match = { players: new Map(), complete: false, expected: typeof count === 'number' ? count : null };
+      match = { players: new Map(), whole: false, complete: false, expected: typeof count === 'number' ? count : null };
       matches.set(id, match);
     }
     const key = identity(row);
@@ -84,19 +87,19 @@ export function matchIndex<Row extends MatchRow>(
   for (const [id, match] of matches) {
     const players = [...match.players.values()];
     const count = expected.get(id);
-    match.complete =
+    match.whole =
       typeof count === 'number' &&
       Number.isSafeInteger(count) &&
-      count >= 2 &&
+      count >= 1 &&
       count <= 16 &&
       players.length === count &&
-      new Set(players.map((row) => row.team)).size === 2 &&
       new Set(players.map((row) => row.day)).size === 1 &&
       new Set(players.map((row) => row.winner)).size === 1 &&
       players.every(
         (row) =>
           [0, 1].includes(row.team) && [0, 1].includes(row.winner) && Number.isSafeInteger(row.score) && row.score >= 0,
       );
+    match.complete = match.whole && new Set(players.map((row) => row.team)).size === 2;
   }
   return matches;
 }
