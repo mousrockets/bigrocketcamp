@@ -23,7 +23,7 @@ const row = {
   received: '2026-11-05T10:00:00Z',
 };
 
-type Row = typeof row;
+type Row = typeof row & { demos?: number; crossbar_hits?: number };
 
 function observation(payload: Row, sourceType = 'epic', sourceId = 'synthetic', received = '2026-11-05T11:00:00Z') {
   return {
@@ -89,6 +89,39 @@ describe('reconcile', () => {
     expect(
       only(reconcile(roster, [{ ...row, kind: 'test' }], [observation(row, 'collector')]).rows).review_required,
     ).toBe(false);
+  });
+
+  test('keeps the demos and crossbar hits of an up-to-date collector, whichever line arrives last', () => {
+    const counted = { ...row, demos: 3, crossbar_hits: 1 };
+    for (const [up, old] of [
+      ['2026-11-05T11:00:00Z', '2026-11-05T11:00:05Z'],
+      ['2026-11-05T11:00:05Z', '2026-11-05T11:00:00Z'],
+    ]) {
+      const merged = reconcile(
+        roster,
+        [],
+        [observation(counted, 'collector', 'up-to-date', up), observation(row, 'collector', 'older', old)],
+      );
+      const chosen = only(merged.rows);
+      expect([chosen.demos, chosen.crossbar_hits]).toEqual([3, 1]);
+    }
+  });
+
+  test('an Epic line takes the demos and crossbar hits a collector counted', () => {
+    const merged = reconcile(
+      roster,
+      [],
+      [observation(row), observation({ ...row, demos: 2, crossbar_hits: 0 }, 'collector')],
+    );
+    const chosen = only(merged.rows);
+    expect(chosen.selected_source).toBe('epic');
+    expect([chosen.demos, chosen.crossbar_hits]).toEqual([2, 0]);
+  });
+
+  test('demos and crossbar hits stay unknown while no source counted them', () => {
+    const merged = reconcile(roster, [row], [observation(row, 'collector', 'older')]);
+    const chosen = only(merged.rows);
+    expect([chosen.demos, chosen.crossbar_hits]).toEqual([null, null]);
   });
 
   test('PSN and PS4 are deduplicated; different IDs are never merged by nickname', () => {
