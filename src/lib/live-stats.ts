@@ -44,7 +44,10 @@ export interface LivePlayer {
   Saves?: unknown;
   /** Demolitions the player made. Absent from older collectors. */
   Demos?: unknown;
-  /** Times the ball hit the crossbar or a post right after the player touched it. Absent from older collectors. */
+  /**
+   * Shots of the player that hit the frame of the opponents' goal, once per touch, outside goal replays. Absent from
+   * older collectors.
+   */
   CrossbarHits?: unknown;
 }
 
@@ -585,7 +588,15 @@ interface CurrentMatch {
   shortcuts: Map<string, string>;
   /** Crossbar or post hits of each identified player, by his ID. */
   crossbars: Map<string, number>;
+  /** False once the ball hit the frame, until someone touches it again: a bounce bar then post is one shot. */
+  touchedSinceFrame: boolean;
+  /** True from a goal to the next kickoff: the goal replay sends the hits of the frame again. */
+  afterGoal: boolean;
 }
+
+/** The goal a team attacks: blue (0) the orange one, at positive Y; orange (1) the blue one, at negative Y. */
+const hitsOpponentGoal = (team: unknown, y: unknown) =>
+  typeof y === 'number' && ((team === 0 && y > 0) || (team === 1 && y < 0));
 
 /** The game names a player in its events by a shortcut, unique within his team. */
 const shortcutKey = (shortcut: unknown, team: unknown) => JSON.stringify([shortcut, team]);
@@ -731,6 +742,8 @@ export function matchCapture(onComplete: (payload: LivePayload) => void, now: ()
             sent: false,
             shortcuts: new Map(),
             crossbars: new Map(),
+            touchedSinceFrame: true,
+            afterGoal: false,
           };
         }
         return;
@@ -742,11 +755,26 @@ export function matchCapture(onComplete: (payload: LivePayload) => void, now: ()
         current.candidate = null;
         return;
       }
+      if (event === 'BallHit') {
+        current.touchedSinceFrame = true;
+        return;
+      }
+      if (event === 'GoalScored') {
+        current.afterGoal = true;
+        return;
+      }
+      if (event === 'CountdownBegin' || event === 'RoundStarted') {
+        current.afterGoal = false;
+        current.touchedSinceFrame = true;
+        return;
+      }
       if (event === 'CrossbarHit') {
-        if (current.end) return;
+        const counts = !current.end && !current.afterGoal && current.touchedSinceFrame;
+        current.touchedSinceFrame = false;
         const touch = data.BallLastTouch?.Player;
         const id = current.shortcuts.get(shortcutKey(touch?.Shortcut, touch?.TeamNum));
-        if (id) current.crossbars.set(id, (current.crossbars.get(id) ?? 0) + 1);
+        if (counts && id && hitsOpponentGoal(touch?.TeamNum, data.BallLocation?.Y))
+          current.crossbars.set(id, (current.crossbars.get(id) ?? 0) + 1);
         return;
       }
       if (event !== 'UpdateState' || !Array.isArray(data.Players)) return;
