@@ -403,7 +403,7 @@ describe('live stats', () => {
     for (const body of refused) expect(() => parseLiveMatch(roster, body, now)).toThrow();
   });
 
-  test('capture counts the crossbar hits of the player who last touched the ball, and sends the demolitions', () => {
+  test("capture counts each shot of a player on the frame of the opponents' goal, and sends the demolitions", () => {
     const out: LivePayload[] = [];
     const p = payload('crossbars');
     const capture = matchCapture(
@@ -413,18 +413,40 @@ describe('live stats', () => {
     // The game names a player by a shortcut in his team in its events, and in the scoreboard.
     const state = structuredClone(p.state);
     for (const [index, player] of state.Players.entries()) Object.assign(player, { Shortcut: index % 3, Demos: index });
-    const hit = (Shortcut: number, TeamNum: number) =>
-      packet('CrossbarHit', { MatchGuid: 'crossbars', BallLastTouch: { Player: { Name: 'x', Shortcut, TeamNum } } });
-    capture.handle(packet('MatchCreated', { MatchGuid: 'crossbars' }));
+    // Blue (0) attacks the goal at positive Y, orange (1) the one at negative Y.
+    const hit = (Shortcut: number, TeamNum: number, Y: number) =>
+      packet('CrossbarHit', {
+        MatchGuid: 'crossbars',
+        BallLocation: { X: 800, Y, Z: 640 },
+        BallLastTouch: { Player: { Name: 'x', Shortcut, TeamNum } },
+      });
+    const event = (name: string) => packet(name, { MatchGuid: 'crossbars' });
+    capture.handle(event('MatchCreated'));
     capture.handle(packet('UpdateState', state));
-    capture.handle(hit(1, 0));
-    capture.handle(hit(1, 0));
-    capture.handle(hit(2, 1));
+    capture.handle(hit(1, 0, 5100));
+    // The ball bounces bar then post: still the same shot.
+    capture.handle(hit(1, 0, 5100));
+    capture.handle(event('BallHit'));
+    // The frame of his own goal.
+    capture.handle(hit(1, 0, -5100));
+    capture.handle(event('BallHit'));
+    capture.handle(hit(1, 0, 5100));
+    capture.handle(event('BallHit'));
+    capture.handle(hit(2, 1, -5100));
+    capture.handle(event('BallHit'));
     // Nobody the scoreboard names: no one to count it for.
-    capture.handle(hit(7, 0));
+    capture.handle(hit(7, 0, 5100));
+    // The goal replay plays the hits again, touches included.
+    capture.handle(event('GoalScored'));
+    capture.handle(event('BallHit'));
+    capture.handle(hit(1, 0, 5100));
+    capture.handle(event('CountdownBegin'));
+    capture.handle(event('RoundStarted'));
+    capture.handle(hit(2, 1, -5100));
     capture.handle(packet('MatchEnded', p.end));
     // After the end, a hit counts for nobody.
-    capture.handle(hit(0, 0));
+    capture.handle(event('BallHit'));
+    capture.handle(hit(0, 0, 5100));
     capture.handle(packet('UpdateState', state));
     capture.handle(packet('UpdateState', state));
     expect(out.length).toBe(1);
@@ -435,7 +457,7 @@ describe('live stats', () => {
       [third, 2, 0],
       ['Opponent 1', 3, 0],
       ['Opponent 2', 4, 0],
-      ['Opponent 3', 5, 1],
+      ['Opponent 3', 5, 2],
     ]);
   });
 
