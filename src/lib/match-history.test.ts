@@ -264,6 +264,21 @@ test('names the MVP: the best score of the winning team, once the scoreboard is 
   expect(partial.flatMap((match) => match.players.filter(({ mvp }) => mvp))).toEqual([]);
 });
 
+test('names the MVP of a match won after every opponent left before the end', () => {
+  const won = [line('ff', alice, 0, 0, 950), line('ff', bob, 0, 0, 318)];
+  const gone = [line('ff', 'Opponent', 1, 0, 200), line('ff', 'Opponent 2', 1, 0, 150)].map((row) => ({
+    ...row,
+    left: true,
+  }));
+  const [match] = matchHistory(
+    won,
+    [...won, ...gone],
+    matchIndex([...won, ...gone], [{ match_guid: 'ff', expected_players: 2 }]),
+    roster,
+  );
+  expect(match?.players.filter(({ mvp }) => mvp).map(({ row }) => row.name)).toEqual([alice]);
+});
+
 test('a tie for the best score of the winners names no MVP', () => {
   const tied = [line('tie', alice, 0, 0, 300), line('tie', bob, 0, 0, 300), line('tie', 'Opponent', 1, 0, 100)];
   const [match] = matchHistory(

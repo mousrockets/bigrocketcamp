@@ -103,7 +103,8 @@ function scoreOf(all: readonly HistoryRow[], ours: number): [number, number] | n
  * scoreboard received whole tells it, and a tie for the best score leaves it unknown.
  */
 export function mvpOf<Row extends MatchRow>(match: IndexedMatch<Row> | undefined): string | null {
-  if (!match?.complete) return null;
+  // Opponents who all left before the end are off the scoreboard: the winners' scores still name the MVP.
+  if (!match?.whole) return null;
   const winners = [...match.players].filter(([, row]) => row.team === row.winner);
   const best = Math.max(...winners.map(([, row]) => row.score));
   const top = winners.filter(([, row]) => row.score === best);
