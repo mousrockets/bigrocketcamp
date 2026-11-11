@@ -102,11 +102,18 @@ interface Candidate {
   received: string;
 }
 
-/** Demolitions and crossbar hits, which older sources never sent: unknown, not zero. */
-const extraStatisticsOf = (row: StoredResult) => ({
-  demos: typeof row.demos === 'number' ? row.demos : null,
-  crossbar_hits: typeof row.crossbar_hits === 'number' ? row.crossbar_hits : null,
-});
+/**
+ * Demolitions and crossbar hits, which older collectors and Epic never send: unknown, not zero. The chosen line
+ * may come from such a source while another source of the same line counted them, so its own count comes first,
+ * then the latest source that has one.
+ */
+function extraStatisticsOf(chosen: Candidate, candidates: readonly Candidate[]) {
+  const others = candidates.filter((candidate) => candidate !== chosen);
+  const ordered = [chosen, ...others.sort((a, b) => b.received.localeCompare(a.received))];
+  const known = (field: 'demos' | 'crossbar_hits') =>
+    ordered.map((candidate) => candidate.row[field]).find((value) => typeof value === 'number') ?? null;
+  return { demos: known('demos'), crossbar_hits: known('crossbar_hits') };
+}
 
 const outcomeFields = ['day', 'kind', 'team', 'winner'] as const;
 const scoreFields = ['score', 'goals', 'assists', 'saves'] as const;
@@ -187,7 +194,7 @@ export function reconcile(
       match_guid: matchKey(chosen.row.match_guid),
       received: chosen.received,
       player_id: playerKey(chosen.row.player_id),
-      ...extraStatisticsOf(chosen.row),
+      ...extraStatisticsOf(chosen, candidates),
       review_required: review,
       verification: review
         ? 'review'
@@ -313,7 +320,7 @@ function departedRows(
       ...chosen.row,
       match_guid: guid,
       player_id: playerKey(chosen.row.player_id),
-      ...extraStatisticsOf(chosen.row),
+      ...extraStatisticsOf(chosen, candidates),
       received: chosen.received,
       review_required: false,
       verification: sources.size > 1 ? 'confirmed' : 'single',
