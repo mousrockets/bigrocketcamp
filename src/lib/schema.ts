@@ -215,6 +215,8 @@ export const sourceReports = sqliteTable(
     /** The goals of each team as the game counted them, those of players who left included; null from older collectors. */
     blueGoals: integer('blue_goals'),
     orangeGoals: integer('orange_goals'),
+    /** The game's playlist the match was played in; null from sources received before it was kept. */
+    playlist: integer('playlist'),
   },
   (table) => [index('source_reports_match').on(table.matchGuid)],
 );
@@ -307,6 +309,8 @@ export const matchResults = sqliteTable(
     /** Set on every row of a match whose final score a source sent: the goals of each team, as the game counted them. */
     blueGoals: integer('blue_goals'),
     orangeGoals: integer('orange_goals'),
+    /** Set on every row of a match whose playlist a source sent: the game's playlist ID. */
+    playlist: integer('playlist'),
     seq: integer('seq').notNull().default(0),
   },
   (table) => [primaryKey({ columns: [table.matchGuid, table.playerId] }), index('match_results_seq').on(table.seq)],

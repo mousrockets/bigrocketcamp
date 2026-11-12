@@ -122,6 +122,7 @@ export interface ReplayMatch {
   /** « 21:40 », or nothing when the reception time is unknown. */
   clock: string | null;
   tags: string[];
+  mode: HistoryMatch<Row>['mode'];
   /** The club's goals first. */
   score: [number, number] | null;
   players: {
@@ -183,6 +184,7 @@ export function replay(board: Board, roster: readonly string[], days: readonly s
       outcome: match.outcome,
       clock: match.received ? formatClock(match.received) : null,
       tags: tagsOf(match),
+      mode: match.mode,
       score: match.score,
       players: [...match.players]
         .sort((a, b) => b.row.score - a.row.score)

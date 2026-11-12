@@ -24,6 +24,30 @@ const playerCounts = new Map([
 /** Ranked Doubles: the only playlist whose matches change the 2v2 rating. */
 export const rankedDoublesPlaylist = 11;
 
+/** The kind of game a playlist plays, as the replay shows it. */
+export type MatchMode = 'casual' | 'ranked' | 'tournament' | 'private';
+
+const modes = new Map<number, MatchMode>([
+  [1, 'casual'],
+  [2, 'casual'],
+  [3, 'casual'],
+  [4, 'casual'],
+  [6, 'private'],
+  [10, 'ranked'],
+  [11, 'ranked'],
+  [13, 'ranked'],
+  [22, 'tournament'],
+  [27, 'ranked'],
+  [28, 'ranked'],
+  [29, 'ranked'],
+  [30, 'ranked'],
+  [34, 'tournament'],
+]);
+
+/** The kind of game of a playlist; null for one unknown, or a match received before playlists were kept. */
+export const matchModeOf = (playlist: number | null | undefined): MatchMode | null =>
+  (playlist == null ? undefined : modes.get(playlist)) ?? null;
+
 /** Whether a received match can have changed its players' ranked 2v2 rating. */
 export const isRankedDoubles = (match: LivePayload) => match.state.Game.PlaylistId === rankedDoublesPlaylist;
 
@@ -458,7 +482,7 @@ export function liveMatchRows(roster: Roster, match: LiveMatch): LiveRows {
   const [blueGoals, orangeGoals] = [goalsOf(0), goalsOf(1)];
   const score = typeof blueGoals === 'number' && typeof orangeGoals === 'number' ? { blueGoals, orangeGoals } : {};
   const rosters = validateMatchRosters([{ MatchGuid: rows[0]?.matchGuid, PlayerCount: rows.length }], rows).map(
-    (roster) => ({ ...roster, ...clock, ...trace, ...forfeit, ...score }),
+    (roster) => ({ ...roster, ...clock, ...trace, ...forfeit, ...score, playlist: state.Game.PlaylistId as number }),
   );
   return { rows, rosters, departures: gone.map((player) => leaverLine(roster, state.MatchGuid, day, player)) };
 }

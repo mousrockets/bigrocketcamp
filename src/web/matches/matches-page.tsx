@@ -1,9 +1,10 @@
 import { useSearch } from '@tanstack/react-router';
 import { cn } from 'cn';
-import { UsersRound } from 'lucide-react';
+import { Gamepad2, type LucideIcon, TrendingUp, Trophy, UserRound, UsersRound } from 'lucide-react';
 import { parisDay } from '../../lib/days';
 import { highScorePoints } from '../../lib/domain';
 import { formatDayDate, formatLongDay, formatNumber } from '../../lib/format';
+import type { MatchMode } from '../../lib/live-stats';
 import { useBoardState } from '../board';
 import { useClub } from '../club';
 import { LiveStatus } from '../components/live-status';
@@ -199,6 +200,33 @@ const outcomes = {
   review: { label: 'À VOIR', className: 'bg-white/8 text-t2' },
 };
 
+const modes = {
+  casual: { label: 'Occasionnel', Icon: Gamepad2 },
+  // Ranked moves the MMR.
+  ranked: { label: 'Compétitif', Icon: TrendingUp },
+  tournament: { label: 'Tournoi', Icon: Trophy },
+  private: { label: 'Match privé', Icon: null },
+} satisfies Record<MatchMode, { label: string; Icon: LucideIcon | null }>;
+
+function ModeBadge({ mode }: { mode: MatchMode }) {
+  const { label, Icon } = modes[mode];
+  return (
+    <Badge variant="mode" role="img" aria-label={label} title={label} className={cn(!Icon && 'w-auto gap-0.5 px-1.5')}>
+      {Icon ? (
+        <Icon aria-hidden="true" />
+      ) : (
+        <>
+          <UserRound aria-hidden="true" />
+          <span aria-hidden="true" className="font-semibold text-[9px] [line-height:1]">
+            vs
+          </span>
+          <UserRound aria-hidden="true" />
+        </>
+      )}
+    </Badge>
+  );
+}
+
 function MatchRow({ match }: { match: ReplayMatch }) {
   const outcome = outcomes[match.outcome];
   return (
@@ -212,6 +240,7 @@ function MatchRow({ match }: { match: ReplayMatch }) {
         >
           {outcome.label}
         </Badge>
+        {match.mode && <ModeBadge mode={match.mode} />}
         <span className="min-w-0 flex-1 truncate text-[12px] text-t3">
           {[match.clock, ...match.tags].filter(Boolean).join(' · ')}
         </span>
