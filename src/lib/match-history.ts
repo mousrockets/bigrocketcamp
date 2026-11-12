@@ -1,4 +1,5 @@
 import type { Roster } from './club';
+import { type MatchMode, matchModeOf } from './live-stats';
 import {
   type DodgeRules,
   defaultDodgeRules,
@@ -26,6 +27,8 @@ export interface HistoryRow extends MatchRow {
   /** The goals of each team as the game counted them; null or absent while no source sent them. */
   blue_goals?: number | null;
   orange_goals?: number | null;
+  /** The game's playlist ID; null or absent while no source sent it. */
+  playlist?: number | null;
 }
 
 export interface HistoryPlayer<Row extends HistoryRow> {
@@ -68,6 +71,8 @@ export interface HistoryMatch<Row extends HistoryRow> {
   overtime: boolean;
   /** Goals of the club's team first, as received; null when the scoreboard holds no goals. */
   score: [number, number] | null;
+  /** Casual, ranked, tournament or private; null while no source sent the playlist, or for an unknown one. */
+  mode: MatchMode | null;
   players: HistoryPlayer<Row>[];
 }
 
@@ -169,6 +174,7 @@ export function matchHistory<Row extends HistoryRow>(
       forfeit: rows.some((row) => row.forfeit === true),
       overtime: rows.some((row) => row.overtime === true),
       score: scoreOf(all, ours),
+      mode: matchModeOf(all.find((row) => typeof row.playlist === 'number')?.playlist),
       players: rows.map((row) => {
         const counted = !row.review_required && row.kind === 'match' && row.team !== row.winner;
         const bonus = counted ? lastPlaceBonus(row, matches, roster, rules) : 0;

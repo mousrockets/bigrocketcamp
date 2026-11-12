@@ -242,6 +242,8 @@ export interface ReceivedRoster {
   /** The goals of each team as the game counted them, those of players who left included: absent from older sources. */
   blueGoals?: number;
   orangeGoals?: number;
+  /** The game's playlist the match was played in. */
+  playlist?: number;
 }
 
 /** How a match ended; null when no source sent the clock (older collectors, Epic's history). */

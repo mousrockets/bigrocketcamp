@@ -263,6 +263,33 @@ test('a player in a group with a club player or the same stranger three matches 
   expect(['20:30', '20:20', '20:10', '20:00'].map(grouped)).toEqual([0, 0, 0, 0]);
 });
 
+test('a discreet icon tells the kind of game of each match, when the game sent it', async () => {
+  const played = (guid: string, received: string, playlist: number | null) =>
+    duo(guid, received, { won: true }).map((row) => ({ ...row, playlist }));
+  const kinds = boardWith({
+    results: [
+      ...played('casual', '2026-11-07T20:40:00Z', 2),
+      ...played('ranked', '2026-11-07T20:30:00Z', 11),
+      ...played('tournament', '2026-11-07T20:20:00Z', 34),
+      ...played('before', '2026-11-07T20:10:00Z', null),
+      ...played('private', '2026-11-07T20:00:00Z', 6),
+    ],
+  });
+  renderInApp(<MatchesPage />, { board: kinds, path: today });
+  const replay = await screen.findByRole('region', { name: 'Derniers matchs' });
+  const kindOf = (label: string) =>
+    ['Occasionnel', 'Compétitif', 'Tournoi', 'Match privé'].filter((kind) =>
+      within(within(replay).getByText(label).closest('div') as HTMLElement).queryByRole('img', { name: kind }),
+    );
+  expect(['21:40', '21:30', '21:20', '21:10', '21:00'].map(kindOf)).toEqual([
+    ['Occasionnel'],
+    ['Compétitif'],
+    ['Tournoi'],
+    [],
+    ['Match privé'],
+  ]);
+});
+
 test('the replay names the MVP of each match the club won, beside their points', async () => {
   renderInApp(<MatchesPage />, { board, path: today });
   const replay = await screen.findByRole('region', { name: 'Derniers matchs' });

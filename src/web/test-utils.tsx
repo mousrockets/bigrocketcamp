@@ -71,6 +71,7 @@ export const aResult = (parts: Partial<BoardResult> & Pick<BoardResult, 'name' |
   left: false,
   blue_goals: null,
   orange_goals: null,
+  playlist: null,
   ...parts,
 });
 

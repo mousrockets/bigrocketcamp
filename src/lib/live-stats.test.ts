@@ -3,7 +3,7 @@ import { describe, expect, test } from 'vitest';
 import { roster } from './club-fixture';
 import { summarize } from './domain';
 import { liveBridge } from './live-bridge';
-import { matchCapture, parseLiveMatch, statsStream } from './live-stats';
+import { matchCapture, matchModeOf, parseLiveMatch, statsStream } from './live-stats';
 import { endingOf } from './match-rules';
 import { attributeLivePlayers, readIdentityBindings } from './player-identities';
 import { observationWrites, readMerged } from './reconcile';
@@ -170,7 +170,7 @@ describe('live stats', () => {
     left.state.Game.Winner = '';
     expect(parseLiveMatch(roster, left, now).rows.length).toBe(4);
     expect(parseLiveMatch(roster, left, now).rosters).toEqual([
-      { matchGuid: 'synthetic-live-match', playerCount: 4, blueGoals: 1, orangeGoals: 2 },
+      { matchGuid: 'synthetic-live-match', playerCount: 4, blueGoals: 1, orangeGoals: 2, playlist: 13 },
     ]);
     const bot = payload();
     const opponent = bot.state.Players[5];
@@ -331,6 +331,21 @@ describe('live stats', () => {
     expect(parseLiveMatch(roster, unreadable, now).rosters[0]?.clockTrace).toBeUndefined();
   });
 
+  test('the playlist tells casual, ranked, tournament and private games apart', () => {
+    expect([1, 3, 11, 13, 27, 34, 22, 6].map(matchModeOf)).toEqual([
+      'casual',
+      'casual',
+      'ranked',
+      'ranked',
+      'ranked',
+      'tournament',
+      'tournament',
+      'private',
+    ]);
+    // An unknown playlist, or a match received before playlists were kept: no mode.
+    expect([40, null, undefined].map(matchModeOf)).toEqual([null, null, null]);
+  });
+
   test('departures: a player gone before the end loses with his last line; an unreadable list is dropped', () => {
     const p = payload('departed');
     const [gone] = p.state.Players.splice(1, 1);
@@ -338,7 +353,9 @@ describe('live stats', () => {
     const parsed = parseLiveMatch(roster, { ...p, departures: [gone] }, now);
     expect(parsed.rows.length).toBe(5);
     // The teams' score, as the game counted it, keeps the goals of the player who left.
-    expect(parsed.rosters).toEqual([{ matchGuid: 'departed', playerCount: 5, blueGoals: 1, orangeGoals: 2 }]);
+    expect(parsed.rosters).toEqual([
+      { matchGuid: 'departed', playerCount: 5, blueGoals: 1, orangeGoals: 2, playlist: 13 },
+    ]);
     expect(parsed.departures).toEqual([
       expect.objectContaining({ matchGuid: 'departed', name: second, team: 0, winner: 1, score: 110, kind: 'match' }),
     ]);

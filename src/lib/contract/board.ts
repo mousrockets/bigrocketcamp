@@ -53,6 +53,8 @@ export const boardResult = z.looseObject({
    */
   blue_goals: z.number().nullable().catch(null),
   orange_goals: z.number().nullable().catch(null),
+  /** The game's playlist ID on every row of the match; null while no source sent it, absent from an older API. */
+  playlist: z.number().nullable().catch(null),
 });
 export type BoardResult = Known<z.output<typeof boardResult>>;
 

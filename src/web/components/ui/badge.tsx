@@ -22,6 +22,7 @@ const badgeVariants = cva(
         due: "h-auto rounded-[10px] border-0 bg-cost-strong/14 px-2 py-[3px] text-[11px] font-semibold text-cost",
         tag: "h-auto rounded-md border-line px-1.5 py-0.5 text-[10px] font-semibold tracking-[.06em] text-t2",
         party: "size-4 rounded-full border-0 bg-white/8 p-0 text-t2 [&>svg]:size-2.5!",
+        mode: "size-5 rounded-full border-0 bg-white/6 p-0 text-t3 [&>svg]:size-3!",
         me: "h-auto rounded-[5px] border-line px-[5px] py-px text-[9px] font-bold tracking-[.06em] text-t2",
       },
     },

@@ -191,6 +191,13 @@ describe('departures', () => {
     expect(rows.length).toBe(3);
   });
 
+  test('every line of a match keeps the playlist it was played in', async () => {
+    const everyone = [line('alice'), line('bob'), line('Opponent 1'), line('Opponent 2')];
+    expect((await send('alice', ended('ranked-doubles', everyone))).status).toBe(200);
+    const rows = (await readStoredResults(env.DB)).filter((row) => row.match_guid === 'ranked-doubles');
+    expect(rows.map((row) => row.playlist)).toEqual([11, 11, 11, 11]);
+  });
+
   test('a departure counts for nothing once a final line of that player arrives, from any source', async () => {
     const everyone = [line('alice'), line('bob'), line('Opponent 1'), line('Opponent 2')];
     expect((await send('bob', left('came-back', everyone))).status).toBe(200);

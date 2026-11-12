@@ -60,6 +60,7 @@ interface StoredRow {
   left_early: boolean;
   blue_goals: number | null;
   orange_goals: number | null;
+  playlist: number | null;
 }
 
 /** The stored results' columns, under the names the board receives. */
@@ -89,6 +90,7 @@ export const storedColumns = {
   left_early: matchResults.leftEarly,
   blue_goals: matchResults.blueGoals,
   orange_goals: matchResults.orangeGoals,
+  playlist: matchResults.playlist,
 } satisfies Record<keyof StoredRow, AnySQLiteColumn>;
 
 const columns = Object.keys(storedColumns) as (keyof StoredRow)[];
@@ -119,6 +121,7 @@ export const builtResult = (row: StoredRow): BuiltResult => ({
   left: Boolean(row.left_early),
   blue_goals: row.blue_goals,
   orange_goals: row.orange_goals,
+  playlist: row.playlist,
 });
 
 const storedRow = (row: MergedResult, expected: number | null): StoredRow => ({
@@ -147,6 +150,7 @@ const storedRow = (row: MergedResult, expected: number | null): StoredRow => ({
   left_early: row.left,
   blue_goals: row.blue_goals,
   orange_goals: row.orange_goals,
+  playlist: row.playlist,
 });
 
 const sameRow = (a: StoredRow, b: StoredRow) => columns.every((column) => a[column] === b[column]);

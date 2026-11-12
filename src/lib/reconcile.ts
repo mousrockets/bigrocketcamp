@@ -37,10 +37,18 @@ export interface FinalScore {
   orange_goals: number | null;
 }
 
-/** How a match ended, and its score, while no source told them. */
-const unknownFinish: MatchEnding & FinalScore = { ...unknownEnding, blue_goals: null, orange_goals: null };
+/** The game's playlist the match was played in; null when no source sent it. */
+export interface MatchPlaylist {
+  playlist: number | null;
+}
 
-export interface MergedResult extends StoredResult, MatchEnding, FinalScore {
+/** What the sources' scoreboards tell of a whole match, beyond its lines. */
+type MatchFinish = MatchEnding & FinalScore & MatchPlaylist;
+
+/** How a match ended, its score and its playlist, while no source told them. */
+const unknownFinish: MatchFinish = { ...unknownEnding, blue_goals: null, orange_goals: null, playlist: null };
+
+export interface MergedResult extends StoredResult, MatchFinish {
   received: string;
   demos: number | null;
   crossbar_hits: number | null;
@@ -77,6 +85,8 @@ export interface SourceReport {
   /** The goals of each team, as the game counted them; null or absent when the source sent none. */
   blue_goals?: number | null;
   orange_goals?: number | null;
+  /** The game's playlist; null or absent when the source sent none. */
+  playlist?: number | null;
 }
 
 /** A player who left a match before its end, as one source saw it: his last line, a defeat. */
@@ -291,7 +301,7 @@ function departedRows(
   roster: Roster,
   finals: readonly MergedResult[],
   departures: readonly Departure[],
-  endings: Map<string, MatchEnding & FinalScore>,
+  endings: Map<string, MatchFinish>,
 ): MergedResult[] {
   const finalKeys = new Set(finals.map(rowKey));
   const finalNames = new Set(finals.map((row) => JSON.stringify([row.match_guid, row.name])));
@@ -343,25 +353,30 @@ function agreed<Value>(values: readonly (Value | null)[]): Value | null {
  * How each match ended, from the clocks its sources read: several collectors may have sent the same match. A
  * source that saw every opponent leave before the end saw a forfeit, whatever the clocks say.
  */
-function matchEndings(reports: readonly SourceReport[]): Map<string, MatchEnding & FinalScore> {
-  const byMatch = new Map<string, { endings: MatchEnding[]; scores: (string | null)[]; gone: boolean }>();
+function matchEndings(reports: readonly SourceReport[]): Map<string, MatchFinish> {
+  const byMatch = new Map<
+    string,
+    { endings: MatchEnding[]; scores: (string | null)[]; playlists: (number | null)[]; gone: boolean }
+  >();
   for (const report of reports) {
     const guid = matchKey(report.match_guid);
     const ending = endingOf({ timeSeconds: report.time_seconds, overtime: report.overtime });
-    const seen = byMatch.get(guid) ?? { endings: [], scores: [], gone: false };
+    const seen = byMatch.get(guid) ?? { endings: [], scores: [], playlists: [], gone: false };
     byMatch.set(guid, {
       endings: [...seen.endings, ending],
       scores: [...seen.scores, scoreKey(report)],
+      playlists: [...seen.playlists, report.playlist ?? null],
       gone: seen.gone || Boolean(report.opponents_gone),
     });
   }
   return new Map(
-    [...byMatch].map(([guid, { endings, scores, gone }]) => [
+    [...byMatch].map(([guid, { endings, scores, playlists, gone }]) => [
       guid,
       {
         forfeit: gone ? true : agreed(endings.map((ending) => ending.forfeit)),
         overtime: agreed(endings.map((ending) => ending.overtime)),
         ...scoreOf(agreed(scores)),
+        playlist: agreed(playlists),
       },
     ]),
   );
@@ -506,6 +521,7 @@ export async function observationWrites(
         opponentsGone: roster.opponentsGone ?? null,
         blueGoals: roster.blueGoals ?? null,
         orangeGoals: roster.orangeGoals ?? null,
+        playlist: roster.playlist ?? null,
       })
       .onConflictDoUpdate({
         target: sourceReports.id,
@@ -518,6 +534,7 @@ export async function observationWrites(
           opponentsGone: sql`coalesce(${excluded(sourceReports.opponentsGone)}, ${sourceReports.opponentsGone})`,
           blueGoals: sql`coalesce(${excluded(sourceReports.blueGoals)}, ${sourceReports.blueGoals})`,
           orangeGoals: sql`coalesce(${excluded(sourceReports.orangeGoals)}, ${sourceReports.orangeGoals})`,
+          playlist: sql`coalesce(${excluded(sourceReports.playlist)}, ${sourceReports.playlist})`,
         },
       });
     writes.push(statementOf(db, report));
