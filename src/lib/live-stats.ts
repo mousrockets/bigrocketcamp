@@ -4,16 +4,18 @@ import { normalizeParticipant, type ReceivedResult } from './domain';
 import { type ReceivedRoster, validateMatchRosters } from './match-rules';
 import { parseOrThrow, says, z } from './validation';
 
-// Official local Stats API. Public matchmaking playlists only; unknown, private,
+// Official local Stats API. Matchmaking playlists, private matches and players' own tournaments; unknown,
 // training and bot playlists fail closed. Count is the full standard scoreboard.
 const playerCounts = new Map([
   [1, 2],
   [2, 4],
   [3, 6],
   [4, 8],
+  [6, 8],
   [10, 2],
   [11, 4],
   [13, 6],
+  [22, 6],
   [27, 4],
   [28, 6],
   [29, 6],
@@ -160,7 +162,7 @@ export const clockTraceSide = 6;
 
 const finished = 'Fin de match absente ou incohérente.';
 const dated = 'Date du match invalide.';
-const publicMatch = 'Match public terminé requis.';
+const onlineMatch = 'Match en ligne terminé requis.';
 const finalTeams = 'Équipes finales invalides.';
 const winnerDiffers = 'Gagnant du tableau différent de la fin de match.';
 const invalidBoard = 'Tableau final invalide.';
@@ -194,10 +196,10 @@ function scoreboardStages() {
     state: z.looseObject({
       Game: z.looseObject(
         {
-          PlaylistId: z.number(says(publicMatch)).refine((id) => playerCounts.has(id), says(publicMatch)),
-          bReplay: z.literal(false, says(publicMatch)),
+          PlaylistId: z.number(says(onlineMatch)).refine((id) => playerCounts.has(id), says(onlineMatch)),
+          bReplay: z.literal(false, says(onlineMatch)),
         },
-        says(publicMatch),
+        says(onlineMatch),
       ),
     }),
   });

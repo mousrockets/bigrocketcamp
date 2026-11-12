@@ -233,9 +233,6 @@ describe('live stats', () => {
         p.state.Game.Winner = 'Blue';
       },
       (p) => {
-        p.state.Game.PlaylistId = 6;
-      },
-      (p) => {
         p.state.Game.PlaylistId = 40;
       },
       (p) => {
@@ -346,6 +343,16 @@ describe('live stats', () => {
     expect([40, null, undefined].map(matchModeOf)).toEqual([null, null, null]);
   });
 
+  test('a private match or a players’ own tournament is received like any match', () => {
+    for (const playlist of [6, 22]) {
+      const p = payload(`private-${playlist}`);
+      p.state.Game.PlaylistId = playlist;
+      const parsed = parseLiveMatch(roster, p, now);
+      expect(parsed.rows.map((row) => row.kind)).toEqual(Array(6).fill('match'));
+      expect(parsed.rosters[0]?.playlist).toBe(playlist);
+    }
+  });
+
   test('departures: a player gone before the end loses with his last line; an unreadable list is dropped', () => {
     const p = payload('departed');
     const [gone] = p.state.Players.splice(1, 1);
@@ -411,7 +418,7 @@ describe('live stats', () => {
     ]);
     const refused: Record<string, unknown>[] = [
       { ...left, state: { ...left.state, Game: { ...left.state.Game, bReplay: true } } },
-      { ...left, state: { ...left.state, Game: { ...left.state.Game, PlaylistId: 6 } } },
+      { ...left, state: { ...left.state, Game: { ...left.state.Game, PlaylistId: 40 } } },
       { ...left, state: { ...left.state, Players: [] } },
       { ...left, leftAt: undefined },
       { ...left, leftAt: left.startedAt - 1 },

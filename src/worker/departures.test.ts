@@ -198,6 +198,21 @@ describe('departures', () => {
     expect(rows.map((row) => row.playlist)).toEqual([11, 11, 11, 11]);
   });
 
+  test('a private match lost, even one a player left, costs the pushups of any match', async () => {
+    const lost = (guid: string, playlist: number) => {
+      const match = ended(guid, [line('alice'), line('Opponent 1'), line('Opponent 2')], [line('bob')]);
+      match.state.Game = { ...match.state.Game, PlaylistId: playlist, Winner: 'Orange', Teams: [...teams].reverse() };
+      match.end.WinnerTeamNum = 1;
+      return match;
+    };
+    expect((await send('alice', lost('private-loss', 6))).status).toBe(200);
+    expect((await send('alice', lost('ranked-loss', rankedDoublesPlaylist))).status).toBe(200);
+    const rows = (await readStoredResults(env.DB)).filter((row) => row.match_guid === 'private-loss');
+    expect(rows.map((row) => row.playlist)).toEqual(Array(rows.length).fill(6));
+    expect(await owed('private-loss')).toEqual(await owed('ranked-loss'));
+    expect((await owed('private-loss')).alice).toBe(5);
+  });
+
   test('a departure counts for nothing once a final line of that player arrives, from any source', async () => {
     const everyone = [line('alice'), line('bob'), line('Opponent 1'), line('Opponent 2')];
     expect((await send('bob', left('came-back', everyone))).status).toBe(200);
