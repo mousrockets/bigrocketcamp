@@ -290,6 +290,24 @@ test('a discreet icon tells the kind of game of each match, when the game sent i
   ]);
 });
 
+test('a private match lost shows in the replay with its icon, and counts like any match', async () => {
+  const privateLoss = duo('private-loss', '2026-11-07T20:50:00Z', { won: false }).map((row) => ({
+    ...row,
+    playlist: 6,
+  }));
+  const withPrivate = boardWith({
+    results: [...privateLoss, ...duo('afternoon-win', '2026-11-07T15:02:00Z', { won: true })],
+  });
+  renderInApp(<MatchesPage />, { board: withPrivate, path: today });
+  const replay = await screen.findByRole('region', { name: 'Derniers matchs' });
+  const row = within(replay).getByText('21:50').closest('div')?.parentElement as HTMLElement;
+  expect(within(row).getByRole('img', { name: 'Match privé' })).toBeInTheDocument();
+  expect(within(row).getByText('AÏE')).toBeInTheDocument();
+  const summary = screen.getByRole('region', { name: 'Bilan du jour' });
+  expect(within(summary).getAllByText(/^2 parties/)).toHaveLength(2);
+  expect(within(summary).getByText('Les bras vont chauffer')).toBeInTheDocument();
+});
+
 test('the replay names the MVP of each match the club won, beside their points', async () => {
   renderInApp(<MatchesPage />, { board, path: today });
   const replay = await screen.findByRole('region', { name: 'Derniers matchs' });

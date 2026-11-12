@@ -138,8 +138,8 @@ const liveCases: [string, (match: LiveMatch) => void, string][] = [
   ['no winner team', (m) => (m.end.WinnerTeamNum = 2), 'Fin de match absente ou incohérente.'],
   ['a start after the end', (m) => (m.startedAt = m.endedAt + 1), 'Date du match invalide.'],
   ['an end in the future', (m) => (m.endedAt = Date.now() + 60_000), 'Date du match invalide.'],
-  ['a private playlist', (m) => (m.state.Game.PlaylistId = 6), 'Match public terminé requis.'],
-  ['a replay', (m) => (m.state.Game.bReplay = true), 'Match public terminé requis.'],
+  ['a training playlist', (m) => (m.state.Game.PlaylistId = 9), 'Match en ligne terminé requis.'],
+  ['a replay', (m) => (m.state.Game.bReplay = true), 'Match en ligne terminé requis.'],
   ['one team', (m) => m.state.Game.Teams.pop(), 'Équipes finales invalides.'],
   ['another winner', (m) => (m.state.Game.Winner = 'Orange'), 'Gagnant du tableau différent de la fin de match.'],
   [
