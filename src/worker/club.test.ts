@@ -34,6 +34,34 @@ const count = async (sql: string, ...values: unknown[]) =>
       .first('n'),
   );
 
+/** Gives a player a duo and a solo rank, each with one reading of its history. */
+const ranked = (player: string) =>
+  env.DB.batch([
+    env.DB.prepare(
+      "INSERT INTO player_ranks (player, player_id, mmr, last_attempt, status) VALUES (?, ?, 1250, '2026-11-01T10:00:00.000Z', 'ready')",
+    ).bind(player, `Epic|${player}-duo|0`),
+    env.DB.prepare(
+      "INSERT INTO mmr_entries (id, player, mmr, recorded_at) VALUES (?, ?, 1250, '2026-11-01T10:00:00.000Z')",
+    ).bind(`duo-of-${player}`, player),
+    env.DB.prepare(
+      "INSERT INTO solo_ranks (player, player_id, mmr, status, best_mmr) VALUES (?, ?, 1320, 'ready', 1400)",
+    ).bind(player, `Epic|${player}-solo|0`),
+    env.DB.prepare(
+      "INSERT INTO solo_mmr_entries (id, player, player_id, mmr, recorded_at) VALUES (?, ?, ?, 1320, '2026-11-01T10:00:00.000Z')",
+    ).bind(`solo-of-${player}`, player, `Epic|${player}-solo|0`),
+  ]);
+
+/** What the database still holds of a player's ranks, solo and duo. */
+const ranksOf = async (player: string) => ({
+  solo: await count('SELECT COUNT(*) AS n FROM solo_ranks WHERE player = ?', player),
+  soloHistory: await count('SELECT COUNT(*) AS n FROM solo_mmr_entries WHERE player = ?', player),
+  duo: await count('SELECT COUNT(*) AS n FROM player_ranks WHERE player = ?', player),
+  duoHistory: await count('SELECT COUNT(*) AS n FROM mmr_entries WHERE player = ?', player),
+});
+
+const soloErased = { solo: 0, soloHistory: 0, duo: 1, duoHistory: 1 };
+const allKept = { solo: 1, soloHistory: 1, duo: 1, duoHistory: 1 };
+
 let admin: string;
 let member: string;
 
@@ -45,6 +73,9 @@ beforeEach(async () => {
     env.DB.prepare('DELETE FROM exercises'),
     env.DB.prepare('DELETE FROM player_identities'),
     env.DB.prepare('DELETE FROM solo_ranks'),
+    env.DB.prepare('DELETE FROM solo_mmr_entries'),
+    env.DB.prepare('DELETE FROM player_ranks'),
+    env.DB.prepare('DELETE FROM mmr_entries'),
     env.DB.prepare("UPDATE club_settings SET name = 'Le Club Fictif'"),
     env.DB.prepare(
       "INSERT INTO members (id, email, role, duo_pseudo, platform, roster_position) VALUES ('member-alice', 'alice@example.com', 'admin', 'alice', 'pc', 1), ('member-bob', 'bob@example.com', 'member', 'bob', 'xbox', 2)",
@@ -172,6 +203,14 @@ describe('the profile', () => {
     expect((await call('/api/club', member)).status).toBe(401);
   });
 
+  test('a member who deletes their account takes their solo rank with them; the duo one stays with the club', async () => {
+    await ranked('alice');
+    await ranked('bob');
+    expect((await call('/api/profile', member, 'DELETE')).status).toBe(204);
+    expect(await ranksOf('bob')).toEqual(soloErased);
+    expect(await ranksOf('alice')).toEqual(allKept);
+  });
+
   test('the only administrator names another one before leaving', async () => {
     expect((await call('/api/profile', admin, 'DELETE')).status).toBe(409);
   });
@@ -209,6 +248,14 @@ describe('the members, for administrators', () => {
     expect(await count('SELECT COUNT(*) AS n FROM sign_in_codes')).toBe(0);
     expect((await call('/api/members', admin, 'DELETE', { id: 'member-alice' })).status).toBe(400);
     expect((await call('/api/members', admin, 'DELETE', { id: 'member-unknown' })).status).toBe(404);
+  });
+
+  test('removing a member takes their solo rank too; the duo one stays with the club', async () => {
+    await ranked('alice');
+    await ranked('bob');
+    expect((await call('/api/members', admin, 'DELETE', { id: 'member-bob' })).status).toBe(204);
+    expect(await ranksOf('bob')).toEqual(soloErased);
+    expect(await ranksOf('alice')).toEqual(allKept);
   });
 
   test('roles change, but the club keeps an administrator', async () => {
