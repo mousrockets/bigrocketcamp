@@ -2,9 +2,10 @@ import { useForm } from '@tanstack/react-form';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { cn } from 'cn';
 import { type CSSProperties, useState } from 'react';
-import { type Invitation, invitation, type MemberProfile } from '../../lib/contract';
+import { firstName, type Invitation, invitation, type MemberProfile } from '../../lib/contract';
 import { count } from '../../lib/format';
 import type { Role } from '../../lib/members';
+import { z } from '../../lib/validation';
 import { networkError } from '../access/gate';
 import { useBoardState } from '../board';
 import { platformLabels, useClub } from '../club';
@@ -108,7 +109,7 @@ function useTierOf(): (player: string | null) => number | null {
 }
 
 const detailsOf = (member: MemberProfile) =>
-  [member.email, member.platform && platformLabels[member.platform]].filter(Boolean).join(' · ');
+  [member.firstName, member.email, member.platform && platformLabels[member.platform]].filter(Boolean).join(' · ');
 
 function MemberRow({ member, onOpen }: { member: MemberProfile; onOpen: () => void }) {
   const tierOf = useTierOf();
@@ -294,7 +295,73 @@ function InviteForm() {
   );
 }
 
-/** A member opened from the list: their role, and removing them from the club. */
+/** The member's first name, which the admin sets or corrects for them. */
+function FirstNameForm({ member, self }: { member: MemberProfile; self: boolean }) {
+  const { refresh } = useBoardState();
+  const queryClient = useQueryClient();
+  const save = useMutation({
+    mutationFn: (value: string | null) =>
+      sendJson({
+        path: '/api/members',
+        method: 'PATCH',
+        body: { id: member.id, firstName: value },
+        fallback: 'Prénom non enregistré.',
+      }),
+    onSuccess: async () => {
+      // The challenges read the first names from the club.
+      await queryClient.invalidateQueries({ queryKey: membersQuery.queryKey });
+      await queryClient.invalidateQueries({ queryKey: clubQuery.queryKey });
+      if (self) await refresh();
+    },
+  });
+  const form = useForm({
+    defaultValues: { firstName: member.firstName ?? '' } as { firstName: string | null },
+    validators: { onSubmit: z.object({ firstName }) },
+    onSubmit: ({ value }) => save.mutateAsync(value.firstName).catch(() => {}),
+  });
+  return (
+    <form
+      noValidate
+      className="contents"
+      onSubmit={(event) => {
+        event.preventDefault();
+        void form.handleSubmit();
+      }}
+    >
+      <form.Field name="firstName">
+        {(field) => (
+          <>
+            <SettingsCard>
+              <FieldRow id="member-first-name" label="Prénom" invalid={!field.state.meta.isValid}>
+                <RowInput
+                  id="member-first-name"
+                  placeholder="Facultatif"
+                  autoComplete="off"
+                  aria-invalid={!field.state.meta.isValid || undefined}
+                  disabled={save.isPending}
+                  value={field.state.value ?? ''}
+                  onBlur={field.handleBlur}
+                  onChange={(event) => field.handleChange(event.target.value)}
+                />
+                <Button
+                  type="submit"
+                  variant="pill"
+                  size="pill"
+                  disabled={save.isPending || (field.state.value ?? '').trim() === (member.firstName ?? '')}
+                >
+                  OK
+                </Button>
+              </FieldRow>
+            </SettingsCard>
+            <ErrorNote errors={[...field.state.meta.errors, ...(save.error ? [networkError(save.error)] : [])]} />
+          </>
+        )}
+      </form.Field>
+    </form>
+  );
+}
+
+/** A member opened from the list: their first name, their role, and removing them from the club. */
 function MemberSheet({ member, onClose }: { member: MemberProfile | null; onClose: () => void }) {
   const { me } = useClub();
   const tierOf = useTierOf();
@@ -336,6 +403,7 @@ function MemberSheet({ member, onClose }: { member: MemberProfile | null; onClos
               </span>
             </DrawerHeader>
             <div className="flex flex-col gap-2 px-4 pt-6">
+              <FirstNameForm member={member} self={self} />
               <SettingsCard>
                 <FieldRow label="Rôle">
                   <span className="flex-1" />

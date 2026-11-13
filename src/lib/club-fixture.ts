@@ -3,9 +3,9 @@ import type { Database } from './db';
 
 // The tests' club: fictional players, never real ones.
 export const players: ClubPlayer[] = [
-  { slot: 'alice', platform: 'pc' },
-  { slot: 'bob', platform: 'pc' },
-  { slot: 'carla', platform: 'playstation' },
+  { slot: 'alice', platform: 'pc', firstName: null },
+  { slot: 'bob', platform: 'pc', firstName: null },
+  { slot: 'carla', platform: 'playstation', firstName: null },
 ];
 
 export const roster: readonly string[] = players.map((player) => player.slot);

@@ -2,10 +2,10 @@ import {
   type ClubNameInput,
   done,
   type Invitation,
+  type MemberChange,
   type MemberToRemove,
   type ProfileInput,
   pairingCodeCreated,
-  type RoleChange,
   type RuleChange,
 } from '../lib/contract';
 import type { ExerciseType } from '../lib/domain';
@@ -19,7 +19,7 @@ const jsonWrites = {
   'PUT /api/club': (json: ClubNameInput) => api.club.$put({ json }),
   'PUT /api/club/rules': (json: RuleChange) => api.club.rules.$put({ json }),
   'POST /api/members': (json: Invitation) => api.members.$post({ json }),
-  'PATCH /api/members': (json: RoleChange) => api.members.$patch({ json }),
+  'PATCH /api/members': (json: MemberChange) => api.members.$patch({ json }),
   'DELETE /api/members': (json: MemberToRemove) => api.members.$delete({ json }),
 };
 type JsonWrites = typeof jsonWrites;

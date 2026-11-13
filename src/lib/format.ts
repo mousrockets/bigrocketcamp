@@ -31,6 +31,9 @@ export const count = (value: number, word: string, pluralWord?: string): string 
 const clocks = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit' });
 
 /** "21:40", in Paris time: a match's kickoff in a list, like a scoreboard writes it. */
+/** "1er", "2ème". */
+export const formatPlace = (position: number): string => (position === 1 ? '1er' : `${position}ème`);
+
 export const formatClock = (at: Date | number | string): string => clocks.format(new Date(at));
 
 /** "19 h 42", in Paris time. */

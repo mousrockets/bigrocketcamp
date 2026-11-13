@@ -110,19 +110,23 @@ export function monthlyRanking(
         const latest = (live ? null : candidates.filter(admissible).at(-1)) || candidates.at(-1);
         return latest ? [{ entry: latest, account, confirmed: admissible(latest) }] : [];
       });
-      // At the close, the player counts with the best of their accounts read on the last day; an account not
-      // read that day does not hold the others back. Live, the best latest reading shows. The duo account wins a tie.
-      const confirmed = readings.filter((reading) => reading.confirmed);
-      const best = (!live && confirmed.length ? confirmed : readings).reduce<(typeof readings)[number] | null>(
+      // The player counts with the sum of their accounts: an account never read this month adds nothing, and one
+      // not read on the last day adds its latest reading. One account read on the last day confirms the player.
+      // `account` names the best of them, whose rank shows; the duo account wins a tie.
+      const best = readings.reduce<(typeof readings)[number] | null>(
         (top, reading) => (top && top.entry.mmr >= reading.entry.mmr ? top : reading),
         null,
       );
+      const of = (account: MmrAccount) => readings.find((reading) => reading.account === account)?.entry.mmr ?? null;
+      const latest = readings.map((reading) => reading.entry.recorded_at).sort();
       return {
         player,
-        mmr: best?.entry.mmr ?? null,
-        recordedAt: best?.entry.recorded_at ?? null,
-        confirmedForClose: Boolean(best?.confirmed),
+        mmr: readings.length ? readings.reduce((sum, reading) => sum + reading.entry.mmr, 0) : null,
+        recordedAt: latest.at(-1) ?? null,
+        confirmedForClose: readings.some((reading) => reading.confirmed),
         account: best?.account ?? null,
+        duo: of('duo'),
+        solo: of('solo'),
       };
     })
     .sort((a, b) => (b.mmr ?? -1) - (a.mmr ?? -1) || roster.indexOf(a.player) - roster.indexOf(b.player));

@@ -122,7 +122,7 @@ describe('monthly MMR ranking', () => {
   });
 });
 
-describe('the best of the duo and solo accounts', () => {
+describe('the sum of the duo and solo accounts', () => {
   const lastDay = '2026-11-30T20:00:00.000Z';
   const earlier = '2026-11-20T20:00:00.000Z';
   const entry = (player: string, mmr: number, account: 'duo' | 'solo', recorded_at = lastDay) => ({
@@ -133,31 +133,31 @@ describe('the best of the duo and solo accounts', () => {
   });
   const duo = [entry(first, 1200, 'duo'), entry(second, 1100, 'duo'), entry(third, 1000, 'duo')];
 
-  test('a better solo account counts, and the ranking says which account', () => {
-    const result = monthlyRanking(roster, [...duo, entry(third, 1250, 'solo')], '2026-11');
-    expect(result.rows.map((row) => [row.player, row.mmr, row.account])).toEqual([
-      [third, 1250, 'solo'],
-      [first, 1200, 'duo'],
-      [second, 1100, 'duo'],
+  test('each player counts with their duo and solo MMR added, and the ranking keeps both', () => {
+    const result = monthlyRanking(roster, [...duo, entry(second, 50, 'solo'), entry(third, 300, 'solo')], '2026-11');
+    expect(result.rows.map((row) => [row.player, row.mmr, row.duo, row.solo])).toEqual([
+      [third, 1300, 1000, 300],
+      [first, 1200, 1200, null],
+      [second, 1150, 1100, 50],
     ]);
     expect(result.status).toBe('final');
     expect(result.losers).toEqual([second]);
   });
 
-  test('a better duo account counts, and the duo one wins a tie', () => {
-    const result = monthlyRanking(roster, [...duo, entry(first, 1150, 'solo'), entry(second, 1100, 'solo')], '2026-11');
-    expect(result.rows.map((row) => [row.player, row.mmr, row.account])).toEqual([
-      [first, 1200, 'duo'],
-      [second, 1100, 'duo'],
-      [third, 1000, 'duo'],
+  test('the account whose rank shows is the best one, the duo one on a tie', () => {
+    const result = monthlyRanking(roster, [...duo, entry(first, 1200, 'solo'), entry(third, 1250, 'solo')], '2026-11');
+    expect(result.rows.map((row) => [row.player, row.account])).toEqual([
+      [first, 'duo'],
+      [third, 'solo'],
+      [second, 'duo'],
     ]);
   });
 
-  test('a solo account never read, or not read on the last day, does not hold the month back', () => {
-    const result = monthlyRanking(roster, [...duo, entry(third, 1500, 'solo', earlier)], '2026-11');
+  test('a solo account never read adds nothing, and one not read on the last day adds its latest reading', () => {
+    const result = monthlyRanking(roster, [...duo, entry(third, 150, 'solo', earlier)], '2026-11');
     expect(result.status).toBe('final');
-    expect(result.rows.find((row) => row.player === third)).toMatchObject({ mmr: 1000, account: 'duo' });
-    expect(result.debts.every((debt) => debt.payer === third)).toBe(true);
+    expect(result.rows.find((row) => row.player === third)).toMatchObject({ mmr: 1150, duo: 1000, solo: 150 });
+    expect(result.debts.every((debt) => debt.payer === second)).toBe(true);
   });
 
   test('either account read on the last day confirms the player', () => {
@@ -165,12 +165,12 @@ describe('the best of the duo and solo accounts', () => {
     readings.push(entry(third, 1000, 'duo', earlier), entry(third, 990, 'solo'));
     const result = monthlyRanking(roster, readings, '2026-11');
     expect(result.status).toBe('final');
-    expect(result.rows.find((row) => row.player === third)).toMatchObject({ mmr: 990, account: 'solo' });
+    expect(result.rows.find((row) => row.player === third)).toMatchObject({ mmr: 1990, confirmedForClose: true });
   });
 
-  test('the live ranking shows the best latest reading of each player', () => {
-    const result = monthlyRanking(roster, [...duo, entry(second, 1300, 'solo', earlier)], '2026-11', { live: true });
-    expect(result.rows[0]).toMatchObject({ player: second, mmr: 1300, account: 'solo', confirmedForClose: false });
+  test('the live ranking adds the latest reading of each account', () => {
+    const result = monthlyRanking(roster, [...duo, entry(second, 300, 'solo', earlier)], '2026-11', { live: true });
+    expect(result.rows[0]).toMatchObject({ player: second, mmr: 1400, duo: 1100, solo: 300 });
   });
 });
 

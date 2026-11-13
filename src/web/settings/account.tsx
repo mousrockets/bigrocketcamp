@@ -15,7 +15,7 @@ import { CheckIcon } from './icons';
 import { RankAvatar, useMyRank } from './my-rank';
 import { ErrorNote, FieldRow, Note, RowInput, SettingsCard, SettingsGroup, SettingsPage } from './parts';
 
-/** Mon compte: the member's pseudos and platform, the address they sign in with, and the way out. */
+/** Mon compte: the member's first name, pseudos and platform, the address they sign in with, and the way out. */
 export function AccountSettings() {
   const { me } = useClub();
   const { tier, summary } = useMyRank();
@@ -36,6 +36,7 @@ export function AccountSettings() {
       duoPseudo: me.duoPseudo ?? '',
       soloPseudo: me.soloPseudo ?? '',
       platform: me.platform ?? 'pc',
+      firstName: me.firstName ?? '',
     } as ProfileInput,
     validators: { onSubmit: profile },
     // A refusal stays on the mutation, which the page shows.
@@ -57,6 +58,34 @@ export function AccountSettings() {
           void form.handleSubmit();
         }}
       >
+        <form.Field name="firstName">
+          {(field) => (
+            <SettingsGroup
+              label="Comment on t’appelle"
+              note={
+                <>
+                  <ErrorNote errors={field.state.meta.errors} />
+                  <Note>Affiché à la place de ton pseudo dans le défi du mois.</Note>
+                </>
+              }
+            >
+              <SettingsCard>
+                <FieldRow id="first-name" label="Prénom" invalid={!field.state.meta.isValid}>
+                  <RowInput
+                    id="first-name"
+                    placeholder="Facultatif"
+                    autoComplete="given-name"
+                    aria-invalid={!field.state.meta.isValid || undefined}
+                    disabled={save.isPending}
+                    value={field.state.value ?? ''}
+                    onBlur={field.handleBlur}
+                    onChange={(event) => field.handleChange(event.target.value)}
+                  />
+                </FieldRow>
+              </SettingsCard>
+            </SettingsGroup>
+          )}
+        </form.Field>
         <SettingsGroup
           label="Comptes Epic"
           note={

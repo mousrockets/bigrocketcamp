@@ -1,9 +1,7 @@
 import { shiftDay, weekStart } from '../../lib/days';
 import { type CountedExercise, pushupCredit } from '../../lib/domain';
 import type { Board } from '../board';
-import { splitRankLabel } from '../team/stats';
 
-type DoublesRank = Board['doublesRanks'][number];
 export type DrinkDebt = NonNullable<Board['monthly']>['debts'][number];
 
 // What Défis derives from the board: the week's podium, the month's 2v2 standings, the time left before they close.
@@ -57,6 +55,14 @@ export interface MonthlyRow {
   player: string;
   mmr: number | null;
   account?: 'duo' | 'solo' | null | undefined;
+  duo?: number | null | undefined;
+  solo?: number | null | undefined;
+}
+
+/** The MMR a player still needs to pass the position just above theirs. */
+export interface Gap {
+  mmr: number;
+  position: number;
 }
 
 export interface StandingLine {
@@ -66,10 +72,20 @@ export interface StandingLine {
   position: number;
   mmr: number | null;
   account: 'duo' | 'solo' | null;
-  /** The current rank of the account that counts, or null while none was read. */
-  rank: { name: string; tier: number } | null;
   /** The last of the month, who owes the others a drink each. */
   pays: boolean;
+  /** Each account's MMR in the sum, when the month summed them. */
+  accounts: { duo: number | null; solo: number | null } | null;
+  /** What it takes to climb one position; null for the first, or a player not read yet. */
+  gap: Gap | null;
+}
+
+function gapOf(rows: readonly MonthlyRow[], mmr: number | null): Gap | null {
+  if (mmr === null) return null;
+  const above = rows.flatMap((row) => (row.mmr !== null && row.mmr > mmr ? [row.mmr] : []));
+  if (!above.length) return null;
+  const target = Math.min(...above);
+  return { mmr: target - mmr + 1, position: 1 + rows.filter((row) => (row.mmr ?? -1) > target).length };
 }
 
 /**
@@ -83,18 +99,8 @@ export function payerOf(rows: readonly MonthlyRow[]): string | null {
   return last.length === 1 ? (last[0]?.player ?? null) : null;
 }
 
-function accountRank(ranks: DoublesRank | undefined, account: StandingLine['account']): StandingLine['rank'] {
-  const read = account === 'solo' ? ranks?.solo : account === 'duo' ? ranks : null;
-  if (!read || read.tier === null || read.mmr === null) return null;
-  return { name: splitRankLabel(read.label).rank, tier: read.tier };
-}
-
-/** The month's rows as the API ranked them, best first, with the rank of the account each player counts with. */
-export function standingLines(
-  rows: readonly MonthlyRow[],
-  doublesRanks: readonly DoublesRank[],
-  me: string | null,
-): StandingLine[] {
+/** The month's rows as the API ranked them, best first. */
+export function standingLines(rows: readonly MonthlyRow[], me: string | null): StandingLine[] {
   const payer = payerOf(rows);
   return rows.map((row) => ({
     player: row.player,
@@ -102,11 +108,9 @@ export function standingLines(
     position: 1 + rows.filter((other) => (other.mmr ?? -1) > (row.mmr ?? -1)).length,
     mmr: row.mmr,
     account: row.account ?? null,
-    rank: accountRank(
-      doublesRanks.find((ranks) => ranks.player === row.player),
-      row.account ?? null,
-    ),
     pays: row.player === payer,
+    accounts: row.duo == null && row.solo == null ? null : { duo: row.duo ?? null, solo: row.solo ?? null },
+    gap: gapOf(rows, row.mmr),
   }));
 }
 

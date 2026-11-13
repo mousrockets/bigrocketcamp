@@ -1,6 +1,6 @@
 import { platforms } from '../club';
 import { says, z } from '../validation';
-import { memberProfile } from './members';
+import { firstName, memberProfile } from './members';
 import type { Known } from './shared';
 
 // Each member fills in their own profile, and can delete their own account (204).
@@ -24,6 +24,8 @@ export const profile = z.object({
     .transform((pseudo) => pseudo || null)
     .refine((pseudo) => pseudo === null || /^[^\p{C}]{1,32}$/u.test(pseudo), says(invalidSoloPseudo)),
   platform: z.enum(platforms, says('Choisis ta plateforme.')),
+  /** Left out by an app older than first names: the saved one then stays. */
+  firstName: firstName.optional(),
 });
 export type ProfileInput = z.input<typeof profile>;
 
