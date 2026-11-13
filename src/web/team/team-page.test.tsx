@@ -124,10 +124,10 @@ test('shows the solo account’s peak all time under its season peak, and none f
   expect(allTime.querySelector('img')).toHaveAttribute('src', '/rocket-league/ranks/20.png');
 });
 
-test('a best rating set by hand shows the rank it wins on the ladder, without a division', async () => {
+test('a best rating set by hand shows the rank and division it wins on the ladder', async () => {
   const card = await bobsCardWithBest({ best: 1560, bestRank: null });
   const allTime = within(card).getByText('Peak all time').closest('[data-slot=item]') as HTMLElement;
-  expect(allTime).toHaveTextContent('Grand Champion I1 560');
+  expect(allTime).toHaveTextContent('Grand Champion I · Div. IV1 560');
   expect(allTime.querySelector('img')).toHaveAttribute('src', '/rocket-league/ranks/19.png');
 });
 

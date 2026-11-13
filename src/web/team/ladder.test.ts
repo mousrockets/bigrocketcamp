@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import { aRank, aSoloRank } from '../test-utils';
-import { climbOf, rankLadder, soloLines } from './ladder';
+import { climbOf, rankLadder, ratingOnLadder, soloLines } from './ladder';
 
 const solo = (tier: number | null, mmr: number | null, status: 'ready' | 'not_found' = 'ready') =>
   aSoloRank({ tier, mmr, status });
@@ -66,4 +66,12 @@ test('names each line after its solo account, with its best rating never below t
     { name: 'bob_solo', best: 1238 },
     { name: 'carol', best: null },
   ]);
+});
+
+test('gives a best rating set by hand the rank and division it wins: four even divisions per rank', () => {
+  expect(ratingOnLadder(1435)).toEqual({ mmr: 1435, label: 'Grand Champion I · Division I', tier: 19 });
+  expect(ratingOnLadder(1505)).toMatchObject({ label: 'Grand Champion I · Division III' });
+  expect(ratingOnLadder(1560)).toMatchObject({ label: 'Grand Champion I · Division IV' });
+  expect(ratingOnLadder(1135)).toMatchObject({ label: 'Champion I · Division III', tier: 16 });
+  expect(ratingOnLadder(1900)).toEqual({ mmr: 1900, label: 'Supersonic Legend', tier: 22 });
 });

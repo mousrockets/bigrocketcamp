@@ -46,10 +46,21 @@ export const rankStep = (tier: number): RankStep | undefined => rankLadder.find(
 export const stepOfMmr = (mmr: number): RankStep =>
   rankLadder.findLast((step) => mmr >= step.mmr) ?? (rankLadder[0] as RankStep);
 
-/** A rating with the rank it wins on the ladder, divisions left out: for a best rating set by hand. */
+const divisions = ['I', 'II', 'III', 'IV'];
+
+/**
+ * A rating with the rank and division it wins on the ladder: for a best rating set by hand, which came without
+ * them. The game splits each rank's MMR into four even divisions; Supersonic Legend has none.
+ */
 export const ratingOnLadder = (mmr: number): SeasonPeak => {
   const step = stepOfMmr(mmr);
-  return { mmr, label: step.name, tier: step.tier };
+  const next = rankStep(step.tier + 1);
+  if (!next) return { mmr, label: step.name, tier: step.tier };
+  const division = Math.min(
+    divisions.length - 1,
+    Math.floor(((mmr - step.mmr) * divisions.length) / (next.mmr - step.mmr)),
+  );
+  return { mmr, label: `${step.name} · Division ${divisions[division]}`, tier: step.tier };
 };
 
 export interface Climb {
