@@ -176,10 +176,16 @@ export async function inviteMember(db: Database, email: string, role: Role): Pro
   return added;
 }
 
-/** Closes the member's sessions, collectors and pending codes; their game records stay with their pseudo. */
+/**
+ * Closes the member's sessions, collectors and pending codes, and erases their solo account's readings: that
+ * account is the member's own, not the club's. Their game records stay with their duo pseudo.
+ */
 async function forgetMember(db: Database, memberId: string) {
   const query = orm(db);
+  const slot = query.select({ slot: members.duoPseudo }).from(members).where(eq(members.id, memberId));
   await query.batch([
+    query.delete(soloRanks).where(eq(soloRanks.player, slot)),
+    query.delete(soloMmrEntries).where(eq(soloMmrEntries.player, slot)),
     query.delete(sessions).where(eq(sessions.memberId, memberId)),
     query.delete(collectorDevices).where(eq(collectorDevices.memberId, memberId)),
     query.delete(collectorPairingCodes).where(eq(collectorPairingCodes.memberId, memberId)),
