@@ -1,5 +1,6 @@
 import { screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
+import type { SoloRank } from '../../lib/contract';
 import { anExercise, aRank, aResult, aSoloRank, boardWith, renderInApp, setViewportWidth } from '../test-utils';
 import { TeamPage } from './team-page';
 
@@ -89,6 +90,50 @@ test('counts no MMR left once the next rank’s MMR is won, before the game prom
 test('shows no way up at the top of the ladder', async () => {
   const card = await bobsCardAt({ mmr: 1900, tier: 22, label: 'Supersonic Legend' });
   expect(within(card).queryByRole('progressbar', { name: /^Vers / })).not.toBeInTheDocument();
+});
+
+/** Bob's card, his solo account read at 1 509 with a season peak, and a best rating every season. */
+async function bobsCardWithBest(best: Partial<SoloRank>) {
+  const solo = aSoloRank({
+    mmr: 1509,
+    tier: 19,
+    label: 'Grand Champion I · Division III',
+    peak: { mmr: 1538, label: 'Grand Champion I · Division IV', tier: 19 },
+    ...best,
+  });
+  const bob = aRank({ player: 'bob', mmr: 1362, label: 'Champion III · Division II', tier: 18, solo });
+  renderInApp(<TeamPage />, {
+    board: { ...board, doublesRanks: [{ ...bob, peak: board.doublesRanks[0]?.peak ?? null }] },
+  });
+  return (await screen.findAllByRole('group'))[1] as HTMLElement;
+}
+
+test('shows the solo account’s peak all time under its season peak, and none for the duo', async () => {
+  const card = await bobsCardWithBest({
+    best: 1612,
+    bestRank: { mmr: 1612, label: 'Grand Champion II · Division II', tier: 20 },
+  });
+  expect(
+    within(card)
+      .getAllByText(/^Peak /)
+      .map((title) => title.textContent),
+  ).toEqual(['Peak saison', 'Peak all time', 'Peak saison']);
+  const allTime = within(card).getByText('Peak all time').closest('[data-slot=item]') as HTMLElement;
+  expect(allTime).toHaveTextContent('Grand Champion II · Div. II');
+  expect(allTime).toHaveTextContent('1 612');
+  expect(allTime.querySelector('img')).toHaveAttribute('src', '/rocket-league/ranks/20.png');
+});
+
+test('a best rating set by hand shows the rank it wins on the ladder, without a division', async () => {
+  const card = await bobsCardWithBest({ best: 1560, bestRank: null });
+  const allTime = within(card).getByText('Peak all time').closest('[data-slot=item]') as HTMLElement;
+  expect(allTime).toHaveTextContent('Grand Champion I1 560');
+  expect(allTime.querySelector('img')).toHaveAttribute('src', '/rocket-league/ranks/19.png');
+});
+
+test('no peak all time while the solo account has no best rating', async () => {
+  const card = await bobsCardWithBest({ best: null, bestRank: null });
+  expect(within(card).queryByText('Peak all time')).not.toBeInTheDocument();
 });
 
 test('says how many placement matches an account played, in place of its division', async () => {

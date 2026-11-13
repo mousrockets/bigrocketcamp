@@ -51,6 +51,8 @@ export interface PlayerSoloRank {
   pseudo: string | null;
   /** The account's best rating, every season; null until one is known. */
   best: number | null;
+  /** The best rating with the rank it came with; null while unknown, or for a best set by hand. */
+  bestRank: SeasonPeak | null;
   /** The account's game ID once the rank source found it: the matches played on it. */
   playerId: string | null;
 }
@@ -121,6 +123,8 @@ async function readSoloRanks(db: Database): Promise<Map<string, PlayerSoloRank>>
         fetchedAt: soloRanks.fetchedAt,
         status: soloRanks.status,
         bestMmr: soloRanks.bestMmr,
+        bestTier: soloRanks.bestTier,
+        bestDivision: soloRanks.bestDivision,
         ...peakColumns(soloRanks),
       })
       .from(soloRanks),
@@ -142,6 +146,10 @@ async function readSoloRanks(db: Database): Promise<Map<string, PlayerSoloRank>>
           peak: peakOf(rank),
           pseudo,
           best: rank?.bestMmr ?? null,
+          bestRank:
+            rank?.bestMmr != null && rank.bestTier !== null
+              ? { mmr: rank.bestMmr, label: rankLabel(rank.bestTier, rank.bestDivision), tier: rank.bestTier }
+              : null,
           playerId,
         },
       ];

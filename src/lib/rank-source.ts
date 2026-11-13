@@ -373,7 +373,7 @@ async function soloWrites(query: Orm, rank: ObservedRank, target: SoloTarget): P
     peakWrite(query, soloRanks, rank),
     query
       .update(soloRanks)
-      .set({ bestMmr: rank.mmr })
+      .set({ bestMmr: rank.mmr, bestTier: rank.tier, bestDivision: rank.division })
       .where(
         and(
           eq(soloRanks.player, rank.player),

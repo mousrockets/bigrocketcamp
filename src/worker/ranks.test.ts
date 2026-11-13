@@ -301,6 +301,21 @@ describe('the solo accounts', () => {
     expect(await best()).toBeNull();
   });
 
+  test('a solo account’s best rating keeps the rank it came with, and one set by hand has none', async () => {
+    await soloPseudo('Bob Solo');
+    const bestRank = async () => (await readDoublesRanks(env.DB, ['bob']))[0]?.solo?.bestRank;
+    await post([solo(1320, { tier: 17, division: 4 })]);
+    expect(await bestRank()).toEqual({ mmr: 1320, label: 'Champion II · Division IV', tier: 17 });
+    await post([solo(1300, { tier: 17, division: 3 })]);
+    expect(await bestRank()).toEqual({ mmr: 1320, label: 'Champion II · Division IV', tier: 17 });
+    await env.DB.prepare(
+      "UPDATE solo_ranks SET best_mmr = 1560, best_tier = NULL, best_division = NULL WHERE player = 'bob'",
+    ).run();
+    expect(await bestRank()).toBeNull();
+    await post([solo(1580, { tier: 20, division: 1 })]);
+    expect(await bestRank()).toEqual({ mmr: 1580, label: 'Grand Champion II · Division I', tier: 20 });
+  });
+
   test('the health of the source only follows the duo accounts', async () => {
     await soloPseudo('Bob Solo');
     await post([solo(1320)]);

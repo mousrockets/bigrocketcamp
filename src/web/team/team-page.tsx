@@ -6,6 +6,7 @@ import { epicNotice } from '../components/epic-notice';
 import { LiveStatus } from '../components/live-status';
 import { ClubBadge } from '../shell/club-badge';
 import { DebtHero } from './debt-hero';
+import { ratingOnLadder } from './ladder';
 import type { CardPlayer } from './player-card';
 import { PlayerSheet } from './player-sheet';
 import type { CardRank } from './rank-block';
@@ -40,6 +41,7 @@ function cardPlayers(
         label: unreadable ? 'Compte solo introuvable' : solo.label,
         tier: unreadable ? null : solo.tier,
         peak: solo.peak,
+        allTime: solo.bestRank ?? (solo.best === null ? null : ratingOnLadder(solo.best)),
         placements: unreadable ? null : solo.placements,
       },
       duo: ranks

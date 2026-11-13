@@ -68,6 +68,7 @@ const ranks = [
       peak: null,
       pseudo: null,
       best: null,
+      bestRank: null,
       playerId: null,
       status: 'ready',
     },

@@ -415,6 +415,9 @@ export const soloRanks = sqliteTable('solo_ranks', {
    * account, then raised by each higher reading. It goes with the row when the profile names another account.
    */
   bestMmr: integer('best_mmr'),
+  /** The rank and division that came with the best rating; null for one set by hand. */
+  bestTier: integer('best_tier'),
+  bestDivision: integer('best_division'),
 });
 
 /** Each change of a solo account's rating, as the rank source read it. */

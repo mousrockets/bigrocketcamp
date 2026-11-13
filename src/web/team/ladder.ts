@@ -1,3 +1,4 @@
+import type { SeasonPeak } from '../../lib/contract';
 import type { Board } from '../board';
 
 // The ranks' ladder in 2v2, as the club reads it: each rank and the MMR from which it is won, divisions left out.
@@ -44,6 +45,12 @@ export const rankStep = (tier: number): RankStep | undefined => rankLadder.find(
 /** The rank an MMR wins on the ladder: the highest step it reaches. */
 export const stepOfMmr = (mmr: number): RankStep =>
   rankLadder.findLast((step) => mmr >= step.mmr) ?? (rankLadder[0] as RankStep);
+
+/** A rating with the rank it wins on the ladder, divisions left out: for a best rating set by hand. */
+export const ratingOnLadder = (mmr: number): SeasonPeak => {
+  const step = stepOfMmr(mmr);
+  return { mmr, label: step.name, tier: step.tier };
+};
 
 export interface Climb {
   current: RankStep;
