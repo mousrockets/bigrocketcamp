@@ -68,6 +68,7 @@ test('each card shows the season peak, and the solo account its profile names, a
     peak: null,
     pseudo: 'Solo',
     best: null,
+    bestRank: null,
     playerId: `Epic|${'d'.repeat(32)}|0`,
   });
   expect(firstRank?.solo).toMatchObject({ mmr: null, status: 'waiting', pseudo: 'Solo', playerId: null });

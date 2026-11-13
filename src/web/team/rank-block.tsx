@@ -13,6 +13,8 @@ export interface CardRank {
   label: string;
   tier: number | null;
   peak: SeasonPeak | null;
+  /** A solo account's best rating, every season, with its rank; the duo rank has none. */
+  allTime?: SeasonPeak | null;
   /** Placement matches played while the season's ten are not done; null once placed. */
   placements: number | null;
 }
@@ -88,23 +90,29 @@ export function RankBlock({
         )}
       </Item>
       {climbing && rank?.tier && rank.mmr !== null && <RankClimb tier={rank.tier} mmr={rank.mmr} />}
-      {rank?.peak && (
-        <Item className={cn(row, 'border-line border-t-[.5px] pt-2.5')}>
-          <ItemMedia className={media}>
-            <img src={rankIcon(rank.peak.tier)} alt="" width={24} height={24} className="size-6 object-contain" />
-          </ItemMedia>
-          <ItemContent className={cn(words, 'gap-0.5')}>
-            <ItemTitle className="label-caps font-semibold text-[10px] [line-height:normal]">Peak saison</ItemTitle>
-            <ItemDescription className="text-[11px] text-t3 [line-height:normal]">
-              {shortRankLabel(rank.peak.label)}
-            </ItemDescription>
-          </ItemContent>
-          <ItemActions>
-            <b className="num text-[15px] text-t2 [line-height:1]">{formatNumber(rank.peak.mmr)}</b>
-          </ItemActions>
-        </Item>
-      )}
+      {rank?.peak && <PeakRow title="Peak saison" peak={rank.peak} />}
+      {rank?.allTime && <PeakRow title="Peak all time" peak={rank.allTime} />}
     </div>
+  );
+}
+
+/** A peak under the rank, past a thin line: its rank's icon and name, its MMR. */
+function PeakRow({ title, peak }: { title: string; peak: SeasonPeak }) {
+  return (
+    <Item className={cn(row, 'border-line border-t-[.5px] pt-2.5')}>
+      <ItemMedia className={media}>
+        <img src={rankIcon(peak.tier)} alt="" width={24} height={24} className="size-6 object-contain" />
+      </ItemMedia>
+      <ItemContent className={cn(words, 'gap-0.5')}>
+        <ItemTitle className="label-caps font-semibold text-[10px] [line-height:normal]">{title}</ItemTitle>
+        <ItemDescription className="text-[11px] text-t3 [line-height:normal]">
+          {shortRankLabel(peak.label)}
+        </ItemDescription>
+      </ItemContent>
+      <ItemActions>
+        <b className="num text-[15px] text-t2 [line-height:1]">{formatNumber(peak.mmr)}</b>
+      </ItemActions>
+    </Item>
   );
 }
 
