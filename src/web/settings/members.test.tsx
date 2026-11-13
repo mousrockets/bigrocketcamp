@@ -76,6 +76,20 @@ test('makes a member an admin from their sheet', async () => {
   );
 });
 
+test('sets a member’s first name from their sheet', async () => {
+  const sent = fakeApi({ 'GET /api/members': members });
+  renderInApp(<MembersSettings />, { path: '/reglages/membres' });
+  await userEvent.click(await screen.findByRole('button', { name: /^BO bob/ }));
+  const sheet = await screen.findByRole('dialog');
+  await userEvent.type(within(sheet).getByLabelText('Prénom'), 'Robert');
+  await userEvent.click(within(sheet).getByRole('button', { name: 'OK' }));
+  await vi.waitFor(() =>
+    expect(writes(sent)).toEqual([
+      { method: 'PATCH', path: '/api/members', body: { id: 'member-bob', firstName: 'Robert' } },
+    ]),
+  );
+});
+
 test('keeps the club and its members for the admins', async () => {
   const sent = fakeApi({ 'GET /api/members': members });
   const asMember = { ...testClub, me: { ...testClub.me, role: 'member' as const } };

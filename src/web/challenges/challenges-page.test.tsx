@@ -18,7 +18,7 @@ afterEach(() => {
 
 const club = {
   ...testClub,
-  players: [...testClub.players, { slot: 'carol', platform: 'xbox' as const }],
+  players: [...testClub.players, { slot: 'carol', platform: 'xbox' as const, firstName: null }],
   roster: ['alice', 'bob', 'carol'],
 };
 
@@ -48,6 +48,8 @@ const aRow = (player: string, mmr: number | null, account: Row['account']): Row 
   account,
   recordedAt: mmr === null ? null : '2026-11-07T10:00:00.000Z',
   confirmedForClose: false,
+  duo: null,
+  solo: null,
 });
 
 const ranks = [
@@ -176,30 +178,88 @@ test('goes back to a closed month as it closed: its standings and who was last',
   expect(within(month).queryByRole('timer')).not.toBeInTheDocument();
   const lines = within(within(month).getByRole('list', { name: 'Classement du mois' })).getAllByRole('listitem');
   expect(lines.map((line) => line.textContent)).toEqual([
-    '1bobDuo · Champion II1\u00a0250',
-    '2aliceTOISolo · Champion I1\u00a0180',
-    '3carolDuo · Champion I1\u00a0100Dernier du mois2 boissons',
+    '1erbobDuo1\u00a0250',
+    '2èmealiceTOISolo1\u00a0180',
+    '3èmecarolDuo1\u00a0100Dernier du mois2 boissons',
   ]);
   expect(within(month).getByRole('link', { name: 'Mois suivant' })).toHaveAttribute('href', '/defis');
 });
 
-test('ranks the month with the account that counted, and the last one pays a drink to each other', async () => {
+test('ranks the month by place, without rank icons, and the last one pays a drink to each other', async () => {
   renderInApp(<ChallengesPage />, { club, board });
   const standings = await screen.findByRole('list', { name: 'Classement du mois' });
   const [first, second, last] = within(standings).getAllByRole('listitem');
-  expect(first).toHaveTextContent('alice');
+  expect(first).toHaveTextContent(/^1eralice/);
   expect(first).toHaveTextContent('TOI');
-  expect(first).toHaveTextContent('Solo · Grand Champion I');
-  expect(within(first as HTMLElement).getByRole('img', { name: 'Icône de rank Grand Champion I' })).toHaveAttribute(
-    'src',
-    '/rocket-league/ranks/19.png',
-  );
   expect(first).toHaveTextContent('1 509');
-  expect(second).toHaveTextContent('Duo · Champion II');
+  expect(within(standings).queryByRole('img')).not.toBeInTheDocument();
+  expect(second).toHaveTextContent(/^2èmebob/);
   expect(second).not.toHaveTextContent('Paie ta tournée');
   expect(last).toHaveTextContent('carol');
   expect(last).toHaveTextContent('Paie ta tournée !');
   expect(last).toHaveTextContent('2 boissons');
+});
+
+test('ranks on the duo and solo MMR added, with what each player needs to climb a place', async () => {
+  const summed = november([
+    { ...aRow('alice', 2989, 'solo'), duo: 1480, solo: 1509 },
+    { ...aRow('bob', 1238, 'duo'), duo: 1238, solo: null },
+    { ...aRow('carol', 1238, 'duo'), duo: 1203, solo: 35 },
+  ]);
+  renderInApp(<ChallengesPage />, { club, board: { ...board, monthly: summed } });
+  const standings = await screen.findByRole('list', { name: 'Classement du mois' });
+  expect(
+    within(standings)
+      .getAllByRole('listitem')
+      .map((line) => line.textContent),
+  ).toEqual([
+    '1eraliceTOIDuo 1 480 + Solo 1 5092 989',
+    '2èmebobDuo 1 238 + Solo 0+1 752 pour passer 1er1 238',
+    '2èmecarolDuo 1 203 + Solo 35+1 752 pour passer 1er1 238',
+  ]);
+});
+
+test('calls the players by the first name they gave, in the standings and the drinks owed', async () => {
+  const named = {
+    ...club,
+    players: club.players.map((player) => (player.slot === 'bob' ? { ...player, firstName: 'Robert' } : player)),
+  };
+  const debt = {
+    id: '2026-10:bob:alice',
+    month: '2026-10',
+    payer: 'bob',
+    recipient: 'alice',
+    paidAt: null,
+    canSettle: true,
+    canUndo: false,
+  };
+  const monthly = november(board.monthly?.current.rows ?? [], [debt]);
+  renderInApp(<ChallengesPage />, { club: named, board: { ...board, monthly } });
+  const standings = await screen.findByRole('list', { name: 'Classement du mois' });
+  expect(within(standings).getAllByRole('listitem')[1]).toHaveTextContent('Robert');
+  expect(standings).not.toHaveTextContent('bob');
+  expect(within(screen.getByRole('list', { name: 'Tournées à offrir' })).getByText('Robert → alice')).toBeVisible();
+});
+
+test('a closed month shows no gap to climb', async () => {
+  const october = {
+    month: '2026-10',
+    lastDay: '2026-10-31',
+    cutoffAt: '2026-10-31T23:00:00.000Z',
+    closedAt: '2026-10-31T23:05:00.000Z',
+    rows: [
+      { ...aRow('bob', 2400, 'duo'), duo: 1250, solo: 1150 },
+      { ...aRow('carol', 1100, 'duo'), duo: 1100, solo: null },
+    ],
+    status: 'final' as const,
+    missing: [],
+    losers: ['carol'],
+  };
+  const withOctober = { ...board, monthly: { ...november([aRow('alice', 1509, 'solo')]), closed: [october] } };
+  renderInApp(<ChallengesPage />, { club, board: withOctober, path: '/defis?mois=2026-10' });
+  const standings = await screen.findByRole('list', { name: 'Classement du mois' });
+  expect(within(standings).getAllByRole('listitem')[1]).toHaveTextContent('Duo 1 100 + Solo 01 100Dernier du mois');
+  expect(standings).not.toHaveTextContent('pour passer');
 });
 
 test('nobody pays while two players share the last place', async () => {

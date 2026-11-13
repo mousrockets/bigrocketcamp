@@ -179,8 +179,12 @@ describe('a value a newer API adds to a closed list falls back to a known one', 
       'waiting',
     );
     expect(
-      club.parse({ name: 'Big Rocket Camp', logo: null, players: [{ slot: 'alice', platform: 'stadia' }], me })
-        .players[0]?.platform,
+      club.parse({
+        name: 'Big Rocket Camp',
+        logo: null,
+        players: [{ slot: 'alice', platform: 'stadia', firstName: null }],
+        me,
+      }).players[0]?.platform,
     ).toBeNull();
   });
 });

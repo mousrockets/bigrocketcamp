@@ -50,13 +50,7 @@ export function ChallengesPage() {
           </section>
           {board.monthly && (
             <section aria-label="Défi du mois" className={cn(challenge, 'max-lg:pt-12 max-lg:[animation-delay:.12s]')}>
-              <MonthlyChallenge
-                monthly={board.monthly}
-                doublesRanks={board.doublesRanks}
-                me={me}
-                now={now}
-                month={mois}
-              />
+              <MonthlyChallenge monthly={board.monthly} me={me} now={now} month={mois} />
             </section>
           )}
           {totals.length > 0 && (

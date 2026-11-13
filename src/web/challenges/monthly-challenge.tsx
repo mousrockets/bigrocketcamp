@@ -3,27 +3,33 @@ import { Link } from '@tanstack/react-router';
 import { cn } from 'cn';
 import { CheckIcon } from 'lucide-react';
 import type { ClosedMonth } from '../../lib/contract/monthly';
-import { formatDayMonth, formatMonth, formatNumber, formatShortMonth, plural } from '../../lib/format';
+import { formatDayMonth, formatMonth, formatNumber, formatPlace, formatShortMonth, plural } from '../../lib/format';
 import { type Board, useBoardState } from '../board';
+import { useClub } from '../club';
 import { NowDot, PeriodKicker, PeriodPicker, periodLabelClass } from '../components/period-picker';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
-import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle } from '../components/ui/item';
-import { stepOfMmr } from '../team/ladder';
+import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from '../components/ui/item';
 import { settleDrink } from '../writes';
 import { countdown, type DrinkDebt, openDebts, type StandingLine, standingLines } from './standings';
 
 type Monthly = NonNullable<Board['monthly']>;
 
 const accountNames = { duo: 'Duo', solo: 'Solo' } as const;
-const rankIcon = (tier: number | null) => `/rocket-league/ranks/${tier ?? 0}.png`;
+const mmrOf = (value: number | null) => (value === null ? '0' : formatNumber(value));
 const two = (value: number) => String(value).padStart(2, '0');
 /** "d’octobre", "de novembre". */
 const ofMonth = (month: string) => {
   const name = formatMonth(month).toLowerCase();
   return /^[aeiou]/.test(name) ? `d’${name}` : `de ${name}`;
 };
+
+/** The first name a player gave, or else their duo pseudo. */
+function useNameOf(): (player: string) => string {
+  const { players } = useClub();
+  return (player) => players.find((candidate) => candidate.slot === player)?.firstName ?? player;
+}
 
 const row = 'flex-nowrap gap-3 rounded-none border-0 px-4 py-3 [line-height:normal]';
 const words = 'min-w-0 gap-[3px] *:truncate';
@@ -34,13 +40,11 @@ const words = 'min-w-0 gap-[3px] *:truncate';
  */
 export function MonthlyChallenge({
   monthly,
-  doublesRanks,
   me,
   now,
   month,
 }: {
   monthly: Monthly;
-  doublesRanks: Board['doublesRanks'];
   me: string | null;
   now: number;
   /** The month asked for, « 2026-10 »; the month going on without one. */
@@ -85,28 +89,14 @@ export function MonthlyChallenge({
           {closed ? `Le verdict ${ofMonth(closed.month)}` : 'Qui paie sa tournée ?'}
         </h2>
       </span>
-      {closed ? (
-        <ClosedStandings month={closed} me={me} />
-      ) : (
-        <LiveStandings monthly={monthly} doublesRanks={doublesRanks} me={me} now={now} />
-      )}
+      {closed ? <ClosedStandings month={closed} me={me} /> : <LiveStandings monthly={monthly} me={me} now={now} />}
     </div>
   );
 }
 
-function LiveStandings({
-  monthly,
-  doublesRanks,
-  me,
-  now,
-}: {
-  monthly: Monthly;
-  doublesRanks: Board['doublesRanks'];
-  me: string | null;
-  now: number;
-}) {
+function LiveStandings({ monthly, me, now }: { monthly: Monthly; me: string | null; now: number }) {
   const { current } = monthly;
-  const lines = standingLines(current.rows, doublesRanks, me);
+  const lines = standingLines(current.rows, me);
   const debts = openDebts(monthly.debts);
   return (
     <>
@@ -122,16 +112,10 @@ const nobodyPays = {
   incomplete: ' Un relevé manquait : personne ne paie.',
 } as Partial<Record<string, string>>;
 
-/**
- * A closed month as it froze: when its MMR were read, its standings, and the last one. Each player shows the rank
- * their MMR won on the ladder then, not their rank of today.
- */
+/** A closed month as it froze: when its MMR were read, its standings, and the last one. */
 function ClosedStandings({ month, me }: { month: ClosedMonth; me: string | null }) {
   const losers = month.status === 'final' ? (month.losers ?? []) : [];
-  const lines = standingLines(month.rows, [], me).map((line) => {
-    const step = line.mmr === null ? null : stepOfMmr(line.mmr);
-    return { ...line, rank: step && { name: step.name, tier: step.tier }, pays: losers.includes(line.player) };
-  });
+  const lines = standingLines(month.rows, me).map((line) => ({ ...line, pays: losers.includes(line.player) }));
   return (
     <>
       <Card variant="tile" className="flex-none flex-row items-center gap-2.5 px-3.5 py-3">
@@ -182,6 +166,7 @@ function Countdown({ cutoffAt, now }: { cutoffAt: string; now: number }) {
 }
 
 function Standing({ line, drinks, closed }: { line: StandingLine; drinks: number; closed: boolean }) {
+  const nameOf = useNameOf();
   const account = line.account ? accountNames[line.account] : null;
   return (
     <li
@@ -191,24 +176,31 @@ function Standing({ line, drinks, closed }: { line: StandingLine; drinks: number
       )}
     >
       <Item className={row}>
-        <b className="num w-3.5 shrink-0 text-center text-[17px] text-t3">{line.position}</b>
-        <ItemMedia className="translate-y-0 self-center">
-          <img
-            src={rankIcon(line.rank?.tier ?? null)}
-            alt={line.rank ? `Icône de rank ${line.rank.name}` : ''}
-            width={34}
-            height={34}
-            className={cn('size-[34px] object-contain', !line.rank && 'opacity-40')}
-          />
-        </ItemMedia>
+        <b className="num w-11 shrink-0 self-center text-[22px] text-t2 [line-height:1]">
+          {line.position}
+          <span className="align-super font-semibold font-sans text-[10px]">
+            {formatPlace(line.position).slice(String(line.position).length)}
+          </span>
+        </b>
         <ItemContent className={words}>
           <span className="flex min-w-0 items-center gap-1.5">
-            <ItemTitle className="truncate font-semibold text-[15px] [line-height:normal]">{line.player}</ItemTitle>
+            <ItemTitle className="truncate font-semibold text-[15px] [line-height:normal]">
+              {nameOf(line.player)}
+            </ItemTitle>
             {line.me && <Badge variant="me">TOI</Badge>}
           </span>
           <ItemDescription className="text-[12px] text-t3 [line-height:normal]">
-            {account ? [account, line.rank?.name].filter(Boolean).join(' · ') : 'Pas encore relevé ce mois-ci'}
+            {line.mmr === null
+              ? 'Pas encore relevé ce mois-ci'
+              : line.accounts
+                ? `Duo ${mmrOf(line.accounts.duo)} + Solo ${mmrOf(line.accounts.solo)}`
+                : account}
           </ItemDescription>
+          {!closed && line.gap && (
+            <ItemDescription className="font-semibold text-[12px] text-t2 [line-height:normal]">
+              +{formatNumber(line.gap.mmr)} pour passer {formatPlace(line.gap.position)}
+            </ItemDescription>
+          )}
         </ItemContent>
         <ItemActions>
           <b className="num text-[24px] [line-height:1]">{line.mmr === null ? '—' : formatNumber(line.mmr)}</b>
@@ -232,6 +224,7 @@ function Standing({ line, drinks, closed }: { line: StandingLine; drinks: number
 /** The drinks owed by a closed month, which the payer or the recipient marks offered. */
 function Debts({ debts }: { debts: DrinkDebt[] }) {
   const { refresh } = useBoardState();
+  const nameOf = useNameOf();
   const settle = useMutation({ mutationFn: settleDrink, onSuccess: () => refresh() });
   return (
     <div className="flex flex-col gap-2.5">
@@ -242,7 +235,7 @@ function Debts({ debts }: { debts: DrinkDebt[] }) {
             <Item key={debt.id} render={<li />} className={cn(row, 'border-line not-first:border-t-[.5px]')}>
               <ItemContent className={words}>
                 <ItemTitle className="font-semibold text-[15px] [line-height:normal]">
-                  {debt.payer} → {debt.recipient}
+                  {nameOf(debt.payer)} → {nameOf(debt.recipient)}
                 </ItemTitle>
                 <ItemDescription
                   className={cn('text-[12px] [line-height:normal]', debt.paidAt ? 'text-win' : 'text-t3')}

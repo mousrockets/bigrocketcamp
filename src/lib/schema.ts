@@ -19,6 +19,8 @@ export const members = sqliteTable(
     role: text('role', { enum: ['admin', 'member'] })
       .notNull()
       .default('member'),
+    /** Shown in place of the duo pseudo where the club calls each other by name; set by the member or an admin. */
+    firstName: text('first_name'),
     /** Every game record of the player is keyed by it. */
     duoPseudo: text('duo_pseudo'),
     soloPseudo: text('solo_pseudo'),

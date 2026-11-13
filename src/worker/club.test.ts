@@ -67,8 +67,8 @@ describe('the club', () => {
     const club = await response.json<{ name: string; players: unknown[]; me: { role: string; duoPseudo: string } }>();
     expect(club.name).toBe('Le Club Fictif');
     expect(club.players).toEqual([
-      { slot: 'alice', platform: 'pc' },
-      { slot: 'bob', platform: 'xbox' },
+      { slot: 'alice', platform: 'pc', firstName: null },
+      { slot: 'bob', platform: 'xbox', firstName: null },
     ]);
     expect(club.me).toMatchObject({ role: 'member', duoPseudo: 'bob', duoPseudoLocked: false });
   });
@@ -217,6 +217,29 @@ describe('the members, for administrators', () => {
     expect((await call('/api/members', member)).status).toBe(200);
     expect((await call('/api/members', admin, 'PATCH', { id: 'member-alice', role: 'member' })).status).toBe(204);
     expect((await call('/api/members', admin)).status).toBe(403);
+  });
+
+  test('a first name is set by the member or an admin, shown with the players, and kept by an older app', async () => {
+    const players = async () =>
+      (await (await call('/api/club', member)).json<{ players: { slot: string; firstName: string | null }[] }>())
+        .players;
+    const own = await call('/api/profile', member, 'PUT', { duoPseudo: 'bob', platform: 'pc', firstName: '  Bob  ' });
+    expect(await own.json()).toMatchObject({ firstName: 'Bob' });
+    // An app older than first names sends none: the saved one stays.
+    await call('/api/profile', member, 'PUT', { duoPseudo: 'bob', platform: 'pc' });
+    expect((await players()).find((player) => player.slot === 'bob')?.firstName).toBe('Bob');
+
+    expect((await call('/api/members', member, 'PATCH', { id: 'member-bob', firstName: 'Robert' })).status).toBe(403);
+    expect((await call('/api/members', admin, 'PATCH', { id: 'member-bob', firstName: 'Robert' })).status).toBe(204);
+    expect((await players()).find((player) => player.slot === 'bob')?.firstName).toBe('Robert');
+    expect((await call('/api/members', admin, 'PATCH', { id: 'member-bob', firstName: '' })).status).toBe(204);
+    expect((await players()).find((player) => player.slot === 'bob')?.firstName).toBe(null);
+
+    expect((await call('/api/members', admin, 'PATCH', { id: 'member-bob', firstName: 'x'.repeat(33) })).status).toBe(
+      400,
+    );
+    expect((await call('/api/members', admin, 'PATCH', { id: 'member-bob' })).status).toBe(400);
+    expect((await call('/api/members', admin, 'PATCH', { id: 'member-unknown', firstName: 'Dan' })).status).toBe(404);
   });
 
   test('a request from another site is refused', async () => {

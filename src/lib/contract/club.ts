@@ -38,7 +38,12 @@ export const clubIdentity = z.looseObject({
 });
 export type ClubIdentity = Known<z.output<typeof clubIdentity>>;
 
-export const clubPlayer = z.looseObject({ slot: z.string(), platform: z.enum(platforms).nullable().catch(null) });
+export const clubPlayer = z.looseObject({
+  slot: z.string(),
+  platform: z.enum(platforms).nullable().catch(null),
+  /** Absent from an API older than first names: the duo pseudo then shows. */
+  firstName: z.string().nullable().catch(null),
+});
 export type ClubPlayer = Known<z.output<typeof clubPlayer>>;
 
 /** The +5 as it applies from `effectiveFrom` (a day in Paris) until the next change. */

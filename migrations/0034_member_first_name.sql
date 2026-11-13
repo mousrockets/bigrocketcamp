@@ -1,0 +1,1 @@
+ALTER TABLE `members` ADD `first_name` text;

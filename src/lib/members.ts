@@ -30,6 +30,7 @@ export interface Profile {
   id: string;
   email: string;
   role: Role;
+  firstName: string | null;
   duoPseudo: string | null;
   soloPseudo: string | null;
   platform: Platform | null;
@@ -47,6 +48,7 @@ const profileColumns = {
   id: members.id,
   email: members.email,
   role: members.role,
+  firstName: members.firstName,
   duoPseudo: members.duoPseudo,
   soloPseudo: members.soloPseudo,
   platform: members.platform,
@@ -102,12 +104,14 @@ export interface ProfileInput {
   duoPseudo: string;
   soloPseudo: string | null;
   platform: Platform;
+  /** Left out by an app older than first names: the saved one then stays. */
+  firstName?: string | null | undefined;
 }
 
 export async function saveOwnProfile(
   db: Database,
   memberId: string,
-  { duoPseudo, soloPseudo, platform }: ProfileInput,
+  { duoPseudo, soloPseudo, platform, firstName }: ProfileInput,
 ): Promise<OwnProfile> {
   const current = await readOwnProfile(db, memberId);
   if (current.duoPseudoLocked && current.duoPseudo !== duoPseudo) {
@@ -133,6 +137,7 @@ export async function saveOwnProfile(
         duoPseudo,
         soloPseudo,
         platform,
+        ...(firstName === undefined ? {} : { firstName }),
         ...(soloAccountChanged ? { soloPlayerId: null, soloChangedAt: new Date().toISOString() } : {}),
         rosterPosition: sql`COALESCE(${members.rosterPosition}, (SELECT COALESCE(MAX(${members.rosterPosition}), 0) + 1 FROM ${members}))`,
       })
@@ -203,6 +208,15 @@ export async function setMemberRole(db: Database, memberId: string, role: Role):
   const updated = await orm(db)
     .update(members)
     .set({ role })
+    .where(eq(members.id, memberId))
+    .returning({ id: members.id });
+  if (!updated.length) throw withStatus('Membre introuvable.', 404);
+}
+
+export async function setMemberFirstName(db: Database, memberId: string, firstName: string | null): Promise<void> {
+  const updated = await orm(db)
+    .update(members)
+    .set({ firstName })
     .where(eq(members.id, memberId))
     .returning({ id: members.id });
   if (!updated.length) throw withStatus('Membre introuvable.', 404);

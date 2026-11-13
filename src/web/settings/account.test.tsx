@@ -46,7 +46,7 @@ test('saves the pseudos and the platform', async () => {
       {
         method: 'PUT',
         path: '/api/profile',
-        body: { duoPseudo: 'alice', soloPseudo: 'alice-solo', platform: 'playstation' },
+        body: { duoPseudo: 'alice', soloPseudo: 'alice-solo', platform: 'playstation', firstName: '' },
       },
     ]),
   );

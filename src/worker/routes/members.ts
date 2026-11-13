@@ -4,16 +4,16 @@ import {
   invitation,
   type MemberList,
   type MemberProfile,
+  memberChange,
   memberToRemove,
-  roleChange,
   unknownMember,
 } from '../../lib/contract';
-import { inviteMember, listMembers, removeMember, setMemberRole } from '../../lib/members';
+import { inviteMember, listMembers, removeMember, setMemberFirstName, setMemberRole } from '../../lib/members';
 import { type AppEnv, sameOrigin } from '../auth';
 import { failure, noStore } from '../respond';
 import { jsonBody } from '../validate';
 
-/** For administrators: who is in the club, inviting someone, changing a role, removing a member. */
+/** For administrators: who is in the club, inviting someone, changing a role or a first name, removing a member. */
 export const memberRoutes = new Hono<AppEnv>()
   .use(async (c, next) => {
     if (c.req.method !== 'GET' && !sameOrigin(c)) return c.json({ error: 'Origine refusée.' }, 403, noStore);
@@ -29,13 +29,14 @@ export const memberRoutes = new Hono<AppEnv>()
       return failure(c, error, 'Invitation impossible.');
     }
   })
-  .patch('/', ...jsonBody(roleChange, { invalid: unknownMember }), async (c) => {
-    const { id, role } = c.req.valid('json');
+  .patch('/', ...jsonBody(memberChange, { invalid: unknownMember }), async (c) => {
+    const { id, role, firstName } = c.req.valid('json');
     try {
-      await setMemberRole(c.env.DB, id, role);
+      if (role !== undefined) await setMemberRole(c.env.DB, id, role);
+      if (firstName !== undefined) await setMemberFirstName(c.env.DB, id, firstName);
       return c.body(null, 204);
     } catch (error) {
-      return failure(c, error, 'Changement de rôle impossible.');
+      return failure(c, error, role === undefined ? 'Prénom non enregistré.' : 'Changement de rôle impossible.');
     }
   })
   .delete('/', ...jsonBody(memberToRemove, { invalid: unknownMember }), async (c) => {

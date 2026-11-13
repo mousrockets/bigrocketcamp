@@ -35,7 +35,7 @@ test('states every rule the club keeps by default', async () => {
   ]);
   expect(await lines('Les défis')).toEqual([
     '3places sur le podium de la semaineLes exercices depuis lundi, comptés en pompes.',
-    'MMRTon meilleur MMR 2v2, duo ou solo, relevé le dernier jour du mois',
+    'MMRTes MMR 2v2 duo et solo additionnés, relevés le dernier jour du moisUn compte jamais relevé du mois compte pour 0.',
     '1boisson par joueur, offerte par le dernierEx æquo à la dernière place : personne ne paie.',
   ]);
   expect(

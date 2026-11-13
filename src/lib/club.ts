@@ -12,6 +12,7 @@ export type Platform = (typeof platforms)[number];
 export interface ClubPlayer {
   slot: string;
   platform: Platform | null;
+  firstName: string | null;
 }
 
 /** The player slots, in the order the players joined the club. */
@@ -29,7 +30,7 @@ export async function readClubName(db: Database): Promise<string> {
 
 export async function readClubPlayers(db: Database): Promise<ClubPlayer[]> {
   return orm(db)
-    .select({ slot: members.duoPseudo, platform: members.platform })
+    .select({ slot: members.duoPseudo, platform: members.platform, firstName: members.firstName })
     .from(members)
     .where(isNotNull(members.duoPseudo))
     .orderBy(asc(members.rosterPosition), asc(members.created), asc(members.id)) as Promise<ClubPlayer[]>;

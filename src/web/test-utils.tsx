@@ -22,14 +22,15 @@ export const testClub: Club = {
   name: 'Big Rocket Camp',
   logo: null,
   players: [
-    { slot: 'alice', platform: 'pc' },
-    { slot: 'bob', platform: 'playstation' },
+    { slot: 'alice', platform: 'pc', firstName: null },
+    { slot: 'bob', platform: 'playstation', firstName: null },
   ],
   roster: ['alice', 'bob'],
   me: {
     id: 'member-alice',
     email: 'alice@example.com',
     role: 'admin',
+    firstName: null,
     duoPseudo: 'alice',
     soloPseudo: null,
     platform: 'pc',

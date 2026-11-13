@@ -23,8 +23,11 @@ export const monthlyRow = z.looseObject({
   mmr: z.number().nullable(),
   recordedAt: z.string().nullable(),
   confirmedForClose: z.boolean(),
-  /** The account the player counts with; absent from months closed before solo accounts counted. */
+  /** The player's best account, whose rank shows; absent from months closed before solo accounts counted. */
   account: z.enum(['duo', 'solo']).nullable().optional().catch(null),
+  /** Each account's MMR in the sum; absent from months closed before the accounts were summed. */
+  duo: z.number().nullable().optional().catch(null),
+  solo: z.number().nullable().optional().catch(null),
 });
 
 const monthBounds = {
@@ -38,7 +41,7 @@ const monthBounds = {
 /** The month going on: the latest reading of each player. */
 export const liveMonth = z.looseObject({
   ...monthBounds,
-  rows: z.array(monthlyRow.required({ account: true })),
+  rows: z.array(monthlyRow.required({ account: true, duo: true, solo: true })),
   status: z.literal('live'),
   missing: z.array(z.string()),
 });

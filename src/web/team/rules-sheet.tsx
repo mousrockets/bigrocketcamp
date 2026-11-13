@@ -89,7 +89,9 @@ export function RulesSheet({ open, onClose }: { open: boolean; onClose: () => vo
         <Rule value="3" note="Les exercices depuis lundi, comptés en pompes.">
           places sur le podium de la semaine
         </Rule>
-        <Rule value="MMR">Ton meilleur MMR 2v2, duo ou solo, relevé le dernier jour du mois</Rule>
+        <Rule value="MMR" note="Un compte jamais relevé du mois compte pour 0.">
+          Tes MMR 2v2 duo et solo additionnés, relevés le dernier jour du mois
+        </Rule>
         <Rule value="1" tone="cost" note="Ex æquo à la dernière place : personne ne paie.">
           boisson par joueur, offerte par le dernier
         </Rule>
