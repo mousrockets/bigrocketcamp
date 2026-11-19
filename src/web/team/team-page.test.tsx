@@ -1,6 +1,7 @@
 import { screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import type { SoloRank } from '../../lib/contract';
+import { soundOf, sounds } from '../../lib/sounds';
 import { anExercise, aRank, aResult, aSoloRank, boardWith, renderInApp, setViewportWidth } from '../test-utils';
 import { TeamPage } from './team-page';
 
@@ -295,4 +296,35 @@ test('before any match with them, demolitions and posts show a dash', async () =
   const bob = await screen.findByRole('dialog', { name: 'bob' });
   expect(within(bob).getByRole('region', { name: 'Statistiques' })).toHaveTextContent('–Démos–Poteaux');
   expect(within(bob).getByText('Démos et poteaux se comptent dès la mise à jour du collecteur.')).toBeInTheDocument();
+});
+
+test('the sheet shows the player’s sound badges, and a won one plays its sound', async () => {
+  const original = globalThis.fetch;
+  const [won, twice] = [sounds[0].id, sounds[1].id];
+  globalThis.fetch = (async () =>
+    Response.json({
+      collections: [
+        {
+          player: 'bob',
+          badges: [
+            { sound: won, count: 1 },
+            { sound: twice, count: 2 },
+          ],
+        },
+        { player: 'alice', badges: [{ sound: sounds[2].id, count: 1 }] },
+      ],
+    })) as unknown as typeof fetch;
+  const play = vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue();
+  renderInApp(<TeamPage />, { board, path: '/?fiche=1' });
+  const sheet = await screen.findByRole('dialog', { name: 'bob' });
+  const badges = within(sheet).getByRole('region', { name: 'Badges sons' });
+  expect(await within(badges).findByText(`/${sounds.length}`)).toBeInTheDocument();
+  expect(within(badges).getAllByRole('img', { name: 'Badge à débloquer' })).toHaveLength(sounds.length - 2);
+  expect(within(badges).getByRole('button', { name: `${soundOf(twice).name}, gagné 2 fois` })).toBeInTheDocument();
+  within(badges)
+    .getByRole('button', { name: soundOf(won).name })
+    .click();
+  expect(play).toHaveBeenCalled();
+  play.mockRestore();
+  globalThis.fetch = original;
 });

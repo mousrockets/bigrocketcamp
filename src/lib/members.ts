@@ -19,6 +19,7 @@ import {
   signInCodes,
   soloMmrEntries,
   soloRanks,
+  soundDraws,
 } from './schema';
 
 // Members join by invitation only, from an administrator, and fill in their own profile.
@@ -187,6 +188,7 @@ async function forgetMember(db: Database, memberId: string) {
     query.delete(soloRanks).where(eq(soloRanks.player, slot)),
     query.delete(soloMmrEntries).where(eq(soloMmrEntries.player, slot)),
     query.delete(sessions).where(eq(sessions.memberId, memberId)),
+    query.delete(soundDraws).where(eq(soundDraws.memberId, memberId)),
     query.delete(collectorDevices).where(eq(collectorDevices.memberId, memberId)),
     query.delete(collectorPairingCodes).where(eq(collectorPairingCodes.memberId, memberId)),
     query

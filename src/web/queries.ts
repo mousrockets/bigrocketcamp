@@ -9,6 +9,8 @@ import {
   identityList,
   type MemberProfile,
   memberList,
+  type SoundCollections,
+  soundCollections,
 } from '../lib/contract';
 import { parseOrThrow } from '../lib/validation';
 import type { DeployedVersion } from '../lib/version';
@@ -100,4 +102,11 @@ export const collectorsQuery = queryOptions({
   queryKey: ['collectors'],
   queryFn: async (): Promise<CollectorDevice[]> =>
     (await dataOf(api.collectors.$get(), collectorDevices, 'Liste des collecteurs indisponible.')).devices,
+});
+
+/** Every player's sound badges, with how many times each sound was drawn. */
+export const soundCollectionsQuery = queryOptions({
+  queryKey: ['sounds'],
+  queryFn: async (): Promise<SoundCollections['collections']> =>
+    (await dataOf(api.sounds.$get(), soundCollections, 'Badges indisponibles.')).collections,
 });

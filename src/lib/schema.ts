@@ -364,6 +364,25 @@ export const exerciseReactions = sqliteTable(
   ],
 );
 
+/**
+ * The sound drawn for a series that cleared its author's debt: one per series, gone with it when it is taken back.
+ * A member's badges are the sounds they drew at least once.
+ */
+export const soundDraws = sqliteTable(
+  'sound_draws',
+  {
+    exerciseId: text('exercise_id')
+      .primaryKey()
+      .references(() => exercises.id, { onDelete: 'cascade' }),
+    memberId: text('member_id')
+      .notNull()
+      .references(() => members.id, { onDelete: 'cascade' }),
+    sound: text('sound').notNull(),
+    drawn: text('drawn').notNull().default(isoNow),
+  },
+  (table) => [index('sound_draws_member').on(table.memberId)],
+);
+
 // Ranks and the monthly 2v2 MMR challenge
 
 /**
