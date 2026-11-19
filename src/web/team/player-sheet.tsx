@@ -32,6 +32,21 @@ export function PlayerSheet({ name, onClose }: { name: string | null; onClose: (
               </span>
               <b className="num text-[52px] [line-height:.8]">{formatNumber(career.matches)}</b>
             </section>
+            <section aria-label="Streaks" className="grid grid-cols-2 gap-2">
+              {(
+                [
+                  ['Win streak max', career.winStreak, 'text-win'],
+                  ['Lose streak max', career.lossStreak, 'text-cost-strong'],
+                ] as const
+              ).map(([label, value, tone]) => (
+                <Card key={label} variant="tile">
+                  <b className={cn('num text-[30px] [line-height:.85]', value === 0 ? 'text-t3' : tone)}>
+                    {formatNumber(value)}
+                  </b>
+                  <span className="label-caps text-[10px]">{label}</span>
+                </Card>
+              ))}
+            </section>
             <section aria-label="Statistiques" className="grid grid-cols-2 gap-2">
               {(
                 [
