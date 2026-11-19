@@ -253,6 +253,13 @@
       "when": 1794582223811,
       "tag": "0035_solo_best_rank",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "6",
+      "when": 1795098909791,
+      "tag": "0036_sound_draws",
+      "breakpoints": true
     }
   ]
 }

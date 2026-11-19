@@ -2,6 +2,7 @@ import { cn } from 'cn';
 import { formatNumber } from '../../lib/format';
 import { useBoardState } from '../board';
 import { InfoSheet } from '../components/info-sheet';
+import { SoundCollection } from '../components/sound-badge';
 import { Card } from '../components/ui/card';
 import { careerOf } from './career';
 
@@ -71,6 +72,7 @@ export function PlayerSheet({ name, onClose }: { name: string | null; onClose: (
             )}
           </>
         ))}
+      {name && <SoundCollection player={name} />}
     </InfoSheet>
   );
 }

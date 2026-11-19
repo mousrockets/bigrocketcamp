@@ -14,3 +14,4 @@ export * from './monthly';
 export * from './profile';
 export * from './ranks';
 export * from './shared';
+export * from './sounds';
