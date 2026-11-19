@@ -160,7 +160,7 @@ export function Flame({ width = 11, height = 14, dim = false }: { width?: number
       width={width}
       height={height}
       viewBox="0 0 32 40"
-      className="origin-[50%_90%] animate-ember"
+      className={dim ? 'origin-[50%_90%]' : 'origin-[50%_90%] animate-flicker'}
       style={dim ? { opacity: 0.35 } : undefined}
     >
       <defs>

@@ -1,6 +1,6 @@
 import { Link, Outlet, useMatchRoute, useSearch } from '@tanstack/react-router';
 import { cn } from 'cn';
-import type { ComponentType, CSSProperties } from 'react';
+import { type ComponentType, type CSSProperties, useEffect, useRef } from 'react';
 import { BoardProvider } from '../board';
 import { SheetLink, useCloseSheet } from '../components/sheet-link';
 import { buttonVariants } from '../components/ui/button';
@@ -85,6 +85,14 @@ function AppSidebar() {
 }
 
 export function TabBar() {
+  const matchRoute = useMatchRoute();
+  const active = tabs.findIndex(({ to }) => matchRoute({ to, fuzzy: to !== '/' }));
+  // The pill leaves a boost trail behind it, on the side it comes from.
+  const previous = useRef(active);
+  const from = previous.current;
+  useEffect(() => {
+    previous.current = active;
+  }, [active]);
   return (
     <>
       {/* The shade under the tab bar, only in the installed app: in Safari, a full-width fixed element at the bottom
@@ -97,13 +105,25 @@ export function TabBar() {
         aria-label="Navigation principale"
         className="fixed inset-x-4 bottom-[max(24px,env(safe-area-inset-bottom))] z-50 mx-auto flex max-w-[520px] items-center gap-2.5 lg:hidden"
       >
-        <div className="glass grid h-[62px] flex-1 grid-cols-4 rounded-[31px] p-[5px]">
+        <div className="glass relative grid h-[62px] flex-1 grid-cols-4 rounded-[31px] p-[5px]">
+          {active >= 0 && (
+            <i
+              aria-hidden="true"
+              className="tab-pill"
+              style={{ '--tab': active, '--trail': Math.sign(from - active) } as CSSProperties}
+            >
+              {from !== active && <b key={active} className="tab-trail" />}
+            </i>
+          )}
           {tabs.map(({ to, label, Icon }) => (
             <Link
               key={to}
               to={to}
               activeOptions={{ exact: to === '/' }}
-              className={cn(buttonVariants({ variant: 'tab' }), 'h-full')}
+              className={cn(
+                buttonVariants({ variant: 'tab' }),
+                'relative h-full aria-[current=page]:bg-transparent aria-[current=page]:shadow-none',
+              )}
             >
               <Icon />
               {label}
