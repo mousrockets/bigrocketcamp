@@ -1,11 +1,15 @@
 import { cn } from 'cn';
 import { type CSSProperties, useEffect, useState } from 'react';
 import { formatNumber } from '../../lib/format';
+import { type SoundId, soundFamilies, soundOf, sounds } from '../../lib/sounds';
+import { SoundMedal, usePlayingSound } from '../components/sound-badge';
 import { Button } from '../components/ui/button';
 import { useMediaQuery } from '../hooks/use-media-query';
+import { rankLightRgb, rankRgb } from '../team/stats';
 
 // The screen after a series: a quick chat, the debt ring filling up to what is now paid, and the debt counting down
-// to what is left. A series that clears the debt turns green, with a check and a bigger burst.
+// to what is left. A series that clears the debt turns green, with a check and a bigger burst, and shows the sound badge
+// it won.
 
 const quickChats = ['Nice shot!', 'What a save!', 'Calculated.', 'OMG!', 'Wow!', 'Savage!'];
 const cleanSheetChats = ['Clean sheet!', 'Ardoise propre !', 'Savage!'];
@@ -25,6 +29,17 @@ export interface Payment {
   pushups: number;
   /** All that was ever owed: the ring's full turn. */
   owed: number;
+}
+
+/** The sound badge a cleared debt won. */
+export interface Prize {
+  sound: SoundId;
+  /** First time this member drew it. */
+  unlocked: boolean;
+  /** Its sound is playing, right after the draw. */
+  playing?: boolean;
+  /** What this new badge completes, once the collection is read again. */
+  completes?: { family: boolean; collection: boolean };
 }
 
 /** The figure counting down from `from` to `to` over the ring's fill. */
@@ -58,11 +73,13 @@ function useQuickChat(chats: readonly string[]) {
 
 export function Celebration({
   payment,
+  prize,
   onContinue,
   onUndo,
   undoing,
 }: {
   payment: Payment;
+  prize: Prize | null;
   onContinue: () => void;
   onUndo: () => void;
   undoing: boolean;
@@ -225,11 +242,15 @@ export function Celebration({
           <Burst clean={clean} radius={radius} centre={centre} tip={tip} color={tint?.burst ?? '#bcd2ff'} />
         </div>
 
-        <p className="m-0 animate-up text-balance text-[17px] text-t2 [animation-delay:2.1s] [line-height:1.4] lg:text-[19px]">
-          {clean
-            ? 'Plus une seule pompe à rendre. Free-play mérité.'
-            : `Les bras en béton armé. Encore ${formatNumber(after)}, et c’est free-play.`}
-        </p>
+        {prize ? (
+          <PrizeBadge prize={prize} />
+        ) : (
+          <p className="m-0 animate-up text-balance text-[17px] text-t2 [animation-delay:2.1s] [line-height:1.4] lg:text-[19px]">
+            {clean
+              ? 'Plus une seule pompe à rendre. Free-play mérité.'
+              : `Les bras en béton armé. Encore ${formatNumber(after)}, et c’est free-play.`}
+          </p>
+        )}
       </div>
 
       <div className="flex w-full max-w-[342px] animate-up flex-col gap-1 [animation-delay:2.25s] lg:max-w-[380px]">
@@ -257,7 +278,86 @@ export function Celebration({
           </Button>
         )}
       </div>
+      {prize?.completes?.collection && <CollectionComplete />}
     </div>
+  );
+}
+
+/** The badge won, spun in once the ring has landed; it plays its sound again at a tap. */
+function PrizeBadge({ prize }: { prize: Prize }) {
+  const { name, family } = soundOf(prize.sound);
+  const [replaying, replay] = usePlayingSound();
+  return (
+    <Button
+      variant="medal"
+      size="medal"
+      className="w-auto overflow-visible px-5"
+      aria-label={`${prize.unlocked ? 'Nouveau badge' : 'Badge déjà gagné'} : ${name}. Écouter.`}
+      onClick={() => replay(prize.sound)}
+    >
+      <span className="relative">
+        {prize.unlocked && <i aria-hidden="true" className="badge-rays motion-reduce:hidden" />}
+        <SoundMedal
+          sound={prize.sound}
+          playing={prize.playing || replaying === prize.sound}
+          className="badge-reveal size-[104px] lg:size-[120px]"
+        />
+      </span>
+      <span className={cn('label-caps animate-up [animation-delay:2.7s]', prize.unlocked && 'text-win')}>
+        {prize.unlocked ? 'Nouveau badge' : 'Déjà dans ta collection'}
+      </span>
+      <span className="animate-up font-semibold text-[17px] text-t1 [animation-delay:2.8s]">{name}</span>
+      {prize.completes?.family && (
+        <span
+          className="badge-family-name label-caps animate-pop-in"
+          style={{ '--medal': rankRgb(soundFamilies[family].tier) } as CSSProperties}
+        >
+          Famille complète · {soundFamilies[family].name}
+        </span>
+      )}
+    </Button>
+  );
+}
+
+/** The fortieth badge: every sound won, celebrated over the whole screen until a tap. */
+function CollectionComplete() {
+  const [shown, setShown] = useState(true);
+  if (!shown) return null;
+  const legend = [22, 13, 16, 19, 7, 10]
+    .map(
+      (tier, index) =>
+        `rgba(${rankRgb(tier)},.55) ${index * 20}deg ${index * 20 + 8}deg, transparent ${index * 20 + 8}deg ${index * 20 + 20}deg`,
+    )
+    .join(', ');
+  return (
+    <section
+      aria-label="Collection complète"
+      className="absolute inset-0 z-10 flex animate-up flex-col items-center justify-center gap-4 overflow-hidden bg-black/90 px-6 text-center [animation-delay:3.4s]"
+    >
+      <i
+        aria-hidden="true"
+        className="legend-rays motion-reduce:hidden"
+        style={{ '--legend': legend } as CSSProperties}
+      />
+      <span className="label-caps relative">Collection complète</span>
+      <b
+        className="num celebration-headline relative text-[96px] [line-height:.85] lg:text-[128px]"
+        style={{ '--glint': `rgb(${rankLightRgb(22)})` } as CSSProperties}
+      >
+        {formatNumber(sounds.length)}/{formatNumber(sounds.length)}
+      </b>
+      <p className="relative m-0 text-balance text-[17px] text-t2">
+        Tous les sons, tous les badges. Supersonic Legend de la collection.
+      </p>
+      <Button
+        variant="cta"
+        size="cta-xl"
+        className="relative mt-4 w-full max-w-[342px]"
+        onClick={() => setShown(false)}
+      >
+        Trop fort
+      </Button>
+    </section>
   );
 }
 

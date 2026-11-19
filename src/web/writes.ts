@@ -7,6 +7,8 @@ import {
   type ProfileInput,
   pairingCodeCreated,
   type RuleChange,
+  type SoundDrawn,
+  soundDrawn,
 } from '../lib/contract';
 import type { ExerciseType } from '../lib/domain';
 import { api, dataOf, errorOf, guestApi, sent } from './api';
@@ -95,6 +97,10 @@ export async function declareExercise(exercise: Declaration): Promise<void> {
 export async function undoExercise(id: string): Promise<void> {
   await dataOf(api.exercise.$delete({ json: { id } }), done, 'Impossible d’annuler cette série.');
 }
+
+/** The sound a series that cleared the member's debt wins; asking again for the same series answers the same. */
+export const drawSoundBadge = (exerciseId: string): Promise<SoundDrawn> =>
+  dataOf(api.sounds.$post({ json: { exerciseId } }), soundDrawn, 'Tirage impossible.');
 
 /** Marks a drink as offered, or takes that back. */
 export async function settleDrink(body: { action: 'settle' | 'undo'; id: string }): Promise<void> {

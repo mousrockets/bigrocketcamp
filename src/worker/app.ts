@@ -14,6 +14,7 @@ import { memberRoutes } from './routes/members';
 import { monthlyRoutes } from './routes/monthly';
 import { profileRoutes } from './routes/profile';
 import { rankRoutes } from './routes/ranks';
+import { soundRoutes } from './routes/sounds';
 import { stateRoutes } from './routes/state';
 
 export const app = new Hono<AppEnv>().basePath('/api');
@@ -57,6 +58,7 @@ app.use('/monthly', requireMember);
 app.use('/club', requireMember);
 app.use('/club/rules', requireMember);
 app.use('/profile', requireMember);
+app.use('/sounds', requireMember);
 app.use('/collectors', requireMember);
 app.use('/members', requireMember, requireAdmin);
 
@@ -70,6 +72,7 @@ const routes = publicRoutes
   .route('/club/rules', clubRuleRoutes)
   .route('/club', clubRoutes)
   .route('/profile', profileRoutes)
+  .route('/sounds', soundRoutes)
   .route('/collectors', collectorDeviceRoutes)
   .route('/members', memberRoutes);
 

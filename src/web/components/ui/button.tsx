@@ -33,6 +33,7 @@ const buttonVariants = cva(
         bubble: "rounded-full bg-linear-to-b from-white/12 to-white/5 font-semibold text-[13px] text-t1 shadow-[inset_0_.5px_0_rgba(255,255,255,.28),inset_0_0_0_.5px_rgba(255,255,255,.1),0_6px_16px_-6px_rgba(0,0,0,.6)] duration-300 ease-(--ease) hover:from-white/16 hover:to-white/7 active:not-aria-[haspopup]:translate-y-0 active:scale-92",
         capsule: "rounded-[15px] text-t1 duration-200 hover:bg-white/6 active:not-aria-[haspopup]:translate-y-0 disabled:text-white/22 disabled:opacity-100",
         glass: "glass rounded-full text-t1 duration-300 ease-(--ease) active:not-aria-[haspopup]:translate-y-0 active:scale-94 [&_svg:not([class*='size-'])]:size-[22px]",
+        medal: "h-auto flex-col justify-start gap-1.5 rounded-2xl whitespace-normal text-t2 duration-200 hover:bg-white/5 hover:text-t1 active:not-aria-[haspopup]:translate-y-0 active:scale-94",
       },
       size: {
         default:
@@ -59,6 +60,7 @@ const buttonVariants = cva(
         round: "size-9 rounded-full [&_svg:not([class*='size-'])]:size-3.5",
         "capsule-arrow": "size-[30px] [&_svg:not([class*='size-'])]:size-3",
         "capsule-label": "h-[30px] gap-1.5 px-2.5 font-semibold text-[12.5px] tracking-[-.005em] tabular-nums [&_svg:not([class*='size-'])]:size-3",
+        medal: "w-full px-0.5 py-1.5",
       },
     },
     defaultVariants: {
