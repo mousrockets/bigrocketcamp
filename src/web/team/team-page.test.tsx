@@ -264,6 +264,29 @@ test('the sheet counts demolitions and posts once the collector sends them, and 
   expect(within(bob).queryByText(/mise à jour du collecteur/)).not.toBeInTheDocument();
 });
 
+test('the sheet shows the longest win streak and lose streak, in the order the matches were played', async () => {
+  const played = (match_guid: string, day: string, received: string, won: boolean, left = false) =>
+    aResult({ name: 'bob', match_guid, day, received, team: 0, winner: won ? 0 : 1, left });
+  const stats = boardWith({
+    results: [
+      // Rows arrive out of order: a late import of the 4th still counts on its day.
+      played('d', '2026-11-04', '2026-11-04T20:00:00Z', true),
+      played('a', '2026-11-03', '2026-11-03T20:00:00Z', false),
+      played('b', '2026-11-03', '2026-11-03T20:10:00Z', false),
+      played('c', '2026-11-03', '2026-11-03T20:20:00Z', true),
+      played('e', '2026-11-04', '2026-11-04T20:10:00Z', true),
+      played('f', '2026-11-04', '2026-11-04T20:20:00Z', true),
+      // Leaving early loses the match, whatever the team did after.
+      played('g', '2026-11-05', '2026-11-05T20:00:00Z', true, true),
+      played('h', '2026-11-05', '2026-11-05T20:10:00Z', false),
+      played('i', '2026-11-05', '2026-11-05T20:20:00Z', false),
+    ],
+  });
+  renderInApp(<TeamPage />, { board: stats, path: '/?fiche=1' });
+  const bob = await screen.findByRole('dialog', { name: 'bob' });
+  expect(within(bob).getByRole('region', { name: 'Streaks' })).toHaveTextContent('4Win streak max3Lose streak max');
+});
+
 test('before any match with them, demolitions and posts show a dash', async () => {
   renderInApp(<TeamPage />, {
     board: boardWith({ results: [aResult({ name: 'bob', match_guid: 'old' })] }),

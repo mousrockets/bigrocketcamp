@@ -14,6 +14,9 @@ export interface Career {
   /** Null while no match of the player came with them: collectors older than these counts send none. */
   demos: number | null;
   crossbarHits: number | null;
+  /** The most matches won in a row, and lost in a row, in the order they were played. */
+  winStreak: number;
+  lossStreak: number;
 }
 
 const added = (total: number | null, value: number | null | undefined) =>
@@ -37,12 +40,23 @@ export function careerOf(board: Board, name: string): Career {
     mvps: 0,
     demos: null,
     crossbarHits: null,
+    winStreak: 0,
+    lossStreak: 0,
   };
-  for (const [guid, row] of lines) {
+  // A match received late (an import, a source catching up) still belongs to its own day.
+  const played = [...lines].sort(
+    ([, a], [, b]) => a.day.localeCompare(b.day) || (a.received ?? a.day).localeCompare(b.received ?? b.day),
+  );
+  // Wins in a row while positive, losses in a row while negative.
+  let run = 0;
+  for (const [guid, row] of played) {
     // A player who left lost the match, whatever his team did after.
     const won = !row.left && row.team === row.winner;
     career.matches++;
     career[won ? 'wins' : 'losses']++;
+    run = won ? Math.max(run, 0) + 1 : Math.min(run, 0) - 1;
+    career.winStreak = Math.max(career.winStreak, run);
+    career.lossStreak = Math.max(career.lossStreak, -run);
     career.goals += row.goals;
     career.assists += row.assists;
     career.saves += row.saves;
