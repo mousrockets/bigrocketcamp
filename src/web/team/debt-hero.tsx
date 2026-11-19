@@ -2,6 +2,7 @@ import { cn } from 'cn';
 import { formatNumber, plural } from '../../lib/format';
 import { SheetLink } from '../components/sheet-link';
 import { buttonVariants } from '../components/ui/button';
+import { useRise } from '../hooks/use-rise';
 import { Flame, PlayIcon, WhistleIcon } from '../shell/icons';
 import { type Debt, litSegments } from './stats';
 
@@ -10,6 +11,7 @@ const segments = 24;
 /** The member's own debt, big: what is left, a segmented gauge of what was paid, and the button to pay more. */
 export function DebtHero({ debt, streak }: { debt: Debt; streak: number }) {
   const lit = litSegments(debt.percent, segments);
+  const streakRise = useRise('streak', streak);
   const settled = debt.left === 0;
   return (
     <section
@@ -24,7 +26,7 @@ export function DebtHero({ debt, streak }: { debt: Debt; streak: number }) {
               <WhistleIcon />
               <span className="sr-only lg:not-sr-only">Les règles</span>
             </SheetLink>
-            <StreakCount streak={streak} />
+            <StreakCount streak={streak} rise={streakRise} />
           </span>
         </div>
         <div className="flex items-end gap-3 lg:gap-3.5">
@@ -35,7 +37,7 @@ export function DebtHero({ debt, streak }: { debt: Debt; streak: number }) {
             {plural(debt.left, 'pompe')}
           </span>
         </div>
-        <div aria-hidden="true" className="flex items-end gap-[3px]">
+        <div aria-hidden="true" className="relative flex items-end gap-[3px]">
           {Array.from({ length: segments }, (_, index) => (
             <i
               // biome-ignore lint/suspicious/noArrayIndexKey: the segments are fixed, the index is their identity.
@@ -48,6 +50,13 @@ export function DebtHero({ debt, streak }: { debt: Debt; streak: number }) {
               style={{ animationDelay: `${0.2 + index * 0.025}s` }}
             />
           ))}
+          {/* Once the segments are up, a charge runs along the paid part, like a boost bar filling. */}
+          {lit > 0 && (
+            <i
+              className={cn('gauge-sweep motion-reduce:hidden', settled && 'gauge-sweep-settled')}
+              style={{ width: `calc(${(lit / segments) * 100}% - 3px)` }}
+            />
+          )}
         </div>
         <div className="flex items-baseline justify-between text-[12px] text-t3 tabular-nums">
           <span>
@@ -69,15 +78,26 @@ export function DebtHero({ debt, streak }: { debt: Debt; streak: number }) {
   );
 }
 
-/** Days in a row with an exercise, with a flame that dims once the streak is broken. */
-export function StreakCount({ streak, large = false }: { streak: number; large?: boolean }) {
+/**
+ * Days in a row with an exercise, with a flame that flickers while the streak lives and dims once it is broken. A streak
+ * grown since the last visit sends a +1 up.
+ */
+export function StreakCount({ streak, large = false, rise = 0 }: { streak: number; large?: boolean; rise?: number }) {
   return (
     <span
       title={`${streak} ${plural(streak, 'jour')} de streak`}
-      className={cn('flex items-center gap-[5px] font-semibold text-[13px]', streak > 0 ? 'text-cost' : 'text-t3')}
+      className={cn(
+        'relative flex items-center gap-[5px] font-semibold text-[13px]',
+        streak > 0 ? 'text-cost' : 'text-t3',
+      )}
     >
       <Flame width={large ? 12 : 11} height={large ? 15 : 14} dim={streak === 0} />
       {large ? streak : `${streak} ${plural(streak, 'jour')}`}
+      {rise > 0 && (
+        <b aria-hidden="true" className="num absolute -top-4 left-0 animate-float-off text-[15px] text-cost">
+          +{formatNumber(rise)}
+        </b>
+      )}
     </span>
   );
 }

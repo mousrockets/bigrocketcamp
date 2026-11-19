@@ -298,6 +298,30 @@ test('before any match with them, demolitions and posts show a dash', async () =
   expect(within(bob).getByText('Démos et poteaux se comptent dès la mise à jour du collecteur.')).toBeInTheDocument();
 });
 
+test('celebrates on a card the rank a player climbed since the last visit', async () => {
+  localStorage.setItem('rl-seen', JSON.stringify({ 'rank:bob': 16 }));
+  renderInApp(<TeamPage />, { board });
+  const cards = await screen.findAllByRole('group');
+  expect(await within(cards[1] as HTMLElement).findByRole('status')).toHaveTextContent('Rank upChampion III');
+  expect(JSON.parse(localStorage.getItem('rl-seen') ?? '{}')).toMatchObject({ 'rank:bob': 18 });
+  localStorage.clear();
+});
+
+test('celebrates no rank on a first visit', async () => {
+  renderInApp(<TeamPage />, { board });
+  const cards = await screen.findAllByRole('group');
+  expect(within(cards[1] as HTMLElement).queryByRole('status')).not.toBeInTheDocument();
+  localStorage.clear();
+});
+
+test('sends a +1 up when the member’s streak grew since the last visit', async () => {
+  localStorage.setItem('rl-seen', JSON.stringify({ streak: 1 }));
+  renderInApp(<TeamPage />, { board });
+  const debt = await screen.findByRole('region', { name: 'Ta dette' });
+  expect(await within(debt).findByText('+1')).toBeInTheDocument();
+  localStorage.clear();
+});
+
 test('the sheet shows the player’s sound badges, and a won one plays its sound', async () => {
   const original = globalThis.fetch;
   const [won, twice] = [sounds[0].id, sounds[1].id];

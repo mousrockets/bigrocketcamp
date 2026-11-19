@@ -6,10 +6,11 @@ import { formatAge, formatNumber } from '../../lib/format';
 import { Badge } from '../components/ui/badge';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '../components/ui/card';
 import { Progress } from '../components/ui/progress';
+import { useRise } from '../hooks/use-rise';
 import { DuoIcon, RefreshIcon, SoloIcon } from '../shell/icons';
 import { StreakCount } from './debt-hero';
 import { type CardRank, RankBlock } from './rank-block';
-import { type Debt, litSegments, rankRgb } from './stats';
+import { type Debt, litSegments, rankLightRgb, rankRgb, splitRankLabel } from './stats';
 
 export interface CardPlayer {
   name: string;
@@ -64,9 +65,12 @@ const debtGauge =
 export function PlayerCard({ player, active, now }: { player: CardPlayer; active: boolean; now: number }) {
   const rgb = rankRgb(player.tier);
   const { left, paid, owed, percent } = player.debt;
+  const climbed = useRise(`rank:${player.name}`, player.tier) > 0;
   return (
     <Card
       data-active={active || undefined}
+      data-rank-up={climbed || undefined}
+      style={{ '--rank': rgb, '--rank-light': rankLightRgb(player.tier) } as CSSProperties}
       onPointerMove={tilt}
       onPointerLeave={untilt}
       className={cn(
@@ -81,6 +85,7 @@ export function PlayerCard({ player, active, now }: { player: CardPlayer; active
       />
       <i aria-hidden="true" className="player-card-holo pointer-events-none absolute inset-0 z-2" />
       <i aria-hidden="true" className="player-card-glint pointer-events-none absolute inset-0 z-3" />
+      {climbed && <RankUp player={player} />}
       <div className="relative z-4 flex flex-1 flex-col gap-5 px-5 pt-5 pb-[18px]">
         <CardHeader className="flex items-start justify-between gap-2.5 p-0">
           <span className="flex min-w-0 flex-col gap-[3px]">
@@ -140,5 +145,22 @@ export function PlayerCard({ player, active, now }: { player: CardPlayer; active
         </CardFooter>
       </div>
     </Card>
+  );
+}
+
+/** A rank climbed since this device last showed the card: its icon slams in over the card, in the new rank's colour. */
+function RankUp({ player }: { player: CardPlayer }) {
+  const rank = [player.duo, player.solo].find((account) => account?.tier === player.tier);
+  return (
+    <div
+      role="status"
+      className="rank-up pointer-events-none absolute inset-0 z-5 flex flex-col items-center justify-center gap-2"
+    >
+      <img src={`/rocket-league/ranks/${player.tier ?? 0}.png`} alt="" className="rank-up-icon size-24" />
+      <span className="label-caps text-t1">Rank up</span>
+      {rank && (
+        <b className="font-display font-black text-[22px] italic uppercase">{splitRankLabel(rank.label).rank}</b>
+      )}
+    </div>
   );
 }
