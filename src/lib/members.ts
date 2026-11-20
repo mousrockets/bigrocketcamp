@@ -14,6 +14,7 @@ import {
   playerIdentityAliases,
   playerRanks,
   prototypeResults,
+  pushSubscriptions,
   resultObservations,
   sessions,
   signInCodes,
@@ -178,7 +179,7 @@ export async function inviteMember(db: Database, email: string, role: Role): Pro
 }
 
 /**
- * Closes the member's sessions, collectors and pending codes, and erases their solo account's readings: that
+ * Closes the member's sessions, collectors, reminders and pending codes, and erases their solo account's readings: that
  * account is the member's own, not the club's. Their game records stay with their duo pseudo.
  */
 async function forgetMember(db: Database, memberId: string) {
@@ -189,6 +190,7 @@ async function forgetMember(db: Database, memberId: string) {
     query.delete(soloMmrEntries).where(eq(soloMmrEntries.player, slot)),
     query.delete(sessions).where(eq(sessions.memberId, memberId)),
     query.delete(soundDraws).where(eq(soundDraws.memberId, memberId)),
+    query.delete(pushSubscriptions).where(eq(pushSubscriptions.memberId, memberId)),
     query.delete(collectorDevices).where(eq(collectorDevices.memberId, memberId)),
     query.delete(collectorPairingCodes).where(eq(collectorPairingCodes.memberId, memberId)),
     query

@@ -9,6 +9,8 @@ import {
   identityList,
   type MemberProfile,
   memberList,
+  type ReminderSettings,
+  reminderSettings,
   type SoundCollections,
   soundCollections,
 } from '../lib/contract';
@@ -109,4 +111,14 @@ export const soundCollectionsQuery = queryOptions({
   queryKey: ['sounds'],
   queryFn: async (): Promise<SoundCollections['collections']> =>
     (await dataOf(api.sounds.$get(), soundCollections, 'Badges indisponibles.')).collections,
+});
+
+/**
+ * The club's key for the daily reminder, and the member's devices that receive it. Read again on each return to the
+ * app: « Ne plus me rappeler », in a notification, turns it off while the app is closed.
+ */
+export const remindersQuery = queryOptions({
+  queryKey: ['reminders'],
+  queryFn: (): Promise<ReminderSettings> => dataOf(api.reminders.$get(), reminderSettings, 'Rappels indisponibles.'),
+  refetchOnWindowFocus: 'always',
 });

@@ -39,6 +39,9 @@ export const formatClock = (at: Date | number | string): string => clocks.format
 /** "19 h 42", in Paris time. */
 export const formatTime = (at: Date | number | string): string => formatClock(at).replace(':', ' h ');
 
+/** "19 h": an hour of the day, 0 to 23. */
+export const formatHour = (hour: number): string => `${hour} h`;
+
 /** "5 nov.", in Paris time. */
 export const formatShortDate = (at: Date | number | string): string => shortDates.format(new Date(at));
 

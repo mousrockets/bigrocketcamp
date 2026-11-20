@@ -18,11 +18,11 @@ type InstallWindow = Window & { __rlInstall?: InstallPrompt | null };
 
 export type InstallMode = 'installed' | 'prompt' | 'ios' | 'manual';
 
-const isStandalone = () =>
+export const isStandalone = () =>
   matchMedia('(display-mode: standalone)').matches ||
   (navigator as Navigator & { standalone?: boolean }).standalone === true;
 
-const isIos = () =>
+export const isIos = () =>
   /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
 function currentMode(): InstallMode {

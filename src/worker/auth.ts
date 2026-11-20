@@ -16,7 +16,8 @@ export type AppEnv = { Bindings: Env; Variables: { member: Member; collector?: s
 
 const sessionCookie = 'session';
 const day = 24 * 60 * 60 * 1000;
-const sessionLifetime = 365 * day;
+/** A session lasts this long after its last use: it is extended once a day while the member comes. */
+export const sessionLifetime = 365 * day;
 const codeLifetime = 10 * 60 * 1000;
 const codeResendDelay = 60 * 1000;
 const codeAttempts = 5;

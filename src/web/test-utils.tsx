@@ -154,6 +154,7 @@ export function renderInApp(
     '/reglages/identites',
     '/reglages/club',
     '/reglages/membres',
+    '/reglages/notifications',
   ].map((routePath) => createRoute({ getParentRoute: () => root, path: routePath, component: page }));
   const router = createRouter({
     routeTree: root.addChildren(routes),

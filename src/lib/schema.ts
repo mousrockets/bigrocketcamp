@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { blob, check, index, integer, primaryKey, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { blob, check, index, integer, primaryKey, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
 // The database, as Drizzle reads it and as drizzle-kit generates its migrations from (npm run db:generate).
 // Migrations 0000 to 0016 were written before this file; the next ones come from the difference with it.
@@ -491,6 +491,39 @@ export const drinkDebts = sqliteTable('drink_debts', {
   paidAt: text('paid_at'),
   paidBy: text('paid_by'),
 });
+
+// The daily reminder
+
+/**
+ * A device that asked for the daily reminder (Web Push): where to send it and the keys to encrypt it, nothing more.
+ * It goes when the member turns it off, when the push service no longer knows it, after 90 days without opening
+ * the app, and with the account.
+ */
+export const pushSubscriptions = sqliteTable(
+  'push_subscriptions',
+  {
+    /** A SHA-256 of the endpoint: the device finds itself in the list without the endpoint leaving it. */
+    id: text('id').primaryKey(),
+    memberId: text('member_id')
+      .notNull()
+      .references(() => members.id, { onDelete: 'cascade' }),
+    endpoint: text('endpoint').notNull().unique(),
+    p256dh: text('p256dh').notNull(),
+    auth: text('auth').notNull(),
+    /** The Paris hour of the reminder, 0 to 23. */
+    hour: integer('hour').notNull().default(19),
+    /** The Paris day of the last reminder sent: one a day. */
+    lastSentDay: text('last_sent_day'),
+    /** The debt that reminder announced: the next one says whether it grew. */
+    lastDebt: real('last_debt'),
+    created: text('created').notNull().default(isoNow),
+  },
+  (table) => [
+    index('push_subscriptions_member').on(table.memberId),
+    index('push_subscriptions_hour').on(table.hour),
+    check('push_subscriptions_hour_range', sql`${table.hour} BETWEEN 0 AND 23`),
+  ],
+);
 
 // Following the board (see src/lib/board.ts)
 

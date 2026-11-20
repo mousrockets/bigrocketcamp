@@ -6,7 +6,10 @@ import {
   type MemberToRemove,
   type ProfileInput,
   pairingCodeCreated,
+  type ReminderDevice,
+  type ReminderInput,
   type RuleChange,
+  reminderDevice,
   type SoundDrawn,
   soundDrawn,
 } from '../lib/contract';
@@ -101,6 +104,20 @@ export async function undoExercise(id: string): Promise<void> {
 /** The sound a series that cleared the member's debt wins; asking again for the same series answers the same. */
 export const drawSoundBadge = (exerciseId: string): Promise<SoundDrawn> =>
   dataOf(api.sounds.$post({ json: { exerciseId } }), soundDrawn, 'Tirage impossible.');
+
+/** Subscribes this device to the daily reminder, or changes its hour. */
+export const saveReminder = (json: ReminderInput): Promise<ReminderDevice> =>
+  dataOf(api.reminders.$put({ json }), reminderDevice, 'Impossible d’activer le rappel.');
+
+/** Turns the daily reminder off on one of the member's devices: the server forgets its subscription. */
+export async function stopReminder(id: string): Promise<void> {
+  await dataOf(api.reminders.$delete({ json: { id } }), done, 'Impossible de couper le rappel.');
+}
+
+/** Sends today's reminder to this device now. */
+export async function testReminder(id: string): Promise<void> {
+  await dataOf(api.reminders.test.$post({ json: { id } }), done, 'Envoi impossible.');
+}
 
 /** Marks a drink as offered, or takes that back. */
 export async function settleDrink(body: { action: 'settle' | 'undo'; id: string }): Promise<void> {

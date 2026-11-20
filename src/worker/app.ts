@@ -14,6 +14,7 @@ import { memberRoutes } from './routes/members';
 import { monthlyRoutes } from './routes/monthly';
 import { profileRoutes } from './routes/profile';
 import { rankRoutes } from './routes/ranks';
+import { reminderOptOutRoutes, reminderRoutes } from './routes/reminders';
 import { soundRoutes } from './routes/sounds';
 import { stateRoutes } from './routes/state';
 
@@ -46,7 +47,9 @@ const publicRoutes = app
   // Anyone reads the logo; changing it checks the member inside its routes.
   .route('/club/logo', clubLogoRoutes)
   // The Windows collector pairs with a code and then sends its own token: no session.
-  .route('/collector', collectorRoutes);
+  .route('/collector', collectorRoutes)
+  // « Ne plus me rappeler » comes from a notification: the subscription's own secret stands for the session.
+  .route('/reminders/stop', reminderOptOutRoutes);
 
 // Everything below needs a signed-in member.
 app.use('/state', requireMember);
@@ -59,6 +62,8 @@ app.use('/club', requireMember);
 app.use('/club/rules', requireMember);
 app.use('/profile', requireMember);
 app.use('/sounds', requireMember);
+app.use('/reminders', requireMember);
+app.use('/reminders/test', requireMember);
 app.use('/collectors', requireMember);
 app.use('/members', requireMember, requireAdmin);
 
@@ -73,6 +78,7 @@ const routes = publicRoutes
   .route('/club', clubRoutes)
   .route('/profile', profileRoutes)
   .route('/sounds', soundRoutes)
+  .route('/reminders', reminderRoutes)
   .route('/collectors', collectorDeviceRoutes)
   .route('/members', memberRoutes);
 

@@ -72,6 +72,20 @@ export const InstallIcon = () => (
   </Icon>
 );
 
+export const BellIcon = () => (
+  <Icon>
+    <path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 2h-15z" />
+    <path d="M10 21h4" />
+  </Icon>
+);
+
+export const ClockIcon = () => (
+  <Icon>
+    <circle cx="12" cy="12" r="8.5" />
+    <path d="M12 7.5V12l3 2" />
+  </Icon>
+);
+
 export const SignOutIcon = () => (
   <Icon>
     <path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4" />

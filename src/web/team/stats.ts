@@ -9,22 +9,8 @@ export function currentStreak(days: ReadonlySet<string>, today: string): number 
   return streak;
 }
 
-export interface Debt {
-  /** Pushups still owed. */
-  left: number;
-  /** Pushups paid, counted up to what is owed. */
-  paid: number;
-  owed: number;
-  /** Share paid, 0 to 100; nothing owed counts as all paid. */
-  percent: number;
-}
-
-export function debtOf({ due: counted, done }: { due: number; done: number }): Debt {
-  // Dodged pushups (wins the opponents forfeited) can bring what is owed below zero: nothing is owed then.
-  const due = Math.max(0, counted);
-  const paid = Math.min(done, due);
-  return { left: due - paid, paid, owed: due, percent: due > 0 ? Math.round((paid / due) * 100) : 100 };
-}
+// The debt is counted in src/lib, where the API's daily reminder counts it too.
+export { type Debt, debtOf } from '../../lib/domain';
 
 /** How many of the gauge's segments are lit. */
 export const litSegments = (percent: number, segments: number): number =>

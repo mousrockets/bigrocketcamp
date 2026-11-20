@@ -8,6 +8,7 @@ import { ClubSettings } from './settings/club-info';
 import { CollectorSettings } from './settings/collector';
 import { IdentitiesSettings } from './settings/identities';
 import { MembersSettings } from './settings/members';
+import { NotificationSettings } from './settings/notifications';
 import { SettingsHome } from './settings/settings-home';
 import { AppShell } from './shell/app-shell';
 import { TeamPage } from './team/team-page';
@@ -68,6 +69,7 @@ const settingsScreens = (
     ['/reglages/identites', IdentitiesSettings],
     ['/reglages/club', ClubSettings],
     ['/reglages/membres', MembersSettings],
+    ['/reglages/notifications', NotificationSettings],
   ] as const
 ).map(([path, component]) => createRoute({ getParentRoute: () => shellRoute, path, component }));
 

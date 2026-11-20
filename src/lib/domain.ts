@@ -1,10 +1,12 @@
 import type { Roster } from './club';
+import { parisDay } from './days';
 import { count, formatNumber } from './format';
 import {
   type DodgeRules,
   defaultDodgeRules,
   defaultLastPlaceRules,
   dodgedPushups,
+  dodgeRules,
   type LastPlaceRules,
   lastPlaceBonus,
   type MatchRow,
@@ -247,6 +249,44 @@ export function summarize<Row extends MatchRow>(
       remaining: Math.max(0, due - done),
     };
   });
+}
+
+/** What the debts are counted from: the board the app holds, or the same rows the API reads. */
+export interface DebtSources<Row extends MatchRow> {
+  results: Row[];
+  exercises: StoredExercise[];
+  matchRosters?: RosterSize[] | undefined;
+  /** Absent from a board kept from an older API: the default rules apply. */
+  rules?: { lastPlace?: LastPlaceRules; forfeit?: DodgeRules['forfeit']; highScore?: DodgeRules['highScore'] } | null;
+}
+
+/** Each player's matches, debt and exercises, as the rules count them today: what L'équipe shows. */
+export const clubStats = <Row extends MatchRow>(sources: DebtSources<Row>, roster: Roster, day: string = parisDay()) =>
+  summarize(
+    roster,
+    sources.results,
+    sources.exercises,
+    day,
+    sources.matchRosters ?? [],
+    sources.rules?.lastPlace ?? defaultLastPlaceRules,
+    dodgeRules(sources.rules ?? undefined),
+  );
+
+export interface Debt {
+  /** Pushups still owed. */
+  left: number;
+  /** Pushups paid, counted up to what is owed. */
+  paid: number;
+  owed: number;
+  /** Share paid, 0 to 100; nothing owed counts as all paid. */
+  percent: number;
+}
+
+export function debtOf({ due: counted, done }: { due: number; done: number }): Debt {
+  // Dodged pushups (wins the opponents forfeited) can bring what is owed below zero: nothing is owed then.
+  const due = Math.max(0, counted);
+  const paid = Math.min(done, due);
+  return { left: due - paid, paid, owed: due, percent: due > 0 ? Math.round((paid / due) * 100) : 100 };
 }
 
 export function dailyRecap<Row extends MatchRow>(
