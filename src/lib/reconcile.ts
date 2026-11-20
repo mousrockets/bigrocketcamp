@@ -543,12 +543,15 @@ export async function observationWrites(
         target: sourceReports.id,
         // The same scoreboard sent again by a newer collector brings the clock an older one left out. It keeps its
         // first reception, and an identical copy writes nothing, so its match is not rebuilt.
-        set: Object.fromEntries(
-          reportCompletions.map((field) => [
-            field,
-            sql`coalesce(${excluded(sourceReports[field])}, ${sourceReports[field]})`,
-          ]),
-        ),
+        set: {
+          ...Object.fromEntries(
+            reportCompletions.map((field) => [
+              field,
+              sql`coalesce(${excluded(sourceReports[field])}, ${sourceReports[field]})`,
+            ]),
+          ),
+          received: sql`min(${sourceReports.received}, ${excluded(sourceReports.received)})`,
+        },
         setWhere: sql.join(
           reportCompletions.map(
             (field) =>
