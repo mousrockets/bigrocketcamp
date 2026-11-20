@@ -223,6 +223,31 @@ test('an unchanged board reads one row and receives nothing', async () => {
   expect(again.version).toBe(board.version);
 });
 
+const receptions = async (guid: string) =>
+  (
+    await db
+      .prepare('SELECT DISTINCT received FROM match_results WHERE match_guid = ?')
+      .bind(guid)
+      .all<{ received: string }>()
+  ).results.map((row) => row.received);
+
+test('a match its collector sends again keeps its time, and the open board receives nothing', async () => {
+  await receive('match-resent', 'live-alice', team(), { at: '2026-11-05T20:00:00.000Z' });
+  const board = await catchUp();
+
+  await receive('match-resent', 'live-alice', team(), { at: '2026-11-05T21:30:00.000Z' });
+  expect((await readHead(db)).pending).toBe(false);
+  expect((await catchUp(structuredClone(board))).version).toBe(board.version);
+  expect(await receptions('match-resent')).toEqual(['2026-11-05T20:00:00.000Z']);
+});
+
+test('a match a teammate’s collector sends later keeps the time it was first received', async () => {
+  await receive('match-shared', 'live-alice', team(), { at: '2026-11-05T20:00:00.000Z' });
+  await receive('match-shared', 'live-bob', team(), { at: '2026-11-05T21:30:00.000Z' });
+  await catchUp();
+  expect(await receptions('match-shared')).toEqual(['2026-11-05T20:00:00.000Z']);
+});
+
 test('a build that read sources a newer one overtook never lands', async () => {
   await receive('match-race', 'live-alice', team());
   // A first build reads the sources; another collector's view arrives before it writes.
