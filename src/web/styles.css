@@ -864,7 +864,7 @@
 /* The monthly recap (src/web/challenges/recap-story.tsx), told like a story: bars that fill with each slide, a
    backdrop in the slide's colour that drifts and fades into the next, slides that slide in out of a blur, words that
    follow one another, and confetti or boost trails where it is a party. A slide's colour is `--recap-tint`; a held
-   press pauses everything. */
+   press pauses the story. */
 @layer components {
   .recap-bar {
     position: relative;
@@ -892,10 +892,10 @@
     animation: none;
     transform: none;
   }
-  .recap-stage[data-paused] *,
-  .recap-stage[data-paused] *::before,
-  .recap-stage[data-paused] *::after {
-    animation-play-state: paused !important;
+  /* A pause stops the bar and what moves for the mood. A slide reached while paused still comes in in full: its
+     words and figure would stay hidden otherwise. */
+  .recap-stage[data-paused] :is(.recap-bar > b, .recap-backdrop, .recap-confetti, .recap-boost) {
+    animation-play-state: paused;
   }
   .recap-backdrop {
     position: absolute;
