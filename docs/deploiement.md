@@ -5,7 +5,7 @@ L'app tourne sur Cloudflare, dans les limites du plan gratuit. Une fusion dans `
 ## Une seule fois, par un mainteneur
 
 1. Dans le tableau de bord Cloudflare, Workers & Pages : créer un Worker à partir du dépôt GitHub (Workers Builds), branche de production `main`.
-2. Dossier racine `/`. Commande de build : `npm run build` (Cloudflare installe les dépendances avant). Commande de déploiement : `npm run deploy`, qui applique les migrations de la base avant de déployer. Node et npm suivent `.node-version` et `packageManager`.
+2. Dossier racine `/`. Commande de build : `npm run build` (Cloudflare installe les dépendances avant). Commande de déploiement : `npm run deploy`, qui note un point de restauration de la base, applique ses migrations, puis déploie (voir « Sauvegarde et restauration »). Node et npm suivent `.node-version` et `packageManager`.
 3. Rattacher le domaine de l'instance au Worker (Custom Domains).
 
 Cloudflare déploie ensuite chaque commit de `main` lui-même : aucun jeton Cloudflare n'est stocké dans GitHub.
@@ -15,7 +15,7 @@ Cloudflare déploie ensuite chaque commit de `main` lui-même : aucun jeton Clou
 Dans le Worker, Settings :
 
 - **Variables and Secrets** (lues par l'API) : `MAIL_FROM` (expéditeur des codes, par exemple `Les Trois Mousrockets <connexion@mousrockets.com>`), et en secrets `RESEND_API_KEY` ; `RANK_SOURCE_KEY` (au moins 32 caractères) si une source de rangs alimente le MMR 2v2 (`GET /api/ranks/targets`, `POST /api/ranks`, en-tête `X-Rank-Source-Key`). Le jeu ne donne pas le MMR au collecteur : seule la source de rangs le lit. Pour relire les rangs juste après une partie, elle peut demander souvent `GET /api/ranks/activity` (`{"lastRankedMatchAt": "…" | null, "lastReadAt": "…" | null}` : heure de réception du dernier match classé 2v2, ou du dernier compte solo qu'un membre a renseigné, et heure du dernier relevé reçu, quelques lignes lues) ; `GET /api/ranks/targets` donne le même champ, signe que l'app le connaît.
-- **Build → Deploy command** : `npm run deploy`. Il applique les migrations de la base avant de déployer.
+- **Build → Deploy command** : `npm run deploy`. Il note un point de restauration de la base, applique ses migrations, puis déploie.
 - `wrangler.jsonc` : l'identifiant de la base D1 de production (`database_id`).
 
 ## Les réglages Cloudflare de mousrockets.com
@@ -35,7 +35,7 @@ Tout ce qui a été réglé à la main pour l'instance mousrockets.com, chez Clo
 ### Base D1 `bigrocketcamp`
 
 - Créée le 6 novembre 2026 avec la juridiction **UE** (`eu`) : les données restent dans l'Union européenne. Son identifiant est dans `wrangler.jsonc`.
-- Les migrations s'appliquent à chaque déploiement (`npm run deploy`), jamais à la main.
+- Les migrations s'appliquent à chaque déploiement (`npm run deploy`), jamais à la main, juste après la lecture d'un point de restauration (voir « Sauvegarde et restauration »).
 
 ### Worker `bigrocketcamp`
 
@@ -59,6 +59,56 @@ La source de rangs de mousrockets.com est un autre Worker du même compte, avec 
 
 - Un compte dédié à l'app. Le domaine `mousrockets.com` y est vérifié, dans la région **Ireland (eu-west-1)**, pour que les envois restent dans l'UE.
 - La clé d'API n'a que le droit d'envoyer (« Sending access »), et seulement depuis ce domaine.
+
+## Sauvegarde et restauration
+
+Les mois clos (`monthly_mmr_results`) et les dettes (`drink_debts`) ne doivent jamais se perdre.
+
+### Ce que Cloudflare garde tout seul
+
+D1 garde l'historique de la base (Time Travel), sans rien activer ni payer : on peut la remettre dans l'état où elle était à n'importe quelle minute des **7 derniers jours** sur l'offre gratuite, celle du club, et des 30 derniers jours sur l'offre payante Workers Paid ([Time Travel](https://developers.cloudflare.com/d1/reference/time-travel/)). Au-delà, seul un export (plus bas) permet de revenir en arrière.
+
+### Avant chaque migration
+
+`npm run deploy` lit d'abord le point de restauration actuel de la base (`wrangler d1 time-travel info`), puis applique les migrations, puis déploie le Worker. Le journal du build (Workers & Pages → `bigrocketcamp` → Deployments) affiche donc, avant les migrations :
+
+```text
+⚠️ The current bookmark is '<point>'
+⚡️ To restore to this specific bookmark, run:
+ `wrangler d1 time-travel restore bigrocketcamp --bookmark=<point>`
+```
+
+Si ce point ne peut pas être lu, le déploiement s'arrête avant de toucher la base.
+
+### Revenir en arrière
+
+Restaurer remplace toute la base : ce qui est arrivé après le point choisi (matchs reçus, pompes déclarées, dettes réglées) disparaît. On ne le fait que si une migration a abîmé des données, en prévenant le club. Un mainteneur, connecté avec `npx wrangler login` :
+
+1. Remet en ligne la version précédente du Worker (Workers & Pages → `bigrocketcamp` → Deployments → Rollback), pour que le code en ligne corresponde à la base restaurée.
+2. Restaure la base au point du journal du build : `npx wrangler d1 time-travel restore bigrocketcamp --bookmark=<point> --config wrangler.jsonc`. La commande demande confirmation, puis affiche le point d'avant la restauration, pour l'annuler au besoin.
+3. Ouvre aussitôt une PR qui retire ou corrige la migration fautive : sinon, la fusion suivante la rejoue.
+
+Pour revenir à une heure précise plutôt qu'à un point du journal, `--timestamp` remplace `--bookmark`, avec le fuseau de Paris : `--timestamp=2026-11-20T19:00:00+01:00` (`+02:00` en été). `npx wrangler d1 time-travel info bigrocketcamp --timestamp=… --config wrangler.jsonc` montre d'abord le point correspondant, sans rien changer.
+
+### Un export complet, hors de Cloudflare
+
+Time Travel vit chez Cloudflare, avec la base, et ne remonte pas loin. De temps en temps (au début de chaque mois, après la clôture) et avant une migration délicate, un mainteneur en garde une copie complète :
+
+```sh
+npx wrangler d1 export bigrocketcamp --remote --config wrangler.jsonc --output ../bigrocketcamp-AAAA-MM-JJ.sql
+```
+
+L'export bloque la base le temps de sa lecture : quelques secondes, à faire en dehors des soirées de jeu. Pour s'en servir, on l'importe dans une base neuve (`npx wrangler d1 create <nom> --jurisdiction eu`, puis `npx wrangler d1 execute <nom> --remote --file <export>.sql`), vers laquelle `wrangler.jsonc` pointe ensuite.
+
+L'export contient des données personnelles : adresses e-mail, pseudos, toute l'activité des membres.
+
+- Il se garde hors du dépôt (d'où le `../`), sur un stockage privé et chiffré auquel seuls les mainteneurs ont accès.
+- Jamais dans Git, une issue, une PR, une discussion, un mail ou un salon de discussion, même privés.
+- On ne garde que les trois derniers exports et on supprime les autres : un membre effacé de l'app doit finir par disparaître des copies aussi.
+
+### Migrations et Worker en ligne
+
+Les migrations passent avant le nouveau Worker : pendant le déploiement, et pour de bon si `wrangler deploy` échoue, l'ancien code tourne sur la base migrée. Une migration reste donc compatible avec le Worker en ligne : elle ajoute (table, colonne facultative ou avec une valeur par défaut), mais ne supprime ni ne renomme rien que le code en ligne lit ou écrit encore. Pour retirer ou renommer, une première PR arrête de s'en servir ; une suivante, une fois la première en ligne, le retire de la base.
 
 ## Version déployée
 
