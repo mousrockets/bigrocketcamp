@@ -861,6 +861,163 @@
   }
 }
 
+/* The monthly recap (src/web/challenges/recap-story.tsx), told like a story: bars that fill with each slide, a
+   backdrop in the slide's colour that drifts and fades into the next, slides that slide in out of a blur, words that
+   follow one another, and confetti or boost trails where it is a party. A slide's colour is `--recap-tint`; a held
+   press pauses the story. */
+@layer components {
+  .recap-bar {
+    position: relative;
+    flex: 1;
+    height: 3px;
+    overflow: hidden;
+    border-radius: 2px;
+    background: rgb(255 255 255 / 0.22);
+  }
+  .recap-bar > b {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: var(--t1);
+    transform: scaleX(0);
+    transform-origin: left;
+  }
+  .recap-bar > b[data-state="done"] {
+    transform: none;
+  }
+  .recap-bar > b[data-state="now"] {
+    animation: grow var(--recap-duration, 6s) linear both;
+  }
+  .recap-bar > b[data-state="now"][data-still] {
+    animation: none;
+    transform: none;
+  }
+  /* A pause stops the bar and what moves for the mood. A slide reached while paused still comes in in full: its
+     words and figure would stay hidden otherwise. */
+  .recap-stage[data-paused] :is(.recap-bar > b, .recap-backdrop, .recap-confetti, .recap-boost) {
+    animation-play-state: paused;
+  }
+  .recap-backdrop {
+    position: absolute;
+    inset: -25%;
+    background:
+      radial-gradient(42% 32% at 28% 22%, color-mix(in srgb, var(--recap-tint) 62%, transparent), transparent 72%),
+      radial-gradient(40% 30% at 76% 74%, color-mix(in srgb, var(--recap-tint) 38%, transparent), transparent 72%),
+      radial-gradient(70% 50% at 50% 50%, color-mix(in srgb, var(--recap-tint) 12%, transparent), transparent 80%);
+    opacity: 0;
+    transform: scale(1.18) rotate(-6deg);
+    transition:
+      opacity 0.9s var(--ease),
+      transform 1.4s var(--ease);
+    pointer-events: none;
+  }
+  .recap-backdrop[data-active] {
+    opacity: 1;
+    transform: none;
+    animation: recap-drift 11s ease-in-out 1.4s infinite alternate;
+  }
+  .recap-slide {
+    animation: recap-slide-in 0.75s var(--ease) both;
+  }
+  .recap-reveal {
+    animation: recap-reveal 0.8s var(--ease) both;
+  }
+  .recap-figure {
+    animation: slam 0.75s var(--ease) both;
+  }
+  .recap-name {
+    color: rgb(var(--player));
+    text-shadow: 0 0 24px rgba(var(--player), 0.55);
+  }
+  .recap-confetti {
+    position: absolute;
+    top: -6%;
+    width: 7px;
+    height: 12px;
+    border-radius: 2px;
+    animation: recap-confetti var(--fall, 3s) cubic-bezier(0.25, 0.6, 0.4, 1) var(--delay, 0s) infinite;
+    pointer-events: none;
+  }
+  .recap-boost {
+    position: absolute;
+    bottom: -20%;
+    width: 3px;
+    border-radius: 3px;
+    background: linear-gradient(transparent, color-mix(in srgb, var(--recap-tint) 80%, white));
+    filter: blur(0.5px);
+    animation: recap-boost var(--fall, 2.4s) cubic-bezier(0.3, 0.7, 0.3, 1) var(--delay, 0s) infinite;
+    pointer-events: none;
+  }
+  /* With reduced motion, a slide still fades in, without moving. */
+  @media (prefers-reduced-motion: reduce) {
+    .recap-slide {
+      animation: glint 0.4s ease both !important;
+    }
+    .recap-backdrop {
+      transform: none;
+      transition: opacity 0.5s ease !important;
+    }
+  }
+  @keyframes recap-drift {
+    from {
+      transform: none;
+    }
+    to {
+      transform: translate(5%, -4%) rotate(9deg) scale(1.08);
+    }
+  }
+  @keyframes recap-slide-in {
+    from {
+      opacity: 0;
+      transform: translateX(var(--recap-from, 32px)) scale(0.94);
+      filter: blur(10px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+      filter: blur(0);
+    }
+  }
+  @keyframes recap-reveal {
+    from {
+      opacity: 0;
+      transform: translateY(18px);
+      filter: blur(6px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+      filter: blur(0);
+    }
+  }
+  @keyframes recap-confetti {
+    0% {
+      opacity: 0;
+      transform: translate3d(0, 0, 0) rotate(0);
+    }
+    10% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0.2;
+      transform: translate3d(var(--sway, 20px), 115vh, 0) rotate(var(--spin, 540deg));
+    }
+  }
+  @keyframes recap-boost {
+    0% {
+      opacity: 0;
+      transform: translateY(0) scaleY(0.4);
+    }
+    20% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+      transform: translateY(-130vh) scaleY(1);
+    }
+  }
+}
+
 /* Safari on a phone paints the band behind its status bar in one flat colour, the body's, while the page rests at its
    top: a glow cut at that band's edge would show the band as a bar. There the glow fades in below it instead; the
    installed app draws the glow under the status bar, as the mockups do. No fixed element may sit at the top or bottom

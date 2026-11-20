@@ -17,14 +17,25 @@ import { TeamPage } from './team/team-page';
 
 const rootRoute = createRootRoute({ component: App, notFoundComponent: NotFound });
 
+const monthParameter = z
+  .string()
+  .regex(/^\d{4}-(0[1-9]|1[0-2])$/)
+  .optional()
+  .catch(undefined);
+
 // `?declarer=true` opens the declaration sheet over whatever tab is open, `?ranks=true` the ranks' ladder,
-// `?regles=true` the club's rules.
+// `?regles=true` the club's rules, `?recap=2026-10` the story of a month gone by.
 const sheetParameter = z.boolean().optional().catch(undefined);
 const shellRoute = createRoute({
   getParentRoute: () => rootRoute,
   id: '_shell',
   component: AppShell,
-  validateSearch: z.object({ declarer: sheetParameter, ranks: sheetParameter, regles: sheetParameter }),
+  validateSearch: z.object({
+    declarer: sheetParameter,
+    ranks: sheetParameter,
+    regles: sheetParameter,
+    recap: monthParameter,
+  }),
 });
 // `?fiche=2` opens the sheet of the roster's third player over the team.
 const teamRoute = createRoute({
@@ -36,11 +47,6 @@ const teamRoute = createRoute({
 // A past period has its own address: `?semaine=2026-11-02` (its Monday) and `?mois=2026-10` in Défis,
 // `?jour=2026-11-07` in Matchs. Without one, or with one that cannot be read, the tab shows the current period.
 const dayParameter = z.iso.date().optional().catch(undefined);
-const monthParameter = z
-  .string()
-  .regex(/^\d{4}-(0[1-9]|1[0-2])$/)
-  .optional()
-  .catch(undefined);
 const challengesRoute = createRoute({
   getParentRoute: () => shellRoute,
   path: '/defis',

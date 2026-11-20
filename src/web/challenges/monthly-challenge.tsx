@@ -9,6 +9,7 @@ import {
   formatDayMonth,
   formatMonth,
   formatNumber,
+  formatOfMonth,
   formatPlace,
   formatShortMonth,
   formatWhen,
@@ -31,14 +32,9 @@ type Monthly = NonNullable<Board['monthly']>;
 const accountNames = { duo: 'Duo', solo: 'Solo' } as const;
 const mmrOf = (value: number | null) => (value === null ? '0' : formatNumber(value));
 const two = (value: number) => String(value).padStart(2, '0');
-/** "d’octobre", "de novembre". */
-const ofMonth = (month: string) => {
-  const name = formatMonth(month).toLowerCase();
-  return /^[aeiou]/.test(name) ? `d’${name}` : `de ${name}`;
-};
 
 /** The first name a player gave, or else their duo pseudo. */
-function useNameOf(): (player: string) => string {
+export function useNameOf(): (player: string) => string {
   const { players } = useClub();
   return (player) => players.find((candidate) => candidate.slot === player)?.firstName ?? player;
 }
@@ -98,7 +94,7 @@ export function MonthlyChallenge({
       <span className="flex flex-col gap-1.5">
         <PeriodKicker kicker="Défi du mois · 2v2" picker={picker} />
         <h2 className="title-display text-[24px]">
-          {closed ? `Le verdict ${ofMonth(closed.month)}` : 'Qui paie sa tournée ?'}
+          {closed ? `Le verdict ${formatOfMonth(closed.month)}` : 'Qui paie sa tournée ?'}
         </h2>
       </span>
       {closed ? <ClosedStandings month={closed} me={me} /> : <LiveStandings monthly={monthly} me={me} now={now} />}
@@ -127,7 +123,7 @@ function PendingVerdict({ monthly, now }: { monthly: Monthly; now: number }) {
   if (previous < monthly.startsMonth || now >= verdictAt) return null;
   return (
     <Notice icon={HourglassIcon}>
-      Verdict {ofMonth(previous)} {formatWhen(verdictAt, now)}, le temps que les relevés en retard arrivent.
+      Verdict {formatOfMonth(previous)} {formatWhen(verdictAt, now)}, le temps que les relevés en retard arrivent.
     </Notice>
   );
 }
@@ -271,7 +267,7 @@ function Debts({ debts }: { debts: DrinkDebt[] }) {
                 <ItemDescription
                   className={cn('text-[12px] [line-height:normal]', debt.paidAt ? 'text-win' : 'text-t3')}
                 >
-                  {debt.paidAt ? 'Offerte' : '1 boisson'} · défi {ofMonth(debt.month)}
+                  {debt.paidAt ? 'Offerte' : '1 boisson'} · défi {formatOfMonth(debt.month)}
                 </ItemDescription>
               </ItemContent>
               {(debt.paidAt ? debt.canUndo : debt.canSettle) && (

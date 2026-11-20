@@ -1,6 +1,6 @@
 import { Link, useSearch } from '@tanstack/react-router';
 import { cn } from 'cn';
-import { parisDay, shiftDay, weekStart } from '../../lib/days';
+import { parisDay, parisMonth, shiftDay, weekStart } from '../../lib/days';
 import { formatLongDay, formatWeek } from '../../lib/format';
 import { useBoardState } from '../board';
 import { useClub } from '../club';
@@ -14,6 +14,8 @@ import { weeklyJournal, weeklyTotals } from './journal';
 import { ExerciseJournal } from './journal-section';
 import { MonthlyChallenge } from './monthly-challenge';
 import { WeeklyPodium } from './podium';
+import { recapMonths } from './recap';
+import { RecapList } from './recap-list';
 import { firstWeek, weeklyPodium } from './standings';
 
 // On a phone, the two challenges follow each other on the page; on a computer, each sits in its card, side by side.
@@ -34,6 +36,7 @@ export function ChallengesPage() {
   const podium = board ? weeklyPodium(board.exercises, club.roster, me, week) : [];
   // A week nobody sweated shows only the podium, which already says so.
   const totals = board ? weeklyTotals(board.exercises, club.roster, me, week) : [];
+  const recaps = board ? recapMonths(board, club.roster, parisMonth(now)) : [];
 
   return (
     <TabPage kicker={formatLongDay(now)} title="Défis">
@@ -62,6 +65,11 @@ export function ChallengesPage() {
           {board.monthly && (
             <section aria-label="Défi du mois" className={cn(challenge, 'max-lg:pt-12 max-lg:[animation-delay:.12s]')}>
               <MonthlyChallenge monthly={board.monthly} me={me} now={now} month={mois} />
+            </section>
+          )}
+          {recaps.length > 0 && (
+            <section aria-label="Récap du mois" className={cn(challenge, 'max-lg:pt-12 max-lg:[animation-delay:.15s]')}>
+              <RecapList months={recaps} />
             </section>
           )}
           {totals.length > 0 && (
