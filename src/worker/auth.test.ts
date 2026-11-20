@@ -53,12 +53,17 @@ describe('sign-in with an e-mail code', () => {
     expect(await env.DB.prepare('SELECT COUNT(*) AS n FROM sign_in_codes').first('n')).toBe(0);
   });
 
-  test('a member receives a code, and cannot ask again within a minute', async () => {
+  test('a member receives a code, and asking again within a minute sends nothing new', async () => {
     expect((await post('/api/auth/code', { email: ' Alice@Example.com ' })).status).toBe(204);
-    expect(await env.DB.prepare('SELECT COUNT(*) AS n FROM sign_in_codes WHERE email = ?').bind(email).first('n')).toBe(
-      1,
-    );
-    expect((await post('/api/auth/code', { email })).status).toBe(429);
+    const sent = await env.DB.prepare('SELECT code_hash FROM sign_in_codes WHERE email = ?')
+      .bind(email)
+      .first('code_hash');
+    expect(sent).toEqual(expect.any(String));
+    // The same answer as for an unknown address: asking twice does not reveal who is in the club.
+    expect((await post('/api/auth/code', { email })).status).toBe(204);
+    expect(
+      await env.DB.prepare('SELECT code_hash FROM sign_in_codes WHERE email = ?').bind(email).first('code_hash'),
+    ).toBe(sent);
   });
 
   test('a wrong code is counted, and five wrong codes lock the code', async () => {
@@ -67,6 +72,23 @@ describe('sign-in with an e-mail code', () => {
       expect((await post('/api/auth/verify', { email, code: '000000' })).status).toBe(401);
     }
     expect((await post('/api/auth/verify', { email, code: '123456' })).status).toBe(401);
+  });
+
+  test('wrong codes sent all at once still lock the code after five', async () => {
+    await issueCode('123456');
+    const guesses = Array.from({ length: 20 }, (_, guess) => String(guess).padStart(6, '0'));
+    await Promise.all(guesses.map((code) => post('/api/auth/verify', { email, code })));
+    expect(
+      await env.DB.prepare('SELECT attempts FROM sign_in_codes WHERE email = ?').bind(email).first('attempts'),
+    ).toBe(5);
+    expect((await post('/api/auth/verify', { email, code: '123456' })).status).toBe(401);
+  });
+
+  test('the right code sent twice at once opens a single session', async () => {
+    await issueCode('123456');
+    const answers = await Promise.all([1, 2].map(() => post('/api/auth/verify', { email, code: '123456' })));
+    expect(answers.map((answer) => answer.status).sort()).toEqual([204, 401]);
+    expect(await env.DB.prepare('SELECT COUNT(*) AS n FROM sessions').first('n')).toBe(1);
   });
 
   test('the right code opens a session that reaches the API, once', async () => {

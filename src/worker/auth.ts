@@ -1,4 +1,4 @@
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, gte, lt, sql } from 'drizzle-orm';
 import type { Context, MiddlewareHandler } from 'hono';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import type { Role } from '../lib/members';
@@ -51,13 +51,16 @@ export const sameOriginOnly: MiddlewareHandler<AppEnv> = async (c, next) => {
   await next();
 };
 
-export async function sendSignInCode(env: Env, email: string, requestUrl: string): Promise<'sent' | 'too-soon'> {
+/**
+ * Mails a code to a member. Every address gets the same silent answer, so the form never reveals who is in the club:
+ * a request within a minute of the last code sends nothing, and that code stays valid.
+ */
+export async function sendSignInCode(env: Env, email: string, requestUrl: string): Promise<void> {
   const db = orm(env.DB);
   const [member] = await db.select({ id: members.id }).from(members).where(eq(members.email, email));
+  if (!member) return;
   const [previous] = await db.select({ sent: signInCodes.sent }).from(signInCodes).where(eq(signInCodes.email, email));
-  if (previous && Date.now() - previous.sent < codeResendDelay) return 'too-soon';
-  // An unknown address gets the same answer as a member, so the form never reveals who is in the club.
-  if (!member) return 'sent';
+  if (previous && Date.now() - previous.sent < codeResendDelay) return;
 
   const code = randomCode();
   const now = Date.now();
@@ -67,7 +70,6 @@ export async function sendSignInCode(env: Env, email: string, requestUrl: string
     .values({ email, ...saved })
     .onConflictDoUpdate({ target: signInCodes.email, set: saved });
   await deliver(env, email, code, requestUrl);
-  return 'sent';
 }
 
 async function deliver(env: Env, email: string, code: string, requestUrl: string): Promise<void> {
@@ -99,17 +101,24 @@ async function deliver(env: Env, email: string, code: string, requestUrl: string
 
 export async function verifySignInCode(c: Context<AppEnv>, email: string, code: string): Promise<boolean> {
   const db = orm(c.env.DB);
-  const [saved] = await db.select().from(signInCodes).where(eq(signInCodes.email, email));
-  if (!saved || saved.expires < Date.now() || saved.attempts >= codeAttempts) return false;
-  if (saved.codeHash !== (await sha256(`${email}:${code}`))) {
-    await db
-      .update(signInCodes)
-      .set({ attempts: sql`${signInCodes.attempts} + 1` })
-      .where(eq(signInCodes.email, email));
-    return false;
-  }
+  // Each guess takes its attempt in the same statement that checks the count, before the code is compared:
+  // guesses sent all at once cannot all read a count below five.
+  const [attempt] = await db
+    .update(signInCodes)
+    .set({ attempts: sql`${signInCodes.attempts} + 1` })
+    .where(
+      and(eq(signInCodes.email, email), gte(signInCodes.expires, Date.now()), lt(signInCodes.attempts, codeAttempts)),
+    )
+    .returning({ codeHash: signInCodes.codeHash });
+  const codeHash = await sha256(`${email}:${code}`);
+  if (attempt?.codeHash !== codeHash) return false;
+  // Deleting the code claims it: of two right guesses at once, only one opens a session.
+  const [claimed] = await db
+    .delete(signInCodes)
+    .where(and(eq(signInCodes.email, email), eq(signInCodes.codeHash, codeHash)))
+    .returning({ email: signInCodes.email });
+  if (!claimed) return false;
   const [member] = await db.select({ id: members.id }).from(members).where(eq(members.email, email));
-  await db.delete(signInCodes).where(eq(signInCodes.email, email));
   if (!member) return false;
   await openSession(c, member.id);
   return true;
