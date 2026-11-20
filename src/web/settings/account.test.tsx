@@ -53,6 +53,19 @@ test('saves the pseudos and the platform', async () => {
   );
 });
 
+test('says in French when the profile cannot leave without a connection', async () => {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () => {
+      throw new TypeError('Failed to fetch');
+    }),
+  );
+  renderInApp(<AccountSettings />, { path: '/reglages/compte' });
+  await userEvent.click(await screen.findByRole('button', { name: 'Enregistrer' }));
+  expect(await screen.findByText('Connexion Internet indisponible. Réessaie dans un instant.')).toBeInTheDocument();
+  expect(screen.queryByText('Failed to fetch')).not.toBeInTheDocument();
+});
+
 test('refuses a pseudo the game would not accept, without sending it', async () => {
   const sent = fakeApi();
   renderInApp(<AccountSettings />, { path: '/reglages/compte' });

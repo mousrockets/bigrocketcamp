@@ -14,7 +14,7 @@ import {
   lastPlaceRuleOn,
 } from '../../lib/domain';
 import { formatNumber } from '../../lib/format';
-import { networkError } from '../access/gate';
+import { networkError } from '../api';
 import { useBoardState } from '../board';
 import { useClub } from '../club';
 import { ClubLogo } from '../components/club-logo';

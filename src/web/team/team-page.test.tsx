@@ -35,6 +35,12 @@ const board = boardWith({
   ],
 });
 
+test('shows the shape of the debt and the cards while the results arrive', async () => {
+  renderInApp(<TeamPage />, { board: null });
+  expect(await screen.findByRole('status', { name: 'Les résultats arrivent' })).toBeInTheDocument();
+  expect(screen.queryByRole('region', { name: 'Ta dette' })).not.toBeInTheDocument();
+});
+
 test('shows the member’s own debt, paid share and streak', async () => {
   renderInApp(<TeamPage />, { board });
   const debt = await screen.findByRole('region', { name: 'Ta dette' });

@@ -1,5 +1,5 @@
 import { QueryClient } from '@tanstack/react-query';
-import { afterEach, expect, test } from 'vitest';
+import { afterEach, expect, test, vi } from 'vitest';
 import { emptyBoard, type SyncedBoard } from '../lib/board-sync';
 import type { BoardChanges } from '../lib/contract';
 import { boardQuery, playerStats } from './board';
@@ -10,6 +10,7 @@ import { aResult, boardWith } from './test-utils';
 const original = globalThis.fetch;
 afterEach(() => {
   globalThis.fetch = original;
+  vi.useRealTimers();
 });
 
 const changes = (parts: Partial<BoardChanges>): BoardChanges => ({
@@ -87,6 +88,18 @@ test('starts over when the board kept in the browser was another member’s', as
   expect(asked).toEqual(['9', '0']);
   expect(board.viewer).toBe('viewer-alice');
   expect(board.exercises).toEqual({});
+});
+
+test('a server that never answers leaves the board to try again on its own, with nothing to do for the member', async () => {
+  vi.useFakeTimers();
+  globalThis.fetch = ((_input: unknown, init?: RequestInit) =>
+    new Promise((_resolve, reject) => {
+      init?.signal?.addEventListener('abort', () => reject(init.signal?.reason));
+    })) as typeof fetch;
+  const read = new QueryClient().fetchQuery({ ...boardQuery('member-alice'), retry: false });
+  const outcome = expect(read).rejects.toThrow('Impossible de charger les résultats. Vérifie ta connexion.');
+  await vi.advanceTimersByTimeAsync(15_000);
+  await outcome;
 });
 
 test('counts each debt with the club’s rules of the match’s day, the −5 of a forfeit won included', () => {

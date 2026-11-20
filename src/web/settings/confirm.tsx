@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { networkError } from '../access/gate';
+import { networkError } from '../api';
 import {
   AlertDialog,
   AlertDialogCancel,

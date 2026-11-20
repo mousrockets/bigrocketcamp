@@ -3,6 +3,7 @@ import { useMutation } from '@tanstack/react-query';
 import { ArrowRight, ChevronLeft } from 'lucide-react';
 import { useState } from 'react';
 import { signInCode, signInEmail } from '../../lib/contract';
+import { networkError } from '../api';
 import { useClubName } from '../club';
 import { ClubLogo } from '../components/club-logo';
 import { Button } from '../components/ui/button';
@@ -18,7 +19,6 @@ import {
   GatePage,
   GateTitle,
   Kicker,
-  networkError,
 } from './gate';
 
 const spamHint = 'Pas de code ? Jette un œil aux indésirables, il se cache parfois mieux qu’un gardien.';

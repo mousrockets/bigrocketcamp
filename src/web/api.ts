@@ -76,6 +76,13 @@ export async function errorOf(response: Answer, fallback: string): Promise<strin
   }
 }
 
+/**
+ * What a member reads of a failed call: the API's own words, or a lost connection, which the browser names in English
+ * ("Failed to fetch", "Load failed").
+ */
+export const networkError = (error: unknown): string =>
+  error instanceof TypeError ? 'Connexion Internet indisponible. Réessaie dans un instant.' : (error as Error).message;
+
 /** A write that answers nothing: a refusal throws the API's own message, or `fallback`. */
 export async function sent(answer: Promise<Answer>, fallback: string): Promise<void> {
   const response = await answer;

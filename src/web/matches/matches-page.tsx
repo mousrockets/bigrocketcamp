@@ -7,11 +7,13 @@ import { formatDayDate, formatLongDay, formatNumber } from '../../lib/format';
 import type { MatchMode } from '../../lib/live-stats';
 import { useBoardState } from '../board';
 import { useClub } from '../club';
+import { BoardPending, TitleSkeleton } from '../components/board-pending';
 import { LiveStatus } from '../components/live-status';
 import { PeriodKicker } from '../components/period-picker';
 import { TabPage } from '../components/tab-page';
 import { Badge } from '../components/ui/badge';
 import { Card } from '../components/ui/card';
+import { Skeleton } from '../components/ui/skeleton';
 import { useNow } from '../hooks/use-now';
 import { DayPicker } from './day-picker';
 import {
@@ -43,7 +45,19 @@ export function MatchesPage() {
       title="Matchs"
       aside={<LiveStatus lastReceived={board?.collectors[0]?.last_seen ?? null} reception={false} />}
     >
-      {error && !board && <p className="m-0 px-5 pt-10 text-[15px] text-t2 lg:px-0 lg:pt-0">{error}</p>}
+      {!board && (
+        <BoardPending error={error} className="flex flex-col lg:flex-row lg:flex-wrap lg:items-start lg:gap-10">
+          <div className="flex flex-col gap-[18px] px-5 pt-8 lg:max-w-[420px] lg:flex-[1_1_340px] lg:p-0">
+            <TitleSkeleton />
+            <Skeleton className="h-[150px] rounded-[22px]" />
+            <Skeleton className="h-[150px] rounded-[22px]" />
+          </div>
+          <div className="flex flex-col gap-[18px] px-5 pt-12 lg:flex-[999_1_420px] lg:p-0">
+            <TitleSkeleton />
+            <Skeleton className="h-[300px] rounded-[22px]" />
+          </div>
+        </BoardPending>
+      )}
       {board && (
         <div className="flex flex-col animate-rise [animation-delay:.06s] lg:flex-row lg:flex-wrap lg:items-start lg:gap-10">
           <section

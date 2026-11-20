@@ -2,8 +2,10 @@ import { useNavigate, useSearch } from '@tanstack/react-router';
 import { parisDay } from '../../lib/days';
 import { type Board, playerStats, useBoardState } from '../board';
 import { platformLabels, useClub } from '../club';
+import { BoardPending } from '../components/board-pending';
 import { epicNotice } from '../components/epic-notice';
 import { LiveStatus } from '../components/live-status';
+import { Skeleton } from '../components/ui/skeleton';
 import { ClubBadge } from '../shell/club-badge';
 import { DebtHero } from './debt-hero';
 import { ratingOnLadder } from './ladder';
@@ -89,7 +91,7 @@ export function TeamPage() {
           </span>
         </header>
 
-        {error && !board && <p className="m-0 px-5 pt-10 text-[15px] text-t2 lg:px-0 lg:pt-0">{error}</p>}
+        {!board && <TeamPending error={error} />}
         {mine && <DebtHero debt={mine.debt} streak={mine.streak} />}
         {players.length > 0 && <TeamCarousel players={players} />}
         <PlayerSheet
@@ -104,5 +106,30 @@ export function TeamPage() {
         </p>
       </div>
     </main>
+  );
+}
+
+/** The member's debt and the players' cards, still to come. */
+function TeamPending({ error }: { error: string }) {
+  return (
+    <BoardPending error={error} className="flex flex-col lg:gap-14">
+      <div className="flex flex-col gap-4 px-5 py-10 lg:max-w-[600px] lg:p-0">
+        <Skeleton className="h-3 w-20" />
+        <Skeleton className="h-[82px] w-40 lg:h-[100px] lg:w-52" />
+        <Skeleton className="h-2 rounded-[2px]" />
+      </div>
+      <div className="flex flex-col gap-4 lg:gap-5">
+        <Skeleton className="mx-5 h-[22px] w-28 lg:mx-0" />
+        {/* On a phone, the first card sits in the middle, as the carousel centres it. */}
+        <div className="flex gap-3 overflow-hidden pt-1 max-lg:pl-[calc(50vw-min(159px,50vw-36px))] lg:gap-4 lg:px-0.5">
+          {['first', 'second', 'third'].map((card) => (
+            <Skeleton
+              key={card}
+              className="h-[400px] w-[min(318px,calc(100vw-72px))] shrink-0 rounded-[26px] lg:w-[336px]"
+            />
+          ))}
+        </div>
+      </div>
+    </BoardPending>
   );
 }

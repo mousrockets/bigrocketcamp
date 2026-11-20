@@ -336,6 +336,45 @@ test('lists the drinks still owed by a closed month, which the member marks offe
   expect(fetch).toHaveBeenCalledOnce();
 });
 
+test('says in French when a drink cannot be marked offered without a connection', async () => {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () => {
+      throw new TypeError('Load failed');
+    }),
+  );
+  const debt = {
+    id: '2026-10:bob:alice',
+    month: '2026-10',
+    payer: 'bob',
+    recipient: 'alice',
+    paidAt: null,
+    canSettle: true,
+    canUndo: false,
+  };
+  renderInApp(<ChallengesPage />, {
+    club,
+    board: { ...board, monthly: november(board.monthly?.current.rows ?? [], [debt]) },
+  });
+  await userEvent.click(await screen.findByRole('button', { name: 'Boisson offerte' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent(
+    'Connexion Internet indisponible. Réessaie dans un instant.',
+  );
+  expect(screen.queryByText('Load failed')).not.toBeInTheDocument();
+});
+
+test('shows the shape of the challenges while the results arrive', async () => {
+  renderInApp(<ChallengesPage />, { club, board: null });
+  expect(await screen.findByRole('status', { name: 'Les résultats arrivent' })).toBeInTheDocument();
+  expect(screen.queryByRole('region', { name: 'Podium de la semaine' })).not.toBeInTheDocument();
+});
+
+test('says why the results are late instead of their shape', async () => {
+  renderInApp(<ChallengesPage />, { club, board: null, boardError: 'Impossible de charger les résultats.' });
+  expect(await screen.findByText('Impossible de charger les résultats.')).toBeInTheDocument();
+  expect(screen.queryByRole('status', { name: 'Les résultats arrivent' })).not.toBeInTheDocument();
+});
+
 test('shows no drinks block while nothing is owed', async () => {
   renderInApp(<ChallengesPage />, { club, board });
   await screen.findByRole('list', { name: 'Classement du mois' });

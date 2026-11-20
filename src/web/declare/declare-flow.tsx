@@ -4,6 +4,7 @@ import { useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { parisDay } from '../../lib/days';
 import { completedBy, type SoundId } from '../../lib/sounds';
+import { networkError } from '../api';
 import { playerStats, useBoardState } from '../board';
 import { useClub } from '../club';
 import { sheetClass, sheetOverlayClass } from '../components/info-sheet';
@@ -35,10 +36,12 @@ export function DeclareFlow({ open, onClose }: { open: boolean; onClose: () => v
   const [sounds] = useSounds();
   const declare = useMutation({ mutationFn: declareExercise });
   const undo = useMutation({ mutationFn: undoExercise });
+  const unsent = useRef<{ key: string; id: string } | null>(null);
 
   const close = () => {
     setSent(null);
     setPrize(null);
+    unsent.current = null;
     declare.reset();
     undo.reset();
     onClose();
@@ -69,21 +72,20 @@ export function DeclareFlow({ open, onClose }: { open: boolean; onClose: () => v
   }
 
   async function send(series: Series) {
-    const id = crypto.randomUUID();
+    const exercise = { player: me, type: series.type, count: apiCount(series.type, series.amount), day: parisDay() };
+    // The same series sent again after a failure keeps its id: if the first one did arrive, it never counts twice.
+    const key = JSON.stringify(exercise);
+    const id = unsent.current?.key === key ? unsent.current.id : crypto.randomUUID();
+    unsent.current = { key, id };
     // Made during the tap, the only moment a phone lets the page start a sound.
     const player = sounds ? soundPlayer() : null;
     try {
-      await declare.mutateAsync({
-        id,
-        player: me,
-        type: series.type,
-        count: apiCount(series.type, series.amount),
-        day: parisDay(),
-      });
+      await declare.mutateAsync({ id, ...exercise });
     } catch (error) {
-      toast.error((error as Error).message);
+      toast.error(networkError(error));
       return;
     }
+    unsent.current = null;
     const after = Math.max(0, debt.left - series.pushups);
     // Only the series that pays back the last pushups wins a badge: a series without debt wins nothing.
     if (debt.left > 0 && after === 0) void drawPrize(id, player);
@@ -105,7 +107,7 @@ export function DeclareFlow({ open, onClose }: { open: boolean; onClose: () => v
     try {
       await undo.mutateAsync(sent.id);
     } catch (error) {
-      toast.error((error as Error).message);
+      toast.error(networkError(error));
       return;
     }
     void refresh();

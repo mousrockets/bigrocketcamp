@@ -5,7 +5,7 @@ import { applyChanges, boardView, emptyBoard, type SyncedBoard } from '../lib/bo
 import { boardChanges } from '../lib/contract';
 import { parisDay } from '../lib/days';
 import { defaultLastPlaceRules, dodgeRules, summarize } from '../lib/domain';
-import { defaultTimeoutMs } from '../lib/timeout';
+import { defaultTimeoutMs, timeoutMessage } from '../lib/timeout';
 import { parseOrThrow } from '../lib/validation';
 import { apiWithin } from './api';
 import { useClub } from './club';
@@ -61,7 +61,9 @@ export const boardQuery = (memberId: string) =>
     queryKey: ['board', memberId],
     queryFn: ({ client, queryKey, signal }) =>
       follow(memberId, client.getQueryData<SyncedBoard>(queryKey), signal).catch((error: unknown) => {
-        throw error instanceof TypeError ? new Error(loadError) : error;
+        // A lost connection or a silent server: the board tries again on its own, the member has nothing to do.
+        const unreached = error instanceof TypeError || (error instanceof Error && error.message === timeoutMessage);
+        throw unreached ? new Error(loadError) : error;
       }),
     refetchInterval: askEveryMs,
     // Hidden, the app asks nothing; visible again, it catches up at once (BoardProvider).

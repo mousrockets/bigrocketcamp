@@ -4,9 +4,11 @@ import { parisDay, shiftDay, weekStart } from '../../lib/days';
 import { formatLongDay, formatWeek } from '../../lib/format';
 import { useBoardState } from '../board';
 import { useClub } from '../club';
+import { BoardPending, TitleSkeleton } from '../components/board-pending';
 import { NowDot, PeriodPicker, periodLabelClass } from '../components/period-picker';
 import { TabPage } from '../components/tab-page';
 import { cardVariants } from '../components/ui/card';
+import { Skeleton } from '../components/ui/skeleton';
 import { useNow } from '../hooks/use-now';
 import { weeklyJournal, weeklyTotals } from './journal';
 import { ExerciseJournal } from './journal-section';
@@ -35,7 +37,16 @@ export function ChallengesPage() {
 
   return (
     <TabPage kicker={formatLongDay(now)} title="Défis">
-      {error && !board && <p className="m-0 px-5 pt-10 text-[15px] text-t2 lg:px-0 lg:pt-0">{error}</p>}
+      {!board && (
+        <BoardPending error={error} className="flex flex-col lg:flex-row lg:flex-wrap lg:items-start lg:gap-6">
+          {['podium', 'month'].map((block) => (
+            <div key={block} className="flex flex-col gap-[18px] px-5 pt-8 lg:flex-[1_1_420px] lg:p-0">
+              <TitleSkeleton />
+              <Skeleton className="h-[260px] rounded-[22px]" />
+            </div>
+          ))}
+        </BoardPending>
+      )}
       {board && (
         <div className="flex flex-col lg:animate-rise lg:flex-row lg:flex-wrap lg:items-start lg:gap-6 lg:[animation-delay:.06s]">
           <section
