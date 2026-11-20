@@ -120,7 +120,7 @@ async function readSmallParts({ db, memberId, hasRankSource }: BoardReader, play
 }
 
 /** Matches whose full scoreboard is confirmed, in the order of their newest result. */
-function confirmedRosters(rows: readonly BuiltResult[]) {
+export function confirmedRosters(rows: readonly { match_guid: string; expected_players: number | null }[]) {
   const rosters = new Map<string, number>();
   for (const row of rows) {
     if (row.expected_players !== null && !rosters.has(row.match_guid)) {

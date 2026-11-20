@@ -13,5 +13,6 @@ export * from './members';
 export * from './monthly';
 export * from './profile';
 export * from './ranks';
+export * from './reminders';
 export * from './shared';
 export * from './sounds';

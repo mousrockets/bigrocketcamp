@@ -1,5 +1,11 @@
 import { expect, test } from 'vitest';
-import { lastDayOf, parisDay, parisMonth, sameParisDay, shiftDay, shiftMonth, weekStart } from './days';
+import { lastDayOf, parisDay, parisHour, parisMonth, sameParisDay, shiftDay, shiftMonth, weekStart } from './days';
+
+test('an hour is the Paris hour, summer and winter', () => {
+  expect(parisHour('2026-11-07T18:05:00Z')).toBe(19);
+  expect(parisHour('2026-07-07T18:05:00Z')).toBe(20);
+  expect(parisHour('2026-11-07T23:30:00Z')).toBe(0);
+});
 
 test('a day is the Paris calendar day', () => {
   // 23:30 UTC on 7 November is already the 8th in Paris.

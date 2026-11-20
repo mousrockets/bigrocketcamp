@@ -13,6 +13,11 @@ const parisCalendar = new Intl.DateTimeFormat('en-CA', {
 /** The Paris day of a moment: "2026-11-07". */
 export const parisDay = (at: Date | number | string = new Date()): string => parisCalendar.format(new Date(at));
 
+const parisClock = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Paris', hour: 'numeric', hourCycle: 'h23' });
+
+/** The Paris hour of a moment, 0 to 23. */
+export const parisHour = (at: Date | number | string = new Date()): number => Number(parisClock.format(new Date(at)));
+
 /** The Paris month of a moment: "2026-11". */
 export const parisMonth = (at: Date | number | string = new Date()): string => parisDay(at).slice(0, 7);
 

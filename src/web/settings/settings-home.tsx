@@ -1,7 +1,7 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { cn } from 'cn';
-import { count } from '../../lib/format';
+import { count, formatHour } from '../../lib/format';
 import { versionLabel } from '../../lib/version';
 import { signOut } from '../api';
 import { platformLabels, useClub } from '../club';
@@ -11,8 +11,10 @@ import { Item, ItemContent } from '../components/ui/item';
 import { Switch } from '../components/ui/switch';
 import { useSounds } from '../hooks/use-sounds';
 import { collectorsQuery, identitiesQuery, membersQuery } from '../queries';
+import { forgetThisDevice } from '../reminders';
 import { loadedCommit, useDeployedVersion } from '../version';
 import {
+  BellIcon,
   Chevron,
   ClubIcon,
   CollectorIcon,
@@ -24,6 +26,7 @@ import {
 } from './icons';
 import { InstallHelp, useInstall } from './install';
 import { RankAvatar, useMyRank } from './my-rank';
+import { useThisDeviceReminder } from './notifications';
 import { RowIcon, RowLabel, RowValue, SettingsCard, SettingsHomePage, SettingsRow, settingsCardClass } from './parts';
 
 /** The Réglages tab: the member's account first, then what the club shares, then this device. */
@@ -131,7 +134,7 @@ function MembersRow() {
   );
 }
 
-/** What belongs to this device rather than to the member: sounds, the home screen. */
+/** What belongs to this device rather than to the member: sounds, the daily reminder, the home screen. */
 function DeviceGroup() {
   const [sounds, setSounds] = useSounds();
   const { mode, install, help, closeHelp } = useInstall();
@@ -144,6 +147,7 @@ function DeviceGroup() {
         <RowLabel>Sons</RowLabel>
         <Switch size="ios" aria-label="Sons" checked={sounds} onCheckedChange={setSounds} />
       </SettingsRow>
+      <NotificationsRow />
       {mode !== 'installed' && (
         <SettingsRow render={<button type="button" onClick={install} />}>
           <RowIcon>
@@ -158,8 +162,24 @@ function DeviceGroup() {
   );
 }
 
+/** The daily reminder of this device, and its hour when it is on. */
+function NotificationsRow() {
+  const { subscribed } = useThisDeviceReminder();
+  return (
+    <SettingsRow render={<Link to="/reglages/notifications" />}>
+      <RowIcon>
+        <BellIcon />
+      </RowIcon>
+      <RowLabel>Notifications</RowLabel>
+      {subscribed && <RowValue>{formatHour(subscribed.hour)}</RowValue>}
+      <Chevron />
+    </SettingsRow>
+  );
+}
+
 function SignOutGroup() {
-  const leave = useMutation({ mutationFn: signOut });
+  // A device shared or lent stops receiving the member's reminders with the session.
+  const leave = useMutation({ mutationFn: () => forgetThisDevice().then(signOut) });
   return (
     <SettingsCard>
       <SettingsRow render={<button type="button" disabled={leave.isPending} onClick={() => leave.mutate()} />}>

@@ -5,6 +5,7 @@ import {
   formatClock,
   formatDay,
   formatDayDate,
+  formatHour,
   formatLongDay,
   formatLongMonth,
   formatMonth,
@@ -36,6 +37,7 @@ test('words take an s from 2 on', () => {
 test('times and dates are written in Paris time', () => {
   const now = Date.parse('2026-11-07T18:30:00Z');
   expect(formatTime('2026-11-07T18:42:00Z')).toBe('19 h 42');
+  expect(formatHour(7)).toBe('7 h');
   expect(formatWhen('2026-11-07T18:42:00Z', now)).toBe('à 19 h 42');
   expect(formatWhen('2026-11-05T21:10:00Z', now)).toBe('le 5 nov. à 22 h 10');
 });

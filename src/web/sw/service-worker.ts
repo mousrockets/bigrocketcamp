@@ -1,7 +1,9 @@
 // The service worker: the installed app opens with a weak network or none, and never holds a version back.
 // Pages are read from the network first, so a reload always gets the deployed version when the network answers;
-// src/web/version.ts then reloads an outdated page as before, keeping the exercise form.
+// src/web/version.ts then reloads an outdated page as before, keeping the exercise form. It also shows the daily
+// reminder (reminder.ts).
 
+import { notificationOf, optOutOf, optOutPath, reminderOf, stopAction } from './reminder';
 import { strategyFor } from './routes';
 import { cacheFirst, copiesOf, type Network, networkFirst, shellKey } from './strategies';
 
@@ -50,3 +52,42 @@ worker.addEventListener('fetch', (event) => {
   });
   event.respondWith(answer);
 });
+
+worker.addEventListener('push', (event) => {
+  let data: unknown = null;
+  try {
+    data = event.data?.json();
+  } catch {
+    // Not a reminder of the club: nothing to show.
+  }
+  const push = reminderOf(data);
+  if (push) event.waitUntil(worker.registration.showNotification(...notificationOf(push)));
+});
+
+worker.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil(event.action === stopAction ? stopReminders() : openPage(event.notification.data?.url ?? '/'));
+});
+
+/** « Ne plus me rappeler »: the API forgets this device, then the browser drops its subscription. */
+async function stopReminders() {
+  const subscription = await worker.registration.pushManager.getSubscription();
+  const proof = subscription && optOutOf(subscription);
+  if (!subscription || !proof) return;
+  // The service worker has no session nor the app's typed client: the endpoint and its secret are the proof.
+  const response = await fetch(optOutPath, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(proof),
+  }).catch(() => null);
+  if (response?.ok) await subscription.unsubscribe();
+}
+
+/** The app's page the reminder points to, in the window already open if there is one. */
+async function openPage(path: string) {
+  const url = new URL(path, worker.location.origin).href;
+  const [open] = await worker.clients.matchAll({ type: 'window', includeUncontrolled: true });
+  if (!open) return worker.clients.openWindow(url);
+  await open.focus();
+  return open.navigate(url);
+}

@@ -6,4 +6,12 @@ interface Env {
   MAIL_FROM?: string;
   /** Key of the instance's rank source (`X-Rank-Source-Key`), at least 32 characters. */
   RANK_SOURCE_KEY?: string;
+  /**
+   * The daily reminder's VAPID keys (`node scripts/vapid-keys.ts`): the public one, in URL-safe base64, and the
+   * private one (`d`), a secret. Without all three, the reminder is off: the app says so.
+   */
+  VAPID_PUBLIC_KEY?: string;
+  VAPID_PRIVATE_KEY?: string;
+  /** Who the push services can reach about the reminders: `mailto:…` or the instance's `https://…` address. */
+  VAPID_SUBJECT?: string;
 }

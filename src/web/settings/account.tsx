@@ -212,8 +212,8 @@ function DeleteAccount() {
         error={erase.error}
         onConfirm={() => erase.mutate()}
       >
-        Ton adresse e-mail, ton profil, tes connexions et tes collecteurs sont effacés, et tu ne peux plus te connecter.
-        Tes matchs, exercices et rangs restent dans l’historique du club, sous ton pseudo duo.
+        Ton adresse e-mail, ton profil, tes connexions, tes collecteurs et tes rappels sont effacés, et tu ne peux plus
+        te connecter. Tes matchs, exercices et rangs restent dans l’historique du club, sous ton pseudo duo.
       </Confirm>
     </>
   );

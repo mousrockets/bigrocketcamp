@@ -15,6 +15,7 @@ Cloudflare déploie ensuite chaque commit de `main` lui-même : aucun jeton Clou
 Dans le Worker, Settings :
 
 - **Variables and Secrets** (lues par l'API) : `MAIL_FROM` (expéditeur des codes, par exemple `Les Trois Mousrockets <connexion@mousrockets.com>`), et en secrets `RESEND_API_KEY` ; `RANK_SOURCE_KEY` (au moins 32 caractères) si une source de rangs alimente le MMR 2v2 (`GET /api/ranks/targets`, `POST /api/ranks`, en-tête `X-Rank-Source-Key`). Le jeu ne donne pas le MMR au collecteur : seule la source de rangs le lit. Pour relire les rangs juste après une partie, elle peut demander souvent `GET /api/ranks/activity` (`{"lastRankedMatchAt": "…" | null, "lastReadAt": "…" | null}` : heure de réception du dernier match classé 2v2, ou du dernier compte solo qu'un membre a renseigné, et heure du dernier relevé reçu, quelques lignes lues) ; `GET /api/ranks/targets` donne le même champ, signe que l'app le connaît.
+- **Rappel quotidien** : `node scripts/vapid-keys.ts` génère, une fois par instance, les clés des notifications. `VAPID_PUBLIC_KEY` en variable, `VAPID_PRIVATE_KEY` en secret, et `VAPID_SUBJECT` en variable (`mailto:…` ou l'adresse `https://…` de l'instance, pour que les services de notification puissent la joindre). Sans les trois, le rappel est coupé et Réglages le dit. Changer les clés coupe le rappel de chaque membre : chacun le réactive dans Réglages.
 - **Build → Deploy command** : `npm run deploy`. Il note un point de restauration de la base, applique ses migrations, puis déploie.
 - `wrangler.jsonc` : l'identifiant de la base D1 de production (`database_id`).
 
@@ -47,7 +48,7 @@ Tout ce qui a été réglé à la main pour l'instance mousrockets.com, chez Clo
   - secret `RANK_SOURCE_KEY` : la clé partagée avec la source de rangs.
 - `keep_vars: true` dans `wrangler.jsonc` : un déploiement n'efface plus ces variables. Sans lui, `MAIL_FROM` avait disparu au premier déploiement (#27).
 - Réglé par `wrangler.jsonc`, sans rien à faire dans le tableau de bord :
-  - la tâche planifiée `5 * * * *`, qui clôt les mois terminés, un jour après leur fin (le 2 à 0 h 05) : la source de rangs peut encore envoyer pendant 24 h un relevé daté du dernier jour ;
+  - la tâche planifiée `5 * * * *`, qui envoie les rappels quotidiens dont l'heure est venue, et clôt les mois terminés un jour après leur fin (le 2 à 0 h 05) : la source de rangs peut encore envoyer pendant 24 h un relevé daté du dernier jour ;
   - les journaux (`observability`) ;
   - la date de la version en ligne (`version_metadata`).
 
