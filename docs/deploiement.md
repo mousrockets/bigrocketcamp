@@ -47,7 +47,7 @@ Tout ce qui a été réglé à la main pour l'instance mousrockets.com, chez Clo
   - secret `RANK_SOURCE_KEY` : la clé partagée avec la source de rangs.
 - `keep_vars: true` dans `wrangler.jsonc` : un déploiement n'efface plus ces variables. Sans lui, `MAIL_FROM` avait disparu au premier déploiement (#27).
 - Réglé par `wrangler.jsonc`, sans rien à faire dans le tableau de bord :
-  - la tâche planifiée `5 * * * *`, qui clôt les mois terminés ;
+  - la tâche planifiée `5 * * * *`, qui clôt les mois terminés, un jour après leur fin (le 2 à 0 h 05) : la source de rangs peut encore envoyer pendant 24 h un relevé daté du dernier jour ;
   - les journaux (`observability`) ;
   - la date de la version en ligne (`version_metadata`).
 

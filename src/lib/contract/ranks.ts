@@ -6,6 +6,8 @@ import type { Known } from './shared';
 // Rules that need the database (a target of the rank source) stay in the routes.
 
 export const invalidRanks = 'Relevé de rangs invalide.';
+/** How old a reading the API still accepts. A month closes only once none dated in it can still arrive. */
+export const rankReadingMaxAgeMs = 86_400_000;
 const rankNumber = (min: number, max: number) =>
   z.int(says(invalidRanks)).min(min, says(invalidRanks)).max(max, says(invalidRanks));
 const reading = z.object({
@@ -22,7 +24,10 @@ const reading = z.object({
     .string(says(invalidRanks))
     .refine((date) => Number.isFinite(Date.parse(date)), says(invalidRanks))
     .transform((date) => Date.parse(date))
-    .refine((observed) => observed <= Date.now() + 60_000 && observed >= Date.now() - 86_400_000, says(invalidRanks))
+    .refine(
+      (observed) => observed <= Date.now() + 60_000 && observed >= Date.now() - rankReadingMaxAgeMs,
+      says(invalidRanks),
+    )
     .transform((observed) => new Date(observed).toISOString()),
 });
 /** A source that predates solo accounts sends no kind: its readings are duo ones. */
