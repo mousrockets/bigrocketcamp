@@ -62,7 +62,8 @@ export function NotificationSettings() {
   const ready = support === 'ready' && publicKey !== null;
   const busy = toggle.isPending || changeHour.isPending || settings.isPending || device.isPending;
   const error = toggle.error ?? changeHour.error ?? settings.error;
-  const blocked = support === 'ready' && !subscribed && notificationsBlocked();
+  // Allowing the notifications changes nothing while the club has no key: only the note on the club is shown then.
+  const blocked = ready && !subscribed && notificationsBlocked();
 
   return (
     <SettingsPage kicker="Cet appareil" title="Notifications">
