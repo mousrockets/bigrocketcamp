@@ -50,6 +50,18 @@ export const formatLongDay = (at: Date | number | string): string => capitalized
 /** "Novembre": the name of a club month, written "2026-11". */
 export const formatMonth = (month: string): string => capitalized(monthNames.format(new Date(`${month}-15T12:00:00Z`)));
 
+/** "d’octobre", "de novembre": a club month after "de", elided before a vowel. */
+export const formatOfMonth = (month: string): string => {
+  const name = formatMonth(month).toLowerCase();
+  return /^[aeiou]/.test(name) ? `d’${name}` : `de ${name}`;
+};
+
+const longMonths = new Intl.DateTimeFormat('fr-FR', { timeZone: 'UTC', month: 'long', year: 'numeric' });
+
+/** "Octobre 2026": a club month and its year. */
+export const formatLongMonth = (month: string): string =>
+  capitalized(longMonths.format(new Date(`${month}-15T12:00:00Z`)));
+
 /** A club day, "2026-11-07", read at noon in Paris: the same day whatever the time zone. */
 const noonOf = (day: string) => `${day}T12:00:00+01:00`;
 

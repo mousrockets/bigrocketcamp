@@ -2,6 +2,7 @@ import { Link, Outlet, useMatchRoute, useSearch } from '@tanstack/react-router';
 import { cn } from 'cn';
 import { type ComponentType, type CSSProperties, useEffect, useRef } from 'react';
 import { BoardProvider } from '../board';
+import { MonthlyRecap } from '../challenges/recap-story';
 import { SheetLink, useCloseSheet } from '../components/sheet-link';
 import { buttonVariants } from '../components/ui/button';
 import {
@@ -40,6 +41,7 @@ export function AppShell() {
       <DeclareFlow open={declarer} onClose={() => close('declarer')} />
       <RanksSheet open={ranks} onClose={() => close('ranks')} />
       <RulesSheet open={regles} onClose={() => close('regles')} />
+      <MonthlyRecap />
       <SidebarProvider className="flex-wrap bg-black text-t1" style={{ '--sidebar-width': 'auto' } as CSSProperties}>
         <AppSidebar />
         <div className="relative min-w-0 flex-[999_1_560px]">

@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { parisDay, parisMonth, sameParisDay, shiftDay, weekStart } from './days';
+import { lastDayOf, parisDay, parisMonth, sameParisDay, shiftDay, shiftMonth, weekStart } from './days';
 
 test('a day is the Paris calendar day', () => {
   // 23:30 UTC on 7 November is already the 8th in Paris.
@@ -13,4 +13,12 @@ test('days move across months and weeks start on Monday', () => {
   expect(shiftDay('2026-03-01', -1)).toBe('2026-02-28');
   expect(weekStart('2026-11-08')).toBe('2026-11-02');
   expect(weekStart('2026-11-02')).toBe('2026-11-02');
+});
+
+test('months move across years, and each ends on its own last day', () => {
+  expect(shiftMonth('2026-11', -1)).toBe('2026-10');
+  expect(shiftMonth('2027-01', -1)).toBe('2026-12');
+  expect(shiftMonth('2026-12', 1)).toBe('2027-01');
+  expect(lastDayOf('2026-10')).toBe('2026-10-31');
+  expect(lastDayOf('2028-02')).toBe('2028-02-29');
 });

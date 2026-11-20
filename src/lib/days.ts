@@ -1,4 +1,4 @@
-import { addDays, formatISO, parseISO, startOfISOWeek } from 'date-fns';
+import { addDays, addMonths, endOfMonth, formatISO, parseISO, startOfISOWeek } from 'date-fns';
 
 // The club lives in Paris: a day is the Paris calendar day, written "2026-11-07". Every day computation goes
 // through this module.
@@ -24,6 +24,13 @@ export const shiftDay = (day: string, delta: number): string => asDay(addDays(as
 
 /** The Monday of the week of `day`. */
 export const weekStart = (day: string): string => asDay(startOfISOWeek(asDate(day)));
+
+/** The month `delta` months after (or before) `month`: "2026-11" and -1 give "2026-10". */
+export const shiftMonth = (month: string, delta: number): string =>
+  asDay(addMonths(asDate(`${month}-01`), delta)).slice(0, 7);
+
+/** The last day of a month: "2026-02" gives "2026-02-28". */
+export const lastDayOf = (month: string): string => asDay(endOfMonth(asDate(`${month}-01`)));
 
 /** Whether two moments fall on the same Paris day. */
 export const sameParisDay = (a: Date | number | string, b: Date | number | string): boolean =>
