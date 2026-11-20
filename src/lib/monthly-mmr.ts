@@ -1,5 +1,6 @@
 import { and, asc, desc, eq, gte, isNull, lt, type SQLWrapper, sql } from 'drizzle-orm';
 import { type ClubPlayer, type Roster, rosterOf } from './club';
+import { rankReadingMaxAgeMs } from './contract';
 import { parisDay } from './days';
 import type { Database } from './db';
 import type { MmrAccount, MmrEntry } from './mmr-ledger';
@@ -7,7 +8,11 @@ import { inJsonList, orm, rowid, sqlNamed, statementOf } from './orm';
 import { readPlayerIdentities } from './player-identities';
 import { drinkDebts, mmrEntries, monthlyMmrPolicy, monthlyMmrResults, soloMmrEntries } from './schema';
 
-export const monthCloseGraceMs = 300_000;
+/**
+ * How long after its end a month closes: the rank source may still send a reading of its last minutes for a day,
+ * and a closed month never changes. The 5 minutes cover a reading accepted at the last moment, still being written.
+ */
+export const monthCloseGraceMs = rankReadingMaxAgeMs + 300_000;
 /** How long the member who marked a drink paid can take it back. */
 export const undoMs = 86_400_000;
 const localParts = new Intl.DateTimeFormat('en-CA', {

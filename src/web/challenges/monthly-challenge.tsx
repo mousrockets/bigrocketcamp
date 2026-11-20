@@ -1,9 +1,20 @@
 import { useMutation } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { cn } from 'cn';
-import { CheckIcon } from 'lucide-react';
+import { CheckIcon, HourglassIcon, type LucideIcon } from 'lucide-react';
+import type { ReactNode } from 'react';
 import type { ClosedMonth } from '../../lib/contract/monthly';
-import { formatDayMonth, formatMonth, formatNumber, formatPlace, formatShortMonth, plural } from '../../lib/format';
+import { parisMonth } from '../../lib/days';
+import {
+  formatDayMonth,
+  formatMonth,
+  formatNumber,
+  formatPlace,
+  formatShortMonth,
+  formatWhen,
+  plural,
+} from '../../lib/format';
+import { monthCloseGraceMs } from '../../lib/monthly-mmr';
 import { type Board, useBoardState } from '../board';
 import { useClub } from '../club';
 import { NowDot, PeriodKicker, PeriodPicker, periodLabelClass } from '../components/period-picker';
@@ -100,10 +111,32 @@ function LiveStandings({ monthly, me, now }: { monthly: Monthly; me: string | nu
   const debts = openDebts(monthly.debts);
   return (
     <>
+      <PendingVerdict monthly={monthly} now={now} />
       <Countdown cutoffAt={current.cutoffAt} now={now} />
       <Standings lines={lines} />
       {debts.length > 0 && <Debts debts={debts} />}
     </>
+  );
+}
+
+/** The month just over, while it waits for its late readings before closing. */
+function PendingVerdict({ monthly, now }: { monthly: Monthly; now: number }) {
+  const previous = parisMonth(Date.parse(monthly.current.startAt) - 1);
+  const verdictAt = Date.parse(monthly.current.startAt) + monthCloseGraceMs;
+  if (previous < monthly.startsMonth || now >= verdictAt) return null;
+  return (
+    <Notice icon={HourglassIcon}>
+      Verdict {ofMonth(previous)} {formatWhen(verdictAt, now)}, le temps que les relevés en retard arrivent.
+    </Notice>
+  );
+}
+
+function Notice({ icon: Icon, tone, children }: { icon: LucideIcon; tone?: string; children: ReactNode }) {
+  return (
+    <Card variant="tile" className="flex-none flex-row items-center gap-2.5 px-3.5 py-3">
+      <Icon aria-hidden="true" strokeWidth={2.4} className={cn('size-4 shrink-0 text-t2', tone)} />
+      <span className="text-[14px] text-t2">{children}</span>
+    </Card>
   );
 }
 
@@ -118,12 +151,9 @@ function ClosedStandings({ month, me }: { month: ClosedMonth; me: string | null 
   const lines = standingLines(month.rows, me).map((line) => ({ ...line, pays: losers.includes(line.player) }));
   return (
     <>
-      <Card variant="tile" className="flex-none flex-row items-center gap-2.5 px-3.5 py-3">
-        <CheckIcon aria-hidden="true" strokeWidth={2.4} className="size-4 shrink-0 text-win" />
-        <span className="text-[14px] text-t2">
-          Mois clos, MMR relevés le {formatDayMonth(month.lastDay)}.{nobodyPays[month.status] ?? ''}
-        </span>
-      </Card>
+      <Notice icon={CheckIcon} tone="text-win">
+        Mois clos, MMR relevés le {formatDayMonth(month.lastDay)}.{nobodyPays[month.status] ?? ''}
+      </Notice>
       <Standings lines={lines} closed />
     </>
   );

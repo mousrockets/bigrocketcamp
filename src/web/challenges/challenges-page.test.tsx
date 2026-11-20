@@ -159,6 +159,35 @@ test('counts down to the month’s close', async () => {
   expect(screen.getByRole('heading', { name: 'Qui paie sa tournée ?' })).toBeInTheDocument();
 });
 
+test('says when the month just over gets its verdict, while it waits for the late readings', async () => {
+  vi.setSystemTime(new Date('2026-11-01T09:00:00Z'));
+  renderInApp(<ChallengesPage />, { club, board });
+  const month = await screen.findByRole('region', { name: 'Défi du mois' });
+  expect(
+    within(month).getByText('Verdict d’octobre le 2 nov. à 00 h 05, le temps que les relevés en retard arrivent.'),
+  ).toBeInTheDocument();
+  expect(within(month).getByRole('heading', { name: 'Qui paie sa tournée ?' })).toBeInTheDocument();
+});
+
+test('says nothing of the month just over once its verdict is out', async () => {
+  vi.setSystemTime(new Date('2026-11-01T23:05:00Z'));
+  const october = {
+    month: '2026-10',
+    lastDay: '2026-10-31',
+    cutoffAt: '2026-10-31T23:00:00.000Z',
+    closedAt: '2026-11-01T23:05:00.000Z',
+    rows: [aRow('bob', 1250, 'duo'), aRow('alice', 1180, 'solo')],
+    status: 'final' as const,
+    missing: [],
+    losers: ['alice'],
+  };
+  const monthly = board.monthly && { ...board.monthly, closed: [october] };
+  renderInApp(<ChallengesPage />, { club, board: { ...board, monthly } });
+  const month = await screen.findByRole('region', { name: 'Défi du mois' });
+  await within(month).findByRole('timer');
+  expect(within(month).queryByText(/^Verdict/)).not.toBeInTheDocument();
+});
+
 test('goes back to a closed month as it closed: its standings and who was last', async () => {
   const october = {
     month: '2026-10',

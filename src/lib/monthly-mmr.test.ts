@@ -1,12 +1,21 @@
 import { env } from 'cloudflare:workers';
-import { afterEach, describe, expect, test } from 'vitest';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 import { players, roster } from './club-fixture';
-import { closeMonthlyMmr, monthBounds, monthlyRanking, readMonthlyMmr, settleDrink } from './monthly-mmr';
+import { rankReport } from './contract';
+import {
+  closeMonthlyMmr,
+  monthBounds,
+  monthCloseGraceMs,
+  monthlyRanking,
+  readMonthlyMmr,
+  settleDrink,
+} from './monthly-mmr';
 import { type ObservedRank, type RankTarget, recordObservedRanks } from './rank-source';
 
 const [first = '', second = '', third = ''] = roster;
 const finalDay = '2026-11-30T21:00:00.000Z';
-const closure = Date.parse('2026-11-30T23:05:00Z');
+// November closes a day after its end, at 00:05 on 2 December, Paris time.
+const closure = Date.parse('2026-12-01T23:05:00Z');
 
 function declarations(values: (number | null)[] = [1200, 1100, 1000], at = finalDay) {
   return values.flatMap((mmr, i) => {
@@ -230,6 +239,33 @@ describe('closing with the rank source readings', () => {
     expect(snapshot.losers).toEqual([second]);
     expect(snapshot.rows.find((row) => row.player === third)?.account).toBe('solo');
     expect((await debts()).map((debt) => debt.recipient).sort()).toEqual([first, third].sort());
+  });
+
+  test('a last-day reading sent after midnight still counts: the month waits for it before closing', async () => {
+    await reset();
+    await startsIn('2026-11');
+    await record([reading(first, 'duo', 1200, finalDay), reading(second, 'duo', 1100, finalDay)]);
+    // The hourly task at 00:05, Paris time: the third player's reading is not there yet.
+    await closeMonthlyMmr(env.DB, roster, Date.parse('2026-11-30T23:05:00Z'));
+    // Read at 23:50 on the last day, sent at 00:20.
+    await record([reading(third, 'duo', 1000, '2026-11-30T22:50:00.000Z')]);
+    await closeMonthlyMmr(env.DB, roster, closure);
+    const closed = await env.DB.prepare("SELECT status FROM monthly_mmr_results WHERE month = '2026-11'").first();
+    expect(closed).toEqual({ status: 'final' });
+    expect((await debts()).map((debt) => debt.recipient).sort()).toEqual([first, second].sort());
+  });
+
+  test('a month closes only once the rank source can no longer send a reading dated in it', () => {
+    const { cutoffAt } = monthBounds('2026-11');
+    const lastMoment = new Date(Date.parse(cutoffAt) - 1).toISOString();
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      vi.setSystemTime(Date.parse(cutoffAt) + monthCloseGraceMs);
+      const late = { ranks: [{ player: first, playerId: 'Epic|synthetic-0|0', mmr: 1200, observedAt: lastMoment }] };
+      expect(rankReport.safeParse(late).success).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   test('a closed month and its drinks keep their values when solo readings arrive afterwards', async () => {
