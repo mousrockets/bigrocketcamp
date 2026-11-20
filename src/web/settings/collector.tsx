@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { cn } from 'cn';
 import { type ReactNode, useEffect, useState } from 'react';
 import { formatAge, formatWhen } from '../../lib/format';
-import { networkError } from '../access/gate';
+import { networkError } from '../api';
 import { useClub } from '../club';
 import { isLive } from '../components/live-status';
 import { Button } from '../components/ui/button';

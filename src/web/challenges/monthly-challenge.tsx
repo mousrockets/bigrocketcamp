@@ -15,6 +15,7 @@ import {
   plural,
 } from '../../lib/format';
 import { monthCloseGraceMs } from '../../lib/monthly-mmr';
+import { networkError } from '../api';
 import { type Board, useBoardState } from '../board';
 import { useClub } from '../club';
 import { NowDot, PeriodKicker, PeriodPicker, periodLabelClass } from '../components/period-picker';
@@ -291,7 +292,7 @@ function Debts({ debts }: { debts: DrinkDebt[] }) {
       </Card>
       {settle.error && (
         <p role="alert" className="m-0 text-[13px] text-destructive">
-          {settle.error.message}
+          {networkError(settle.error)}
         </p>
       )}
     </div>

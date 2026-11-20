@@ -116,6 +116,3 @@ export function GateMessage({ tone, children }: { tone: 'info' | 'error'; childr
     </p>
   );
 }
-
-export const networkError = (error: unknown): string =>
-  error instanceof TypeError ? 'Connexion Internet indisponible. Réessaie dans un instant.' : (error as Error).message;

@@ -4,6 +4,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import { type Platform, platforms } from '../../lib/club';
 import { type ProfileInput, profile } from '../../lib/contract';
+import { networkError } from '../api';
 import { useBoardState } from '../board';
 import { platformLabels, useClub } from '../club';
 import { Button } from '../components/ui/button';
@@ -176,7 +177,7 @@ export function AccountSettings() {
             </FieldRow>
           </SettingsCard>
         </SettingsGroup>
-        {save.error && <ErrorNote errors={[save.error]} />}
+        {save.error && <ErrorNote errors={[networkError(save.error)]} />}
         <Button type="submit" variant="cta" size="cta" disabled={save.isPending}>
           {save.isPending ? 'Enregistrement…' : 'Enregistrer'}
         </Button>

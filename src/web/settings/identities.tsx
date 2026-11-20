@@ -2,7 +2,7 @@ import { useForm } from '@tanstack/react-form';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { type IdentityChangeInput, identityChange } from '../../lib/contract';
 import { formatShortDate } from '../../lib/format';
-import { networkError } from '../access/gate';
+import { networkError } from '../api';
 import { useBoardState } from '../board';
 import { useClub } from '../club';
 import { Badge } from '../components/ui/badge';

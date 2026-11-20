@@ -6,7 +6,7 @@ import { firstName, type Invitation, invitation, type MemberProfile } from '../.
 import { count } from '../../lib/format';
 import type { Role } from '../../lib/members';
 import { z } from '../../lib/validation';
-import { networkError } from '../access/gate';
+import { networkError } from '../api';
 import { useBoardState } from '../board';
 import { platformLabels, useClub } from '../club';
 import { Avatar, AvatarFallback } from '../components/ui/avatar';

@@ -1,10 +1,11 @@
 // A request that never answers (a half-dead connection, a computer waking up) must not freeze the page:
-// every call to the API gives up after a while, and the caller's own retry takes over.
+// every call to the API gives up after a while, and the caller decides whether to try again.
 
 /** How long a call to the API may take, unless the caller says otherwise. */
 export const defaultTimeoutMs = 15_000;
 
-export const timeoutMessage = 'Le serveur ne répond pas. Vérifie ta connexion : la page réessaie toute seule.';
+// Most calls are not tried again on their own (a write never is): the message asks the member to.
+export const timeoutMessage = 'Le serveur ne répond pas. Vérifie ta connexion, puis réessaie.';
 
 /** Aborts after `ms`, or as soon as `signal` does (written by hand: older browsers lack AbortSignal.any). */
 export function timeoutSignal(ms: number, signal?: AbortSignal | null): AbortSignal {

@@ -2,6 +2,7 @@ import { useForm } from '@tanstack/react-form';
 import { useMutation } from '@tanstack/react-query';
 import { type Platform, platforms } from '../../lib/club';
 import { type ProfileInput, profile } from '../../lib/contract';
+import { networkError } from '../api';
 import { platformLabels, useClub } from '../club';
 import { ClubLogo } from '../components/club-logo';
 import { Button } from '../components/ui/button';
@@ -19,7 +20,6 @@ import {
   GatePage,
   GateTitle,
   Kicker,
-  networkError,
 } from './gate';
 
 /** A new member's first screen: the duo pseudo keys every game record, so it comes before anything else. */

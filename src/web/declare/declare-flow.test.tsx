@@ -2,6 +2,7 @@ import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, test, vi } from 'vitest';
 import { soundFamilies, soundIds, soundOf, sounds } from '../../lib/sounds';
+import { Toaster } from '../components/ui/sonner';
 import { aResult, boardWith, renderInApp } from '../test-utils';
 import { DeclareFlow } from './declare-flow';
 
@@ -10,6 +11,7 @@ import { DeclareFlow } from './declare-flow';
 const original = globalThis.fetch;
 afterEach(() => {
   globalThis.fetch = original;
+  vi.useRealTimers();
 });
 
 /** Alice lost seven matches: 35 pushups owed. */
@@ -100,6 +102,49 @@ test('a series without any debt to pay back wins no badge', async () => {
   await userEvent.click(await screen.findByRole('button', { name: 'Ardoise propre, je valide' }));
   await screen.findByRole('status');
   expect(sent.some((request) => request.path === '/api/sounds')).toBe(false);
+});
+
+test('a series the server never answers asks to send it again, without promising a retry nobody makes', async () => {
+  globalThis.fetch = ((_input: string, init?: RequestInit) =>
+    new Promise((_resolve, reject) => {
+      init?.signal?.addEventListener('abort', () => reject(init.signal?.reason));
+    })) as typeof fetch;
+  renderInApp(
+    <>
+      <DeclareFlow open onClose={() => {}} />
+      <Toaster />
+    </>,
+    { board },
+  );
+  const send = await screen.findByRole('button', { name: 'Valider la série' });
+  // Time still flows for the page; the 15 s the request waits are skipped.
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'], shouldAdvanceTime: true });
+  await userEvent.click(send);
+  await vi.advanceTimersByTimeAsync(15_000);
+  expect(await screen.findByText('Le serveur ne répond pas. Vérifie ta connexion, puis réessaie.')).toBeInTheDocument();
+  expect(screen.queryByText(/toute seule/)).not.toBeInTheDocument();
+});
+
+test('says in French that the connection is lost, and a series sent again never counts twice', async () => {
+  const ids: unknown[] = [];
+  globalThis.fetch = (async (_input: string, init?: RequestInit) => {
+    ids.push(JSON.parse(String(init?.body)).id);
+    throw new TypeError('Failed to fetch');
+  }) as typeof fetch;
+  renderInApp(
+    <>
+      <DeclareFlow open onClose={() => {}} />
+      <Toaster />
+    </>,
+    { board },
+  );
+  await userEvent.click(await screen.findByRole('button', { name: 'Valider la série' }));
+  expect(await screen.findByText('Connexion Internet indisponible. Réessaie dans un instant.')).toBeInTheDocument();
+  expect(screen.queryByText('Failed to fetch')).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole('button', { name: 'Valider la série' }));
+  await vi.waitFor(() => expect(ids).toHaveLength(2));
+  // If the first one did arrive, the API knows its id and does not count it again.
+  expect(ids[1]).toBe(ids[0]);
 });
 
 /** Alice's collection, as the API answers it once the draw is made. */

@@ -44,6 +44,12 @@ const board = boardWith({
   })),
 });
 
+test('shows the shape of the summary and the replay while the results arrive', async () => {
+  renderInApp(<MatchesPage />, { board: null, path: today });
+  expect(await screen.findByRole('status', { name: 'Les résultats arrivent' })).toBeInTheDocument();
+  expect(screen.queryByRole('region', { name: 'Bilan du jour' })).not.toBeInTheDocument();
+});
+
 test('sums up the day of each player, the member first', async () => {
   renderInApp(<MatchesPage />, { board, path: today });
   const summary = await screen.findByRole('region', { name: 'Bilan du jour' });
