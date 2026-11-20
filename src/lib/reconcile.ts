@@ -140,6 +140,13 @@ const same = (a: StoredResult, b: StoredResult, fields: readonly (keyof StoredRe
   fields.every((field) => a[field] === b[field]);
 const rank = (candidate: Candidate) => (candidate.type === 'epic' ? 2 : 1);
 
+/** A line keeps the time it was first received: a copy sent later, by the same source or another, never moves the match. */
+const firstReceived = (candidates: readonly Candidate[]) =>
+  candidates
+    .map((candidate) => candidate.received)
+    .filter(Boolean)
+    .sort()[0] ?? '';
+
 function choose(a: Candidate, b: Candidate): Candidate {
   if (rank(a) !== rank(b)) return rank(a) > rank(b) ? a : b;
   if (a.type === 'epic') return a.received >= b.received ? a : b;
@@ -202,7 +209,7 @@ export function reconcile(
     rows.push({
       ...chosen.row,
       match_guid: matchKey(chosen.row.match_guid),
-      received: chosen.received,
+      received: firstReceived(candidates),
       player_id: playerKey(chosen.row.player_id),
       ...extraStatisticsOf(chosen, candidates),
       review_required: review,
@@ -331,7 +338,7 @@ function departedRows(
       match_guid: guid,
       player_id: playerKey(chosen.row.player_id),
       ...extraStatisticsOf(chosen, candidates),
-      received: chosen.received,
+      received: firstReceived(candidates),
       review_required: false,
       verification: sources.size > 1 ? 'confirmed' : 'single',
       source_types: types,
@@ -463,6 +470,17 @@ async function sha(text: string): Promise<string> {
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
+/** What a scoreboard sent again may add to the same one stored: not part of its identity. */
+const reportCompletions = [
+  'timeSeconds',
+  'overtime',
+  'clockTrace',
+  'opponentsGone',
+  'blueGoals',
+  'orangeGoals',
+  'playlist',
+] as const;
+
 export async function observationWrites(
   db: Database,
   {
@@ -489,13 +507,11 @@ export async function observationWrites(
   for (const row of stored) {
     const payload = JSON.stringify({ ...row, received: undefined });
     const id = await sha(JSON.stringify([sourceType, sourceId, payload]));
+    // The same line sent again brings nothing: it keeps its first reception, and its match is not rebuilt.
     const observation = query
       .insert(resultObservations)
       .values({ id, matchGuid: row.match_guid, playerId: row.player_id, sourceId, sourceType, payload, received: now })
-      .onConflictDoUpdate({
-        target: resultObservations.id,
-        set: { received: sql`max(${resultObservations.received}, ${excluded(resultObservations.received)})` },
-      });
+      .onConflictDoNothing({ target: resultObservations.id });
     writes.push(statementOf(db, observation));
   }
   for (const roster of rosters) {
@@ -525,17 +541,21 @@ export async function observationWrites(
       })
       .onConflictDoUpdate({
         target: sourceReports.id,
-        set: {
-          received: sql`max(${sourceReports.received}, ${excluded(sourceReports.received)})`,
-          // The same scoreboard sent again by a newer collector brings the clock an older one left out.
-          timeSeconds: sql`coalesce(${excluded(sourceReports.timeSeconds)}, ${sourceReports.timeSeconds})`,
-          overtime: sql`coalesce(${excluded(sourceReports.overtime)}, ${sourceReports.overtime})`,
-          clockTrace: sql`coalesce(${excluded(sourceReports.clockTrace)}, ${sourceReports.clockTrace})`,
-          opponentsGone: sql`coalesce(${excluded(sourceReports.opponentsGone)}, ${sourceReports.opponentsGone})`,
-          blueGoals: sql`coalesce(${excluded(sourceReports.blueGoals)}, ${sourceReports.blueGoals})`,
-          orangeGoals: sql`coalesce(${excluded(sourceReports.orangeGoals)}, ${sourceReports.orangeGoals})`,
-          playlist: sql`coalesce(${excluded(sourceReports.playlist)}, ${sourceReports.playlist})`,
-        },
+        // The same scoreboard sent again by a newer collector brings the clock an older one left out. It keeps its
+        // first reception, and an identical copy writes nothing, so its match is not rebuilt.
+        set: Object.fromEntries(
+          reportCompletions.map((field) => [
+            field,
+            sql`coalesce(${excluded(sourceReports[field])}, ${sourceReports[field]})`,
+          ]),
+        ),
+        setWhere: sql.join(
+          reportCompletions.map(
+            (field) =>
+              sql`coalesce(${excluded(sourceReports[field])}, ${sourceReports[field]}) IS NOT ${sourceReports[field]}`,
+          ),
+          sql` OR `,
+        ),
       });
     writes.push(statementOf(db, report));
   }
@@ -545,10 +565,7 @@ export async function observationWrites(
     const departure = query
       .insert(matchDepartures)
       .values({ id, matchGuid: row.match_guid, playerId: row.player_id, sourceId, sourceType, payload, received: now })
-      .onConflictDoUpdate({
-        target: matchDepartures.id,
-        set: { received: sql`max(${matchDepartures.received}, ${excluded(matchDepartures.received)})` },
-      });
+      .onConflictDoNothing({ target: matchDepartures.id });
     writes.push(statementOf(db, departure));
   }
   return writes;
