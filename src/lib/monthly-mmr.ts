@@ -43,7 +43,7 @@ export function nextMonth(month: string): string {
 }
 
 /** The UTC instant of midnight in Paris on that day, whatever the daylight saving time. */
-function midnightParis(day: string): number {
+export function midnightParis(day: string): number {
   const target = Date.parse(`${day}T00:00:00Z`);
   let guess = target;
   for (let step = 0; step < 3; step++) {

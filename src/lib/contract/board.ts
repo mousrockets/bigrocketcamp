@@ -130,12 +130,23 @@ export type DoublesRank = Known<z.output<typeof doublesRank>>;
 export const rankSourceHealth = z.looseObject({ lastReadAt: z.string().nullable(), stale: z.boolean() });
 export type RankSourceHealth = Known<z.output<typeof rankSourceHealth>>;
 
+/** What a player's accounts gained or lost in MMR on a day; null for an account not read that day. */
+export const dailyMmr = z.looseObject({
+  player: z.string(),
+  day: z.string(),
+  duo: z.number().nullable(),
+  solo: z.number().nullable(),
+});
+export type DailyMmr = Known<z.output<typeof dailyMmr>>;
+
 /** The parts of the board small enough to be sent whole with every change. */
 const smallParts = {
   collectors: z.array(collectorContact),
   doublesRanks: z.array(doublesRank),
   monthly: monthlyStandings,
   rankSource: rankSourceHealth.nullable().catch(null),
+  /** Each account's MMR change on each of the last days; absent from an API older than it. */
+  mmrDays: z.array(dailyMmr).catch([]),
   /** Absent from an API older than the challenge rules: the default ones then apply. */
   rules: challengeRules.catch(() => ({
     lastPlace: defaultLastPlaceRules.map((rule) => ({ ...rule })),
