@@ -1,4 +1,5 @@
 import { screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { aRank, aResult, aSoloRank, boardWith, renderInApp } from '../test-utils';
 import { MatchesPage } from './matches-page';
@@ -320,4 +321,70 @@ test('the replay names the MVP of each match the club won, beside their points',
   // Alice had the best score of the winners twice today; the strangers won the evening's loss.
   expect(within(replay).getAllByText('MVP')).toHaveLength(2);
   expect(within(replay).getAllByText('MVP')[0]?.parentElement).toHaveTextContent('· 400 pts · MVP');
+});
+
+test('recaps the last session by account: its date, wins, defeats and MMR moved', async () => {
+  const aliceSolo = `Epic|${'A'.repeat(32)}|0`;
+  const onSolo = (row: (typeof board.results)[number]) =>
+    row.match_guid === 'evening-loss' && row.name === 'alice' ? { ...row, player_id: aliceSolo.toLowerCase() } : row;
+  renderInApp(<MatchesPage />, {
+    board: {
+      ...board,
+      results: board.results.map(onSolo),
+      doublesRanks: [aRank({ player: 'alice', solo: aSoloRank({ pseudo: 'Alice Solo', playerId: aliceSolo }) })],
+      mmrDays: [
+        { player: 'alice', day: '2026-11-07', duo: 18, solo: -9 },
+        { player: 'alice', day: '2026-11-06', duo: -10, solo: null },
+      ],
+    },
+    path: '/matchs',
+  });
+  const recap = await screen.findByRole('region', { name: 'Dernière session' });
+  expect(recap).toHaveTextContent('Aujourd’hui · Samedi 7 novembre');
+  const [aliceDuo, aliceOnSolo, bob] = within(recap).getAllByRole('listitem');
+  expect(aliceDuo).toHaveTextContent('aliceTOI2 W · 0 L+18 MMR');
+  expect(aliceOnSolo).toHaveTextContent('Alice SoloTOI0 W · 1 L−9 MMR');
+  // The rank source read nothing of Bob's that day.
+  expect(bob).toHaveTextContent('bob2 W · 1 L–');
+});
+
+test('shows no recap of the last session on a day chosen, nor before any match', async () => {
+  renderInApp(<MatchesPage />, { board, path: today });
+  await screen.findByRole('region', { name: 'Bilan du jour' });
+  expect(screen.queryByRole('region', { name: 'Dernière session' })).not.toBeInTheDocument();
+});
+
+test('the summary counts one account at a time: each match on the account it was played on', async () => {
+  const user = userEvent.setup();
+  const aliceSolo = `Epic|${'A'.repeat(32)}|0`;
+  const onSolo = (row: (typeof board.results)[number]) =>
+    row.match_guid === 'evening-loss' && row.name === 'alice' ? { ...row, player_id: aliceSolo.toLowerCase() } : row;
+  renderInApp(<MatchesPage />, {
+    board: {
+      ...board,
+      results: board.results.map(onSolo),
+      doublesRanks: [aRank({ player: 'alice', solo: aSoloRank({ pseudo: 'Alice Solo', playerId: aliceSolo }) })],
+    },
+    path: today,
+  });
+  const summary = await screen.findByRole('region', { name: 'Bilan du jour' });
+  const cardOf = (name: string) =>
+    within(summary)
+      .getAllByText(/parties?/)
+      .map((line) => line.closest('[data-slot=card]') as HTMLElement)
+      .find((card) => card.textContent?.includes(name));
+  expect(cardOf('alice')).toHaveTextContent('Solo et Duo · 3 parties · 2 W · 1 L');
+  await user.click(within(summary).getByRole('button', { name: 'Solo' }));
+  expect(cardOf('Alice Solo')).toHaveTextContent('Solo · 1 partie · 0 W · 1 L');
+  // Bob played no match on a solo account.
+  expect(cardOf('bob')).toBeUndefined();
+  await user.click(within(summary).getByRole('button', { name: 'Duo' }));
+  expect(cardOf('alice')).toHaveTextContent('Duo · 2 parties · 2 W · 0 L');
+  expect(cardOf('bob')).toHaveTextContent('Duo · 3 parties');
+});
+
+test('offers no choice of account while no player has a solo account', async () => {
+  renderInApp(<MatchesPage />, { board, path: today });
+  const summary = await screen.findByRole('region', { name: 'Bilan du jour' });
+  expect(within(summary).queryByRole('group', { name: 'Comptes du bilan' })).not.toBeInTheDocument();
 });

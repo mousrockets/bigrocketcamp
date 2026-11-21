@@ -1,15 +1,17 @@
 import { useSearch } from '@tanstack/react-router';
 import { cn } from 'cn';
 import { Gamepad2, type LucideIcon, TrendingUp, Trophy, UserRound, UsersRound } from 'lucide-react';
-import { parisDay } from '../../lib/days';
+import { useState } from 'react';
+import { parisDay, shiftDay } from '../../lib/days';
 import { highScorePoints } from '../../lib/domain';
-import { formatDayDate, formatLongDay, formatNumber } from '../../lib/format';
+import { formatDay, formatDayDate, formatLongDay, formatNumber } from '../../lib/format';
 import type { MatchMode } from '../../lib/live-stats';
 import { useBoardState } from '../board';
 import { useClub } from '../club';
 import { BoardPending, TitleSkeleton } from '../components/board-pending';
 import { LiveStatus } from '../components/live-status';
 import { PeriodKicker } from '../components/period-picker';
+import { SegmentedControl } from '../components/segmented-control';
 import { TabPage } from '../components/tab-page';
 import { Badge } from '../components/ui/badge';
 import { Card } from '../components/ui/card';
@@ -17,13 +19,18 @@ import { Skeleton } from '../components/ui/skeleton';
 import { useNow } from '../hooks/use-now';
 import { DayPicker } from './day-picker';
 import {
+  type AccountChoice,
   type Accounts,
+  hasSoloAccounts,
   lastDays,
+  lastSession,
+  onAccounts,
   periodSummary,
   playedDays,
   type ReplayMatch,
   recentDays,
   replay,
+  type Session,
   type SummaryPlayer,
 } from './timeline';
 
@@ -36,8 +43,12 @@ export function MatchesPage() {
   // No day chosen: the last seven days. A day after today cannot be read and leads back to them.
   const day = jour && jour <= today ? jour : null;
   const days = day ? [day] : lastDays(today);
-  const summary = board ? periodSummary(board, club.roster, club.me.duoPseudo, days) : [];
+  const [account, setAccount] = useState<AccountChoice>('all');
+  const summary = board
+    ? periodSummary(onAccounts(board, club.roster, account), club.roster, club.me.duoPseudo, days)
+    : [];
   const groups = board ? replay(board, club.roster, days, today) : [];
+  const session = board ? lastSession(board, club.roster, club.me.duoPseudo) : null;
 
   return (
     <TabPage
@@ -60,35 +71,45 @@ export function MatchesPage() {
       )}
       {board && (
         <div className="flex flex-col animate-rise [animation-delay:.06s] lg:flex-row lg:flex-wrap lg:items-start lg:gap-10">
-          <section
-            aria-label="Bilan du jour"
-            className="flex flex-col gap-[18px] px-5 pt-8 lg:sticky lg:top-6 lg:max-w-[420px] lg:flex-[1_1_340px] lg:p-0"
-          >
-            <span className="flex flex-col gap-1.5">
-              <PeriodKicker
-                kicker={day ? 'Bilan du jour' : `Bilan · ${recentDays} jours`}
-                picker={<DayPicker day={day} today={today} played={playedDays(board, club.roster)} />}
-              />
-              <h2 className="title-display text-[24px] [line-height:normal]">
-                {summary.some((player) => player.owed > 0) ? 'Les bras vont chauffer' : 'Pas encore de casse'}
-              </h2>
-            </span>
-            {summary.length > 0 ? (
-              <div className="flex flex-col gap-2.5">
-                {summary.map((player) => (
-                  <PlayerSummary key={player.name} player={player} compact={day === null} />
-                ))}
-              </div>
-            ) : (
-              <p className="m-0 text-[15px] text-t2">
-                {day === null
-                  ? `Aucun match en ${recentDays} jours. Le terrain attend son kickoff.`
-                  : day === today
-                    ? 'Aucun match aujourd’hui. Le terrain attend son kickoff.'
-                    : 'Aucun match ce jour-là.'}
-              </p>
-            )}
-          </section>
+          <div className="flex flex-col lg:sticky lg:top-6 lg:max-w-[420px] lg:flex-[1_1_340px] lg:gap-10">
+            {day === null && session && <SessionRecap session={session} today={today} />}
+            <section aria-label="Bilan du jour" className="flex flex-col gap-[18px] px-5 pt-8 lg:p-0">
+              <span className="flex flex-col gap-1.5">
+                <PeriodKicker
+                  kicker={day ? 'Bilan du jour' : `Bilan · ${recentDays} jours`}
+                  picker={<DayPicker day={day} today={today} played={playedDays(board, club.roster)} />}
+                />
+                <h2 className="title-display text-[24px] [line-height:normal]">
+                  {summary.some((player) => player.owed > 0) ? 'Les bras vont chauffer' : 'Pas encore de casse'}
+                </h2>
+              </span>
+              {hasSoloAccounts(board) && (
+                <SegmentedControl
+                  label="Comptes du bilan"
+                  options={accountChoices}
+                  value={account}
+                  onChange={setAccount}
+                />
+              )}
+              {summary.length > 0 ? (
+                <div className="flex flex-col gap-2.5">
+                  {summary.map((player) => (
+                    <PlayerSummary key={player.name} player={player} compact={day === null} />
+                  ))}
+                </div>
+              ) : (
+                <p className="m-0 text-[15px] text-t2">
+                  {account !== 'all'
+                    ? `Aucun match en ${accountLabels[account].toLowerCase()} sur cette période.`
+                    : day === null
+                      ? `Aucun match en ${recentDays} jours. Le terrain attend son kickoff.`
+                      : day === today
+                        ? 'Aucun match aujourd’hui. Le terrain attend son kickoff.'
+                        : 'Aucun match ce jour-là.'}
+                </p>
+              )}
+            </section>
+          </div>
           <section
             aria-label="Derniers matchs"
             className="flex flex-col gap-[18px] px-5 pt-12 lg:flex-[999_1_420px] lg:p-0"
@@ -141,6 +162,48 @@ function SectionTitle({ kicker, title }: { kicker: string; title: string }) {
 const signed = (value: number) =>
   value > 0 ? `+${formatNumber(value)}` : value < 0 ? `−${formatNumber(-value)}` : '0';
 
+/** « Aujourd’hui · samedi 21 novembre », « Hier · vendredi 20 novembre », then the day in full. */
+function sessionDate(day: string, today: string): string {
+  const relative = day === today ? 'Aujourd’hui · ' : day === shiftDay(today, -1) ? 'Hier · ' : '';
+  return relative + formatDay(day);
+}
+
+/** The last day played, in a line per account: wins, defeats and the MMR it moved. */
+function SessionRecap({ session, today }: { session: Session; today: string }) {
+  return (
+    <section aria-label="Dernière session" className="flex flex-col gap-[18px] px-5 pt-8 lg:p-0">
+      <SectionTitle kicker={sessionDate(session.day, today)} title="Dernière session" />
+      <Card variant="glass" className="gap-0 py-0">
+        <ul className="m-0 list-none p-0">
+          {session.accounts.map((player) => (
+            <li
+              key={player.pseudo}
+              className="flex items-center gap-3 px-4 py-3 [&+&]:border-line [&+&]:border-t-[.5px]"
+            >
+              <span className="flex min-w-0 flex-1 items-center gap-1.5">
+                <b className="truncate font-semibold text-[15px]">{player.pseudo}</b>
+                {player.me && <Badge variant="me">TOI</Badge>}
+              </span>
+              <span className="shrink-0 text-[13px] text-t2">
+                <span className="text-win">{player.wins} W</span> ·{' '}
+                <span className="text-cost-strong">{player.losses} L</span>
+              </span>
+              <b
+                className={cn(
+                  'num w-[76px] shrink-0 text-right text-[16px]',
+                  player.mmr === null || player.mmr === 0 ? 'text-t3' : player.mmr > 0 ? 'text-win' : 'text-cost',
+                )}
+              >
+                {player.mmr === null ? '–' : `${signed(player.mmr)} MMR`}
+              </b>
+            </li>
+          ))}
+        </ul>
+      </Card>
+    </section>
+  );
+}
+
 /** A player's summary; over several days, the squares of their matches shrink to fit. */
 function PlayerSummary({ player, compact }: { player: SummaryPlayer; compact: boolean }) {
   const defeats = player.losses * 5;
@@ -149,7 +212,7 @@ function PlayerSummary({ player, compact }: { player: SummaryPlayer; compact: bo
       <div className="flex items-start justify-between gap-3">
         <span className="flex min-w-0 flex-1 flex-col gap-2.5">
           <span className="flex min-w-0 items-center gap-1.5">
-            <b className="truncate font-semibold text-[17px]">{player.name}</b>
+            <b className="truncate font-semibold text-[17px]">{player.pseudo}</b>
             {player.me && <Badge variant="me">TOI</Badge>}
           </span>
           <span className="flex flex-col gap-[7px]">
@@ -206,6 +269,12 @@ function Figure({ label, value, credit = false }: { label: string; value: number
 }
 
 const accountLabels = { duo: 'Duo', solo: 'Solo', both: 'Solo et Duo' } satisfies Record<Accounts, string>;
+
+const accountChoices = [
+  { value: 'all', label: 'Tous' },
+  { value: 'duo', label: 'Duo' },
+  { value: 'solo', label: 'Solo' },
+] as const satisfies readonly { value: AccountChoice; label: string }[];
 
 const outcomes = {
   victory: { label: 'GG', className: 'bg-[rgba(76,211,138,.14)] text-win' },

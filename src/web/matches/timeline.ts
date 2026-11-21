@@ -22,6 +22,8 @@ export interface SummaryPlayer {
   /** Pushups off for wins the opponents forfeited and games from 1000 points. */
   dodged: number;
   accounts: Accounts;
+  /** The pseudo shown: the solo account's when the player played only on it, else the player's own. */
+  pseudo: string;
 }
 
 const historyOf = (board: Board, roster: readonly string[]) =>
@@ -103,6 +105,7 @@ export function periodSummary(
         bonus: 0,
         dodged: 0,
         accounts: accountsOf(player.name),
+        pseudo: accountsOf(player.name) === 'solo' ? (solo.get(player.name)?.pseudo ?? player.name) : player.name,
       };
       total.wins += player.wins;
       total.losses += player.losses;
@@ -209,3 +212,78 @@ export const playedDays = (board: Board, roster: readonly string[]): string[] =>
   [
     ...new Set(board.results.filter((row) => roster.includes(row.name) && row.kind === 'match').map((row) => row.day)),
   ].sort();
+
+/** One account played on the last day: a player's duo account, or their solo one. */
+export interface SessionAccount {
+  /** The account's pseudo. */
+  pseudo: string;
+  me: boolean;
+  wins: number;
+  losses: number;
+  /** What the account gained or lost in MMR that day; null when the rank source did not read it. */
+  mmr: number | null;
+}
+
+export interface Session {
+  day: string;
+  accounts: SessionAccount[];
+}
+
+/**
+ * The last day the club played: each account played on it, with its wins, defeats and MMR change. The member's
+ * accounts first, then the roster's order; a player's duo account before their solo one.
+ */
+export function lastSession(board: Board, roster: readonly string[], me: string | null): Session | null {
+  const day = playedDays(board, roster).at(-1);
+  if (!day) return null;
+  const solo = soloAccounts(board);
+  const counts = new Map<string, SessionAccount & { player: string; account: 'duo' | 'solo' }>();
+  for (const match of historyOf(board, roster)
+    .filter((entry) => entry.day === day && !entry.review)
+    .sort(byTime)) {
+    for (const { row, left } of match.players) {
+      const account = playedSolo(solo, row) ? 'solo' : 'duo';
+      const key = `${row.name}\u0000${account}`;
+      const seen = counts.get(key) ?? {
+        player: row.name,
+        account,
+        pseudo: account === 'solo' ? (solo.get(row.name)?.pseudo ?? row.name) : row.name,
+        me: row.name === me,
+        wins: 0,
+        losses: 0,
+        mmr: board.mmrDays.find((change) => change.player === row.name && change.day === day)?.[account] ?? null,
+      };
+      // Leaving before the end is a defeat.
+      if (outcomeOf(row) === 'win' && !left) seen.wins++;
+      else seen.losses++;
+      counts.set(key, seen);
+    }
+  }
+  const rank = (entry: { player: string; account: string; me: boolean }) =>
+    (entry.me ? 0 : 1 + roster.indexOf(entry.player)) * 2 + (entry.account === 'solo' ? 1 : 0);
+  const accounts = [...counts.values()]
+    .sort((a, b) => rank(a) - rank(b))
+    .map(({ player: _player, account: _account, ...entry }) => entry);
+  return accounts.length ? { day, accounts } : null;
+}
+
+/** Which of the players' accounts the summary counts: all of them, or only their duo or solo ones. */
+export type AccountChoice = 'all' | 'duo' | 'solo';
+
+/** Whether a player's solo account was found: only then does choosing an account change anything. */
+export const hasSoloAccounts = (board: Board): boolean => soloAccounts(board).size > 0;
+
+/**
+ * The board with only the club's matches played on the accounts chosen: each match counts on the account it was
+ * played on, with its wins, defeats and pushups. The opponents' rows stay, for the scores.
+ */
+export function onAccounts(board: Board, roster: readonly string[], choice: AccountChoice): Board {
+  if (choice === 'all') return board;
+  const solo = soloAccounts(board);
+  return {
+    ...board,
+    results: board.results.filter(
+      (row) => !roster.includes(row.name) || (playedSolo(solo, row) ? 'solo' : 'duo') === choice,
+    ),
+  };
+}

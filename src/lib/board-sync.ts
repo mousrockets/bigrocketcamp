@@ -9,7 +9,7 @@ import { compareResults, reliabilityOf } from './reconcile';
 // The board as the web app holds it: the rows received so far, which each answer of the API updates. Plain data,
 // never changed in place: TanStack Query keeps it, compares it and saves it in the browser as it is.
 
-type SmallParts = Pick<BoardChanges, 'collectors' | 'doublesRanks' | 'monthly' | 'rankSource' | 'rules'>;
+type SmallParts = Pick<BoardChanges, 'collectors' | 'doublesRanks' | 'monthly' | 'rankSource' | 'rules' | 'mmrDays'>;
 
 export interface SyncedBoard {
   /** The version to ask changes from. */
@@ -45,14 +45,14 @@ export function applyChanges(held: SyncedBoard, changes: BoardChanges): SyncedBo
   for (const reaction of changes.reactions) {
     reactions[reaction.exercise_id] = [...(reactions[reaction.exercise_id] ?? []), reaction];
   }
-  const { collectors, doublesRanks, monthly, rankSource, rules } = changes;
+  const { collectors, doublesRanks, monthly, rankSource, rules, mmrDays } = changes;
   return {
     version: changes.version,
     viewer: changes.viewer,
     results,
     exercises,
     reactions,
-    small: { collectors, doublesRanks, monthly, rankSource, rules },
+    small: { collectors, doublesRanks, monthly, rankSource, rules, mmrDays },
   };
 }
 
@@ -103,6 +103,8 @@ export function boardView(board: SyncedBoard, roster: Roster, now: number = Date
     me: usualPlayer(exercises),
     collectors: small?.collectors ?? [],
     doublesRanks: small?.doublesRanks ?? [],
+    // A board kept from an older API has no MMR changes.
+    mmrDays: small?.mmrDays ?? [],
     monthly: monthly && {
       ...monthly,
       debts: monthly.debts.map((debt) => ({

@@ -1,6 +1,7 @@
 import { and, count, desc, eq, exists, gt, inArray, max, sql } from 'drizzle-orm';
 import { type ClubPlayer, readClubPlayers, rosterOf } from './club';
 import { readChallengeRules } from './club-rules';
+import { readDailyMmr } from './daily-mmr';
 import type { Database } from './db';
 import { readDoublesRanks } from './doubles-ranks';
 import { type BuiltResult, buildPendingMatches, builtResult, notBuilt, storedColumns } from './match-builds';
@@ -106,7 +107,7 @@ type ResultRow = Parameters<typeof builtResult>[0];
 
 /** The parts of the board small enough to be sent whole with every change. */
 async function readSmallParts({ db, memberId, hasRankSource }: BoardReader, players: ClubPlayer[]) {
-  const [sources, doublesRanks, monthly, rankSource, rules] = await Promise.all([
+  const [sources, doublesRanks, monthly, rankSource, rules, mmrDays] = await Promise.all([
     orm(db)
       .select({ id: collectors.id, last_seen: collectors.lastSeen })
       .from(collectors)
@@ -115,8 +116,9 @@ async function readSmallParts({ db, memberId, hasRankSource }: BoardReader, play
     readMonthlyMmr(db, players, memberId),
     hasRankSource ? readRankSourceHealth(db) : null,
     readChallengeRules(db),
+    readDailyMmr(db, rosterOf(players)),
   ]);
-  return { collectors: sources, doublesRanks, monthly, rankSource, rules };
+  return { collectors: sources, doublesRanks, monthly, rankSource, rules, mmrDays };
 }
 
 /** Matches whose full scoreboard is confirmed, in the order of their newest result. */
