@@ -9,7 +9,7 @@ export type DrinkDebt = NonNullable<Board['monthly']>['debts'][number];
 export interface PodiumStep {
   name: string;
   me: boolean;
-  /** Pushups and their equivalents since Monday. */
+  /** Pushups and their equivalents over the period shown. */
   pushups: number;
   /** 1 to 3; players level on pushups share a step. */
   rank: number;
@@ -27,12 +27,25 @@ export function weeklyPodium(
 ): PodiumStep[] {
   const monday = weekStart(day);
   const sunday = shiftDay(monday, 6);
+  return allTimePodium(
+    exercises.filter((exercise) => exercise.day >= monday && exercise.day <= sunday),
+    roster,
+    me,
+  );
+}
+
+/** The three strongest arms since the first exercise, every exercise counted in pushups. */
+export function allTimePodium(
+  exercises: readonly (CountedExercise & { player: string })[],
+  roster: readonly string[],
+  me: string | null,
+): PodiumStep[] {
   const totals = roster
     .map((name) => ({
       name,
       me: name === me,
       pushups: exercises
-        .filter((exercise) => exercise.player === name && exercise.day >= monday && exercise.day <= sunday)
+        .filter((exercise) => exercise.player === name)
         .reduce((sum, exercise) => sum + pushupCredit(exercise), 0),
     }))
     .filter((player) => player.pushups > 0)

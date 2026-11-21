@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { countdown, firstWeek, payerOf, weeklyPodium } from './standings';
+import { allTimePodium, countdown, firstWeek, payerOf, weeklyPodium } from './standings';
 
 const roster = ['alice', 'bob', 'carol', 'dave'];
 // Saturday 7 November 2026: the week started on Monday the 2nd.
@@ -56,6 +56,21 @@ test('the podium of an earlier week counts its own days, Monday to Sunday', () =
   expect(weeklyPodium(exercises, roster, null, '2026-10-26').map(({ name }) => name)).toEqual(['bob', 'alice']);
   expect(firstWeek(exercises)).toBe('2026-10-26');
   expect(firstWeek([])).toBeNull();
+});
+
+test('the all-time podium counts every exercise since the first one', () => {
+  const exercises = [
+    { player: 'alice', count: 30, day: '2026-09-14' },
+    { player: 'alice', count: 30, day: '2026-11-02' },
+    { player: 'bob', count: 50, day: '2026-11-01' },
+    { player: 'carol', type: 'crunches' as const, count: 20, day: '2026-10-07' },
+  ];
+  expect(allTimePodium(exercises, roster, 'bob')).toEqual([
+    { name: 'alice', me: false, pushups: 60, rank: 1 },
+    { name: 'bob', me: true, pushups: 50, rank: 2 },
+    { name: 'carol', me: false, pushups: 10, rank: 3 },
+  ]);
+  expect(allTimePodium([], roster, null)).toEqual([]);
 });
 
 test('the last one alone pays; a tie at the last place or a missing reading spares everyone', () => {

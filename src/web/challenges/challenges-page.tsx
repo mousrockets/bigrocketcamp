@@ -1,4 +1,4 @@
-import { Link, useSearch } from '@tanstack/react-router';
+import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { cn } from 'cn';
 import { parisDay, parisMonth, shiftDay, weekStart } from '../../lib/days';
 import { formatLongDay, formatWeek } from '../../lib/format';
@@ -13,10 +13,10 @@ import { useNow } from '../hooks/use-now';
 import { weeklyJournal, weeklyTotals } from './journal';
 import { ExerciseJournal } from './journal-section';
 import { MonthlyChallenge } from './monthly-challenge';
-import { WeeklyPodium } from './podium';
+import { type PodiumPeriod, WeeklyPodium } from './podium';
 import { recapMonths } from './recap';
 import { RecapList } from './recap-list';
-import { firstWeek, weeklyPodium } from './standings';
+import { allTimePodium, firstWeek, weeklyPodium } from './standings';
 
 // On a phone, the two challenges follow each other on the page; on a computer, each sits in its card, side by side.
 const challenge = cn(
@@ -27,13 +27,29 @@ const challenge = cn(
 export function ChallengesPage() {
   const club = useClub();
   const { board, error } = useBoardState();
-  const { semaine, mois } = useSearch({ strict: false });
+  const { semaine, mois, podium: period = 'week' } = useSearch({ strict: false });
+  const navigate = useNavigate();
   const now = useNow(30_000);
   const me = club.me.duoPseudo;
   const today = parisDay(now);
   const thisWeek = weekStart(today);
   const week = semaine && semaine < thisWeek ? weekStart(semaine) : thisWeek;
-  const podium = board ? weeklyPodium(board.exercises, club.roster, me, week) : [];
+  const podium = !board
+    ? []
+    : period === 'all-time'
+      ? allTimePodium(board.exercises, club.roster, me)
+      : weeklyPodium(board.exercises, club.roster, me, week);
+  // The podium since the first exercise leaves the week chosen: the journal goes back to this one.
+  const showPeriod = (next: PodiumPeriod) =>
+    void navigate({
+      to: '.',
+      search: (previous: Record<string, unknown>) => ({
+        ...previous,
+        podium: next === 'all-time' ? next : undefined,
+        semaine: undefined,
+      }),
+      resetScroll: false,
+    });
   // A week nobody sweated shows only the podium, which already says so.
   const totals = board ? weeklyTotals(board.exercises, club.roster, me, week) : [];
   const recaps = board ? recapMonths(board, club.roster, parisMonth(now)) : [];
@@ -58,6 +74,8 @@ export function ChallengesPage() {
           >
             <WeeklyPodium
               podium={podium}
+              period={period}
+              onPeriodChange={showPeriod}
               current={week === thisWeek}
               picker={<WeekPicker week={week} thisWeek={thisWeek} first={firstWeek(board.exercises) ?? thisWeek} />}
             />

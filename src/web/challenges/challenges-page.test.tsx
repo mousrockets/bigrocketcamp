@@ -150,6 +150,39 @@ test('goes back to the weeks before, down to the first exercise, and forward to 
   expect(within(week).getByRole('link', { name: 'Semaine suivante' })).toHaveAttribute('href', '/defis');
 });
 
+test('switches the podium to all time, then back to the week', async () => {
+  const user = userEvent.setup();
+  const history = {
+    ...board,
+    exercises: [
+      ...board.exercises,
+      anExercise({ id: 'exercise-0000000004', player: 'carol', count: 300, day: '2026-10-28' }),
+    ],
+  };
+  renderInApp(<ChallengesPage />, { club, board: history, path: '/defis?semaine=2026-10-26' });
+  const podium = await screen.findByRole('region', { name: 'Podium de la semaine' });
+  const period = within(podium).getByRole('group', { name: 'Période du podium' });
+  await user.click(within(period).getByRole('button', { name: 'All time' }));
+  expect(await within(podium).findByText('Podium all time')).toBeInTheDocument();
+  expect(within(podium).queryByRole('navigation', { name: 'Semaine affichée' })).not.toBeInTheDocument();
+  expect(
+    within(podium)
+      .getAllByRole('listitem')
+      .map((step) => step.textContent),
+  ).toEqual(['carol380pompesPlace 1', 'aliceTOI195pompesPlace 2', 'bob140pompesPlace 3']);
+  await user.click(within(period).getByRole('button', { name: 'Semaine' }));
+  expect(await within(podium).findByRole('navigation', { name: 'Semaine affichée' })).toHaveTextContent(
+    'Cette semaine',
+  );
+  expect(within(podium).getAllByRole('listitem')[0]).toHaveTextContent('aliceTOI195pompesPlace 1');
+});
+
+test('shows an empty all-time podium before the first exercise', async () => {
+  renderInApp(<ChallengesPage />, { club, board: { ...board, exercises: [] }, path: '/defis?podium=all-time' });
+  const podium = await screen.findByRole('region', { name: 'Podium de la semaine' });
+  expect(within(podium).getByText('Personne n’a encore sué. L’or est à prendre.')).toBeInTheDocument();
+});
+
 test('counts down to the month’s close', async () => {
   renderInApp(<ChallengesPage />, { club, board });
   expect(await screen.findByRole('timer', { name: 'Clôture dans 23 jours, 7 heures et 44 minutes' })).toHaveTextContent(

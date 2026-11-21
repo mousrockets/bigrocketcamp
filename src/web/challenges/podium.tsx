@@ -2,6 +2,7 @@ import { cn } from 'cn';
 import type { ReactNode } from 'react';
 import { formatNumber, plural } from '../../lib/format';
 import { PeriodKicker } from '../components/period-picker';
+import { SegmentedControl } from '../components/segmented-control';
 import { Badge } from '../components/ui/badge';
 import type { PodiumStep } from './standings';
 
@@ -13,26 +14,40 @@ const steps = {
 } as const;
 const placeOf = (index: number) => steps[(index + 1) as 1 | 2 | 3];
 
+export type PodiumPeriod = 'week' | 'all-time';
+
+const periods = [
+  { value: 'week', label: 'Semaine' },
+  { value: 'all-time', label: 'All time' },
+] as const;
+
 /**
- * « Les bras d’or »: the three players with the most pushups in the week shown, on a podium, with the picker of the
- * week. The podium stands even when nobody climbed it: a step nobody earned stays empty.
+ * « Les bras d’or »: the three players with the most pushups in the week shown, or since the first exercise, on a
+ * podium, with the picker of the week. The podium stands even when nobody climbed it: a step nobody earned stays empty.
  */
 export function WeeklyPodium({
   podium,
+  period,
+  onPeriodChange,
   picker,
   current,
 }: {
   podium: PodiumStep[];
+  period: PodiumPeriod;
+  onPeriodChange: (period: PodiumPeriod) => void;
+  /** The picker of the week, for the week's podium. */
   picker: ReactNode;
   /** The week going on, still open to anyone. */
   current: boolean;
 }) {
+  const allTime = period === 'all-time';
   return (
     <div className="flex flex-col gap-[18px]">
       <span className="flex flex-col gap-1.5">
-        <PeriodKicker kicker="Podium de la semaine" picker={picker} />
+        <PeriodKicker kicker={allTime ? 'Podium all time' : 'Podium de la semaine'} picker={allTime ? null : picker} />
         <h2 className="title-display text-[24px]">Les bras d’or</h2>
       </span>
+      <SegmentedControl label="Période du podium" options={periods} value={period} onChange={onPeriodChange} />
       <ol className="m-0 grid list-none grid-cols-3 items-end gap-2 p-0">
         {[0, 1, 2].map((index) => {
           const step = podium[index];
@@ -45,9 +60,11 @@ export function WeeklyPodium({
       </ol>
       {podium.length === 0 && (
         <p className="m-0 text-center text-[15px] text-t2 [line-height:1.45]">
-          {current
-            ? 'Personne n’a encore sué cette semaine. L’or est à prendre.'
-            : 'Personne n’a sué cette semaine-là.'}
+          {allTime
+            ? 'Personne n’a encore sué. L’or est à prendre.'
+            : current
+              ? 'Personne n’a encore sué cette semaine. L’or est à prendre.'
+              : 'Personne n’a sué cette semaine-là.'}
         </p>
       )}
     </div>
