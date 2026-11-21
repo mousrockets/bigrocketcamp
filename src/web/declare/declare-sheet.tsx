@@ -3,9 +3,9 @@ import { Check, Minus, Plus, X } from 'lucide-react';
 import { useState } from 'react';
 import type { ExerciseType } from '../../lib/domain';
 import { formatNumber } from '../../lib/format';
+import { SegmentedControl } from '../components/segmented-control';
 import { Button } from '../components/ui/button';
 import { DialogClose, DialogTitle } from '../components/ui/dialog';
-import { ToggleGroup, ToggleGroupItem } from '../components/ui/toggle-group';
 import type { Debt } from '../team/stats';
 import { kindOrder, kinds, minus, payoff, plus, pushupsOf } from './quantities';
 
@@ -59,31 +59,12 @@ export function DeclareSheet({
         </DialogClose>
       </div>
 
-      <ToggleGroup
-        aria-label="Exercice"
-        value={[type]}
-        onValueChange={(value: string[]) => {
-          const [next] = value;
-          if (next) pick(next as ExerciseType);
-        }}
-        spacing={0}
-        className="relative grid h-9 w-full grid-cols-3 rounded-[11px] bg-[rgba(118,118,128,.22)] p-0.5"
-      >
-        <i
-          aria-hidden="true"
-          className="absolute top-0.5 left-0.5 h-8 w-[calc((100%-4px)/3)] rounded-[9px] bg-[rgba(120,120,128,.55)] shadow-[inset_0_.5px_0_rgba(255,255,255,.18),0_3px_8px_rgba(0,0,0,.25)] transition-transform duration-[450ms] ease-(--ease)"
-          style={{ transform: `translateX(${kindOrder.indexOf(type) * 100}%)` }}
-        />
-        {kindOrder.map((value) => (
-          <ToggleGroupItem
-            key={value}
-            value={value}
-            className="relative z-1 h-8 rounded-[9px] bg-transparent font-semibold text-[14px] text-t2 hover:bg-transparent hover:text-t1 aria-pressed:bg-transparent aria-pressed:text-t1"
-          >
-            {kinds[value].label}
-          </ToggleGroupItem>
-        ))}
-      </ToggleGroup>
+      <SegmentedControl
+        label="Exercice"
+        options={kindOrder.map((value) => ({ value, label: kinds[value].label }))}
+        value={type}
+        onChange={pick}
+      />
 
       <div className="flex items-center justify-between gap-2">
         <Button variant="step" size="step" aria-label="Moins" onClick={() => setAmount(minus(type, amount))}>
