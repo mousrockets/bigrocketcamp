@@ -1,5 +1,4 @@
 import { useNavigate, useSearch } from '@tanstack/react-router';
-import type { DoublesRank } from '../../lib/contract';
 import { parisDay } from '../../lib/days';
 import { type Board, playerStats, useBoardState } from '../board';
 import { platformLabels, useClub } from '../club';
@@ -17,10 +16,6 @@ import { currentStreak, debtOf, highestTier, latest } from './stats';
 import { TeamCarousel } from './team-carousel';
 
 const noRank: CardRank = { mmr: null, label: 'Rang pas encore relevé', tier: null, peak: null, placements: null };
-
-/** A best rating set by hand came without its rank: the ladder gives it one. */
-const allTimeOf = ({ best, bestRank }: Pick<DoublesRank, 'best' | 'bestRank'>) =>
-  bestRank ?? (best == null ? null : ratingOnLadder(best));
 
 /** Every player's card, the member's first. */
 function cardPlayers(
@@ -48,7 +43,7 @@ function cardPlayers(
         label: unreadable ? 'Compte solo introuvable' : solo.label,
         tier: unreadable ? null : solo.tier,
         peak: solo.peak,
-        allTime: allTimeOf(solo),
+        allTime: solo.bestRank ?? (solo.best === null ? null : ratingOnLadder(solo.best)),
         placements: unreadable ? null : solo.placements,
       },
       duo: ranks
@@ -57,7 +52,6 @@ function cardPlayers(
             label: ranks.label,
             tier: ranks.tier,
             peak: ranks.peak ?? null,
-            allTime: allTimeOf(ranks),
             placements: ranks.placements,
           }
         : noRank,
