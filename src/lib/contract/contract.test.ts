@@ -57,7 +57,7 @@ const changes = {
   reactionsOf: 'all',
   removed: { results: [], exercises: [] },
   collectors: [{ id: 'live-1', last_seen: '2026-11-07T10:00:00.000Z' }],
-  doublesRanks: [{ ...rank, peak: null, solo: null }],
+  doublesRanks: [{ ...rank, peak: null, best: null, bestRank: null, solo: null }],
   monthly: {
     startsMonth: '2026-11',
     current: {
@@ -96,7 +96,7 @@ describe('an answer from an older API, without the fields added since, still par
   });
 
   test('a rank without season peak nor solo account', () => {
-    expect(doublesRank.parse(rank)).toMatchObject({ peak: null, solo: null });
+    expect(doublesRank.parse(rank)).toMatchObject({ peak: null, best: null, bestRank: null, solo: null });
   });
 
   test('a board without rules gets the default ones', () => {

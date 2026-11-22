@@ -397,6 +397,17 @@ const seasonPeak = {
   peakAt: text('peak_at'),
 };
 
+/**
+ * The account's best rating, every season: set by hand from what the game showed before the app read the account,
+ * then raised by each higher reading. A solo one goes with its row when the profile names another account.
+ */
+const allTimePeak = {
+  bestMmr: integer('best_mmr'),
+  /** The rank and division that came with the best rating; null for one set by hand. */
+  bestTier: integer('best_tier'),
+  bestDivision: integer('best_division'),
+};
+
 /** The ranked 2v2 rank on each player's card. */
 export const playerRanks = sqliteTable('player_ranks', {
   player: text('player').primaryKey(),
@@ -411,6 +422,7 @@ export const playerRanks = sqliteTable('player_ranks', {
   /** Placement matches played this season while the ten are not done; null once placed, or when not read. */
   placementMatches: integer('placement_matches'),
   ...seasonPeak,
+  ...allTimePeak,
 });
 
 /** The ranked 2v2 rank of each player's solo account, kept apart from the duo one. */
@@ -429,14 +441,7 @@ export const soloRanks = sqliteTable('solo_ranks', {
   /** `ready`, or why the rank source could not read the account (`not_found`, `needs_player_id`…). */
   status: text('status').notNull(),
   ...seasonPeak,
-  /**
-   * The account's best rating, every season: set by hand from what the game showed before the app read the
-   * account, then raised by each higher reading. It goes with the row when the profile names another account.
-   */
-  bestMmr: integer('best_mmr'),
-  /** The rank and division that came with the best rating; null for one set by hand. */
-  bestTier: integer('best_tier'),
-  bestDivision: integer('best_division'),
+  ...allTimePeak,
 });
 
 /** Each change of a solo account's rating, as the rank source read it. */

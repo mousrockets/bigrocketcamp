@@ -198,6 +198,19 @@ const peakWrite = (query: Orm, table: typeof playerRanks | typeof soloRanks, ran
       ),
     );
 
+/** The best rating only rises, whatever the season, and keeps the rank it came with. */
+const bestWrite = (query: Orm, table: typeof playerRanks | typeof soloRanks, rank: ObservedRank) =>
+  query
+    .update(table)
+    .set({ bestMmr: rank.mmr, bestTier: rank.tier, bestDivision: rank.division })
+    .where(
+      and(
+        eq(table.player, rank.player),
+        eq(table.playerId, rank.playerId),
+        or(isNull(table.bestMmr), lt(table.bestMmr, rank.mmr)),
+      ),
+    );
+
 interface LatestEntry {
   mmr: number;
   tier: number | null;
@@ -276,7 +289,7 @@ async function duoWrites(query: Orm, rank: ObservedRank): Promise<Writes> {
   writes.push(
     query.update(playerRanks).set({ placementMatches: rank.placements }).where(eq(playerRanks.player, rank.player)),
   );
-  writes.push(peakWrite(query, playerRanks, rank));
+  writes.push(peakWrite(query, playerRanks, rank), bestWrite(query, playerRanks, rank));
   return { writes, changed };
 }
 
@@ -371,16 +384,7 @@ async function soloWrites(query: Orm, rank: ObservedRank, target: SoloTarget): P
         setWhere: sql`${isNull(soloRanks.fetchedAt)} OR ${lte(soloRanks.fetchedAt, excluded(soloRanks.fetchedAt))}`,
       }),
     peakWrite(query, soloRanks, rank),
-    query
-      .update(soloRanks)
-      .set({ bestMmr: rank.mmr, bestTier: rank.tier, bestDivision: rank.division })
-      .where(
-        and(
-          eq(soloRanks.player, rank.player),
-          eq(soloRanks.playerId, rank.playerId),
-          or(isNull(soloRanks.bestMmr), lt(soloRanks.bestMmr, rank.mmr)),
-        ),
-      ),
+    bestWrite(query, soloRanks, rank),
   );
   return { writes, changed };
 }
