@@ -70,6 +70,10 @@ export interface PlayerDoublesRank {
   fetchedAt: string | null;
   lastAttempt: string | null;
   peak: SeasonPeak | null;
+  /** The account's best rating, every season; null until one is known. */
+  best: number | null;
+  /** The best rating with the rank it came with; null while unknown, or for a best set by hand. */
+  bestRank: SeasonPeak | null;
   /** Null when the player named no solo account in their profile. */
   solo: PlayerSoloRank | null;
 }
@@ -97,6 +101,26 @@ const peakColumns = (table: typeof playerRanks | typeof soloRanks) => ({
   peakDivision: table.peakDivision,
 });
 
+interface StoredBest {
+  bestMmr: number | null;
+  bestTier: number | null;
+  bestDivision: number | null;
+}
+
+const bestOf = (rank: StoredBest | undefined): { best: number | null; bestRank: SeasonPeak | null } => ({
+  best: rank?.bestMmr ?? null,
+  bestRank:
+    rank?.bestMmr != null && rank.bestTier !== null
+      ? { mmr: rank.bestMmr, label: rankLabel(rank.bestTier, rank.bestDivision), tier: rank.bestTier }
+      : null,
+});
+
+const bestColumns = (table: typeof playerRanks | typeof soloRanks) => ({
+  bestMmr: table.bestMmr,
+  bestTier: table.bestTier,
+  bestDivision: table.bestDivision,
+});
+
 const soloStatuses: readonly SoloRankStatus[] = [
   'ready',
   'not_found',
@@ -122,9 +146,7 @@ async function readSoloRanks(db: Database): Promise<Map<string, PlayerSoloRank>>
         placementMatches: soloRanks.placementMatches,
         fetchedAt: soloRanks.fetchedAt,
         status: soloRanks.status,
-        bestMmr: soloRanks.bestMmr,
-        bestTier: soloRanks.bestTier,
-        bestDivision: soloRanks.bestDivision,
+        ...bestColumns(soloRanks),
         ...peakColumns(soloRanks),
       })
       .from(soloRanks),
@@ -145,11 +167,7 @@ async function readSoloRanks(db: Database): Promise<Map<string, PlayerSoloRank>>
           fetchedAt: rank?.fetchedAt ?? null,
           peak: peakOf(rank),
           pseudo,
-          best: rank?.bestMmr ?? null,
-          bestRank:
-            rank?.bestMmr != null && rank.bestTier !== null
-              ? { mmr: rank.bestMmr, label: rankLabel(rank.bestTier, rank.bestDivision), tier: rank.bestTier }
-              : null,
+          ...bestOf(rank),
           playerId,
         },
       ];
@@ -170,6 +188,7 @@ export async function readDoublesRanks(db: Database, roster: Roster): Promise<Pl
         fetchedAt: playerRanks.fetchedAt,
         lastAttempt: playerRanks.lastAttempt,
         status: playerRanks.status,
+        ...bestColumns(playerRanks),
         ...peakColumns(playerRanks),
       })
       .from(playerRanks),
@@ -177,7 +196,7 @@ export async function readDoublesRanks(db: Database, roster: Roster): Promise<Pl
   ]);
   return roster.map((player) => {
     const rank = stored.find((candidate) => candidate.player === player);
-    const extra = { peak: peakOf(rank), solo: solo.get(player) ?? null };
+    const extra = { peak: peakOf(rank), ...bestOf(rank), solo: solo.get(player) ?? null };
     if (!rank || rank.mmr === null) {
       return {
         player,

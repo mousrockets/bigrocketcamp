@@ -117,6 +117,39 @@ describe('the duo season peak', () => {
   });
 });
 
+describe('the duo best rating', () => {
+  const best = async () => {
+    const [bob] = await readDoublesRanks(env.DB, ['bob']);
+    return { best: bob?.best, bestRank: bob?.bestRank };
+  };
+
+  test('starts with the first reading, stays across seasons and never goes down', async () => {
+    await post([{ ...rank(1400), tier: 18, division: 4 }]);
+    await env.DB.prepare("UPDATE player_ranks SET season = ? WHERE player = 'bob'")
+      .bind(currentSeason.number - 1)
+      .run();
+    await post([{ ...rank(1100), tier: 14, division: 1 }]);
+    expect(await best()).toEqual({
+      best: 1400,
+      bestRank: { mmr: 1400, label: 'Champion III · Division IV', tier: 18 },
+    });
+  });
+
+  test('one set by hand has no rank, until a higher reading brings its own', async () => {
+    await post([rank(1300)]);
+    await env.DB.prepare(
+      "UPDATE player_ranks SET best_mmr = 1560, best_tier = NULL, best_division = NULL WHERE player = 'bob'",
+    ).run();
+    await post([rank(1400)]);
+    expect(await best()).toEqual({ best: 1560, bestRank: null });
+    await post([{ ...rank(1580), tier: 20, division: 1 }]);
+    expect(await best()).toEqual({
+      best: 1580,
+      bestRank: { mmr: 1580, label: 'Grand Champion II · Division I', tier: 20 },
+    });
+  });
+});
+
 describe('the solo accounts', () => {
   const epicId = `Epic|${'b'.repeat(32)}|0`;
   const solo = (mmr: number, extra: Record<string, unknown> = {}) => ({

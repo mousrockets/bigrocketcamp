@@ -97,6 +97,8 @@ export const aRank = (parts: Partial<DoublesRank> & Pick<DoublesRank, 'player'>)
   fetchedAt: null,
   lastAttempt: null,
   peak: null,
+  best: null,
+  bestRank: null,
   solo: null,
   ...parts,
 });

@@ -13,7 +13,7 @@ export interface CardRank {
   label: string;
   tier: number | null;
   peak: SeasonPeak | null;
-  /** A solo account's best rating, every season, with its rank; the duo rank has none. */
+  /** The account's best rating, every season, with its rank. */
   allTime?: SeasonPeak | null;
   /** Placement matches played while the season's ten are not done; null once placed. */
   placements: number | null;
@@ -29,7 +29,7 @@ const row = 'flex-nowrap gap-3 rounded-none border-0 p-0 [line-height:normal]';
 const media = 'w-10 translate-y-0 self-center';
 const words = 'min-w-0 *:w-full *:truncate';
 
-/** One account's rank on a player card: its icon, name, division and MMR, the way to the next rank, its season peak. */
+/** One account's rank on a player card: its icon, name, division and MMR, the way to the next rank, its peaks. */
 export function RankBlock({
   kind,
   icon,
