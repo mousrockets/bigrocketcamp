@@ -1,6 +1,6 @@
 import { screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
-import type { DoublesRank, SoloRank } from '../../lib/contract';
+import type { SoloRank } from '../../lib/contract';
 import { soundOf, sounds } from '../../lib/sounds';
 import { anExercise, aRank, aResult, aSoloRank, boardWith, renderInApp, setViewportWidth } from '../test-utils';
 import { TeamPage } from './team-page';
@@ -108,14 +108,22 @@ async function bobsCardWithBest(best: Partial<SoloRank>) {
     peak: { mmr: 1538, label: 'Grand Champion I · Division IV', tier: 19 },
     ...best,
   });
-  const bob = aRank({ player: 'bob', mmr: 1362, label: 'Champion III · Division II', tier: 18, solo });
+  const bob = aRank({
+    player: 'bob',
+    mmr: 1362,
+    label: 'Champion III · Division II',
+    tier: 18,
+    best: 1450,
+    bestRank: { mmr: 1450, label: 'Grand Champion I · Division I', tier: 19 },
+    solo,
+  });
   renderInApp(<TeamPage />, {
     board: { ...board, doublesRanks: [{ ...bob, peak: board.doublesRanks[0]?.peak ?? null }] },
   });
   return (await screen.findAllByRole('group'))[1] as HTMLElement;
 }
 
-test('shows the solo account’s peak all time under its season peak, and none for a duo without one', async () => {
+test('shows the solo account’s peak all time under its season peak, and none for the duo even with one', async () => {
   const card = await bobsCardWithBest({
     best: 1612,
     bestRank: { mmr: 1612, label: 'Grand Champion II · Division II', tier: 20 },
@@ -129,34 +137,6 @@ test('shows the solo account’s peak all time under its season peak, and none f
   expect(allTime).toHaveTextContent('Grand Champion II · Div. II');
   expect(allTime).toHaveTextContent('1 612');
   expect(allTime.querySelector('img')).toHaveAttribute('src', '/rocket-league/ranks/20.png');
-});
-
-/** Bob's card, his duo account read at 1 362 with a season peak, and a best rating every season. */
-async function bobsCardWithDuoBest(best: Partial<DoublesRank>) {
-  const bob = aRank({ ...board.doublesRanks[0], player: 'bob', ...best });
-  renderInApp(<TeamPage />, { board: { ...board, doublesRanks: [bob] } });
-  return (await screen.findAllByRole('group'))[1] as HTMLElement;
-}
-
-test('shows the duo account’s peak all time under its season peak', async () => {
-  const card = await bobsCardWithDuoBest({
-    best: 1450,
-    bestRank: { mmr: 1450, label: 'Grand Champion I · Division I', tier: 19 },
-  });
-  expect(
-    within(card)
-      .getAllByText(/^Peak /)
-      .map((title) => title.textContent),
-  ).toEqual(['Peak saison', 'Peak all time']);
-  const allTime = within(card).getByText('Peak all time').closest('[data-slot=item]') as HTMLElement;
-  expect(allTime).toHaveTextContent('Grand Champion I · Div. I1 450');
-  expect(allTime.querySelector('img')).toHaveAttribute('src', '/rocket-league/ranks/19.png');
-});
-
-test('a duo best rating set by hand shows the rank it wins on the ladder', async () => {
-  const card = await bobsCardWithDuoBest({ best: 1560, bestRank: null });
-  const allTime = within(card).getByText('Peak all time').closest('[data-slot=item]') as HTMLElement;
-  expect(allTime).toHaveTextContent('Grand Champion I · Div. IV1 560');
 });
 
 test('a best rating set by hand shows the rank and division it wins on the ladder', async () => {
