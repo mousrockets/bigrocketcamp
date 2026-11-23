@@ -1,4 +1,4 @@
-import { useSearch } from '@tanstack/react-router';
+import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { cn } from 'cn';
 import { Gamepad2, type LucideIcon, TrendingUp, Trophy, UserRound, UsersRound } from 'lucide-react';
 import { useState } from 'react';
@@ -14,6 +14,7 @@ import { PeriodKicker } from '../components/period-picker';
 import { SegmentedControl } from '../components/segmented-control';
 import { TabPage } from '../components/tab-page';
 import { Badge } from '../components/ui/badge';
+import { buttonVariants } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { Skeleton } from '../components/ui/skeleton';
 import { useNow } from '../hooks/use-now';
@@ -33,11 +34,13 @@ import {
   type Session,
   type SummaryPlayer,
 } from './timeline';
+import { TournamentSheet } from './tournament-sheet';
 
 export function MatchesPage() {
   const club = useClub();
   const { board, error } = useBoardState();
-  const { jour } = useSearch({ strict: false });
+  const { jour, tournoi } = useSearch({ strict: false });
+  const navigate = useNavigate();
   const now = useNow(30_000);
   const today = parisDay(now);
   // No day chosen: the last seven days. A day after today cannot be read and leads back to them.
@@ -49,6 +52,7 @@ export function MatchesPage() {
     : [];
   const groups = board ? replay(board, club.roster, days, today) : [];
   const session = board ? lastSession(board, club.roster, club.me.duoPseudo) : null;
+  const tournament = groups.flatMap((group) => group.matches).find((match) => match.guid === tournoi) ?? null;
 
   return (
     <TabPage
@@ -144,6 +148,16 @@ export function MatchesPage() {
               </p>
             )}
           </section>
+          <TournamentSheet
+            match={tournament}
+            onClose={() =>
+              void navigate({
+                to: '.',
+                search: (previous) => ({ ...previous, tournoi: undefined }),
+                resetScroll: false,
+              })
+            }
+          />
         </div>
       )}
     </TabPage>
@@ -365,6 +379,21 @@ function MatchRow({ match }: { match: ReplayMatch }) {
           </span>
         ))}
       </div>
+      {match.tournament && (
+        <Link
+          to="/matchs"
+          search={(previous) => ({ ...previous, tournoi: match.guid })}
+          resetScroll={false}
+          className={cn(
+            buttonVariants({ variant: 'soft', size: 'sm' }),
+            'self-start',
+            match.tournament === 'won' && 'text-win hover:text-win',
+          )}
+        >
+          <Trophy aria-hidden="true" />
+          {match.tournament === 'won' ? 'Tournoi gagné' : 'Tournoi gagné ?'}
+        </Link>
+      )}
     </div>
   );
 }

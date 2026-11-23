@@ -52,6 +52,12 @@ export async function sendJson({ path, method, body, fallback }: JsonWrite): Pro
 export const saveProfile = (profile: ProfileInput) =>
   sent(api.profile.$put({ json: profile }), 'Enregistrement impossible.');
 
+/** Declares that a match won the club a tournament, or takes it back. */
+export const changeTournamentWin = ({ matchGuid, won }: { matchGuid: string; won: boolean }) =>
+  won
+    ? sent(api['tournament-wins'].$post({ json: { matchGuid } }), 'Tournoi impossible à déclarer.')
+    : sent(api['tournament-wins'].$delete({ json: { matchGuid } }), 'Tournoi impossible à annuler.');
+
 export const deleteAccount = (): Promise<void> => sent(api.profile.$delete(), 'Suppression impossible.');
 
 export interface IdentityChange {

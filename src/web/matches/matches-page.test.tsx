@@ -1,6 +1,7 @@
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
+import { fakeApi, writes } from '../settings/fake-api';
 import { aRank, aResult, aSoloRank, boardWith, renderInApp } from '../test-utils';
 import { MatchesPage } from './matches-page';
 
@@ -10,7 +11,10 @@ beforeEach(() => {
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(new Date('2026-11-07T21:00:00Z'));
 });
-afterEach(() => vi.useRealTimers());
+afterEach(() => {
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+});
 
 /** Matchs on Saturday 7 November alone. */
 const today = '/matchs?jour=2026-11-07';
@@ -387,4 +391,51 @@ test('offers no choice of account while no player has a solo account', async () 
   renderInApp(<MatchesPage />, { board, path: today });
   const summary = await screen.findByRole('region', { name: 'Bilan du jour' });
   expect(within(summary).queryByRole('group', { name: 'Comptes du bilan' })).not.toBeInTheDocument();
+});
+
+const tournamentFinal = (declared: boolean) =>
+  boardWith({
+    results: [
+      ...duo('final', '2026-11-07T20:20:00Z', { won: true }).map((row) => ({ ...row, playlist: 34 })),
+      ...duo('ranked', '2026-11-07T20:00:00Z', { won: true }).map((row) => ({ ...row, playlist: 11 })),
+    ],
+    rules: { ...board.rules, tournamentWins: declared ? ['final'] : [] },
+  });
+
+test('a tournament match won offers to declare the tournament won, and sends it', async () => {
+  const sent = fakeApi({ 'POST /api/tournament-wins': { ok: true } });
+  renderInApp(<MatchesPage />, { board: tournamentFinal(false), path: today });
+  const replay = await screen.findByRole('region', { name: 'Derniers matchs' });
+  // Only the tournament match offers it.
+  expect(within(replay).getAllByRole('link', { name: 'Tournoi gagné ?' })).toHaveLength(1);
+  await userEvent.click(within(replay).getByRole('link', { name: 'Tournoi gagné ?' }));
+  const sheet = await screen.findByRole('dialog', { name: 'Tournoi gagné ?' });
+  expect(
+    within(sheet)
+      .getAllByRole('listitem')
+      .map((item) => item.textContent),
+  ).toEqual(['alice−50', 'bob−50']);
+  await userEvent.click(within(sheet).getByRole('button', { name: 'On a gagné le tournoi !' }));
+  await vi.waitFor(() =>
+    expect(writes(sent)).toEqual([{ method: 'POST', path: '/api/tournament-wins', body: { matchGuid: 'final' } }]),
+  );
+});
+
+test('a tournament declared won takes 50 pushups off each winner, and can be taken back', async () => {
+  const sent = fakeApi({ 'DELETE /api/tournament-wins': { ok: true } });
+  renderInApp(<MatchesPage />, { board: tournamentFinal(true), path: today });
+  const summary = await screen.findByRole('region', { name: 'Bilan du jour' });
+  const [alice] = within(summary)
+    .getAllByText(/parties/)
+    .map((line) => line.closest('[data-slot=card]') as HTMLElement);
+  expect(alice).toHaveTextContent('Esquivées−50');
+  const replay = screen.getByRole('region', { name: 'Derniers matchs' });
+  const final = within(replay).getByRole('link', { name: 'Tournoi gagné' }).parentElement as HTMLElement;
+  expect(final).toHaveTextContent('alice · 400 pts−50bob · 250 pts−50');
+  await userEvent.click(within(final).getByRole('link', { name: 'Tournoi gagné' }));
+  const sheet = await screen.findByRole('dialog', { name: 'Tournoi gagné' });
+  await userEvent.click(within(sheet).getByRole('button', { name: 'Ce n’était pas la finale' }));
+  await vi.waitFor(() =>
+    expect(writes(sent)).toEqual([{ method: 'DELETE', path: '/api/tournament-wins', body: { matchGuid: 'final' } }]),
+  );
 });

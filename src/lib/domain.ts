@@ -29,6 +29,7 @@ export {
   lastPlaceBonus,
   lastPlaceRuleOn,
   matchIndex,
+  tournamentWinPushups,
 } from './match-rules';
 
 export const playerName = (roster: Roster, name: unknown): string | null =>
@@ -220,7 +221,7 @@ export function summarize<Row extends MatchRow>(
   return roster.map((name) => {
     const all = rows.filter((row) => row.name === name && row.kind === 'match' && !row.review_required);
     const selected = all.filter((row) => !day || row.day === day);
-    // A forfeit won or a game from 1000 points lowers what is due like an exercise would: the pushups dodged
+    // A forfeit won, a game from 1000 points or a tournament won lowers what is due like an exercise would: the pushups dodged
     // count for later defeats.
     const due = all.reduce(
       (sum, row) =>
@@ -257,7 +258,12 @@ export interface DebtSources<Row extends MatchRow> {
   exercises: StoredExercise[];
   matchRosters?: RosterSize[] | undefined;
   /** Absent from a board kept from an older API: the default rules apply. */
-  rules?: { lastPlace?: LastPlaceRules; forfeit?: DodgeRules['forfeit']; highScore?: DodgeRules['highScore'] } | null;
+  rules?: {
+    lastPlace?: LastPlaceRules;
+    forfeit?: DodgeRules['forfeit'];
+    highScore?: DodgeRules['highScore'];
+    tournamentWins?: DodgeRules['tournamentWins'];
+  } | null;
 }
 
 /** Each player's matches, debt and exercises, as the rules count them today: what L'équipe shows. */
@@ -308,7 +314,7 @@ export function dailyRecap<Row extends MatchRow>(
     compared: 0,
     unranked: 0,
     bonus: 0,
-    /** Pushups taken off by the wins the opponents forfeited and the games from 1000 points. */
+    /** Pushups taken off by the wins the opponents forfeited, the games from 1000 points and the tournaments won. */
     dodged: 0,
     /** What the day adds to the debt: the defeats, the bonus, less what was dodged. */
     generated: 0,

@@ -137,9 +137,9 @@ describe('the challenge rules', () => {
 
   test('by default, the +5 and the −5 apply as they did in the code, and the −10 from 2026-11-07', async () => {
     const club = await (await call('/api/club', member)).json<{ rules: unknown }>();
-    expect(club.rules).toEqual({ lastPlace: [original], forfeit: [], highScore });
+    expect(club.rules).toEqual({ lastPlace: [original], forfeit: [], highScore, tournamentWins: [] });
     const board = await (await call('/api/state', member)).json<{ rules: unknown }>();
-    expect(board.rules).toEqual({ lastPlace: [original], forfeit: [], highScore });
+    expect(board.rules).toEqual({ lastPlace: [original], forfeit: [], highScore, tournamentWins: [] });
   });
 
   test('a change applies from tomorrow, and asking again for today’s rule cancels it', async () => {
@@ -149,13 +149,14 @@ describe('the challenge rules', () => {
       lastPlace: [original, { effectiveFrom: tomorrow(), enabled: false, ties: 'none' }],
       forfeit: [],
       highScore,
+      tournamentWins: [],
     });
     // Twice the same change keeps one row.
     await call('/api/club/rules', admin, 'PUT', { lastPlace: { enabled: false } });
     expect(await env.DB.prepare('SELECT COUNT(*) AS n FROM last_place_rules').first('n')).toBe(2);
 
     const back = await call('/api/club/rules', admin, 'PUT', { lastPlace: { enabled: true } });
-    expect(await back.json()).toEqual({ lastPlace: [original], forfeit: [], highScore });
+    expect(await back.json()).toEqual({ lastPlace: [original], forfeit: [], highScore, tournamentWins: [] });
   });
 
   test('the −5 of a forfeit won switches off from tomorrow, and back on cancels it', async () => {
@@ -165,12 +166,13 @@ describe('the challenge rules', () => {
       lastPlace: [original],
       forfeit: [{ effectiveFrom: tomorrow(), enabled: false }],
       highScore,
+      tournamentWins: [],
     });
     await call('/api/club/rules', admin, 'PUT', { forfeit: { enabled: false } });
     expect(await env.DB.prepare('SELECT COUNT(*) AS n FROM forfeit_rules').first('n')).toBe(1);
 
     const back = await call('/api/club/rules', admin, 'PUT', { forfeit: { enabled: true } });
-    expect(await back.json()).toEqual({ lastPlace: [original], forfeit: [], highScore });
+    expect(await back.json()).toEqual({ lastPlace: [original], forfeit: [], highScore, tournamentWins: [] });
     expect(await env.DB.prepare('SELECT COUNT(*) AS n FROM forfeit_rules').first('n')).toBe(0);
   });
 
@@ -181,12 +183,13 @@ describe('the challenge rules', () => {
       lastPlace: [original],
       forfeit: [],
       highScore: [...highScore, { effectiveFrom: tomorrow(), enabled: false }],
+      tournamentWins: [],
     });
     await call('/api/club/rules', admin, 'PUT', { highScore: { enabled: false } });
     expect(await env.DB.prepare('SELECT COUNT(*) AS n FROM high_score_rules').first('n')).toBe(2);
 
     const back = await call('/api/club/rules', admin, 'PUT', { highScore: { enabled: true } });
-    expect(await back.json()).toEqual({ lastPlace: [original], forfeit: [], highScore });
+    expect(await back.json()).toEqual({ lastPlace: [original], forfeit: [], highScore, tournamentWins: [] });
     expect(await env.DB.prepare('SELECT COUNT(*) AS n FROM high_score_rules').first('n')).toBe(1);
   });
 
@@ -199,6 +202,7 @@ describe('the challenge rules', () => {
       lastPlace: [original, { effectiveFrom: tomorrow(), enabled: false, ties: 'none' }],
       forfeit: [{ effectiveFrom: tomorrow(), enabled: false }],
       highScore,
+      tournamentWins: [],
     });
   });
 

@@ -72,6 +72,8 @@ export const challengeRules = z.looseObject({
     .array(highScoreRule)
     .readonly()
     .catch(() => defaultHighScoreRules.map((rule) => ({ ...rule }))),
+  /** The last match of each tournament the club declared won; absent from an API older than them. */
+  tournamentWins: z.array(z.string()).readonly().catch([]),
 });
 export type ChallengeRules = Known<z.output<typeof challengeRules>>;
 
@@ -90,3 +92,13 @@ export type ClubNameSaved = Known<z.output<typeof clubNameSaved>>;
 /** The answer to a new logo, or to its removal. */
 export const clubLogo = z.looseObject({ logo: z.string().nullable() });
 export type ClubLogo = Known<z.output<typeof clubLogo>>;
+
+export const invalidTournamentWin = 'Match de tournoi inconnu.';
+/** The last match of a tournament the club won, declared or taken back. */
+export const tournamentWin = z.object({
+  matchGuid: z
+    .string(says(invalidTournamentWin))
+    .min(1, says(invalidTournamentWin))
+    .max(128, says(invalidTournamentWin)),
+});
+export type TournamentWinInput = z.input<typeof tournamentWin>;

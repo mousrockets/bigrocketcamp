@@ -99,6 +99,20 @@ test('the −10 from 1000 points starts on 2026-11-07, then follows each day’s
   expect(dodgeRules({ forfeit: [] })).toEqual(defaultDodgeRules);
 });
 
+test('a tournament won takes 50 pushups off each club player who won its last match', () => {
+  const rules = { ...defaultDodgeRules, tournamentWins: ['final'] };
+  const game = { name: 'alice', kind: 'match', team: 0, winner: 0, day, score: 300 };
+  const final = { ...game, match_guid: 'final' };
+  expect(dodgedPushups(final, rules)).toBe(50);
+  expect(dodgedPushups({ ...game, matchGuid: 'final' }, rules)).toBe(50);
+  expect(dodgedPushups(final)).toBe(0);
+  expect(dodgedPushups({ ...final, match_guid: 'semi-final' }, rules)).toBe(0);
+  expect(dodgedPushups({ ...final, team: 1 }, rules)).toBe(0);
+  expect(dodgedPushups({ ...final, left: true }, rules)).toBe(0);
+  expect(dodgedPushups({ ...final, review_required: true }, rules)).toBe(0);
+  expect(dodgeRules({ tournamentWins: ['final'] }).tournamentWins).toEqual(['final']);
+});
+
 test('declared rosters must match a coherent scoreboard', () => {
   expect(validateMatchRosters(undefined, scoreboard)).toEqual([]);
   expect(validateMatchRosters([{ MatchGuid: 'm', PlayerCount: 2 }], scoreboard)).toEqual([

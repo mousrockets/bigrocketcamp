@@ -99,6 +99,15 @@ export const highScoreRules = sqliteTable('high_score_rules', {
   enabled: integer('enabled', { mode: 'boolean' }).notNull(),
 });
 
+/**
+ * The tournaments the club won, each by its last match, as a member declared it: the game never says a tournament
+ * is won. Each club player who won that match takes 50 pushups off.
+ */
+export const tournamentWins = sqliteTable('tournament_wins', {
+  matchGuid: text('match_guid').primaryKey(),
+  declared: text('declared').notNull().default(isoNow),
+});
+
 /** Only a hash of the code is stored. Times in milliseconds. */
 export const signInCodes = sqliteTable('sign_in_codes', {
   email: text('email').primaryKey(),

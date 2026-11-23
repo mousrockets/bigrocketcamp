@@ -56,6 +56,7 @@ test('shows the rules as they stand from tomorrow, and sends both switches in on
     lastPlace: [{ effectiveFrom: '2026-11-06', enabled: true, ties: 'none' as const }],
     forfeit: [{ effectiveFrom: tomorrow, enabled: false }],
     highScore: [{ effectiveFrom: '2026-11-07', enabled: true }],
+    tournamentWins: [],
   };
   const sent = fakeApi();
   renderInApp(<ClubSettings />, { path: '/reglages/club', club: { ...testClub, rules } });
@@ -81,7 +82,7 @@ test('shows the −10 as it stands from tomorrow, and turns it back on', async (
     { effectiveFrom: '2026-11-07', enabled: true },
     { effectiveFrom: tomorrow, enabled: false },
   ];
-  const rules = { lastPlace: [], forfeit: [], highScore };
+  const rules = { lastPlace: [], forfeit: [], highScore, tournamentWins: [] };
   const sent = fakeApi();
   renderInApp(<ClubSettings />, { path: '/reglages/club', club: { ...testClub, rules } });
   const rule = await screen.findByRole('switch', { name: '−10 dès 1\u00a0000 points' });

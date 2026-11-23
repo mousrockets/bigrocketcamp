@@ -105,6 +105,7 @@ describe('an answer from an older API, without the fields added since, still par
       lastPlace: defaultLastPlaceRules,
       forfeit: [],
       highScore: defaultHighScoreRules,
+      tournamentWins: [],
     });
   });
 
