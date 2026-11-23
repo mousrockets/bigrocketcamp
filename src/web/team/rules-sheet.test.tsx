@@ -26,6 +26,7 @@ test('states every rule the club keeps by default', async () => {
     '+5Quitter avant la fin compte comme une défaite',
     '−5Si les adversaires FF',
     '−10Dès 1\u00a0000 points dans une partie',
+    '−50Pour chaque vainqueur d’un tournoiÀ déclarer sur la finale, dans Matchs.',
   ]);
   expect(await lines('Les exercices')).toEqual([
     '15pompes pour 1 min de gainage',
@@ -54,6 +55,7 @@ test('leaves out a rule the admins switched off, and says which change comes tom
       { enabled: false, effectiveFrom: '2026-11-01' },
       { enabled: true, effectiveFrom: '2026-11-10' },
     ],
+    tournamentWins: [],
   });
   const matches = await lines('Les matchs');
   expect(matches).toContain('+5Bonus pour celui qui a le moins de points de l’équipeEx æquo : chacun prend le bonus.');
@@ -66,9 +68,10 @@ test('drops a rule switched off today and tomorrow', async () => {
     lastPlace: [{ enabled: false, effectiveFrom: '2026-11-01', ties: 'none' }],
     forfeit: [],
     highScore: [],
+    tournamentWins: [],
   });
   const matches = await lines('Les matchs');
-  expect(matches).toHaveLength(3);
+  expect(matches).toHaveLength(4);
   expect(matches.join()).not.toContain('Bonus');
   expect(matches.join()).not.toContain('1\u00a0000 points');
 });

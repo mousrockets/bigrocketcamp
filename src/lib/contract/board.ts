@@ -152,6 +152,7 @@ const smallParts = {
     lastPlace: defaultLastPlaceRules.map((rule) => ({ ...rule })),
     forfeit: defaultForfeitRules.map((rule) => ({ ...rule })),
     highScore: defaultHighScoreRules.map((rule) => ({ ...rule })),
+    tournamentWins: [],
   })),
 };
 

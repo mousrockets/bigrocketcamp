@@ -17,6 +17,7 @@ import { rankRoutes } from './routes/ranks';
 import { reminderOptOutRoutes, reminderRoutes } from './routes/reminders';
 import { soundRoutes } from './routes/sounds';
 import { stateRoutes } from './routes/state';
+import { tournamentWinRoutes } from './routes/tournaments';
 
 export const app = new Hono<AppEnv>().basePath('/api');
 
@@ -62,6 +63,7 @@ app.use('/club', requireMember);
 app.use('/club/rules', requireMember);
 app.use('/profile', requireMember);
 app.use('/sounds', requireMember);
+app.use('/tournament-wins', requireMember);
 app.use('/reminders', requireMember);
 app.use('/reminders/test', requireMember);
 app.use('/collectors', requireMember);
@@ -78,6 +80,7 @@ const routes = publicRoutes
   .route('/club', clubRoutes)
   .route('/profile', profileRoutes)
   .route('/sounds', soundRoutes)
+  .route('/tournament-wins', tournamentWinRoutes)
   .route('/reminders', reminderRoutes)
   .route('/collectors', collectorDeviceRoutes)
   .route('/members', memberRoutes);

@@ -10,6 +10,7 @@ import {
   highScoreRuleOn,
   lastPlaceRuleOn,
   pushupCredit,
+  tournamentWinPushups,
 } from '../../lib/domain';
 import { formatNumber } from '../../lib/format';
 import { useBoardState } from '../board';
@@ -75,6 +76,13 @@ export function RulesSheet({ open, onClose }: { open: boolean; onClose: () => vo
         </Rule>
         <Rule value="−10" tone="credit" switched={highScore}>
           Dès {formatNumber(highScorePoints)} points dans une partie
+        </Rule>
+        <Rule
+          value={`−${formatNumber(tournamentWinPushups)}`}
+          tone="credit"
+          note="À déclarer sur la finale, dans Matchs."
+        >
+          Pour chaque vainqueur d’un tournoi
         </Rule>
       </RuleGroup>
       <RuleGroup title="Les exercices">

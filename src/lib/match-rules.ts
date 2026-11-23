@@ -210,23 +210,45 @@ export function highScoreDodge(row: MatchRow, rules: HighScoreRules = defaultHig
   return counted && highScoreRuleOn(rules, row.day).enabled ? 10 : 0;
 }
 
-/** The rules that take pushups off, each with its history. */
+/** Pushups each club player of the winning team takes off for a tournament won. */
+export const tournamentWinPushups = 50;
+
+/**
+ * « Si tu gagnes un tournoi, 50 pompes de moins »: the game never says a tournament is won, so a member declares
+ * its last match; each club player who won that match, present at the end, takes 50 pushups off.
+ */
+export function tournamentDodge(row: MatchRow, tournamentWins: readonly string[]): number {
+  const id = guid(row);
+  const won = row.kind === 'match' && !row.review_required && !row.left && row.team === row.winner;
+  return won && id !== undefined && tournamentWins.includes(id) ? tournamentWinPushups : 0;
+}
+
+/** The rules that take pushups off, each with its history, and the tournaments the club declared won. */
 export interface DodgeRules {
   forfeit: ForfeitRules;
   highScore: HighScoreRules;
+  /** The last match of each tournament won, by its match ID. */
+  tournamentWins: readonly string[];
 }
 
-export const defaultDodgeRules: DodgeRules = { forfeit: defaultForfeitRules, highScore: defaultHighScoreRules };
+export const defaultDodgeRules: DodgeRules = {
+  forfeit: defaultForfeitRules,
+  highScore: defaultHighScoreRules,
+  tournamentWins: [],
+};
 
 /** The rules that take pushups off, from a board or a club kept by an older API: a rule left out gets its default. */
 export const dodgeRules = (rules?: Partial<DodgeRules>): DodgeRules => ({
   forfeit: rules?.forfeit ?? defaultForfeitRules,
   highScore: rules?.highScore ?? defaultHighScoreRules,
+  tournamentWins: rules?.tournamentWins ?? [],
 });
 
 /** The pushups a match takes off a club player: they lower the debt, and count for later defeats. */
 export function dodgedPushups(row: MatchRow, rules: DodgeRules = defaultDodgeRules): number {
-  return forfeitDodge(row, rules.forfeit) + highScoreDodge(row, rules.highScore);
+  return (
+    forfeitDodge(row, rules.forfeit) + highScoreDodge(row, rules.highScore) + tournamentDodge(row, rules.tournamentWins)
+  );
 }
 
 export interface ReceivedRoster {

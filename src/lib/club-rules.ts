@@ -14,7 +14,7 @@ import {
   lastPlaceRuleOn,
 } from './match-rules';
 import { orm } from './orm';
-import { forfeitRules, highScoreRules, lastPlaceRules } from './schema';
+import { forfeitRules, highScoreRules, lastPlaceRules, tournamentWins } from './schema';
 
 // The challenge rules are club settings with a history: a change applies from the next day in Paris, so the
 // matches already played, today's included, keep the pushups they were counted with.
@@ -23,6 +23,8 @@ export interface ChallengeRules {
   lastPlace: LastPlaceRules;
   forfeit: ForfeitRules;
   highScore: HighScoreRules;
+  /** The last match of each tournament the club declared won, by its match ID. */
+  tournamentWins: readonly string[];
 }
 
 /** What an admin asks for each rule from tomorrow on; a rule left out stays as it is. */
@@ -41,7 +43,12 @@ export function dayAfter(day: string): string {
 
 export async function readChallengeRules(db: Database): Promise<ChallengeRules> {
   const query = orm(db);
-  const [lastPlace, forfeit, highScore]: [LastPlaceRule[], ForfeitRule[], HighScoreRule[]] = await Promise.all([
+  const [lastPlace, forfeit, highScore, wins]: [
+    LastPlaceRule[],
+    ForfeitRule[],
+    HighScoreRule[],
+    { matchGuid: string }[],
+  ] = await Promise.all([
     query
       .select({
         effectiveFrom: lastPlaceRules.effectiveFrom,
@@ -58,8 +65,9 @@ export async function readChallengeRules(db: Database): Promise<ChallengeRules> 
       .select({ effectiveFrom: highScoreRules.effectiveFrom, enabled: highScoreRules.enabled })
       .from(highScoreRules)
       .orderBy(asc(highScoreRules.effectiveFrom)),
+    query.select({ matchGuid: tournamentWins.matchGuid }).from(tournamentWins).orderBy(asc(tournamentWins.declared)),
   ]);
-  return { lastPlace, forfeit, highScore };
+  return { lastPlace, forfeit, highScore, tournamentWins: wins.map((win) => win.matchGuid) };
 }
 
 /**

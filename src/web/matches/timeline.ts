@@ -19,7 +19,7 @@ export interface SummaryPlayer {
   /** Pushups the day adds: defeats, bonus, minus the dodged ones. */
   owed: number;
   bonus: number;
-  /** Pushups off for wins the opponents forfeited and games from 1000 points. */
+  /** Pushups off for wins the opponents forfeited, games from 1000 points and tournaments won. */
   dodged: number;
   accounts: Accounts;
   /** The pseudo shown: the solo account's when the player played only on it, else the player's own. */
@@ -126,6 +126,11 @@ export interface ReplayMatch {
   clock: string | null;
   tags: string[];
   mode: HistoryMatch<Row>['mode'];
+  /**
+   * `won` once a member declared that the match won the club a tournament; `open` for another tournament match a
+   * club player won, which may be its final.
+   */
+  tournament: 'won' | 'open' | null;
   /** The club's goals first. */
   score: [number, number] | null;
   players: {
@@ -135,6 +140,9 @@ export interface ReplayMatch {
     points: number;
     lastPlace: boolean;
     highScore: boolean;
+    tournament: boolean;
+    /** Won the match, present at the end. */
+    won: boolean;
     left: boolean;
     mvp: boolean;
     /** Played in a group: with a club player, or with the same stranger several matches in a row. */
@@ -165,6 +173,13 @@ function tagsOf(match: HistoryMatch<Row>): string[] {
   return tags;
 }
 
+/** Whether the match won the club a tournament, or may have: a tournament match a club player won. */
+function tournamentOf(match: HistoryMatch<Row>): ReplayMatch['tournament'] {
+  if (match.tournamentWon) return 'won';
+  const won = match.players.some(({ row, left }) => !left && !row.review_required && row.team === row.winner);
+  return match.mode === 'tournament' && !match.review && won ? 'open' : null;
+}
+
 /**
  * The matches of those days, newest first: grouped by part of day for a single day, by day for several.
  */
@@ -188,15 +203,18 @@ export function replay(board: Board, roster: readonly string[], days: readonly s
       clock: match.received ? formatClock(match.received) : null,
       tags: tagsOf(match),
       mode: match.mode,
+      tournament: tournamentOf(match),
       score: match.score,
       players: [...match.players]
         .sort((a, b) => b.row.score - a.row.score)
-        .map(({ row, pushups, lastPlace, highScore, left, mvp }) => ({
+        .map(({ row, pushups, lastPlace, highScore, tournament, left, mvp }) => ({
           name: row.name,
           account: playedSolo(solo, row) ? (solo.get(row.name)?.pseudo ?? row.name) : row.name,
           points: row.score,
           lastPlace,
           highScore,
+          tournament,
+          won: !left && row.team === row.winner,
           left,
           mvp,
           party: partied.get(match.guid)?.has(row.player_id) ?? false,

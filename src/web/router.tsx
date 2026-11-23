@@ -59,11 +59,15 @@ const challengesRoute = createRoute({
     podium: z.literal('all-time').optional().catch(undefined),
   }),
 });
+// `?tournoi=<match>` opens, over Matchs, the sheet that declares a tournament won on its last match.
 const matchesRoute = createRoute({
   getParentRoute: () => shellRoute,
   path: '/matchs',
   component: MatchesPage,
-  validateSearch: z.object({ jour: dayParameter }),
+  validateSearch: z.object({
+    jour: dayParameter,
+    tournoi: z.string().min(1).max(128).optional().catch(undefined),
+  }),
 });
 const settingsRoute = createRoute({ getParentRoute: () => shellRoute, path: '/reglages', component: SettingsHome });
 // Réglages opens its screens like iOS Settings, each with the way back to it.

@@ -11,6 +11,7 @@ import {
   type LastPlaceRules,
   lastPlaceBonus,
   type MatchRow,
+  tournamentDodge,
 } from './match-rules';
 
 // The match history shows one entry per match, not one line per player: its result, its score, and what
@@ -35,7 +36,7 @@ export interface HistoryPlayer<Row extends HistoryRow> {
   row: Row;
   /**
    * What the match adds: 0 for a win, 5 for a defeat, 10 for the team's lowest club player, -5 for a win the
-   * opponents forfeited, and 10 less for a game from 1000 points.
+   * opponents forfeited, 10 less for a game from 1000 points, and 50 less for the last match of a tournament won.
    */
   pushups: number;
   /** This player takes the extra 5 of the team's lowest club player. */
@@ -44,6 +45,8 @@ export interface HistoryPlayer<Row extends HistoryRow> {
   dodged: boolean;
   /** This player dodges 10 pushups: 1000 points or more in the game. */
   highScore: boolean;
+  /** This player dodges 50 pushups: the match won the club a tournament. */
+  tournament: boolean;
   /** This player left before the end: a defeat, whatever his team did after. */
   left: boolean;
   /** The game named this player the match's MVP: the best score of the winning team. */
@@ -73,6 +76,8 @@ export interface HistoryMatch<Row extends HistoryRow> {
   score: [number, number] | null;
   /** Casual, ranked, tournament or private; null while no source sent the playlist, or for an unknown one. */
   mode: MatchMode | null;
+  /** A member declared that this match won the club a tournament. */
+  tournamentWon: boolean;
   players: HistoryPlayer<Row>[];
 }
 
@@ -175,17 +180,20 @@ export function matchHistory<Row extends HistoryRow>(
       overtime: rows.some((row) => row.overtime === true),
       score: scoreOf(all, ours),
       mode: matchModeOf(all.find((row) => typeof row.playlist === 'number')?.playlist),
+      tournamentWon: dodge.tournamentWins.includes(guid),
       players: rows.map((row) => {
         const counted = !row.review_required && row.kind === 'match' && row.team !== row.winner;
         const bonus = counted ? lastPlaceBonus(row, matches, roster, rules) : 0;
         const forfeit = forfeitDodge(row, dodge.forfeit);
         const highScore = highScoreDodge(row, dodge.highScore);
+        const tournament = tournamentDodge(row, dodge.tournamentWins);
         return {
           row,
-          pushups: (counted ? 5 + bonus : 0) - forfeit - highScore,
+          pushups: (counted ? 5 + bonus : 0) - forfeit - highScore - tournament,
           lastPlace: bonus > 0,
           dodged: forfeit > 0,
           highScore: highScore > 0,
+          tournament: tournament > 0,
           left: row.left === true,
           mvp: !row.left && mvp !== null && mvp === identity(row),
         };
