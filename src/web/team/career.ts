@@ -1,3 +1,4 @@
+import { matchModeOf } from '../../lib/live-stats';
 import { mvpOf } from '../../lib/match-history';
 import { matchIndex } from '../../lib/match-rules';
 import type { Board } from '../board';
@@ -17,17 +18,30 @@ export interface Career {
   /** The most matches won in a row, and lost in a row, in the order they were played. */
   winStreak: number;
   lossStreak: number;
+  /** Tournaments the club declared won on a match this player won. */
+  tournamentsWon: number;
 }
+
+/**
+ * Which matches count: ranked or tournament ones, each with its own stats, or all of them. A match whose playlist no
+ * source sent is neither ranked nor tournament.
+ */
+export type CareerScope = 'ranked' | 'tournament' | 'all';
+
+const inScope = (scope: CareerScope, playlist: number | null | undefined) =>
+  scope === 'all' || matchModeOf(playlist) === scope;
 
 const added = (total: number | null, value: number | null | undefined) =>
   typeof value === 'number' ? (total ?? 0) + value : total;
 
 /** The player's lines of the matches no source disputes, each match once, and the MVPs among them. */
-export function careerOf(board: Board, name: string): Career {
+export function careerOf(board: Board, name: string, scope: CareerScope): Career {
   const index = matchIndex(board.results, board.matchRosters ?? []);
   const lines = new Map(
     board.results
-      .filter((row) => row.name === name && row.kind === 'match' && !row.review_required)
+      .filter(
+        (row) => row.name === name && row.kind === 'match' && !row.review_required && inScope(scope, row.playlist),
+      )
       .map((row) => [row.match_guid, row]),
   );
   const career: Career = {
@@ -42,7 +56,9 @@ export function careerOf(board: Board, name: string): Career {
     crossbarHits: null,
     winStreak: 0,
     lossStreak: 0,
+    tournamentsWon: 0,
   };
+  const tournamentsWon = board.rules?.tournamentWins ?? [];
   // A match received late (an import, a source catching up) still belongs to its own day.
   const played = [...lines].sort(
     ([, a], [, b]) => a.day.localeCompare(b.day) || (a.received ?? a.day).localeCompare(b.received ?? b.day),
@@ -63,6 +79,7 @@ export function careerOf(board: Board, name: string): Career {
     career.demos = added(career.demos, row.demos);
     career.crossbarHits = added(career.crossbarHits, row.crossbar_hits);
     if (!row.left && mvpOf(index.get(guid)) === row.player_id) career.mvps++;
+    if (won && tournamentsWon.includes(guid)) career.tournamentsWon++;
   }
   return career;
 }

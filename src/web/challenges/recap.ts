@@ -146,7 +146,7 @@ export function monthRecap(board: Board, roster: readonly string[], me: string |
   const exercises = board.exercises.filter(inMonth(month));
   const club = clubMonth(lines);
   const monthBoard = { ...board, results };
-  const careers = roster.map((player) => ({ player, career: careerOf(monthBoard, player) }));
+  const careers = roster.map((player) => ({ player, career: careerOf(monthBoard, player, 'all') }));
   const pushups = roster.map((player) => ({
     player,
     value: exercises

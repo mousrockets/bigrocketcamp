@@ -1,4 +1,5 @@
 import { screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import type { SoloRank } from '../../lib/contract';
 import { soundOf, sounds } from '../../lib/sounds';
@@ -247,18 +248,18 @@ test('a player’s pseudo opens the sheet of their stats', async () => {
 test('the sheet adds up every match of the player, the disputed ones aside', async () => {
   const stats = boardWith({
     results: [
-      aResult({ name: 'bob', match_guid: 'won', winner: 0, score: 620, goals: 2, assists: 1, saves: 3 }),
+      aResult({ playlist: 11, name: 'bob', match_guid: 'won', winner: 0, score: 620, goals: 2, assists: 1, saves: 3 }),
       aResult({ name: 'stranger', player_id: 'Epic|s|0', match_guid: 'won', winner: 0, score: 400 }),
       aResult({ name: 'foe', player_id: 'Epic|f|0', match_guid: 'won', team: 1, winner: 0, score: 500 }),
-      aResult({ name: 'bob', match_guid: 'lost', goals: 1, saves: 2 }),
-      aResult({ name: 'bob', match_guid: 'doubt', goals: 9, review_required: true }),
+      aResult({ playlist: 11, name: 'bob', match_guid: 'lost', goals: 1, saves: 2 }),
+      aResult({ playlist: 11, name: 'bob', match_guid: 'doubt', goals: 9, review_required: true }),
     ],
     matchRosters: [{ match_guid: 'won', expected_players: 3 }],
   });
   renderInApp(<TeamPage />, { board: stats, path: '/?fiche=1' });
   const sheet = await screen.findByRole('dialog', { name: 'bob' });
-  expect(within(sheet).getByRole('region', { name: 'Matchs joués' })).toHaveTextContent(
-    'Matchs joués1 W · 1 L · 50 % de victoires2',
+  expect(within(sheet).getByRole('region', { name: 'Matchs ranked' })).toHaveTextContent(
+    'Matchs ranked1 W · 1 L · 50 % de victoires2',
   );
   const figures = within(sheet).getByRole('region', { name: 'Statistiques' });
   expect(figures).toHaveTextContent('3Buts1Passes D5Arrêts1MVP');
@@ -267,9 +268,9 @@ test('the sheet adds up every match of the player, the disputed ones aside', asy
 test('the sheet counts demolitions and posts once the collector sends them, and says when it does not yet', async () => {
   const stats = boardWith({
     results: [
-      aResult({ name: 'bob', match_guid: 'new', demos: 3, crossbar_hits: 1 }),
-      aResult({ name: 'bob', match_guid: 'newer', demos: 2, crossbar_hits: 0 }),
-      aResult({ name: 'bob', match_guid: 'old' }),
+      aResult({ playlist: 11, name: 'bob', match_guid: 'new', demos: 3, crossbar_hits: 1 }),
+      aResult({ playlist: 11, name: 'bob', match_guid: 'newer', demos: 2, crossbar_hits: 0 }),
+      aResult({ playlist: 11, name: 'bob', match_guid: 'old' }),
       aResult({ name: 'alice', match_guid: 'older' }),
     ],
   });
@@ -281,7 +282,7 @@ test('the sheet counts demolitions and posts once the collector sends them, and 
 
 test('the sheet shows the longest win streak and lose streak, in the order the matches were played', async () => {
   const played = (match_guid: string, day: string, received: string, won: boolean, left = false) =>
-    aResult({ name: 'bob', match_guid, day, received, team: 0, winner: won ? 0 : 1, left });
+    aResult({ playlist: 11, name: 'bob', match_guid, day, received, team: 0, winner: won ? 0 : 1, left });
   const stats = boardWith({
     results: [
       // Rows arrive out of order: a late import of the 4th still counts on its day.
@@ -302,9 +303,64 @@ test('the sheet shows the longest win streak and lose streak, in the order the m
   expect(within(bob).getByRole('region', { name: 'Streaks' })).toHaveTextContent('4Win streak max3Lose streak max');
 });
 
+test('the sheet counts ranked matches only, and tournaments apart in the Tournoi view', async () => {
+  const tournament = { playlist: 34 };
+  const stats = boardWith({
+    results: [
+      aResult({ name: 'bob', match_guid: 'casual', winner: 0, goals: 5, playlist: 2 }),
+      aResult({ name: 'bob', match_guid: 'ranked', winner: 1, goals: 1, assists: 0, saves: 4, playlist: 11 }),
+      aResult({
+        name: 'bob',
+        match_guid: 'semi',
+        winner: 0,
+        goals: 2,
+        assists: 1,
+        saves: 1,
+        ...tournament,
+      }),
+      aResult({
+        name: 'bob',
+        match_guid: 'final',
+        winner: 0,
+        goals: 1,
+        assists: 2,
+        saves: 0,
+        ...tournament,
+      }),
+      aResult({
+        name: 'bob',
+        match_guid: 'lost',
+        winner: 1,
+        goals: 0,
+        assists: 0,
+        saves: 3,
+        ...tournament,
+      }),
+    ],
+    rules: { ...board.rules, tournamentWins: ['final'] },
+  });
+  renderInApp(<TeamPage />, { board: stats, path: '/?fiche=1' });
+  const bob = await screen.findByRole('dialog', { name: 'bob' });
+  expect(within(bob).getByText('Ses stats en ranked.')).toBeInTheDocument();
+  expect(within(bob).getByRole('region', { name: 'Matchs ranked' })).toHaveTextContent(
+    'Matchs ranked0 W · 1 L · 0 % de victoires1',
+  );
+  expect(within(bob).getByRole('region', { name: 'Statistiques' })).toHaveTextContent('1Buts0Passes D4Arrêts');
+
+  await userEvent.click(within(bob).getByRole('button', { name: 'Tournoi' }));
+  expect(within(bob).getByText('Ses stats en tournoi.')).toBeInTheDocument();
+  expect(within(bob).getByRole('region', { name: 'Matchs de tournoi' })).toHaveTextContent(
+    'Matchs de tournoi2 W · 1 L · 67 % de victoires3',
+  );
+  expect(within(bob).getByRole('region', { name: 'Palmarès' })).toHaveTextContent('1Tournois gagnés');
+  expect(within(bob).getByRole('region', { name: 'Statistiques' })).toHaveTextContent(
+    '3Buts1 / match3Passes D1 / match4Arrêts1,3 / match',
+  );
+});
+
 test('before any match with them, demolitions and posts show a dash', async () => {
   renderInApp(<TeamPage />, {
-    board: boardWith({ results: [aResult({ name: 'bob', match_guid: 'old' })] }),
+    board: boardWith({ results: [aResult({ playlist: 11, name: 'bob', match_guid: 'old' })] }),
     path: '/?fiche=1',
   });
   const bob = await screen.findByRole('dialog', { name: 'bob' });
