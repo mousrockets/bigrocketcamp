@@ -23,24 +23,47 @@ export interface Career {
 }
 
 /**
- * Which matches count: ranked or tournament ones, each with its own stats, or all of them. A match whose playlist no
- * source sent is neither ranked nor tournament.
+ * Which matches count: every one, the ranked ones, one ranked playlist (1v1, 2v2, 3v3), or the tournaments. A match
+ * whose playlist no source sent only counts in all of them.
  */
-export type CareerScope = 'ranked' | 'tournament' | 'all';
+export type CareerScope = 'all' | 'ranked' | 'duel' | 'doubles' | 'standard' | 'tournament';
 
-const inScope = (scope: CareerScope, playlist: number | null | undefined) =>
-  scope === 'all' || matchModeOf(playlist) === scope;
+/** Which of the player's accounts the matches were played on: the solo one, the duo one, or either. */
+export type CareerAccount = 'all' | 'solo' | 'duo';
+
+const rankedPlaylists = { duel: 10, doubles: 11, standard: 13 } as const;
+
+function inScope(scope: CareerScope, playlist: number | null | undefined) {
+  if (scope === 'all') return true;
+  if (scope === 'ranked' || scope === 'tournament') return matchModeOf(playlist) === scope;
+  return playlist === rankedPlaylists[scope];
+}
+
+/** The game ID of the player's solo account, in lower case, once the rank source found it. */
+export const soloAccountOf = (board: Board, name: string): string | null =>
+  board.doublesRanks?.find((rank) => rank.player === name)?.solo?.playerId?.toLowerCase() ?? null;
+
+function onAccount(account: CareerAccount, solo: string | null, playerId: string) {
+  if (account === 'all') return true;
+  return (solo === playerId.toLowerCase()) === (account === 'solo');
+}
 
 const added = (total: number | null, value: number | null | undefined) =>
   typeof value === 'number' ? (total ?? 0) + value : total;
 
 /** The player's lines of the matches no source disputes, each match once, and the MVPs among them. */
-export function careerOf(board: Board, name: string, scope: CareerScope): Career {
+export function careerOf(board: Board, name: string, scope: CareerScope, account: CareerAccount = 'all'): Career {
+  const solo = soloAccountOf(board, name);
   const index = matchIndex(board.results, board.matchRosters ?? []);
   const lines = new Map(
     board.results
       .filter(
-        (row) => row.name === name && row.kind === 'match' && !row.review_required && inScope(scope, row.playlist),
+        (row) =>
+          row.name === name &&
+          row.kind === 'match' &&
+          !row.review_required &&
+          inScope(scope, row.playlist) &&
+          onAccount(account, solo, row.player_id),
       )
       .map((row) => [row.match_guid, row]),
   );

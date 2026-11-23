@@ -6,25 +6,75 @@ import { InfoSheet } from '../components/info-sheet';
 import { SegmentedControl } from '../components/segmented-control';
 import { SoundCollection } from '../components/sound-badge';
 import { Card } from '../components/ui/card';
-import { type Career, careerOf } from './career';
+import { type Career, type CareerAccount, type CareerScope, careerOf, soloAccountOf } from './career';
 
-type Scope = 'ranked' | 'tournament';
+type Scope = Exclude<CareerScope, 'ranked'>;
 
 const scopes = [
-  { value: 'ranked', label: 'Ranked' },
+  { value: 'all', label: 'Tout' },
+  { value: 'duel', label: '1v1' },
+  { value: 'doubles', label: '2v2' },
+  { value: 'standard', label: '3v3' },
   { value: 'tournament', label: 'Tournoi' },
 ] as const satisfies readonly { value: Scope; label: string }[];
 
+const accounts = [
+  { value: 'all', label: 'Tout' },
+  { value: 'solo', label: 'Solo' },
+  { value: 'duo', label: 'Duo' },
+] as const satisfies readonly { value: CareerAccount; label: string }[];
+
+/** How the sheet names the matches of each view. */
+const views: Record<Scope, { played: string; description: string; empty: string }> = {
+  all: {
+    played: 'Matchs joués',
+    description: 'tous modes confondus',
+    empty: 'Pas encore un match au compteur. Le kickoff attend.',
+  },
+  duel: {
+    played: 'Matchs ranked 1v1',
+    description: 'en ranked 1v1',
+    empty: 'Pas encore un 1v1 ranked au compteur. Personne à qui faire la passe.',
+  },
+  doubles: {
+    played: 'Matchs ranked 2v2',
+    description: 'en ranked 2v2',
+    empty: 'Pas encore un 2v2 ranked au compteur. Le kickoff attend.',
+  },
+  standard: {
+    played: 'Matchs ranked 3v3',
+    description: 'en ranked 3v3',
+    empty: 'Pas encore un 3v3 ranked au compteur. Faut trouver deux potes.',
+  },
+  tournament: {
+    played: 'Matchs de tournoi',
+    description: 'en tournoi',
+    empty: 'Pas encore un tournoi au compteur. Le bracket attend.',
+  },
+};
+
+const onAccount: Record<CareerAccount, string> = {
+  all: '',
+  solo: ', sur son compte solo',
+  duo: ', sur son compte duo',
+};
+
 /**
- * The sheet of a player's card: what they did in the ranked matches the club received of them, and apart, in the
- * tournament ones.
+ * The sheet of a player's card: what they did in the matches the club received of them, every mode together or one
+ * at a time (each ranked playlist, the tournaments), on both their accounts or on one.
  */
 export function PlayerSheet({ name, onClose }: { name: string | null; onClose: () => void }) {
   const { board } = useBoardState();
-  const [scope, setScope] = useState<Scope>('ranked');
-  const career = board && name ? careerOf(board, name, scope) : null;
+  const [scope, setScope] = useState<Scope>('all');
+  const [chosenAccount, setAccount] = useState<CareerAccount>('all');
+  // Without a solo account found, every match is on the duo one: no choice to make.
+  const hasSolo = board && name ? soloAccountOf(board, name) !== null : false;
+  const account = hasSolo ? chosenAccount : 'all';
+  const career = board && name ? careerOf(board, name, scope, account) : null;
+  const view = views[scope];
   const close = () => {
-    setScope('ranked');
+    setScope('all');
+    setAccount('all');
     onClose();
   };
   return (
@@ -32,20 +82,19 @@ export function PlayerSheet({ name, onClose }: { name: string | null; onClose: (
       open={name !== null}
       onClose={close}
       title={name ?? ''}
-      description={scope === 'ranked' ? 'Ses stats en ranked.' : 'Ses stats en tournoi.'}
+      description={`Ses stats ${view.description}${onAccount[account]}.`}
     >
-      <SegmentedControl label="Matchs comptés" options={scopes} value={scope} onChange={setScope} />
+      <div className="flex flex-col gap-2">
+        {hasSolo && <SegmentedControl label="Compte" options={accounts} value={account} onChange={setAccount} />}
+        <SegmentedControl label="Mode" options={scopes} value={scope} onChange={setScope} />
+      </div>
       {career &&
         (career.matches === 0 ? (
-          <p className="m-0 text-[15px] text-t2">
-            {scope === 'ranked'
-              ? 'Pas encore un match ranked au compteur. Le kickoff attend.'
-              : 'Pas encore un tournoi au compteur. Le bracket attend.'}
-          </p>
-        ) : scope === 'ranked' ? (
-          <RankedStats career={career} />
-        ) : (
+          <p className="m-0 text-[15px] text-t2">{view.empty}</p>
+        ) : scope === 'tournament' ? (
           <TournamentStats career={career} />
+        ) : (
+          <MatchStats career={career} label={view.played} />
         ))}
       {name && <SoundCollection player={name} />}
     </InfoSheet>
@@ -82,10 +131,10 @@ function Tile({ label, value, tone, detail }: { label: string; value: number | n
   );
 }
 
-function RankedStats({ career }: { career: Career }) {
+function MatchStats({ career, label }: { career: Career; label: string }) {
   return (
     <>
-      <Played career={career} label="Matchs ranked" />
+      <Played career={career} label={label} />
       <section aria-label="Streaks" className="grid grid-cols-2 gap-2">
         <Tile label="Win streak max" value={career.winStreak} tone="text-win" />
         <Tile label="Lose streak max" value={career.lossStreak} tone="text-cost-strong" />
