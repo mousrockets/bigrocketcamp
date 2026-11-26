@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { readRoster } from '../../lib/club';
 import { invalidLiveMatch, type LivePlayers, type LiveReceived, livePayloadInput } from '../../lib/contract';
+import { statfeedLabelsOf } from '../../lib/game-stats';
 import { isLeft, isRankedDoubles, livePayloadRows } from '../../lib/live-stats';
 import { buildMatches } from '../../lib/match-builds';
 import {
@@ -91,6 +92,15 @@ export const liveRoutes = new Hono<AppEnv>()
                 last_ranked_at = COALESCE(excluded.last_ranked_at, collectors.last_ranked_at)`,
             )
             .bind(sourceId, now, isRankedDoubles(match) ? now : null),
+          // The game's words for its stat feed events, the latest sent winning: the Stats page names them so.
+          ...statfeedLabelsOf(match.state.Game.StatfeedLabels).map(([name, label]) =>
+            db
+              .prepare(
+                `INSERT INTO statfeed_labels (name, label, updated) VALUES (?1, ?2, ?3)
+                ON CONFLICT(name) DO UPDATE SET label = excluded.label, updated = excluded.updated`,
+              )
+              .bind(name, label, now),
+          ),
         );
         await db.batch(writes as D1PreparedStatement[]);
         // The board shows the match as soon as it is rebuilt; a match another collector is sending at the same

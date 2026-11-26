@@ -284,6 +284,16 @@ export const prototypeMatchRosters = sqliteTable(
   (table) => [index('prototype_match_rosters_match_key').on(sql`lower(trim(${table.matchGuid}))`)],
 );
 
+/**
+ * The words the game shows for each stat feed event (« Arrêt » for « Save »), as the latest collector sent them, in
+ * its player's language. The Stats page names the events with them.
+ */
+export const statfeedLabels = sqliteTable('statfeed_labels', {
+  name: text('name').primaryKey(),
+  label: text('label').notNull(),
+  updated: text('updated').notNull(),
+});
+
 /** Each match's results reconciled from its sources: what the board shows. */
 export const matchResults = sqliteTable(
   'match_results',
@@ -302,6 +312,8 @@ export const matchResults = sqliteTable(
     /** Null while no source sent them (older collectors, Epic's history). */
     demos: integer('demos'),
     crossbarHits: integer('crossbar_hits'),
+    /** Shots, touches, the stat feed and the rest (`GameStats`, as JSON); null while no source sent them. */
+    gameStats: text('game_stats'),
     received: text('received').notNull(),
     reviewRequired: integer('review_required').notNull(),
     verification: text('verification').notNull(),

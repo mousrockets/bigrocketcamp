@@ -1,6 +1,7 @@
 import type { Roster } from './club';
 import { parisDay } from './days';
 import { count, formatNumber } from './format';
+import { type GameStats, gameStats } from './game-stats';
 import {
   type DodgeRules,
   defaultDodgeRules,
@@ -59,6 +60,14 @@ export interface ReceivedResult {
   /** Absent while the source sent none (older collectors, Epic's history). */
   demos?: number;
   crossbarHits?: number;
+  /** Shots, touches, the stat feed and the rest, since collector 0.7.0; absent from any other source. */
+  gameStats?: GameStats;
+}
+
+/** Game stats read again before they are kept: whatever sent them, only a readable object goes on. */
+function gameStatsField(raw: unknown): { gameStats?: GameStats } {
+  const stats = raw ? gameStats.safeParse(raw).data : undefined;
+  return stats && Object.keys(stats).length > 0 ? { gameStats: stats } : {};
 }
 
 // biome-ignore lint/suspicious/noExplicitAny: the collector's payload is validated field by field below.
@@ -109,6 +118,7 @@ function normalize(roster: Roster, raw: RawResult, includeOthers: boolean): Rece
     saves: raw.Saves,
     ...(bounded(raw.Demos) ? { demos: raw.Demos } : {}),
     ...(bounded(raw.CrossbarHits) ? { crossbarHits: raw.CrossbarHits } : {}),
+    ...gameStatsField(raw.GameStats),
   };
 }
 

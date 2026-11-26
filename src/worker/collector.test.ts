@@ -61,6 +61,7 @@ beforeEach(async () => {
       'source_reports',
       'prototype_results',
       'prototype_match_rosters',
+      'statfeed_labels',
       'members',
     ].map((table) => env.DB.prepare(`DELETE FROM ${table}`)),
   );
@@ -229,6 +230,39 @@ describe('sending with the collector token', () => {
     expect(rows.results).toEqual([
       { match_guid: 'synthetic-demos', name: 'alice', demos: alice, crossbar_hits: alice === 0 ? 2 : 0 },
       { match_guid: 'synthetic-plain', name: 'alice', demos: null, crossbar_hits: null },
+    ]);
+  });
+
+  test('keeps the stats of collector 0.7.0 and the game’s words for its events, and none from an older one', async () => {
+    const token = await pairedToken();
+    const counted = livePayload({ guid: 'synthetic-all-stats' });
+    Object.assign(counted.state.Game, {
+      Arena: 'Stadium_P',
+      StatfeedLabels: { Save: 'Arrêt', Demolish: 'Démolition' },
+    });
+    counted.state.Players = counted.state.Players.map((player) => ({
+      ...player,
+      Shots: 3,
+      Statfeed: { Save: 2 },
+      StatfeedSecondary: { Demolish: 1 },
+    }));
+    for (const body of [counted, livePayload({ guid: 'synthetic-older-stats' })])
+      expect((await call('/api/live', { method: 'POST', token, body })).status).toBe(200);
+    const rows = await env.DB.prepare(
+      `SELECT match_guid, game_stats FROM match_results
+      WHERE name = 'alice' AND match_guid IN ('synthetic-all-stats', 'synthetic-older-stats') ORDER BY match_guid`,
+    ).all<{ match_guid: string; game_stats: string | null }>();
+    expect(rows.results.map((row) => [row.match_guid, row.game_stats && JSON.parse(row.game_stats)])).toEqual([
+      [
+        'synthetic-all-stats',
+        { shots: 3, statfeed: { Save: 2 }, statfeedSecondary: { Demolish: 1 }, arena: 'Stadium_P' },
+      ],
+      ['synthetic-older-stats', null],
+    ]);
+    const labels = await env.DB.prepare('SELECT name, label FROM statfeed_labels ORDER BY name').all();
+    expect(labels.results).toEqual([
+      { name: 'Demolish', label: 'Démolition' },
+      { name: 'Save', label: 'Arrêt' },
     ]);
   });
 

@@ -2,6 +2,7 @@ import { and, desc, eq, isNotNull, type SQLWrapper, sql } from 'drizzle-orm';
 import type { AnySQLiteColumn } from 'drizzle-orm/sqlite-core';
 import type { Roster } from './club';
 import type { Database } from './db';
+import { storedGameStats } from './game-stats';
 import { inJsonList, orm, rowid, sqlNamed, statementOf } from './orm';
 import {
   type Alias,
@@ -48,6 +49,8 @@ interface StoredRow {
   saves: number;
   demos: number | null;
   crossbar_hits: number | null;
+  /** JSON. */
+  game_stats: string | null;
   received: string;
   review_required: number;
   verification: MergedResult['verification'];
@@ -78,6 +81,7 @@ export const storedColumns = {
   saves: matchResults.saves,
   demos: matchResults.demos,
   crossbar_hits: matchResults.crossbarHits,
+  game_stats: matchResults.gameStats,
   received: matchResults.received,
   review_required: matchResults.reviewRequired,
   verification: matchResults.verification,
@@ -109,6 +113,7 @@ export const builtResult = (row: StoredRow): BuiltResult => ({
   saves: row.saves,
   demos: row.demos,
   crossbar_hits: row.crossbar_hits,
+  game_stats: storedGameStats(row.game_stats),
   received: row.received,
   review_required: Boolean(row.review_required),
   verification: row.verification,
@@ -138,6 +143,7 @@ const storedRow = (row: MergedResult, expected: number | null): StoredRow => ({
   saves: row.saves,
   demos: row.demos ?? null,
   crossbar_hits: row.crossbar_hits ?? null,
+  game_stats: row.game_stats ? JSON.stringify(row.game_stats) : null,
   received: row.received,
   review_required: row.review_required ? 1 : 0,
   verification: row.verification,

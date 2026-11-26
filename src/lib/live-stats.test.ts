@@ -497,6 +497,18 @@ describe('live stats', () => {
     expect(rows.some((row) => 'demos' in row || 'crossbarHits' in row)).toBe(false);
   });
 
+  test('keeps the stats of collector 0.7.0 on each line, departures included, and drops an unreadable one alone', () => {
+    const p = payload('all-stats');
+    Object.assign(p.state.Game, { Arena: 'Stadium_P', StatfeedLabels: { Save: 'Arrêt' } });
+    for (const player of p.state.Players)
+      Object.assign(player, { Shots: 4, Statfeed: { Save: 1 }, KickoffTouches: 2, HardestHit: 'fast' });
+    const [gone] = p.state.Players.splice(1, 1);
+    const parsed = parseLiveMatch(roster, { ...p, departures: [gone] }, now);
+    expect(parsed.rows.length).toBe(5);
+    for (const row of [...parsed.rows, ...parsed.departures])
+      expect(row.gameStats).toEqual({ shots: 4, statfeed: { Save: 1 }, kickoffTouches: 2, arena: 'Stadium_P' });
+  });
+
   /** The capture counts the crossbar hits of every player it sends: none in these matches. */
   const unhit = (players: LivePlayer[]) => players.map((player) => ({ ...player, CrossbarHits: 0 }));
 

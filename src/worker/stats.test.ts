@@ -21,6 +21,10 @@ beforeEach(async () => {
     env.DB.prepare('DELETE FROM mmr_entries'),
     env.DB.prepare('DELETE FROM solo_mmr_entries'),
     env.DB.prepare('DELETE FROM members'),
+    env.DB.prepare('DELETE FROM statfeed_labels'),
+    env.DB.prepare(
+      "INSERT INTO statfeed_labels (name, label, updated) VALUES ('Save', 'Arrêt', '2026-11-26T20:00:00.000Z')",
+    ),
     env.DB.prepare(
       "INSERT INTO members (id, email, role, duo_pseudo, platform, roster_position) VALUES ('member-alice', 'alice@example.com', 'admin', 'alice', 'pc', 1)",
     ),
@@ -30,7 +34,7 @@ beforeEach(async () => {
   ]);
 });
 
-test('answers a member each club player’s season, and nobody else', async () => {
+test('answers a member each club player’s season and the game’s words for its events, and nobody else', async () => {
   expect((await seasons(null)).status).toBe(401);
 
   const token = `token-${crypto.randomUUID()}`;
@@ -50,5 +54,6 @@ test('answers a member each club player’s season, and nobody else', async () =
         peak: { mmr: 1260, label: expect.stringContaining('Champion III'), tier: 18 },
       },
     ],
+    statfeedLabels: { Save: 'Arrêt' },
   });
 });

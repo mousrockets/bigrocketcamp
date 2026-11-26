@@ -1,6 +1,7 @@
 import { desc, sql } from 'drizzle-orm';
 import type { Roster } from './club';
 import type { Database, Statement } from './db';
+import type { GameStats } from './game-stats';
 import { endingOf, type MatchEnding, type ReceivedRoster, unknownEnding } from './match-rules';
 import { excluded, orm, rowid, sqlNamed, statementOf } from './orm';
 import {
@@ -28,6 +29,8 @@ export interface StoredResult {
   /** Absent or null while no source sent them (older collectors, Epic's history). */
   demos?: number | null;
   crossbar_hits?: number | null;
+  /** Shots, touches, the stat feed and the rest; absent or null while no source sent them (before collector 0.7.0). */
+  game_stats?: GameStats | null;
   received?: string;
 }
 
@@ -52,6 +55,7 @@ export interface MergedResult extends StoredResult, MatchFinish {
   received: string;
   demos: number | null;
   crossbar_hits: number | null;
+  game_stats: GameStats | null;
   /** The player left before the end: a defeat, kept apart from the final scoreboard. */
   left: boolean;
   review_required: boolean;
@@ -113,7 +117,7 @@ interface Candidate {
 }
 
 /**
- * Demolitions and crossbar hits, which older collectors and Epic never send: unknown, not zero. The chosen line
+ * Demolitions, crossbar hits and the other game stats, which older collectors and Epic never send: unknown, not zero. The chosen line
  * may come from such a source while another source of the same line counted them, so its own count comes first,
  * then the latest source that has one.
  */
@@ -122,7 +126,8 @@ function extraStatisticsOf(chosen: Candidate, candidates: readonly Candidate[]) 
   const ordered = [chosen, ...others.sort((a, b) => b.received.localeCompare(a.received))];
   const known = (field: 'demos' | 'crossbar_hits') =>
     ordered.map((candidate) => candidate.row[field]).find((value) => typeof value === 'number') ?? null;
-  return { demos: known('demos'), crossbar_hits: known('crossbar_hits') };
+  const game_stats = ordered.map((candidate) => candidate.row.game_stats).find((stats) => stats) ?? null;
+  return { demos: known('demos'), crossbar_hits: known('crossbar_hits'), game_stats };
 }
 
 const outcomeFields = ['day', 'kind', 'team', 'winner'] as const;
@@ -446,6 +451,7 @@ interface ReceivedRow {
   saves: number;
   demos?: number;
   crossbarHits?: number;
+  gameStats?: GameStats;
 }
 
 const asStored = (row: ReceivedRow, now: string): StoredResult => ({
@@ -462,6 +468,7 @@ const asStored = (row: ReceivedRow, now: string): StoredResult => ({
   saves: row.saves,
   ...(row.demos === undefined ? {} : { demos: row.demos }),
   ...(row.crossbarHits === undefined ? {} : { crossbar_hits: row.crossbarHits }),
+  ...(row.gameStats === undefined ? {} : { game_stats: row.gameStats }),
   received: now,
 });
 

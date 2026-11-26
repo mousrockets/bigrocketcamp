@@ -61,6 +61,7 @@ export const aResult = (parts: Partial<BoardResult> & Pick<BoardResult, 'name' |
   saves: 0,
   demos: null,
   crossbar_hits: null,
+  game_stats: null,
   received: '2026-11-07T18:00:00.000Z',
   review_required: false,
   verification: 'single',

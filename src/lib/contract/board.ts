@@ -1,3 +1,4 @@
+import { gameStats } from '../game-stats';
 import { defaultForfeitRules, defaultHighScoreRules, defaultLastPlaceRules } from '../match-rules';
 import { says, z } from '../validation';
 import { challengeRules } from './club';
@@ -31,6 +32,8 @@ export const boardResult = z.looseObject({
   /** Null while no source sent them (older collectors, Epic's history); absent from an API older than them. */
   demos: z.number().nullable().catch(null),
   crossbar_hits: z.number().nullable().catch(null),
+  /** Null while no source sent them (collectors older than 0.7.0); absent from an API older than them. */
+  game_stats: gameStats.nullable().catch(null),
   received: z.string(),
   review_required: z.boolean(),
   verification: z.enum(['review', 'corrected', 'confirmed', 'single']).catch('single'),
