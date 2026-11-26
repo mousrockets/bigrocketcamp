@@ -1,5 +1,6 @@
+import { env } from 'cloudflare:workers';
 import { describe, expect, it } from 'vitest';
-import { dropEverything, localCopy, splitValues } from './production-copy';
+import { dropEverything, localCopy, type SchemaObject, schemaObjects, splitValues } from './production-copy';
 
 // An export as `wrangler d1 export` writes it: one statement per line for the rows, line breaks escaped.
 const dump = [
@@ -99,5 +100,13 @@ describe('reading a row of the export', () => {
       `replace('x\\ny','\\n',char(10))`,
       `X'00ff'`,
     ]);
+  });
+});
+
+describe('the list of what a reset drops', () => {
+  it('reads a D1 database, its own tables left out, with what each table points to', async () => {
+    const { results } = await env.DB.prepare(schemaObjects).all<SchemaObject>();
+    expect(results.filter(({ name }) => name.startsWith('_cf_') || name.startsWith('sqlite_'))).toEqual([]);
+    expect(results).toContainEqual({ type: 'table', name: 'exercise_reactions', parents: 'exercises' });
   });
 });

@@ -26,10 +26,14 @@ export interface SchemaObject {
   parents?: string | null;
 }
 
-/** Lists what `dropEverything` drops, with what each table's foreign keys point to. */
+/**
+ * Lists what `dropEverything` drops, with what each table's foreign keys point to. The tables SQLite and D1 keep for
+ * themselves stay out: D1 refuses to read the foreign keys of its own `_cf_` tables, and the whole query fails.
+ */
 export const schemaObjects = `SELECT type, name,
   (SELECT group_concat("table") FROM pragma_foreign_key_list(name)) AS parents
-  FROM sqlite_schema WHERE type IN ('table', 'view', 'trigger')`;
+  FROM sqlite_schema WHERE type IN ('table', 'view', 'trigger')
+  AND name NOT LIKE 'sqlite\\_%' ESCAPE '\\' AND name NOT LIKE '\\_cf\\_%' ESCAPE '\\'`;
 
 const quoteId = (name: string) => `"${name.replaceAll('"', '""')}"`;
 const quoteText = (text: string) => `'${text.replaceAll("'", "''")}'`;
