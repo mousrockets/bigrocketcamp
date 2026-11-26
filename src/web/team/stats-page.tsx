@@ -653,7 +653,7 @@ function PrizeShelf({ players }: { players: ComparedPlayer[] }) {
  * wrap, so that the players keep the room; a line marks its edge.
  */
 const labelColumn =
-  'sticky left-0 z-1 h-auto w-[9.5rem] min-w-[9.5rem] max-w-[9.5rem] whitespace-normal bg-card py-2.5 pl-4 font-normal text-[13px] [line-height:1.25] shadow-[inset_-1px_0_0_var(--line)] lg:w-auto lg:min-w-0 lg:max-w-none lg:whitespace-nowrap lg:pl-5 lg:text-[14px] lg:shadow-none';
+  'sticky left-0 z-1 h-auto w-[8.75rem] min-w-[8.75rem] max-w-[8.75rem] whitespace-normal bg-card py-2.5 pl-4 font-normal text-[13px] [line-height:1.25] shadow-[inset_-1px_0_0_var(--line)] lg:w-auto lg:min-w-0 lg:max-w-none lg:whitespace-nowrap lg:pl-5 lg:text-[14px] lg:shadow-none';
 
 /**
  * Every stat, part by part, one column per player, the member's tinted, the best figure of each line lit. Each part
@@ -676,7 +676,7 @@ function StatsTable({ stats, players }: { stats: TableStat[]; players: ComparedP
                 <TableHead
                   key={player.name}
                   className={cn(
-                    'h-auto min-w-[4.5rem] whitespace-normal py-3 text-right align-bottom last:pr-4 lg:min-w-24 lg:last:pr-5',
+                    'h-auto min-w-[4.25rem] whitespace-normal py-3 text-right align-bottom last:pr-4 lg:min-w-24 lg:last:pr-5',
                     player.me && 'bg-white/6',
                   )}
                 >
