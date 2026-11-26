@@ -271,7 +271,7 @@ export const prizes: Prize[] = [
     label: 'MMR perdus depuis le peak de la saison',
     format: 'count',
     value: (p) => p.mmr?.fall ?? null,
-    prize: 'La chute',
+    prize: 'Le parachutiste',
   },
   { label: 'Frappe la plus puissante', format: 'speed', value: (p) => p.career.game.hardestHit, prize: 'Le canonnier' },
   { label: 'But le plus rapide', format: 'speed', value: (p) => p.career.game.fastestGoal, prize: 'Le bolide' },

@@ -506,7 +506,7 @@ const prizeIcons: Record<string, LucideIcon> = {
   'Le noctambule': Moon,
   'Rage quit': DoorOpen,
   'Les bras d’acier': Dumbbell,
-  'La chute': TrendingDown,
+  'Le parachutiste': TrendingDown,
   'Le canonnier': Zap,
   'Le bolide': Rocket,
   'Le sniper': Crosshair,

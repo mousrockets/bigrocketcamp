@@ -204,6 +204,8 @@ test('a prize of something that happens in a match goes to its rate, its count b
     [0, 0],
     [0, 0],
   ]);
+  // The one who fell furthest from the season's peak jumped from highest.
+  expect(prizes.map((candidate) => candidate.prize)).toContain('Le parachutiste');
   // A night owl plays many nights: that one stays a count.
   expect(prizes.find((candidate) => candidate.prize === 'Le noctambule')?.total).toBeUndefined();
 });
