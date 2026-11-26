@@ -107,6 +107,20 @@ test('opens on the season under way, in 2v2, on every account', async () => {
   expect(within(goals).getByText('0,5')).toBeInTheDocument();
 });
 
+test('a key figure shows the member’s own in big, and how far they stand from the others', async () => {
+  renderInApp(<StatsPage />, { board, path: '/stats' });
+  // This season Alice leads: 2 goals a match, Bob 0,5.
+  const goals = await screen.findByRole('region', { name: 'Buts / match' });
+  expect(goals).toHaveTextContent(/^Buts \/ match2\s*1,5 d’avance/);
+});
+
+test('a key figure shows the member’s own even when another leads it', async () => {
+  renderInApp(<StatsPage />, { board, path: '/stats?saison=23' });
+  // In season 23, Bob scored 4, Alice none: her 0 shows, behind him.
+  const goals = await screen.findByRole('region', { name: 'Buts / match' });
+  expect(goals).toHaveTextContent(/^Buts \/ match0\s*À 4 du 1er/);
+});
+
 test('shows a past season from its address, and every match from the season list', async () => {
   renderInApp(<StatsPage />, { board, path: '/stats?saison=23' });
   expect(await screen.findByRole('combobox', { name: 'Saison' })).toHaveTextContent('Saison 23');

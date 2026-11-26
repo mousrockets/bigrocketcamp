@@ -45,7 +45,6 @@ import {
   keyStats,
   type PeakAccount,
   type PeakGap,
-  type Prize,
   prizes,
   type RankedLine,
   ranked,
@@ -140,7 +139,8 @@ export function StatsPage() {
   return (
     <TabPage back={<BackLink to="/">L’équipe</BackLink>} kicker="La team en chiffres" title="Stats">
       <div className="flex animate-rise flex-col gap-10 px-5 pt-6 [animation-delay:.06s] lg:gap-14 lg:px-0 lg:pt-0">
-        <div className="flex flex-wrap gap-2">
+        {/* On a phone, the filters stay on one line and scroll sideways, to the screen's edges, as iOS chips do. */}
+        <div className="-mx-5 flex gap-2 overflow-x-auto px-5 [scrollbar-width:none] lg:mx-0 lg:flex-wrap lg:px-0 [&>*]:shrink-0">
           <FilterSelect
             label="Saison"
             options={[
@@ -211,11 +211,14 @@ function Section({ kicker, title, children }: { kicker: string; title: string; c
   );
 }
 
-/** A player's pseudo, and TOI for the member. Their rank shows in the peaks, not again by every name. */
-function PlayerName({ player, className }: { player: ComparedPlayer; className?: string }) {
+/**
+ * A player's pseudo, and TOI for the member. Their rank shows in the peaks, not again by every name. In a narrow
+ * column, the pseudo wraps rather than losing its end.
+ */
+function PlayerName({ player, wrap, className }: { player: ComparedPlayer; wrap?: boolean; className?: string }) {
   return (
-    <span className={cn('flex min-w-0 items-center gap-1.5', className)}>
-      <span className="truncate">{player.shown}</span>
+    <span className={cn('flex min-w-0 items-center gap-1.5', wrap && 'flex-wrap gap-y-1', className)}>
+      <span className={wrap ? '[overflow-wrap:anywhere]' : 'truncate'}>{player.shown}</span>
       {player.me && <Badge variant="me">TOI</Badge>}
     </span>
   );
@@ -411,23 +414,23 @@ function PodiumCard({ line, gap, name, step }: { line: RankedLine; gap: PeakGap;
   );
 }
 
-/** One stat, or a prize: the leader's figure in big, then every player's bar against it. */
-function StatCard({ stat, players }: { stat: Stat | Prize; players: ComparedPlayer[] }) {
+/**
+ * One of the figures that say the most: the member's own in big, with how far ahead of the next one or behind the
+ * leader it stands; then every player's bar. A member without a line of their own sees the leader's figure.
+ */
+function StatCard({ stat, players }: { stat: Stat; players: ComparedPlayer[] }) {
   const { lines, leaders } = ranked(stat, players);
-  const [leader] = leaders;
-  const prize = 'prize' in stat ? stat.prize : null;
+  const mine = lines.find((line) => line.player.me);
+  const shown = mine ?? leaders[0];
   return (
-    <Card variant="glass" role="region" aria-label={prize ?? stat.label} className="gap-4 p-5">
-      <span className="flex flex-col gap-1">
-        <span className="label-caps">{stat.label}</span>
-        {prize && <h3 className="title-display text-[20px] [line-height:1.1]">{prize}</h3>}
-      </span>
+    <Card variant="glass" role="region" aria-label={stat.label} className="gap-4 p-5">
+      <span className="label-caps">{stat.label}</span>
       <div className="flex min-w-0 items-end justify-between gap-3">
-        <b className={cn('num text-[40px] [line-height:.85]', !leader && 'text-t3')}>
-          {formatted(leader?.value ?? null, stat.format)}
+        <b className={cn('num text-[40px] [line-height:.85]', (shown?.value ?? null) === null && 'text-t3')}>
+          {formatted(shown?.value ?? null, stat.format)}
         </b>
         <span className="min-w-0 truncate pb-0.5 text-[14px] text-t2">
-          {leaders.length > 1 ? 'Égalité' : leader ? leader.player.shown : 'Personne'}
+          {standingOf(mine, lines, leaders, stat.format)}
         </span>
       </div>
       <ol className="m-0 flex list-none flex-col gap-1.5 p-0">
@@ -437,6 +440,34 @@ function StatCard({ stat, players }: { stat: Stat | Prize; players: ComparedPlay
       </ol>
     </Card>
   );
+}
+
+/** Where the member stands in a stat, beside their figure: « 51 d’avance », « À 0,15 du 1er », « Égalité en tête ». */
+function standingOf(
+  mine: RankedLine | undefined,
+  lines: RankedLine[],
+  leaders: RankedLine[],
+  format: StatFormat,
+): string | null {
+  const [leader] = leaders;
+  if (!mine) return leaders.length > 1 ? 'Égalité' : leader ? leader.player.shown : 'Personne';
+  if (mine.value === null || !leader || leader.value === null) return null;
+  if (leaders.includes(mine)) {
+    if (leaders.length > 1) return 'Égalité en tête';
+    const next = lines.find((line) => line !== mine && line.value !== null);
+    return next?.value == null ? null : `${distance(mine.value, next.value, format)} d’avance`;
+  }
+  return `À ${distance(leader.value, mine.value, format)} du 1er`;
+}
+
+/** How far apart two figures stand, counted on the figures as shown: « 51 », « 0,15 », « 8 points ». */
+function distance(a: number, b: number, format: StatFormat): string {
+  if (format === 'percent') {
+    const points = Math.abs(Math.round(a) - Math.round(b));
+    return `${formatNumber(points)} point${points >= 2 ? 's' : ''}`;
+  }
+  if (format === 'perMatch') return formatted(Math.abs(Math.round(a * 100) - Math.round(b * 100)) / 100, format);
+  return formatted(Math.abs(a - b), format === 'mmr' ? 'count' : format);
 }
 
 /** The member's place wears a medal's colour on the podium. */
@@ -618,6 +649,13 @@ function PrizeShelf({ players }: { players: ComparedPlayer[] }) {
 }
 
 /**
+ * The stats' column, kept in view as the players' scroll under it. On a phone it takes a set width and its labels
+ * wrap, so that the players keep the room; a line marks its edge.
+ */
+const labelColumn =
+  'sticky left-0 z-1 h-auto w-[9.5rem] min-w-[9.5rem] max-w-[9.5rem] whitespace-normal bg-card py-2.5 pl-4 font-normal text-[13px] [line-height:1.25] shadow-[inset_-1px_0_0_var(--line)] lg:w-auto lg:min-w-0 lg:max-w-none lg:whitespace-nowrap lg:pl-5 lg:text-[14px] lg:shadow-none';
+
+/**
  * Every stat, part by part, one column per player, the member's tinted, the best figure of each line lit. Each part
  * says above it whether its figures read per match.
  */
@@ -631,15 +669,22 @@ function StatsTable({ stats, players }: { stats: TableStat[]; players: ComparedP
         <Table className="text-[14px]">
           <TableHeader>
             <TableRow className="border-line hover:bg-transparent">
-              <TableHead className="sticky left-0 z-1 bg-card pl-4 font-normal text-t3 lg:pl-5">
+              <TableHead className={cn(labelColumn, 'text-t3')}>
                 <span className="sr-only">Stat</span>
               </TableHead>
               {players.map((player) => (
                 <TableHead
                   key={player.name}
-                  className={cn('min-w-24 text-right last:pr-4 lg:last:pr-5', player.me && 'bg-white/6')}
+                  className={cn(
+                    'h-auto min-w-[4.5rem] whitespace-normal py-3 text-right align-bottom last:pr-4 lg:min-w-24 lg:last:pr-5',
+                    player.me && 'bg-white/6',
+                  )}
                 >
-                  <PlayerName player={player} className="justify-end font-semibold text-[13px] text-t1" />
+                  <PlayerName
+                    player={player}
+                    wrap
+                    className="justify-end font-semibold text-[13px] text-t1 [line-height:1.2]"
+                  />
                 </TableHead>
               ))}
             </TableRow>
@@ -662,7 +707,7 @@ function StatsTable({ stats, players }: { stats: TableStat[]; players: ComparedP
                 const best = bestOf(stat, players);
                 return (
                   <TableRow key={stat.label} className="border-line hover:bg-white/3">
-                    <TableHead scope="row" className="sticky left-0 z-1 bg-card pl-4 font-normal text-t2 lg:pl-5">
+                    <TableHead scope="row" className={cn(labelColumn, 'text-t2')}>
                       {stat.label}
                       {stat.lowerIsBetter && (
                         <span className="ml-1 text-t3" title="Le plus bas est le meilleur">
