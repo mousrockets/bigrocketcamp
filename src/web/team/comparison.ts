@@ -307,12 +307,10 @@ export const prizes: Prize[] = [
   },
 ];
 
-/** How the table shows the actions of the game: each match's average, or the totals. */
-export type TableMode = 'perMatch' | 'total';
-
 /**
- * The parts of the table, in reading order. Only the actions of the game (goals, saves, touches, the stat feed…)
- * switch between per match and total: an ending (a forfeit, a late night) reads best as a count, a record as it is.
+ * The parts of the table, in reading order. What happens in a match reads as a rate, per match or in share of the
+ * matches, with its total in small below; a count of its own (matches, a streak, a late night) or a record reads as
+ * it is.
  */
 export const tableSections = [
   'Résultats',
@@ -326,15 +324,17 @@ export const tableSections = [
 ] as const;
 export type TableSection = (typeof tableSections)[number];
 
-/** A line of the table: its total, and what it becomes per match (an average, or a share of the matches). */
+/** A line of the table: its total, and its rate (an average per match, or a share of the matches). */
 interface TableRow {
   section: TableSection;
   label: string;
   total: (player: ComparedPlayer) => number | null;
-  /** How it reads per match; none for a line that stays as it is. */
+  /** How it reads as a rate; none for a line that stays as it is. */
   perMatch?: 'average' | 'share';
-  /** The matches the figure was measured in, when an older collector did not send it. */
+  /** What the rate divides by: the matches the figure was measured in, by default every match. */
   measuredIn?: (player: ComparedPlayer) => number;
+  /** Whether the total shows what it was counted among (« 12 sur 36 »), when no other line says it. */
+  showOf?: boolean;
   format?: StatFormat;
   /** How its average per match reads, when not with two decimals: a score of hundreds needs none. */
   perMatchFormat?: StatFormat;
@@ -358,7 +358,6 @@ const gameRow = (
 const tableRows = (scope: CareerScope): TableRow[] => [
   { section: 'Résultats', label: 'Matchs', total: (p) => counted(p, p.career.matches) },
   { section: 'Résultats', label: 'Victoires', total: (p) => counted(p, p.career.wins), perMatch: 'share' },
-  { section: 'Résultats', label: 'Défaites', total: (p) => counted(p, p.career.losses), lowerIsBetter: true },
   { section: 'Résultats', label: 'MVP', total: (p) => counted(p, p.career.mvps), perMatch: 'share' },
   { section: 'Résultats', label: 'Win streak max', total: (p) => counted(p, p.career.winStreak) },
   {
@@ -386,7 +385,14 @@ const tableRows = (scope: CareerScope): TableRow[] => [
   { section: 'Attaque', label: 'Buts', total: (p) => counted(p, p.career.goals), perMatch: 'average' },
   { section: 'Attaque', label: 'Passes D', total: (p) => counted(p, p.career.assists), perMatch: 'average' },
   gameRow('Attaque', 'Tirs', (game) => game.shots),
-  { section: 'Attaque', label: 'Précision des tirs', total: accuracy, format: 'percent' },
+  {
+    section: 'Attaque',
+    label: 'Précision des tirs',
+    total: (p) => (p.career.game.shots.total === 0 ? null : p.career.game.goalsOnShots),
+    perMatch: 'share',
+    measuredIn: (p) => p.career.game.shots.total,
+    showOf: true,
+  },
   {
     section: 'Attaque',
     label: 'Poteaux',
@@ -407,11 +413,15 @@ const tableRows = (scope: CareerScope): TableRow[] => [
     section: 'Défense',
     label: 'Clean sheets',
     total: (p) => counted(p, p.career.conceded === null ? null : p.career.cleanSheets),
+    perMatch: 'share',
+    measuredIn: (p) => p.career.measured.conceded,
   },
   {
     section: 'Défense',
     label: 'Buts contre son camp',
     total: (p) => total(p.career.game.ownGoals),
+    perMatch: 'average',
+    measuredIn: (p) => p.career.game.ownGoals.matches,
     lowerIsBetter: true,
   },
   gameRow('Dans le jeu', 'Touches de balle', (game) => game.touches),
@@ -424,24 +434,33 @@ const tableRows = (scope: CareerScope): TableRow[] => [
     perMatch: 'average',
     measuredIn: (p) => p.career.measured.demos,
   },
-  { section: 'Les fins de match', label: 'Prolongations gagnées', total: (p) => counted(p, p.career.overtimeWins) },
+  // Won among the overtimes played: the lost ones read in the same line.
   {
     section: 'Les fins de match',
-    label: 'Prolongations perdues',
-    total: (p) => counted(p, p.career.overtimeLosses),
-    lowerIsBetter: true,
+    label: 'Prolongations gagnées',
+    total: (p) => counted(p, p.career.overtimeWins),
+    perMatch: 'share',
+    measuredIn: (p) => p.career.overtimeWins + p.career.overtimeLosses,
+    showOf: true,
   },
-  { section: 'Les fins de match', label: 'FF reçus', total: (p) => counted(p, p.career.forfeitsReceived) },
+  {
+    section: 'Les fins de match',
+    label: 'FF reçus',
+    total: (p) => counted(p, p.career.forfeitsReceived),
+    perMatch: 'share',
+  },
   {
     section: 'Les fins de match',
     label: 'FF donnés',
     total: (p) => counted(p, p.career.forfeitsGiven),
+    perMatch: 'share',
     lowerIsBetter: true,
   },
   {
     section: 'Les fins de match',
     label: 'Matchs quittés',
     total: (p) => counted(p, p.career.left),
+    perMatch: 'share',
     lowerIsBetter: true,
   },
   { section: 'Les fins de match', label: 'Matchs après minuit', total: (p) => counted(p, p.career.lateNight) },
@@ -540,34 +559,52 @@ function dataRows(players: readonly ComparedPlayer[], labels: Readonly<Record<st
   ];
 }
 
-/** A line of the table as shown: its stat in the mode chosen, its part, and whether the mode changed it. */
+/** A line of the table as shown: its figure, its part, and for a rate, the total it comes from. */
 export interface TableStat extends Stat {
   section: TableSection;
-  /** Whether the line reads per match in that mode: the part says so above it. */
+  /** Whether the line reads as a rate: the part says so above it. */
   perMatch: boolean;
+  /** For a rate, how many times it happened; shown on demand beside it. */
+  total?: (player: ComparedPlayer) => number | null;
+  /** What the total was counted among, when no other line says it: « 12 sur 36 ». */
+  of?: (player: ComparedPlayer) => number;
 }
 
 /**
- * Every stat the page has, for the table, in its mode, part by part. A line nobody has a figure for (a stat no
- * collector sent yet) is left out.
+ * Every stat the page has, for the table, part by part: a rate with its total, or a figure as it is. A line nobody
+ * has a figure for (a stat no collector sent yet) is left out.
  */
 export const tableStats = (
   scope: CareerScope,
-  mode: TableMode,
   players: readonly ComparedPlayer[],
   labels: Readonly<Record<string, string>> = {},
 ): TableStat[] =>
   [...tableRows(scope), ...dataRows(players, labels)]
-    .map(
-      ({ section, label, total, perMatch, measuredIn, format = 'count', perMatchFormat, lowerIsBetter }): TableStat => {
-        const base = { section, label, ...(lowerIsBetter && { lowerIsBetter }) };
-        if (mode === 'total' || !perMatch) return { ...base, perMatch: false, format, value: total };
-        const of = (player: ComparedPlayer) => measuredIn?.(player) ?? player.career.matches;
-        return perMatch === 'average'
-          ? { ...base, perMatch: true, format: perMatchFormat ?? 'perMatch', value: (p) => average(p, total(p), of(p)) }
-          : { ...base, perMatch: true, format: 'percent', value: (p) => share(p, total(p), of(p)) };
-      },
-    )
+    .map((row): TableStat => {
+      const {
+        section,
+        label,
+        total,
+        perMatch,
+        measuredIn,
+        showOf,
+        format = 'count',
+        perMatchFormat,
+        lowerIsBetter,
+      } = row;
+      const base = { section, label, ...(lowerIsBetter && { lowerIsBetter }) };
+      if (!perMatch) return { ...base, perMatch: false, format, value: total };
+      const of = (player: ComparedPlayer) => measuredIn?.(player) ?? player.career.matches;
+      return {
+        ...base,
+        perMatch: true,
+        total,
+        ...(showOf && { of }),
+        ...(perMatch === 'average'
+          ? { format: perMatchFormat ?? 'perMatch', value: (p: ComparedPlayer) => average(p, total(p), of(p)) }
+          : { format: 'percent', value: (p: ComparedPlayer) => share(p, total(p), of(p)) }),
+      };
+    })
     .filter((stat) => players.some((player) => stat.value(player) !== null))
     .sort((a, b) => tableSections.indexOf(a.section) - tableSections.indexOf(b.section));
 

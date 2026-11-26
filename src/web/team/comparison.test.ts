@@ -2,16 +2,7 @@ import { expect, test } from 'vitest';
 import type { SeasonMmr } from '../../lib/contract';
 import type { GameStats } from '../../lib/game-stats';
 import { anExercise, aRank, aResult, aSoloRank, boardWith } from '../test-utils';
-import {
-  bestOf,
-  comparedPlayers,
-  keyStats,
-  prizes,
-  ranked,
-  seasonsPlayed,
-  type TableMode,
-  tableStats,
-} from './comparison';
+import { bestOf, comparedPlayers, keyStats, prizes, ranked, seasonsPlayed, tableStats } from './comparison';
 
 // The Stats page compares the players over one season: S23 from 10 June, S24 from 23 September 2026.
 
@@ -65,8 +56,8 @@ const seasons: SeasonMmr[] = [
 const roster = ['alice', 'bob', 'charlie'];
 /** Everyone of the roster over season 24, as the page compares them. */
 const everyone = () => comparedPlayers(board, seasons, roster, 'alice', 'all', 'all', 24);
-const statNamed = (label: string, mode: TableMode = 'total') => {
-  const stat = tableStats('doubles', mode, everyone()).find((candidate) => candidate.label === label);
+const statNamed = (label: string) => {
+  const stat = tableStats('doubles', everyone()).find((candidate) => candidate.label === label);
   if (!stat) throw new Error(`${label} is in the table`);
   return stat;
 };
@@ -103,20 +94,55 @@ test('counts the season’s exercises in pushups', () => {
   expect(alice?.pushups).toBe(55);
 });
 
-test('reads the endings of the matches: goals conceded, overtimes, forfeits, matches left, late nights', () => {
+test('reads the endings of the matches as rates, each with its total: conceded, overtimes, forfeits, departures', () => {
   const players = comparedPlayers(board, seasons, roster, 'alice', 'all', 'all', 24);
-  const row = (label: string) => players.map((player) => statNamed(label).value(player));
-  expect(row('Buts encaissés')).toEqual([3, 3, null]);
-  expect(row('Clean sheets')).toEqual([1, 1, null]);
-  expect(row('Prolongations gagnées')).toEqual([1, 1, 0]);
-  expect(row('FF donnés')).toEqual([1, 1, 0]);
-  expect(row('Matchs quittés')).toEqual([0, 0, 1]);
-  expect(row('Matchs après minuit')).toEqual([0, 0, 1]);
+  const row = (label: string) => {
+    const stat = statNamed(label);
+    return players.map((player) => [stat.value(player), stat.total?.(player) ?? null]);
+  };
+  // Alice and Bob: 3 goals conceded over the 2 matches whose score is known, one of them without any.
+  expect(row('Buts encaissés')).toEqual([
+    [1.5, 3],
+    [1.5, 3],
+    [null, null],
+  ]);
+  expect(row('Clean sheets')).toEqual([
+    [50, 1],
+    [50, 1],
+    [null, null],
+  ]);
+  // Won among the overtimes played; Charlie played none.
+  expect(row('Prolongations gagnées')).toEqual([
+    [100, 1],
+    [100, 1],
+    [null, 0],
+  ]);
+  expect(players.map((player) => statNamed('Prolongations gagnées').of?.(player))).toEqual([1, 1, 0]);
+  expect(row('FF donnés')).toEqual([
+    [50, 1],
+    [50, 1],
+    [0, 0],
+  ]);
+  expect(row('Matchs quittés')).toEqual([
+    [0, 0],
+    [0, 0],
+    [100, 1],
+  ]);
+  // A late night is a count of its own.
+  expect(row('Matchs après minuit')).toEqual([
+    [0, null],
+    [0, null],
+    [1, null],
+  ]);
+  // What another line already says has no line of its own: the defeats, the overtimes lost.
+  const labels = tableStats('doubles', everyone()).map((stat) => stat.label);
+  expect(labels).not.toContain('Défaites');
+  expect(labels).not.toContain('Prolongations perdues');
 });
 
 test('ranks the players, ties sharing the lead and those without a figure last', () => {
   const players = comparedPlayers(board, seasons, ['alice', 'bob', 'charlie', 'dana'], 'alice', 'all', 'all', 24);
-  const wins = ranked(statNamed('Victoires', 'perMatch'), players);
+  const wins = ranked(statNamed('Victoires'), players);
   expect(wins.lines.map((line) => [line.player.name, line.value])).toEqual([
     ['alice', 50],
     ['bob', 50],
@@ -135,33 +161,32 @@ test('ranks the players, ties sharing the lead and those without a figure last',
 
 test('the table lights the best figure of a line, the lowest when less is better, none when all are equal', () => {
   const players = comparedPlayers(board, seasons, roster, 'alice', 'all', 'all', 24);
-  expect(bestOf(statNamed('Buts'), players)).toBe(3);
+  expect(bestOf(statNamed('Buts'), players)).toBe(1.5);
   expect(bestOf(statNamed('Matchs quittés'), players)).toBe(0);
   expect(bestOf(statNamed('Clean sheets'), players)).toBe(null);
-  expect(tableStats('tournament', 'total', everyone()).map((stat) => stat.label)).toContain('Tournois gagnés');
-  expect(tableStats('doubles', 'total', everyone()).map((stat) => stat.label)).not.toContain('Tournois gagnés');
+  expect(tableStats('tournament', everyone()).map((stat) => stat.label)).toContain('Tournois gagnés');
+  expect(tableStats('doubles', everyone()).map((stat) => stat.label)).not.toContain('Tournois gagnés');
   // No collector 0.7.0 match in this season: none of its lines.
-  expect(tableStats('doubles', 'total', everyone()).map((stat) => stat.label)).not.toContain('Tirs');
+  expect(tableStats('doubles', everyone()).map((stat) => stat.label)).not.toContain('Tirs');
 });
 
-test('per match, an action is averaged, a win or an MVP becomes a share, an ending or a record stays a count', () => {
+test('an action reads per match, a win or an MVP as a share, each with its total; a streak stays a count', () => {
   const players = comparedPlayers(board, seasons, roster, 'alice', 'all', 'all', 24);
-  const row = (label: string) => players.map((player) => statNamed(label, 'perMatch').value(player));
+  const row = (label: string) => players.map((player) => statNamed(label).value(player));
   expect(row('Buts')).toEqual([1.5, 0, 0]);
+  expect(players.map((player) => statNamed('Buts').total?.(player))).toEqual([3, 0, 0]);
   // Charlie lost his only match: he left it.
   expect(row('Victoires')).toEqual([50, 50, 0]);
-  // A late night or a match left reads best as a count.
-  expect(row('Prolongations gagnées')).toEqual([1, 1, 0]);
-  expect(row('Matchs quittés')).toEqual([0, 0, 1]);
   expect(row('Win streak max')).toEqual([1, 1, 0]);
   // Only the matches that came with a final score count: Charlie's has none.
   expect(row('Buts encaissés')).toEqual([1.5, 1.5, null]);
-  expect(statNamed('Buts', 'perMatch').format).toBe('perMatch');
-  expect(statNamed('Buts', 'perMatch').section).toBe('Attaque');
-  expect(statNamed('Matchs quittés', 'perMatch').perMatch).toBe(false);
-  expect(statNamed('MVP', 'perMatch').format).toBe('percent');
+  expect(statNamed('Buts').format).toBe('perMatch');
+  expect(statNamed('Buts').section).toBe('Attaque');
+  expect(statNamed('Win streak max').perMatch).toBe(false);
+  expect(statNamed('Win streak max').total).toBeUndefined();
+  expect(statNamed('MVP').format).toBe('percent');
   // A score of hundreds reads whole, per match too.
-  expect(statNamed('Score', 'perMatch').format).toBe('count');
+  expect(statNamed('Score').format).toBe('count');
 });
 
 test('names a player by their solo pseudo when only the solo accounts are compared', () => {
@@ -262,7 +287,7 @@ test('adds up the stats of collector 0.7.0, names the game’s events, and lines
   });
   const players = comparedPlayers(withGame, [], ['alice', 'bob'], 'alice', 'all', 'all', 24);
   // The game's words follow the language it was played in: English here.
-  const table = tableStats('all', 'total', players, { BicycleHit: 'Bicycle Hit', Mystery: 'Mystery Event' });
+  const table = tableStats('all', players, { BicycleHit: 'Bicycle Hit', Mystery: 'Mystery Event' });
   const row = (label: string) => {
     const stat = table.find((candidate) => candidate.label === label);
     if (!stat) throw new Error(`${label} is in the table`);
@@ -288,7 +313,7 @@ test('adds up the stats of collector 0.7.0, names the game’s events, and lines
     expect(table.map((stat) => stat.label)).not.toContain(double);
   expect(table.filter((stat) => stat.label === 'MVP')).toHaveLength(1);
   // Per match, over the matches that came with them.
-  const perMatch = tableStats('all', 'perMatch', players).find((stat) => stat.label === 'Touches de balle');
+  const perMatch = tableStats('all', players).find((stat) => stat.label === 'Touches de balle');
   expect(players.map((player) => perMatch?.value(player))).toEqual([30, 20]);
   // The demolitions taken count per match, over the matches that came with the game's feed: one each here.
   const punchingBall = prizes.find((prize) => prize.prize === 'Le punching-ball');
