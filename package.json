@@ -7,7 +7,8 @@
   ],
   "packageManager": "npm@11.20.0",
   "scripts": {
-    "dev": "vite",
+    "dev": "node scripts/dev.ts",
+    "logs": "node scripts/logs.ts",
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",

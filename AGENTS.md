@@ -29,6 +29,7 @@ Règles pour tout agent IA qui travaille sur ce dépôt. Elles valent aussi pour
 - `npm run db:reset` : remet la base locale à zéro, avec les seules données fictives. À lancer avant toute capture pour une PR.
 - `npm run db:pull-prod` : remplace la base locale par une copie minimisée de la production (e-mails fictifs, ni sessions, ni codes, ni abonnements aux notifications). Mainteneur avec accès Cloudflare seulement ; un agent ne la lance que si un mainteneur le lui demande. Après l'import, vider les données du site dans le navigateur. Tout est dans `docs/base-locale.md`.
 - `npm run dev` : lance l'app et l'API sur http://127.0.0.1:10071 (codes de connexion affichés dans le terminal).
+- `npm run logs` : suit, depuis un autre terminal, ce qu'affiche le serveur de dev déjà lancé (codes de connexion compris), gardé dans `.wrangler/dev.log`.
 - `npm run check` : lint, types et tests. Doit passer avant toute PR.
 - `npm test` : les tests seuls ; `npx vitest run --project web` ou `--project api` pour une moitié.
 - `npm run fmt` : formate le code.
