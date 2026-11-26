@@ -20,7 +20,7 @@ import {
   Trophy,
   Zap,
 } from 'lucide-react';
-import { type ReactNode, useState } from 'react';
+import { type CSSProperties, type ReactNode, useState } from 'react';
 import { formatNumber } from '../../lib/format';
 import { seasonAt } from '../../lib/season';
 import { useBoardState } from '../board';
@@ -41,6 +41,7 @@ import {
   type ComparedPlayer,
   comparedPlayers,
   keyStats,
+  type PeakGap,
   type Prize,
   prizes,
   type RankedLine,
@@ -53,6 +54,8 @@ import {
   tableSections,
   tableStats,
 } from './comparison';
+import { tilt, untilt } from './player-card';
+import { rankLightRgb, rankRgb } from './stats';
 
 type Scope = Exclude<CareerScope, 'ranked'>;
 
@@ -222,65 +225,134 @@ const gapStat: Stat = {
   value: (player) => player.peakGap?.gap ?? null,
 };
 
-/** A small labelled figure: its small capitals, then the figure. */
-function Figure({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
-  return (
-    <span className="flex flex-col gap-0.5">
-      <span className="label-caps text-[10px]">{label}</span>
-      <span className={cn('num text-[16px] [line-height:1]', strong ? 'text-t1' : 'text-t2')}>{value}</span>
-    </span>
-  );
-}
+/** The podium's steps: the first in the middle and highest, the second on the left, the third on the right. */
+const podiumSteps = {
+  1: { column: 'col-start-2', pedestal: 'h-14 lg:h-16' },
+  2: { column: 'col-start-1', pedestal: 'h-9 lg:h-10' },
+  3: { column: 'col-start-3', pedestal: 'h-5 lg:h-6' },
+} as const;
 
 /**
- * « Au plus près de son peak all time »: each player's solo peak of the season against their best ever, the one who reached
- * it or came closest first. The gap reads first, in big; then the player; then the two peaks it comes from, small.
- * Levels differ: the club compares the gaps, not the peaks.
+ * « Au plus près de son peak all time »: the podium of the solo accounts whose peak of the season came closest to
+ * their peak all time. Each step is a player card: the gap reads first, then the player under their rank, then the
+ * two peaks it comes from. Levels differ: the club compares the gaps, not the peaks. Whoever is not on it follows.
  */
 function SeasonPeaks({ players, season }: { players: ComparedPlayer[]; season: number }) {
   const { lines } = ranked(gapStat, players);
+  const climbers = lines.filter((line) => line.player.peakGap);
+  const unread = lines.filter((line) => !line.player.peakGap).map((line) => line.player.soloShown);
   return (
-    <Card variant="glass" role="region" aria-label="Au plus près de son peak all time" className="gap-4 p-5 lg:p-6">
-      <span className="label-caps">Saison {season} · solo · au plus près de son peak all time</span>
-      <ol className="m-0 flex list-none flex-col gap-2 p-0 lg:grid lg:grid-cols-[repeat(auto-fit,minmax(280px,1fr))] lg:gap-4">
-        {lines.map(({ player, place }) => {
-          const gap = player.peakGap;
-          const reached = gap?.gap === 0;
-          return (
-            <li key={player.name} className={cn('flex min-w-0 items-center gap-3 py-2.5', player.me && mineClass)}>
-              <Place place={gap ? place : null} mine={player.me} />
-              <img
-                src={`/rocket-league/ranks/${gap?.tier ?? 0}.png`}
-                alt=""
-                className="size-11 shrink-0 object-contain lg:size-12"
-              />
-              <span className="flex min-w-0 flex-1 flex-col gap-2">
-                <PlayerName player={{ ...player, shown: player.soloShown }} className="font-semibold text-[15px]" />
-                {gap ? (
-                  <span className="flex items-end gap-4">
-                    <Figure label="Saison" value={formatNumber(gap.peak)} strong={reached} />
-                    <Figure label="All time" value={formatNumber(gap.allTime)} />
-                  </span>
-                ) : (
-                  <span className="text-[13px] text-t3">Compte solo pas encore relevé cette saison</span>
-                )}
-              </span>
-              <span className="flex shrink-0 flex-col items-end gap-1">
-                <b
-                  className={cn(
-                    'num text-[34px] [line-height:.85] lg:text-[40px]',
-                    !gap ? 'text-t3' : reached ? 'text-win' : player.me || place === 1 ? 'text-t1' : 'text-t2',
-                  )}
-                >
-                  {gap ? formatted(gap.gap, 'mmr') : '–'}
-                </b>
-                {gap && <span className="label-caps text-[10px]">écart</span>}
-              </span>
-            </li>
-          );
-        })}
+    <section aria-label="Au plus près de son peak all time" className="flex flex-col gap-4">
+      <span className="flex flex-col gap-1.5">
+        <span className="label-caps">Saison {season} · peak solo</span>
+        <h2 className="title-display text-[24px] [line-height:normal]">Au plus près de son peak all time</h2>
+      </span>
+      <ol className="m-0 grid list-none grid-cols-3 items-end gap-2 p-0 lg:mx-auto lg:w-full lg:max-w-[760px] lg:gap-5">
+        {climbers.slice(0, 3).map((line, index) => (
+          <PodiumCard key={line.player.name} line={line} step={(index + 1) as 1 | 2 | 3} />
+        ))}
       </ol>
-    </Card>
+      {climbers.length > 3 && (
+        <ol className="m-0 flex list-none flex-col gap-1 p-0">
+          {climbers.slice(3).map(({ player, place }) => (
+            <li
+              key={player.name}
+              className={cn('flex items-center gap-3 py-1.5 text-[14px] text-t2', player.me && mineClass)}
+            >
+              <Place place={place} mine={player.me} />
+              <PlayerName player={{ ...player, shown: player.soloShown }} className="flex-1" />
+              <b className="num text-[17px] text-t1">{formatted(player.peakGap?.gap ?? null, 'mmr')}</b>
+            </li>
+          ))}
+        </ol>
+      )}
+      {unread.length > 0 && (
+        <p className="m-0 text-[12px] text-t3 [line-height:1.45]">
+          Compte solo pas encore relevé cette saison : {new Intl.ListFormat('fr').format(unread)}.
+        </p>
+      )}
+    </section>
+  );
+}
+
+/** One step of the podium: a player card in their rank's colour, standing on its pedestal. */
+function PodiumCard({ line, step }: { line: RankedLine; step: 1 | 2 | 3 }) {
+  const { player, place } = line;
+  const gap = player.peakGap as PeakGap;
+  const rgb = rankRgb(gap.tier);
+  const first = step === 1;
+  const reached = gap.gap === 0;
+  return (
+    <li className={cn('row-start-1 flex min-w-0 animate-rise flex-col gap-2', podiumSteps[step].column)}>
+      <div
+        onPointerMove={tilt}
+        onPointerLeave={untilt}
+        style={{ '--rank': rgb, '--rank-light': rankLightRgb(gap.tier) } as CSSProperties}
+        className={cn(
+          'player-card flex flex-col items-center gap-3 px-2.5 pt-4 pb-3.5 text-center lg:gap-4 lg:px-4 lg:pt-6 lg:pb-5',
+          player.me && 'shadow-[inset_0_0_0_1px_rgba(255,255,255,.32)]',
+        )}
+      >
+        <i
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 z-1"
+          style={{ background: `radial-gradient(130% 70% at 50% -10%, rgba(${rgb},.32), rgba(${rgb},0) 65%)` }}
+        />
+        <i aria-hidden="true" className="player-card-holo pointer-events-none absolute inset-0 z-2" />
+        <i aria-hidden="true" className="player-card-glint pointer-events-none absolute inset-0 z-3" />
+        <span className="relative z-4 flex flex-col items-center gap-1.5">
+          <b
+            className={cn(
+              'num [line-height:.85]',
+              first ? 'text-[38px] lg:text-[52px]' : 'text-[30px] lg:text-[42px]',
+              reached ? 'text-win' : 'text-t1',
+            )}
+          >
+            {formatted(gap.gap, 'mmr')}
+          </b>
+          <span className="label-caps text-[10px]">écart</span>
+        </span>
+        <img
+          src={`/rocket-league/ranks/${gap.tier ?? 0}.png`}
+          alt=""
+          className={cn(
+            'relative z-4 object-contain [filter:drop-shadow(0_6px_16px_rgba(var(--rank),.55))]',
+            first ? 'size-14 lg:size-20' : 'size-11 lg:size-16',
+          )}
+        />
+        <span className="relative z-4 flex min-w-0 max-w-full flex-col items-center gap-1">
+          <span className="flex min-w-0 max-w-full items-center gap-1">
+            <b className="truncate font-semibold text-[13px] lg:text-[15px]">{player.soloShown}</b>
+            {player.me && <Badge variant="tag">TOI</Badge>}
+          </span>
+          <span className="flex w-full flex-col gap-0.5 text-[11px] lg:flex-row lg:justify-center lg:gap-3 lg:text-[12px]">
+            <span className="flex justify-between gap-1.5 lg:justify-center">
+              <span className="text-t3">Saison</span>
+              <span className={cn('num', reached ? 'text-t1' : 'text-t2')}>{formatNumber(gap.peak)}</span>
+            </span>
+            <span className="flex justify-between gap-1.5 lg:justify-center">
+              <span className="text-t3">All time</span>
+              <span className="num text-t2">{formatNumber(gap.allTime)}</span>
+            </span>
+          </span>
+        </span>
+      </div>
+      <div
+        aria-hidden="true"
+        className={cn(
+          'flex origin-bottom animate-pedestal items-start justify-center rounded-[12px_12px_4px_4px] pt-1.5',
+          podiumSteps[step].pedestal,
+          first
+            ? 'bg-linear-to-b from-white/18 to-white/4 shadow-[inset_0_1px_0_rgba(255,255,255,.35)]'
+            : 'bg-linear-to-b from-white/8 to-white/2 shadow-[inset_0_1px_0_rgba(255,255,255,.14)]',
+        )}
+      >
+        <span className={cn('num text-[15px] lg:text-[17px]', player.me ? medals[place ?? 0] : 'text-t3')}>
+          {place}
+        </span>
+      </div>
+      <span className="sr-only">Place {place}</span>
+    </li>
   );
 }
 

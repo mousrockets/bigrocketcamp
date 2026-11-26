@@ -114,20 +114,18 @@ test('shows a past season from its address, and every match from the season list
   expect(within(wins).getAllByText('67 %')).toHaveLength(2);
 });
 
-test('leads with whose solo account came closest to its peak all time this season', async () => {
+test('stands the solo accounts that came closest to their peak all time on a podium', async () => {
   renderInApp(<StatsPage />, { board, path: '/stats' });
-  const peaks = await screen.findByRole('region', { name: 'Au plus près de son peak all time' });
+  const podium = await screen.findByRole('region', { name: 'Au plus près de son peak all time' });
   // The ratings arrive apart from the board.
-  await within(peaks).findByText('−60');
-  // Alice reached her peak all time (1 210) this season; Bob stayed 60 under his (1 400).
-  const [first, second] = within(peaks).getAllByRole('listitem');
-  expect(first).toHaveTextContent('alice-solo');
-  expect(first).toHaveTextContent(/Saison1 210\s*All time1 210/);
+  await within(podium).findByText('−60');
+  // Alice reached her solo peak all time (1 210) this season; Bob stayed 60 under his (1 400).
+  const [first, second] = within(podium).getAllByRole('listitem');
+  expect(first).toHaveTextContent(/^0écart\s*alice-solo\s*TOI\s*Saison1 210\s*All time1 210/);
+  expect(first).toHaveTextContent(/Place 1$/);
   expect(within(first as HTMLElement).getByText('0')).toHaveClass('text-win');
-  expect(second).toHaveTextContent('bob-solo');
-  expect(second).toHaveTextContent(/Saison1 340\s*All time1 400/);
-  expect(second).toHaveTextContent('−60');
-  expect(peaks).not.toHaveTextContent(/record/i);
+  expect(second).toHaveTextContent(/^−60écart\s*bob-solo\s*Saison1 340\s*All time1 400/);
+  expect(second).toHaveTextContent(/Place 2$/);
 });
 
 test('the solo accounts are named by their own pseudo', async () => {
