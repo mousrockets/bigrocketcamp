@@ -53,6 +53,11 @@ export interface PlayerSoloRank {
   best: number | null;
   /** The best rating with the rank it came with; null while unknown, or for a best set by hand. */
   bestRank: SeasonPeak | null;
+  /**
+   * The peak all time before the current season: the best as it stood when the season began, with its rank (a tier
+   * of null for one set by hand). Null while unknown: a best the season reached before the app kept it.
+   */
+  seasonStartBest: SeasonPeak | null;
   /** The account's game ID once the rank source found it: the matches played on it. */
   playerId: string | null;
 }
@@ -74,6 +79,8 @@ export interface PlayerDoublesRank {
   best: number | null;
   /** The best rating with the rank it came with; null while unknown, or for a best set by hand. */
   bestRank: SeasonPeak | null;
+  /** The peak all time before the current season, with its rank; null while unknown. */
+  seasonStartBest: SeasonPeak | null;
   /** Null when the player named no solo account in their profile. */
   solo: PlayerSoloRank | null;
 }
@@ -121,6 +128,34 @@ const bestColumns = (table: typeof playerRanks | typeof soloRanks) => ({
   bestDivision: table.bestDivision,
 });
 
+interface StoredSeasonStart extends StoredBest {
+  seasonStartSeason: number | null;
+  seasonStartBestMmr: number | null;
+  seasonStartBestTier: number | null;
+  seasonStartBestDivision: number | null;
+}
+
+/**
+ * The best before the current season: kept at the account's first reading of the season, or, while the season has
+ * read nothing of it yet, the best as it stands.
+ */
+function seasonStartBestOf(rank: StoredSeasonStart | undefined): SeasonPeak | null {
+  if (!rank) return null;
+  const started = rank.seasonStartSeason === currentSeason.number;
+  const mmr = started ? rank.seasonStartBestMmr : rank.bestMmr;
+  if (mmr === null) return null;
+  const tier = started ? rank.seasonStartBestTier : rank.bestTier;
+  const division = started ? rank.seasonStartBestDivision : rank.bestDivision;
+  return { mmr, label: tier === null ? '' : rankLabel(tier, division), tier };
+}
+
+const seasonStartColumns = (table: typeof playerRanks | typeof soloRanks) => ({
+  seasonStartSeason: table.seasonStartSeason,
+  seasonStartBestMmr: table.seasonStartBestMmr,
+  seasonStartBestTier: table.seasonStartBestTier,
+  seasonStartBestDivision: table.seasonStartBestDivision,
+});
+
 const soloStatuses: readonly SoloRankStatus[] = [
   'ready',
   'not_found',
@@ -148,6 +183,7 @@ async function readSoloRanks(db: Database): Promise<Map<string, PlayerSoloRank>>
         status: soloRanks.status,
         ...bestColumns(soloRanks),
         ...peakColumns(soloRanks),
+        ...seasonStartColumns(soloRanks),
       })
       .from(soloRanks),
   ]);
@@ -168,6 +204,7 @@ async function readSoloRanks(db: Database): Promise<Map<string, PlayerSoloRank>>
           peak: peakOf(rank),
           pseudo,
           ...bestOf(rank),
+          seasonStartBest: seasonStartBestOf(rank),
           playerId,
         },
       ];
@@ -190,13 +227,19 @@ export async function readDoublesRanks(db: Database, roster: Roster): Promise<Pl
         status: playerRanks.status,
         ...bestColumns(playerRanks),
         ...peakColumns(playerRanks),
+        ...seasonStartColumns(playerRanks),
       })
       .from(playerRanks),
     readSoloRanks(db),
   ]);
   return roster.map((player) => {
     const rank = stored.find((candidate) => candidate.player === player);
-    const extra = { peak: peakOf(rank), ...bestOf(rank), solo: solo.get(player) ?? null };
+    const extra = {
+      peak: peakOf(rank),
+      ...bestOf(rank),
+      seasonStartBest: seasonStartBestOf(rank),
+      solo: solo.get(player) ?? null,
+    };
     if (!rank || rank.mmr === null) {
       return {
         player,

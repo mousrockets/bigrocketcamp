@@ -148,6 +148,18 @@ describe('the duo best rating', () => {
       bestRank: { mmr: 1580, label: 'Grand Champion II · Division I', tier: 20 },
     });
   });
+
+  test('keeps its best from before the season, even once the season beats it', async () => {
+    const bestBeforeSeason = async () => (await readDoublesRanks(env.DB, ['bob']))[0]?.seasonStartBest;
+    await post([{ ...rank(1400), tier: 18, division: 4 }]);
+    await env.DB.prepare('UPDATE player_ranks SET season_start_season = ?, season = ? WHERE player = ?')
+      .bind(currentSeason.number - 1, currentSeason.number - 1, 'bob')
+      .run();
+    await post([{ ...rank(1300), tier: 17, division: 2 }]);
+    expect(await bestBeforeSeason()).toEqual({ mmr: 1400, label: 'Champion III · Division IV', tier: 18 });
+    await post([{ ...rank(1580), tier: 20, division: 1 }]);
+    expect(await bestBeforeSeason()).toEqual({ mmr: 1400, label: 'Champion III · Division IV', tier: 18 });
+  });
 });
 
 describe('the solo accounts', () => {
@@ -347,6 +359,26 @@ describe('the solo accounts', () => {
     expect(await bestRank()).toBeNull();
     await post([solo(1580, { tier: 20, division: 1 })]);
     expect(await bestRank()).toEqual({ mmr: 1580, label: 'Grand Champion II · Division I', tier: 20 });
+  });
+
+  test('a solo account keeps its best from before the season, even once the season beats it', async () => {
+    await soloPseudo('Bob Solo');
+    const bestBeforeSeason = async () => (await readDoublesRanks(env.DB, ['bob']))[0]?.solo?.seasonStartBest;
+    await post([solo(1320, { tier: 17, division: 4 })]);
+    // Its best of a past season, set by hand, before the first reading of this one.
+    await env.DB.prepare(
+      `UPDATE solo_ranks SET best_mmr = 1500, best_tier = NULL, best_division = NULL,
+        season_start_season = ?, season = ? WHERE player = 'bob'`,
+    )
+      .bind(currentSeason.number - 1, currentSeason.number - 1)
+      .run();
+    expect(await bestBeforeSeason()).toEqual({ mmr: 1500, label: '', tier: null });
+    await post([solo(1400, { tier: 18, division: 1 })]);
+    expect(await bestBeforeSeason()).toEqual({ mmr: 1500, label: '', tier: null });
+    // The season beats it: the best rises, the one before the season stays.
+    await post([solo(1580, { tier: 20, division: 1 })]);
+    expect(await env.DB.prepare("SELECT best_mmr FROM solo_ranks WHERE player = 'bob'").first('best_mmr')).toBe(1580);
+    expect(await bestBeforeSeason()).toEqual({ mmr: 1500, label: '', tier: null });
   });
 
   test('the health of the source only follows the duo accounts', async () => {
