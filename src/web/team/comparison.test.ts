@@ -196,11 +196,11 @@ test('a prize of something that happens in a match goes to its rate, its count b
     [(2 / 3) * 100, 2],
     [null, 1],
   ]);
-  expect(prize('Clean sheet')).toEqual([
+  expect(prize('Le mur')).toEqual([
     [50, 2],
     [0, 0],
   ]);
-  expect(prize('Rage quit')).toEqual([
+  expect(prize('Le fugueur')).toEqual([
     [0, 0],
     [0, 0],
   ]);

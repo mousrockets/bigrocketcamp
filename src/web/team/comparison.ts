@@ -250,7 +250,7 @@ export const prizes: Prize[] = [
     format: 'percent',
     value: (p) => share(p, p.career.conceded === null ? null : p.career.cleanSheets, p.career.measured.conceded),
     total: (p) => p.career.cleanSheets,
-    prize: 'Clean sheet',
+    prize: 'Le mur',
   },
   // A night owl is one who plays many nights: the count is the prize.
   {
@@ -264,9 +264,9 @@ export const prizes: Prize[] = [
     format: 'percent',
     value: (p) => share(p, p.career.left),
     total: (p) => p.career.left,
-    prize: 'Rage quit',
+    prize: 'Le fugueur',
   },
-  { ...pushups, prize: 'Les bras d’acier' },
+  { ...pushups, prize: 'Le pompier' },
   {
     label: 'MMR perdus depuis le peak de la saison',
     format: 'count',
