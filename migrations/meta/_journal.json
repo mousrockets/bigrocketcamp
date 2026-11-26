@@ -288,6 +288,13 @@
       "when": 1795701679109,
       "tag": "0040_game_stats",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "6",
+      "when": 1795710802152,
+      "tag": "0041_season_start_best",
+      "breakpoints": true
     }
   ]
 }

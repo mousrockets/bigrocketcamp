@@ -104,6 +104,11 @@ const rankFields = {
   best: z.number().nullable().catch(null),
   /** The best rating with the rank it came with; null for a best set by hand, absent from an API older than it. */
   bestRank: seasonPeak.nullable().catch(null),
+  /**
+   * The peak all time before the current season, with its rank (a tier of null for one set by hand); null while
+   * unknown, absent from an API older than it.
+   */
+  seasonStartBest: seasonPeak.nullable().catch(null),
 };
 
 export const soloRank = z.looseObject({

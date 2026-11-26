@@ -42,13 +42,25 @@ const board = boardWith({
     ...duo('s24-win', '2026-11-02', true, { alice: 3, bob: 0 }),
     ...duo('s24-loss', '2026-11-03', false, { alice: 1, bob: 1 }),
   ],
+  // Their solo accounts' best ever: Bob's set before this season, Alice's this season.
+  doublesRanks: [
+    aRank({
+      player: 'bob',
+      seasonStartBest: { mmr: 1300, label: 'Champion III · Division I', tier: 18 },
+      solo: aSoloRank({ pseudo: 'bob-solo', seasonStartBest: { mmr: 1400, label: '', tier: null } }),
+    }),
+    aRank({
+      player: 'alice',
+      solo: aSoloRank({ pseudo: 'alice-solo', seasonStartBest: { mmr: 1150, label: '', tier: null } }),
+    }),
+  ],
 });
 
 /** What the API answers the Stats page about each season's ratings. */
 const seasons = [
   {
     player: 'bob',
-    account: 'duo',
+    account: 'solo',
     season: 24,
     first: 1300,
     last: 1280,
@@ -56,11 +68,19 @@ const seasons = [
   },
   {
     player: 'alice',
-    account: 'duo',
+    account: 'solo',
     season: 24,
     first: 1100,
     last: 1184,
     peak: { mmr: 1210, label: 'Champion III · Division II', tier: 18 },
+  },
+  {
+    player: 'alice',
+    account: 'solo',
+    season: 23,
+    first: 1050,
+    last: 1120,
+    peak: { mmr: 1150, label: 'Champion II · Division IV', tier: 17 },
   },
 ];
 
@@ -101,18 +121,25 @@ test('shows a past season from its address, and every match from the season list
   expect(within(wins).getAllByText('67 %')).toHaveLength(2);
 });
 
-test('leads with each player’s 2v2 peak and what the season brought, the highest first', async () => {
+test('stands the solo accounts closest to their peak all time before the season on a podium, the duo ones a tap away', async () => {
   renderInApp(<StatsPage />, { board, path: '/stats' });
-  const peaks = await screen.findByRole('region', { name: 'Peak 2v2' });
+  const podium = await screen.findByRole('region', { name: 'Au plus près de son peak all time' });
   // The ratings arrive apart from the board.
-  await within(peaks).findByText('1 340');
-  const [first, second] = within(peaks).getAllByRole('listitem');
-  expect(first).toHaveTextContent('bob');
-  expect(first).toHaveTextContent('Grand Champion I · Division I');
-  expect(first).toHaveTextContent('1 340');
-  expect(first).toHaveTextContent('−20 MMR');
-  expect(second).toHaveTextContent('alice');
-  expect(second).toHaveTextContent('+84 MMR');
+  await within(podium).findByText('+60');
+  // Alice's solo beat its best before the season (1 150) by 60; Bob's stayed 60 under his (1 400).
+  const [first, second] = within(podium).getAllByRole('listitem');
+  expect(first).toHaveTextContent(/^\+60écart\s*alice-solo\s*TOI\s*Saison1 210\s*All time1 150/);
+  expect(within(first as HTMLElement).getByText('+60')).toHaveClass('text-win');
+  expect(second).toHaveTextContent(/^−60écart\s*bob-solo\s*Saison1 340\s*All time1 400/);
+  expect(second).toHaveTextContent(/Place 2$/);
+  // Both peaks take their rank's colour.
+  expect(within(second as HTMLElement).getByText('1 340')).toHaveAttribute('style', expect.stringContaining('color'));
+  expect(within(second as HTMLElement).getByText('1 400')).toHaveAttribute('style', expect.stringContaining('color'));
+
+  await userEvent.click(within(podium).getByRole('button', { name: 'Duo' }));
+  // In duo, only Bob's best before the season is known, and he has no duo peak read this season.
+  expect(within(podium).queryAllByRole('listitem')).toHaveLength(0);
+  expect(podium).toHaveTextContent(/Pas de peak duo relevé cette saison, ou pas de peak all time d’avant connu/);
 });
 
 test('the solo accounts are named by their own pseudo', async () => {
@@ -124,7 +151,7 @@ test('the solo accounts are named by their own pseudo', async () => {
   };
   renderInApp(<StatsPage />, { board: withSolo, path: '/stats' });
   await pick('Compte', 'Compte solo');
-  expect(await screen.findAllByText('alice-en-solo')).not.toHaveLength(0);
+  expect(await screen.findAllByText(/alice-en-solo/)).not.toHaveLength(0);
   expect(screen.queryByText('alice')).not.toBeInTheDocument();
 });
 

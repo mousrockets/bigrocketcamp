@@ -198,6 +198,27 @@ const peakWrite = (query: Orm, table: typeof playerRanks | typeof soloRanks, ran
       ),
     );
 
+/**
+ * At an account's first reading of a season, its best as it stands: the peak all time before that season. Written
+ * before the reading may raise the best.
+ */
+const seasonStartWrite = (query: Orm, table: typeof playerRanks | typeof soloRanks, rank: ObservedRank) =>
+  query
+    .update(table)
+    .set({
+      seasonStartSeason: currentSeason.number,
+      seasonStartBestMmr: sql`${table.bestMmr}`,
+      seasonStartBestTier: sql`${table.bestTier}`,
+      seasonStartBestDivision: sql`${table.bestDivision}`,
+    })
+    .where(
+      and(
+        eq(table.player, rank.player),
+        eq(table.playerId, rank.playerId),
+        sql`${table.seasonStartSeason} IS NOT ${currentSeason.number}`,
+      ),
+    );
+
 /** The best rating only rises, whatever the season, and keeps the rank it came with. */
 const bestWrite = (query: Orm, table: typeof playerRanks | typeof soloRanks, rank: ObservedRank) =>
   query
@@ -289,7 +310,11 @@ async function duoWrites(query: Orm, rank: ObservedRank): Promise<Writes> {
   writes.push(
     query.update(playerRanks).set({ placementMatches: rank.placements }).where(eq(playerRanks.player, rank.player)),
   );
-  writes.push(peakWrite(query, playerRanks, rank), bestWrite(query, playerRanks, rank));
+  writes.push(
+    peakWrite(query, playerRanks, rank),
+    seasonStartWrite(query, playerRanks, rank),
+    bestWrite(query, playerRanks, rank),
+  );
   return { writes, changed };
 }
 
@@ -384,6 +409,7 @@ async function soloWrites(query: Orm, rank: ObservedRank, target: SoloTarget): P
         setWhere: sql`${isNull(soloRanks.fetchedAt)} OR ${lte(soloRanks.fetchedAt, excluded(soloRanks.fetchedAt))}`,
       }),
     peakWrite(query, soloRanks, rank),
+    seasonStartWrite(query, soloRanks, rank),
     bestWrite(query, soloRanks, rank),
   );
   return { writes, changed };

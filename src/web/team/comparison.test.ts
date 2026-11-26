@@ -237,3 +237,38 @@ test('adds up the stats of collector 0.7.0, names the game’s events, and lines
   const punchingBall = prizes.find((prize) => prize.prize === 'Le punching-ball');
   expect(players.map((player) => punchingBall?.value(player))).toEqual([2, 0]);
 });
+
+test('measures each account’s peak of the season against its peak all time before the season', () => {
+  const ranked = boardWith({
+    results: [],
+    doublesRanks: [
+      aRank({
+        player: 'alice',
+        seasonStartBest: { mmr: 1200, label: 'Champion II · Division III', tier: 17 },
+        // Her solo best, set by hand: no rank of its own.
+        solo: aSoloRank({ pseudo: 'alice-en-solo', seasonStartBest: { mmr: 1100, label: '', tier: null } }),
+      }),
+      aRank({ player: 'bob' }),
+    ],
+  });
+  const gaps = (kind: 'solo' | 'duo', season: number | null) =>
+    comparedPlayers(ranked, seasons, ['alice', 'bob'], 'alice', 'all', 'all', season).map((player) => {
+      const gap = player.peakGaps[kind];
+      return gap && [gap.peak, gap.allTime, gap.gap];
+    });
+  // Alice's duo beat its best before the season (1 200) by 50; her solo stayed 60 under its (1 100).
+  expect(gaps('duo', 24)).toEqual([
+    [1250, 1200, 50],
+    // Bob's duo was read this season, but its best before it is unknown.
+    [1330, null, null],
+  ]);
+  expect(gaps('solo', 24)).toEqual([[1040, 1100, -60], null]);
+  // A past season measures against the seasons before it the app read: none before season 23.
+  expect(gaps('duo', 23)).toEqual([[1120, null, null], null]);
+  expect(gaps('duo', null)).toEqual([null, null]);
+  // A best set by hand takes the colour of the rank it reaches on the ladder.
+  const [alice] = comparedPlayers(ranked, seasons, ['alice'], 'alice', 'all', 'all', 24);
+  expect(alice?.peakGaps.solo?.allTimeTier).toBeGreaterThan(0);
+  expect(alice?.peakGaps.duo?.allTimeTier).toBe(17);
+  expect(alice?.soloShown).toBe('alice-en-solo');
+});

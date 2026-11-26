@@ -100,6 +100,7 @@ export const aRank = (parts: Partial<DoublesRank> & Pick<DoublesRank, 'player'>)
   peak: null,
   best: null,
   bestRank: null,
+  seasonStartBest: null,
   solo: null,
   ...parts,
 });
@@ -117,6 +118,7 @@ export const aSoloRank = (parts: Partial<SoloRank> = {}): SoloRank => ({
   pseudo: null,
   best: null,
   bestRank: null,
+  seasonStartBest: null,
   playerId: null,
   ...parts,
 });

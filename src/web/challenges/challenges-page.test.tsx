@@ -69,6 +69,7 @@ const ranks = [
       pseudo: null,
       best: null,
       bestRank: null,
+      seasonStartBest: null,
       playerId: null,
       status: 'ready',
     },

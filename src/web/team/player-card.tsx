@@ -32,7 +32,7 @@ export interface CardPlayer {
 const reduceMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /** The card leans toward a mouse pointer, and its rim and sheen follow it. */
-function tilt(event: PointerEvent<HTMLElement>) {
+export function tilt(event: PointerEvent<HTMLElement>) {
   if (event.pointerType !== 'mouse' || reduceMotion()) return;
   const card = event.currentTarget;
   const box = card.getBoundingClientRect();
@@ -45,7 +45,7 @@ function tilt(event: PointerEvent<HTMLElement>) {
   card.style.setProperty('--ang', `${((Math.atan2(y - 0.5, x - 0.5) * 180) / Math.PI + 90).toFixed(1)}deg`);
 }
 
-function untilt(event: PointerEvent<HTMLElement>) {
+export function untilt(event: PointerEvent<HTMLElement>) {
   const card = event.currentTarget;
   card.style.transition = '';
   card.style.transform = '';

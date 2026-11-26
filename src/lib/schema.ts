@@ -429,6 +429,18 @@ const allTimePeak = {
   bestDivision: integer('best_division'),
 };
 
+/**
+ * The best rating as it stood when the season `seasonStartSeason` began: the peak all time before that season, which
+ * the Stats page measures the season's peak against. Kept at the account's first reading of each season, before that
+ * reading may raise the best; null when the best before the season is unknown.
+ */
+const seasonStartBest = {
+  seasonStartSeason: integer('season_start_season'),
+  seasonStartBestMmr: integer('season_start_best_mmr'),
+  seasonStartBestTier: integer('season_start_best_tier'),
+  seasonStartBestDivision: integer('season_start_best_division'),
+};
+
 /** The ranked 2v2 rank on each player's card. */
 export const playerRanks = sqliteTable('player_ranks', {
   player: text('player').primaryKey(),
@@ -444,6 +456,7 @@ export const playerRanks = sqliteTable('player_ranks', {
   placementMatches: integer('placement_matches'),
   ...seasonPeak,
   ...allTimePeak,
+  ...seasonStartBest,
 });
 
 /** The ranked 2v2 rank of each player's solo account, kept apart from the duo one. */
@@ -463,6 +476,7 @@ export const soloRanks = sqliteTable('solo_ranks', {
   status: text('status').notNull(),
   ...seasonPeak,
   ...allTimePeak,
+  ...seasonStartBest,
 });
 
 /** Each change of a solo account's rating, as the rank source read it. */
