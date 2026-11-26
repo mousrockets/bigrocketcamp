@@ -1,6 +1,7 @@
 import type { Roster } from './club';
 import { parisDay } from './days';
 import { normalizeParticipant, type ReceivedResult } from './domain';
+import { gameStatsOf, liveGameStats } from './game-stats';
 import { type ReceivedRoster, validateMatchRosters } from './match-rules';
 import { parseOrThrow, says, z } from './validation';
 
@@ -75,6 +76,8 @@ export interface LivePlayer {
    * older collectors.
    */
   CrossbarHits?: unknown;
+  /** Shots, touches, the stat feed and the rest since collector 0.7.0: see `liveGameStats`. */
+  [gameStat: string]: unknown;
 }
 
 export interface LiveTeam {
@@ -96,6 +99,9 @@ export interface LiveMatch {
       /** Seconds left on the clock at the end; counts up in overtime. Absent from older collectors. */
       TimeSeconds?: unknown;
       bOvertime?: unknown;
+      /** The map, and the game's words for each stat feed event counted. Absent from collectors older than 0.7.0. */
+      Arena?: unknown;
+      StatfeedLabels?: unknown;
     };
   };
   end: { MatchGuid: string; WinnerTeamNum: unknown };
@@ -122,6 +128,7 @@ export interface LiveDeparture {
   Saves: unknown;
   Demos?: unknown;
   CrossbarHits?: unknown;
+  [gameStat: string]: unknown;
 }
 
 /** How many departures a payload holds at most. */
@@ -133,7 +140,7 @@ export interface LiveLeft {
   state: {
     MatchGuid: string;
     Players: LivePlayer[];
-    Game: { PlaylistId?: unknown; Teams?: LiveTeam[]; bReplay?: unknown };
+    Game: { PlaylistId?: unknown; Teams?: LiveTeam[]; bReplay?: unknown; Arena?: unknown; StatfeedLabels?: unknown };
   };
   startedAt: number;
   leftAt: number;
@@ -187,7 +194,7 @@ const notBlank = (text: string) => text.trim() !== '';
 const statistics = { Score: statistic, Goals: statistic, Assists: statistic, Saves: statistic };
 // Older collectors send neither, and an unreadable one is unknown: the match still counts.
 const optionalStatistic = z.int().min(0).max(1_000_000).optional().catch(undefined);
-const extraStatistics = { Demos: optionalStatistic, CrossbarHits: optionalStatistic };
+const extraStatistics = { Demos: optionalStatistic, CrossbarHits: optionalStatistic, ...liveGameStats };
 const playerName = z.string(says(nameless)).max(128, says(nameless)).refine(notBlank, says(nameless));
 
 /** The checks of a scoreboard's players, end or left: each stage receives what the stage before it accepted. */
@@ -416,7 +423,14 @@ export interface LiveRows {
 }
 
 /** A player's line of a match, named after the club's players; `winner` decides it. */
-function lineOf(roster: Roster, guid: string, day: string, player: LivePlayer, winner: unknown): ReceivedResult {
+function lineOf(
+  roster: Roster,
+  guid: string,
+  day: string,
+  player: LivePlayer,
+  winner: unknown,
+  arena: unknown,
+): ReceivedResult {
   return normalizeParticipant(roster, {
     MatchGuid: guid.trim().toLowerCase(),
     PlayerId: canonical(player.PrimaryId),
@@ -431,12 +445,13 @@ function lineOf(roster: Roster, guid: string, day: string, player: LivePlayer, w
     Saves: player.Saves,
     Demos: player.Demos,
     CrossbarHits: player.CrossbarHits,
+    GameStats: gameStatsOf(player, arena),
   });
 }
 
 /** A player who left lost the match, whatever his team did after. */
-const leaverLine = (roster: Roster, guid: string, day: string, player: LivePlayer) =>
-  lineOf(roster, guid, day, player, player.TeamNum === 0 ? 1 : 0);
+const leaverLine = (roster: Roster, guid: string, day: string, player: LivePlayer, arena: unknown) =>
+  lineOf(roster, guid, day, player, player.TeamNum === 0 ? 1 : 0, arena);
 
 /**
  * Every identified player of the losing team left before the end: a forfeit. The final scoreboard alone never
@@ -463,7 +478,7 @@ export function liveMatchRows(roster: Roster, match: LiveMatch): LiveRows {
   // including matches that finish after Paris midnight, to keep that convention.
   const day = parisDay(new Date(startedAt));
   const rows = state.Players.map((player: LivePlayer) =>
-    lineOf(roster, state.MatchGuid, day, player, end.WinnerTeamNum),
+    lineOf(roster, state.MatchGuid, day, player, end.WinnerTeamNum, state.Game.Arena),
   );
   // A player on the final scoreboard came back: he did not leave.
   const present = new Set(state.Players.map((player) => canonical(player.PrimaryId)));
@@ -486,7 +501,11 @@ export function liveMatchRows(roster: Roster, match: LiveMatch): LiveRows {
   const rosters = validateMatchRosters([{ MatchGuid: rows[0]?.matchGuid, PlayerCount: rows.length }], rows).map(
     (roster) => ({ ...roster, ...clock, ...trace, ...forfeit, ...score, playlist: state.Game.PlaylistId as number }),
   );
-  return { rows, rosters, departures: gone.map((player) => leaverLine(roster, state.MatchGuid, day, player)) };
+  return {
+    rows,
+    rosters,
+    departures: gone.map((player) => leaverLine(roster, state.MatchGuid, day, player, state.Game.Arena)),
+  };
 }
 
 /**
@@ -496,7 +515,9 @@ export function liveMatchRows(roster: Roster, match: LiveMatch): LiveRows {
  */
 export function leftMatchRows(roster: Roster, match: LiveLeft): LiveRows {
   const day = parisDay(new Date(match.startedAt));
-  const departures = match.state.Players.map((player) => leaverLine(roster, match.state.MatchGuid, day, player));
+  const departures = match.state.Players.map((player) =>
+    leaverLine(roster, match.state.MatchGuid, day, player, match.state.Game.Arena),
+  );
   return { rows: departures, rosters: [], departures };
 }
 

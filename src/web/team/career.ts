@@ -1,4 +1,5 @@
 import { parisDay, parisHour } from '../../lib/days';
+import type { GameStats } from '../../lib/game-stats';
 import { matchModeOf } from '../../lib/live-stats';
 import { mvpOf } from '../../lib/match-history';
 import { matchIndex } from '../../lib/match-rules';
@@ -39,6 +40,70 @@ export interface Career {
   lateNight: number;
   /** The matches that came with each count an older collector does not send: an average divides by them. */
   measured: { demos: number; crossbarHits: number; conceded: number };
+  /** What collector 0.7.0 adds to each match: its stats are only known from the matches it sent. */
+  game: GameTally;
+}
+
+/** A count, and the matches it was measured in. */
+export interface Tally {
+  total: number;
+  matches: number;
+}
+
+/** The stats of collector 0.7.0, added up over the matches that came with them. */
+export interface GameTally {
+  shots: Tally;
+  /** The goals scored in the matches whose shots are known: the shots' accuracy. */
+  goalsOnShots: number;
+  touches: Tally;
+  carTouches: Tally;
+  kickoffTouches: Tally;
+  ownGoals: Tally;
+  /** Each stat feed event the player got, and took, by its name, with the matches that came with a feed. */
+  statfeed: Map<string, number>;
+  statfeedSecondary: Map<string, number>;
+  statfeedMatches: number;
+  /** Assists given, by the scorer's game ID. */
+  assistsTo: Map<string, number>;
+  /** Records: the hardest hit and the fastest goal (Unreal units per second), the longest goal (units), the quickest. */
+  hardestHit: number | null;
+  fastestGoal: number | null;
+  longestGoal: number | null;
+  quickestGoal: number | null;
+}
+
+/** Hoops and Dropshot: a goal's distance means nothing off a standard pitch. */
+const oddPitches = new Set([27, 29]);
+
+const tally = (): Tally => ({ total: 0, matches: 0 });
+const addTo = (to: Tally, value: number | undefined) => {
+  if (value === undefined) return;
+  to.total += value;
+  to.matches++;
+};
+const addCounts = (to: Map<string, number>, counts: Record<string, number> | undefined) => {
+  for (const [name, count] of Object.entries(counts ?? {})) to.set(name, (to.get(name) ?? 0) + count);
+};
+const most = (record: number | null, value: number | undefined) =>
+  value === undefined ? record : Math.max(record ?? value, value);
+const least = (record: number | null, value: number | undefined) =>
+  value === undefined ? record : Math.min(record ?? value, value);
+
+function addGame(game: GameTally, stats: GameStats, goals: number, playlist: number | null | undefined) {
+  if (stats.shots !== undefined) game.goalsOnShots += goals;
+  addTo(game.shots, stats.shots);
+  addTo(game.touches, stats.touches);
+  addTo(game.carTouches, stats.carTouches);
+  addTo(game.kickoffTouches, stats.kickoffTouches);
+  addTo(game.ownGoals, stats.ownGoals);
+  if (stats.statfeed) game.statfeedMatches++;
+  addCounts(game.statfeed, stats.statfeed);
+  addCounts(game.statfeedSecondary, stats.statfeedSecondary);
+  addCounts(game.assistsTo, stats.assistsTo);
+  game.hardestHit = most(game.hardestHit, stats.hardestHit);
+  game.fastestGoal = most(game.fastestGoal, stats.fastestGoal);
+  if (!oddPitches.has(playlist ?? 0)) game.longestGoal = most(game.longestGoal, stats.longestGoal);
+  game.quickestGoal = least(game.quickestGoal, stats.quickestGoal);
 }
 
 /**
@@ -124,6 +189,22 @@ export function careerOf(
     left: 0,
     lateNight: 0,
     measured: { demos: 0, crossbarHits: 0, conceded: 0 },
+    game: {
+      shots: tally(),
+      goalsOnShots: 0,
+      touches: tally(),
+      carTouches: tally(),
+      kickoffTouches: tally(),
+      ownGoals: tally(),
+      statfeed: new Map(),
+      statfeedSecondary: new Map(),
+      statfeedMatches: 0,
+      assistsTo: new Map(),
+      hardestHit: null,
+      fastestGoal: null,
+      longestGoal: null,
+      quickestGoal: null,
+    },
   };
   const tournamentsWon = board.rules?.tournamentWins ?? [];
   // A match received late (an import, a source catching up) still belongs to its own day.
@@ -162,6 +243,7 @@ export function careerOf(
     if (row.left) career.left++;
     // A match received on its own day was played just before: its hour is the one the collector sent it at.
     if (parisDay(row.received) === row.day && parisHour(row.received) < 5) career.lateNight++;
+    if (row.game_stats) addGame(career.game, row.game_stats, row.goals, row.playlist);
   }
   return career;
 }

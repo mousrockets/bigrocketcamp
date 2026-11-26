@@ -146,8 +146,10 @@ test('the member finds their own line: their place in each stat, their column ti
 
 test('crowns the prizes and lights the best of each line of the table', async () => {
   renderInApp(<StatsPage />, { board, path: '/stats' });
-  const assassin = await screen.findByRole('region', { name: 'Le démolisseur' });
-  expect(within(assassin).getByRole('heading', { name: 'Le démolisseur' })).toBeInTheDocument();
+  const rageQuit = await screen.findByRole('region', { name: 'Rage quit' });
+  expect(within(rageQuit).getByRole('heading', { name: 'Rage quit' })).toBeInTheDocument();
+  // No collector counted the demolitions of these matches: that prize waits.
+  expect(screen.queryByRole('region', { name: 'Le démolisseur' })).not.toBeInTheDocument();
   const goals = () =>
     within(screen.getByRole('table')).getByRole('rowheader', { name: 'Buts' }).closest('tr') as HTMLElement;
   // Alice scored 4 in 2 matches this season, Bob 1: per match first, then the totals.

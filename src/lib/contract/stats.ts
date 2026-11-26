@@ -17,5 +17,9 @@ export const seasonMmr = z.looseObject({
 });
 export type SeasonMmr = Known<z.output<typeof seasonMmr>>;
 
-export const seasonMmrList = z.looseObject({ seasons: z.array(seasonMmr) });
+export const seasonMmrList = z.looseObject({
+  seasons: z.array(seasonMmr),
+  /** The game's words for each stat feed event, by its name; absent from an API older than them. */
+  statfeedLabels: z.record(z.string(), z.string()).catch({}),
+});
 export type SeasonMmrList = Known<z.output<typeof seasonMmrList>>;

@@ -1,7 +1,7 @@
 import type { SeasonMmr, SeasonPeak } from '../../lib/contract';
 import { pushupCredit } from '../../lib/domain';
 import type { Board } from '../board';
-import { type Career, type CareerAccount, type CareerScope, careerOf, seasonOf } from './career';
+import { type Career, type CareerAccount, type CareerScope, careerOf, seasonOf, type Tally } from './career';
 
 // The Stats page: each player over one season (or every match), then, stat by stat, who leads.
 
@@ -39,6 +39,8 @@ export interface ComparedPlayer {
   mmr: PeriodMmr | null;
   /** Pushups, crunches and plank done, counted in pushups. */
   pushups: number;
+  /** Their game IDs, in lower case, as their matches show them: whom an assist went to. */
+  ids: Set<string>;
 }
 
 function periodMmr(
@@ -97,13 +99,17 @@ export function comparedPlayers(
       career: careerOf(board, name, scope, account, season),
       mmr: periodMmr(seasonMmr, name, account, season),
       pushups: pushupsOf(board, name, season),
+      ids: new Set(board.results.filter((row) => row.name === name).map((row) => row.player_id.toLowerCase())),
     };
   });
   return [...players.filter((player) => player.me), ...players.filter((player) => !player.me)];
 }
 
-/** How a stat is read: a share of the matches, an average per match, a plain count, or MMR (signed). */
-export type StatFormat = 'percent' | 'perMatch' | 'count' | 'mmr';
+/**
+ * How a stat is read: a share of the matches, an average per match, a plain count, MMR (signed), a ball speed (in
+ * Unreal units per second, shown in km/h), a distance (in Unreal units, shown in metres), or seconds.
+ */
+export type StatFormat = 'percent' | 'perMatch' | 'count' | 'mmr' | 'speed' | 'distance' | 'seconds';
 
 export interface Stat {
   label: string;
@@ -125,6 +131,18 @@ const share = (player: ComparedPlayer, count: number | null, of = player.career.
 const average = (player: ComparedPlayer, total: number | null, of = player.career.matches) =>
   played(player, total === null || of === 0 ? null : total / of);
 const counted = (player: ComparedPlayer, count: number | null) => played(player, count);
+
+/** A stat of collector 0.7.0, per match: unknown until a match came with it. */
+const tallied = ({ total, matches }: Tally) => (matches === 0 ? null : total / matches);
+const total = ({ total: sum, matches }: Tally) => (matches === 0 ? null : sum);
+/** The goals scored among the shots, in the matches whose shots are known. */
+const accuracy = (player: ComparedPlayer) => {
+  const { shots, goalsOnShots } = player.career.game;
+  return shots.total === 0 ? null : (goalsOnShots / shots.total) * 100;
+};
+/** How many times a player got, or took, a stat feed event; unknown until a match came with a feed. */
+const feed = (player: ComparedPlayer, name: string, side: 'statfeed' | 'statfeedSecondary') =>
+  player.career.game.statfeedMatches === 0 ? null : (player.career.game[side].get(name) ?? 0);
 
 const score: Stat = { label: 'Score moyen', format: 'count', value: (p) => average(p, p.career.score) };
 const goals: Stat = { label: 'Buts / match', format: 'perMatch', value: (p) => average(p, p.career.goals) };
@@ -171,6 +189,33 @@ export const prizes: Prize[] = [
   { label: 'Matchs quittés', format: 'count', value: (p) => counted(p, p.career.left), prize: 'Rage quit' },
   { ...pushups, prize: 'Les bras d’acier' },
   { label: 'MMR perdus depuis le peak', format: 'count', value: (p) => p.mmr?.fall ?? null, prize: 'La chute' },
+  { label: 'Frappe la plus puissante', format: 'speed', value: (p) => p.career.game.hardestHit, prize: 'Le canonnier' },
+  { label: 'But le plus lointain', format: 'distance', value: (p) => p.career.game.longestGoal, prize: 'Le sniper' },
+  {
+    label: 'Précision des tirs',
+    format: 'percent',
+    // Ten shots at least: a goal on a lone shot is no aim.
+    value: (p) => (p.career.game.shots.total >= 10 ? accuracy(p) : null),
+    prize: 'L’œil de lynx',
+  },
+  {
+    label: 'Premiers au coup d’envoi / match',
+    format: 'perMatch',
+    value: (p) => tallied(p.career.game.kickoffTouches),
+    prize: 'Le roi du kickoff',
+  },
+  {
+    label: 'Démolitions subies',
+    format: 'count',
+    value: (p) => feed(p, 'Demolish', 'statfeedSecondary'),
+    prize: 'Le punching-ball',
+  },
+  {
+    label: 'Buts contre son camp',
+    format: 'count',
+    value: (p) => (p.career.game.ownGoals.matches ? p.career.game.ownGoals.total : null),
+    prize: 'Le traître',
+  },
 ];
 
 /** How the table shows its figures: each match's average, or the totals. */
@@ -212,6 +257,38 @@ const tableRows = (scope: CareerScope): TableRow[] => [
     perMatch: 'average',
     measuredIn: (p) => p.career.measured.crossbarHits,
   },
+  {
+    label: 'Tirs',
+    total: (p) => total(p.career.game.shots),
+    perMatch: 'average',
+    measuredIn: (p) => p.career.game.shots.matches,
+  },
+  { label: 'Précision des tirs', total: accuracy, format: 'percent' },
+  {
+    label: 'Touches de balle',
+    total: (p) => total(p.career.game.touches),
+    perMatch: 'average',
+    measuredIn: (p) => p.career.game.touches.matches,
+  },
+  {
+    label: 'Contacts carrosserie',
+    total: (p) => total(p.career.game.carTouches),
+    perMatch: 'average',
+    measuredIn: (p) => p.career.game.carTouches.matches,
+  },
+  {
+    label: 'Premiers au coup d’envoi',
+    total: (p) => total(p.career.game.kickoffTouches),
+    perMatch: 'average',
+    measuredIn: (p) => p.career.game.kickoffTouches.matches,
+  },
+  {
+    label: 'Buts contre son camp',
+    total: (p) => total(p.career.game.ownGoals),
+    perMatch: 'average',
+    measuredIn: (p) => p.career.game.ownGoals.matches,
+    lowerIsBetter: true,
+  },
   { label: 'MVP', total: (p) => counted(p, p.career.mvps), perMatch: 'share' },
   {
     label: 'Buts encaissés',
@@ -242,21 +319,77 @@ const tableRows = (scope: CareerScope): TableRow[] => [
   ...(scope === 'tournament'
     ? [{ label: 'Tournois gagnés', total: (p: ComparedPlayer) => counted(p, p.career.tournamentsWon) }]
     : []),
+  { label: 'Frappe la plus puissante', total: (p) => p.career.game.hardestHit, format: 'speed' },
+  { label: 'But le plus lointain', total: (p) => p.career.game.longestGoal, format: 'distance' },
+  {
+    label: 'But le plus rapide après le coup d’envoi',
+    total: (p) => p.career.game.quickestGoal,
+    format: 'seconds',
+    lowerIsBetter: true,
+  },
   { label: 'Peak 2v2', total: (p) => p.mmr?.peak.mmr ?? null },
   { label: 'MMR gagné', total: (p) => p.mmr?.gained ?? null, format: 'mmr' },
   { label: 'Pompes faites', total: (p) => p.pushups },
 ];
 
-/** Every stat the page has, for the table, in its mode: the matches, the play, the endings, the rating, the club. */
-export const tableStats = (scope: CareerScope, mode: TableMode): Stat[] =>
-  tableRows(scope).map(({ label, total, perMatch, measuredIn, format = 'count', lowerIsBetter }): Stat => {
-    const base = { label, ...(lowerIsBetter && { lowerIsBetter }) };
-    if (mode === 'total' || !perMatch) return { ...base, format, value: total };
-    const of = (player: ComparedPlayer) => measuredIn?.(player) ?? player.career.matches;
-    return perMatch === 'average'
-      ? { ...base, format: 'perMatch', value: (p) => average(p, total(p), of(p)) }
-      : { ...base, format: 'percent', value: (p) => share(p, total(p), of(p)) };
+/** The game's stat feed events a line of the scoreboard already counts: the table shows them once. */
+const scoreboardEvents = new Set(['Goal', 'Assist', 'Save', 'Shot', 'Demolish']);
+
+/**
+ * The lines the players' own data brings: each stat feed event the game sent, got and taken, named with the game's
+ * words; and the assists each player gave to each teammate.
+ */
+function dataRows(players: readonly ComparedPlayer[], labels: Readonly<Record<string, string>>): TableRow[] {
+  const names = (side: 'statfeed' | 'statfeedSecondary') =>
+    [...new Set(players.flatMap((player) => [...player.career.game[side].keys()]))].sort();
+  const feedRow = (name: string, side: 'statfeed' | 'statfeedSecondary'): TableRow => ({
+    label: side === 'statfeed' ? (labels[name] ?? name) : `Subi : ${labels[name] ?? name}`,
+    total: (p) => feed(p, name, side),
+    perMatch: 'average',
+    measuredIn: (p) => p.career.game.statfeedMatches,
+    ...(side === 'statfeedSecondary' && { lowerIsBetter: true }),
   });
+  const assistsTo = (giver: ComparedPlayer, scorer: ComparedPlayer) =>
+    giver === scorer || giver.career.game.statfeedMatches === 0
+      ? null
+      : [...giver.career.game.assistsTo].reduce(
+          (sum, [id, count]) => sum + (scorer.ids.has(id.toLowerCase()) ? count : 0),
+          0,
+        );
+  return [
+    ...names('statfeed')
+      .filter((name) => !scoreboardEvents.has(name))
+      .map((name) => feedRow(name, 'statfeed')),
+    ...names('statfeedSecondary').map((name) => feedRow(name, 'statfeedSecondary')),
+    ...players.map(
+      (scorer): TableRow => ({
+        label: `Passes D pour ${scorer.shown}`,
+        total: (giver) => assistsTo(giver, scorer),
+      }),
+    ),
+  ];
+}
+
+/**
+ * Every stat the page has, for the table, in its mode: the matches, the play, the endings, the game's own events, the
+ * rating, the club. A line nobody has a figure for (a stat no collector sent yet) is left out.
+ */
+export const tableStats = (
+  scope: CareerScope,
+  mode: TableMode,
+  players: readonly ComparedPlayer[],
+  labels: Readonly<Record<string, string>> = {},
+): Stat[] =>
+  [...tableRows(scope), ...dataRows(players, labels)]
+    .map(({ label, total, perMatch, measuredIn, format = 'count', lowerIsBetter }): Stat => {
+      const base = { label, ...(lowerIsBetter && { lowerIsBetter }) };
+      if (mode === 'total' || !perMatch) return { ...base, format, value: total };
+      const of = (player: ComparedPlayer) => measuredIn?.(player) ?? player.career.matches;
+      return perMatch === 'average'
+        ? { ...base, format: 'perMatch', value: (p) => average(p, total(p), of(p)) }
+        : { ...base, format: 'percent', value: (p) => share(p, total(p), of(p)) };
+    })
+    .filter((stat) => players.some((player) => stat.value(player) !== null));
 
 /** A player's line in a stat: their figure, and its length against the leader's, from 0 to 1. */
 export interface RankedLine {
