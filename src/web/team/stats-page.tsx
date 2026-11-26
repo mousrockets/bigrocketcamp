@@ -39,7 +39,8 @@ const modeWords: Record<Scope, string> = {
 const formatted = (value: number | null, format: StatFormat) => {
   if (value === null) return '–';
   if (format === 'percent') return `${formatNumber(Math.round(value))} %`;
-  if (format === 'perMatch') return formatNumber(Math.round(value * 10) / 10);
+  // Two decimals: averages of a few matches are close, and one decimal would show a tie the bars deny.
+  if (format === 'perMatch') return formatNumber(Math.round(value * 100) / 100);
   return formatNumber(value);
 };
 
@@ -144,13 +145,13 @@ function WinRates({ players }: { players: ComparedPlayer[] }) {
   return (
     <Card variant="glass" role="region" aria-label={winRate.label} className="gap-5 p-5 lg:p-6">
       <span className="label-caps">{winRate.label}</span>
-      <ol className="m-0 grid list-none grid-cols-[repeat(auto-fit,minmax(96px,1fr))] gap-x-4 gap-y-5 p-0">
+      <ol className="m-0 grid list-none grid-cols-[repeat(auto-fit,minmax(84px,1fr))] gap-x-3 gap-y-5 lg:gap-x-4 p-0">
         {lines.map((line) => (
           <li key={line.player.name} className="flex min-w-0 flex-col gap-2">
             <PlayerName player={line.player} className="font-semibold text-[14px]" />
             <b
               className={cn(
-                'num text-[44px] [line-height:.85] lg:text-[56px]',
+                'num text-[40px] [line-height:.85] lg:text-[56px]',
                 leaders.includes(line) ? 'text-t1' : 'text-t2',
                 line.value === null && 'text-t3',
               )}
