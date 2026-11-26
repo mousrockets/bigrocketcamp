@@ -458,7 +458,7 @@ function StyleCard({ axis, players }: { axis: StyleAxis; players: ComparedPlayer
     <Card variant="glass" role="region" aria-label={axis.label} className="gap-5 p-5">
       <span className="label-caps">{axis.label}</span>
       <div className="flex flex-col gap-2.5">
-        <div className="relative h-9">
+        <div className="relative h-10">
           <span
             aria-hidden="true"
             className="absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-linear-to-r from-white/5 via-white/12 to-white/5"
@@ -470,15 +470,18 @@ function StyleCard({ axis, players }: { axis: StyleAxis; players: ComparedPlayer
           {dots.map(
             ({ player, position, lane, ratio }) =>
               position !== null && (
-                // The dot is small; its tap target is not.
+                // Its target is the dot itself: two close dots, one above the other, must each answer to their own.
                 <FigureBubble
                   key={player.name}
                   label={`${player.shown}, ${formatted(ratio, 'perMatch')}`}
-                  className="group absolute flex size-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full transition-[left] duration-700 ease-(--ease)"
+                  className={cn(
+                    'group absolute flex -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full transition-[left] duration-700 ease-(--ease)',
+                    player.me ? 'size-5' : 'size-[18px]',
+                  )}
                   style={
                     {
                       left: `${position * 100}%`,
-                      top: `calc(50% + ${lane * 10}px)`,
+                      top: `calc(50% + ${lane * 12}px)`,
                       '--dot': rankRgb(player.tier),
                     } as CSSProperties
                   }
