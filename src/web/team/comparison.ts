@@ -310,6 +310,8 @@ interface TableRow {
   /** The matches the figure was measured in, when an older collector did not send it. */
   measuredIn?: (player: ComparedPlayer) => number;
   format?: StatFormat;
+  /** How its average per match reads, when not with two decimals: a score of hundreds needs none. */
+  perMatchFormat?: StatFormat;
   lowerIsBetter?: boolean;
 }
 
@@ -348,7 +350,13 @@ const tableRows = (scope: CareerScope): TableRow[] => [
         } satisfies TableRow,
       ]
     : []),
-  { section: 'Attaque', label: 'Score', total: (p) => counted(p, p.career.score), perMatch: 'average' },
+  {
+    section: 'Attaque',
+    label: 'Score',
+    total: (p) => counted(p, p.career.score),
+    perMatch: 'average',
+    perMatchFormat: 'count',
+  },
   { section: 'Attaque', label: 'Buts', total: (p) => counted(p, p.career.goals), perMatch: 'average' },
   { section: 'Attaque', label: 'Passes D', total: (p) => counted(p, p.career.assists), perMatch: 'average' },
   gameRow('Attaque', 'Tirs', (game) => game.shots),
@@ -527,14 +535,16 @@ export const tableStats = (
   labels: Readonly<Record<string, string>> = {},
 ): TableStat[] =>
   [...tableRows(scope), ...dataRows(players, labels)]
-    .map(({ section, label, total, perMatch, measuredIn, format = 'count', lowerIsBetter }): TableStat => {
-      const base = { section, label, ...(lowerIsBetter && { lowerIsBetter }) };
-      if (mode === 'total' || !perMatch) return { ...base, perMatch: false, format, value: total };
-      const of = (player: ComparedPlayer) => measuredIn?.(player) ?? player.career.matches;
-      return perMatch === 'average'
-        ? { ...base, perMatch: true, format: 'perMatch', value: (p) => average(p, total(p), of(p)) }
-        : { ...base, perMatch: true, format: 'percent', value: (p) => share(p, total(p), of(p)) };
-    })
+    .map(
+      ({ section, label, total, perMatch, measuredIn, format = 'count', perMatchFormat, lowerIsBetter }): TableStat => {
+        const base = { section, label, ...(lowerIsBetter && { lowerIsBetter }) };
+        if (mode === 'total' || !perMatch) return { ...base, perMatch: false, format, value: total };
+        const of = (player: ComparedPlayer) => measuredIn?.(player) ?? player.career.matches;
+        return perMatch === 'average'
+          ? { ...base, perMatch: true, format: perMatchFormat ?? 'perMatch', value: (p) => average(p, total(p), of(p)) }
+          : { ...base, perMatch: true, format: 'percent', value: (p) => share(p, total(p), of(p)) };
+      },
+    )
     .filter((stat) => players.some((player) => stat.value(player) !== null))
     .sort((a, b) => tableSections.indexOf(a.section) - tableSections.indexOf(b.section));
 

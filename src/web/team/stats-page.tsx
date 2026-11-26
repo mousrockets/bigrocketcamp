@@ -415,24 +415,18 @@ function PodiumCard({ line, gap, name, step }: { line: RankedLine; gap: PeakGap;
 }
 
 /**
- * One of the figures that say the most: the member's own in big, with how far ahead of the next one or behind the
- * leader it stands; then every player's bar. A member without a line of their own sees the leader's figure.
+ * One of the figures that say the most: the member's own in big, then every player's bar, the best first. A member
+ * without a line of their own sees the leader's figure.
  */
 function StatCard({ stat, players }: { stat: Stat; players: ComparedPlayer[] }) {
   const { lines, leaders } = ranked(stat, players);
-  const mine = lines.find((line) => line.player.me);
-  const shown = mine ?? leaders[0];
+  const value = (lines.find((line) => line.player.me) ?? leaders[0])?.value ?? null;
   return (
     <Card variant="glass" role="region" aria-label={stat.label} className="gap-4 p-5">
       <span className="label-caps">{stat.label}</span>
-      <div className="flex min-w-0 items-end justify-between gap-3">
-        <b className={cn('num text-[40px] [line-height:.85]', (shown?.value ?? null) === null && 'text-t3')}>
-          {formatted(shown?.value ?? null, stat.format)}
-        </b>
-        <span className="min-w-0 truncate pb-0.5 text-[14px] text-t2">
-          {standingOf(mine, lines, leaders, stat.format)}
-        </span>
-      </div>
+      <b className={cn('num text-[40px] [line-height:.85]', value === null && 'text-t3')}>
+        {formatted(value, stat.format)}
+      </b>
       <ol className="m-0 flex list-none flex-col gap-1.5 p-0">
         {lines.map((line) => (
           <Bar key={line.player.name} line={line} format={stat.format} />
@@ -440,34 +434,6 @@ function StatCard({ stat, players }: { stat: Stat; players: ComparedPlayer[] }) 
       </ol>
     </Card>
   );
-}
-
-/** Where the member stands in a stat, beside their figure: « 51 d’avance », « À 0,15 du 1er », « Égalité en tête ». */
-function standingOf(
-  mine: RankedLine | undefined,
-  lines: RankedLine[],
-  leaders: RankedLine[],
-  format: StatFormat,
-): string | null {
-  const [leader] = leaders;
-  if (!mine) return leaders.length > 1 ? 'Égalité' : leader ? leader.player.shown : 'Personne';
-  if (mine.value === null || !leader || leader.value === null) return null;
-  if (leaders.includes(mine)) {
-    if (leaders.length > 1) return 'Égalité en tête';
-    const next = lines.find((line) => line !== mine && line.value !== null);
-    return next?.value == null ? null : `${distance(mine.value, next.value, format)} d’avance`;
-  }
-  return `À ${distance(leader.value, mine.value, format)} du 1er`;
-}
-
-/** How far apart two figures stand, counted on the figures as shown: « 51 », « 0,15 », « 8 points ». */
-function distance(a: number, b: number, format: StatFormat): string {
-  if (format === 'percent') {
-    const points = Math.abs(Math.round(a) - Math.round(b));
-    return `${formatNumber(points)} point${points >= 2 ? 's' : ''}`;
-  }
-  if (format === 'perMatch') return formatted(Math.abs(Math.round(a * 100) - Math.round(b * 100)) / 100, format);
-  return formatted(Math.abs(a - b), format === 'mmr' ? 'count' : format);
 }
 
 /** The member's place wears a medal's colour on the podium. */

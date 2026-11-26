@@ -160,6 +160,8 @@ test('per match, an action is averaged, a win or an MVP becomes a share, an endi
   expect(statNamed('Buts', 'perMatch').section).toBe('Attaque');
   expect(statNamed('Matchs quittés', 'perMatch').perMatch).toBe(false);
   expect(statNamed('MVP', 'perMatch').format).toBe('percent');
+  // A score of hundreds reads whole, per match too.
+  expect(statNamed('Score', 'perMatch').format).toBe('count');
 });
 
 test('names a player by their solo pseudo when only the solo accounts are compared', () => {
