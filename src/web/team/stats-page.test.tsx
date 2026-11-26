@@ -146,10 +146,16 @@ test('the member finds their own line: their place in each stat, their column ti
 
 test('crowns the prizes and lights the best of each line of the table', async () => {
   renderInApp(<StatsPage />, { board, path: '/stats' });
-  const rageQuit = await screen.findByRole('region', { name: 'Rage quit' });
-  expect(within(rageQuit).getByRole('heading', { name: 'Rage quit' })).toBeInTheDocument();
+  const rageQuit = (await screen.findByRole('heading', { name: 'Rage quit' })).closest('li') as HTMLElement;
+  // Nobody left a match: nobody wins it, nobody lacks anything, and every player still has a line.
+  expect(
+    within(rageQuit)
+      .getAllByRole('listitem')
+      .map((line) => line.textContent),
+  ).toEqual(['alice0', 'bob0']);
+  expect(within(rageQuit).queryByText(/Il te manque/)).not.toBeInTheDocument();
   // No collector counted the demolitions of these matches: that prize waits.
-  expect(screen.queryByRole('region', { name: 'Le démolisseur' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('heading', { name: 'Le démolisseur' })).not.toBeInTheDocument();
   const goals = () =>
     within(screen.getByRole('table')).getByRole('rowheader', { name: 'Buts' }).closest('tr') as HTMLElement;
   // Alice scored 4 in 2 matches this season, Bob 1: per match first, then the totals.
@@ -160,19 +166,28 @@ test('crowns the prizes and lights the best of each line of the table', async ()
   );
   expect(within(goals()).getByText('4')).toHaveClass('text-win');
   expect(within(goals()).getByText('1')).not.toHaveClass('text-win');
-  expect(screen.getByText(/le meilleur de chaque ligne : le plus bas pour défaites/)).toBeInTheDocument();
+  expect(screen.getByText(/le meilleur de chaque ligne ; ↓ : le plus bas est le meilleur/)).toBeInTheDocument();
+  // The table reads part by part, each one saying whether it reads per match.
+  expect(within(screen.getByRole('table')).getByRole('columnheader', { name: 'Attaque' })).toBeInTheDocument();
+  expect(within(screen.getByRole('table')).getByRole('rowheader', { name: 'Défaites ↓' })).toBeInTheDocument();
 });
 
-test('shows the game’s ball speeds in km/h, as it sends them', async () => {
+test('shows the game’s ball speeds in km/h, and what the member lacks to take a prize', async () => {
   const fast = boardWith({
     results: board.results.map((row) => ({
       ...row,
-      game_stats: { hardestHit: row.name === 'alice' ? 181.04 : 124.2, statfeed: {} },
+      game_stats: { hardestHit: row.name === 'alice' ? 124.2 : 181.04, statfeed: {} },
     })),
   });
   renderInApp(<StatsPage />, { board: fast, path: '/stats' });
-  const cannon = await screen.findByRole('region', { name: 'Le canonnier' });
-  expect(within(cannon).getAllByText('181 km/h')).not.toHaveLength(0);
+  const cannon = (await screen.findByRole('heading', { name: 'Le canonnier' })).closest('li') as HTMLElement;
+  // Bob leads; Alice, the member, sees her bar under his, and what she lacks to take the prize.
+  expect(
+    within(cannon)
+      .getAllByRole('listitem')
+      .map((line) => line.textContent),
+  ).toEqual(['bob181\u00a0km/h', 'alice124\u00a0km/h']);
+  expect(cannon).toHaveTextContent('Il te manque 57 km/h.');
 });
 
 test('says so when nobody played in the mode chosen', async () => {

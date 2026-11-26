@@ -144,16 +144,21 @@ test('the table lights the best figure of a line, the lowest when less is better
   expect(tableStats('doubles', 'total', everyone()).map((stat) => stat.label)).not.toContain('Tirs');
 });
 
-test('per match, an action is averaged, an ending becomes a share of the matches, a record stays as it is', () => {
+test('per match, an action is averaged, a win or an MVP becomes a share, an ending or a record stays a count', () => {
   const players = comparedPlayers(board, seasons, roster, 'alice', 'all', 'all', 24);
   const row = (label: string) => players.map((player) => statNamed(label, 'perMatch').value(player));
   expect(row('Buts')).toEqual([1.5, 0, 0]);
-  expect(row('Prolongations gagnées')).toEqual([50, 50, 0]);
-  expect(row('Matchs quittés')).toEqual([0, 0, 100]);
+  // Charlie lost his only match: he left it.
+  expect(row('Victoires')).toEqual([50, 50, 0]);
+  // A late night or a match left reads best as a count.
+  expect(row('Prolongations gagnées')).toEqual([1, 1, 0]);
+  expect(row('Matchs quittés')).toEqual([0, 0, 1]);
   expect(row('Win streak max')).toEqual([1, 1, 0]);
   // Only the matches that came with a final score count: Charlie's has none.
   expect(row('Buts encaissés')).toEqual([1.5, 1.5, null]);
   expect(statNamed('Buts', 'perMatch').format).toBe('perMatch');
+  expect(statNamed('Buts', 'perMatch').section).toBe('Attaque');
+  expect(statNamed('Matchs quittés', 'perMatch').perMatch).toBe(false);
   expect(statNamed('MVP', 'perMatch').format).toBe('percent');
 });
 
@@ -217,8 +222,8 @@ test('adds up the stats of collector 0.7.0, names the game’s events, and lines
   expect(row('Mystery Event')).toEqual([1, 0]);
   expect(row('But le plus rapide')).toEqual([116.3, null]);
   expect(row('Subi : Démolition')).toEqual([2, 0]);
-  expect(row('Passes D pour bob')).toEqual([1, null]);
-  expect(row('Passes D pour alice')).toEqual([null, 0]);
+  expect(row('Pour bob')).toEqual([1, null]);
+  expect(row('Pour alice')).toEqual([null, 0]);
   expect(row('Frappe la plus puissante')).toEqual([2500, 3000]);
   expect(row('But le plus rapide après le coup d’envoi')).toEqual([9.5, 12]);
   // A save already has its line, from the scoreboard.
