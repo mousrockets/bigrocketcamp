@@ -28,7 +28,7 @@ Décrivez ce que vous voulez à votre agent IA (Codex, Claude…) : il lit [`AGE
 
 Avec Codex dans le cloud, rien à installer : créez un environnement pour ce dépôt avec la version de Node de `.node-version` et la commande d'installation `npm ci`.
 
-Le déploiement et les réglages de l'instance sont dans [`docs/deploiement.md`](docs/deploiement.md).
+La base locale (données fictives, copie de la production pour les mainteneurs) est décrite dans [`docs/base-locale.md`](docs/base-locale.md). Le déploiement et les réglages de l'instance sont dans [`docs/deploiement.md`](docs/deploiement.md).
 
 ## Licence
 

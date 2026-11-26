@@ -107,6 +107,8 @@ L'export contient des données personnelles : adresses e-mail, pseudos, toute l'
 - Jamais dans Git, une issue, une PR, une discussion, un mail ou un salon de discussion, même privés.
 - On ne garde que les trois derniers exports et on supprime les autres : un membre effacé de l'app doit finir par disparaître des copies aussi.
 
+Pour développer sur des données réalistes, `npm run db:pull-prod` copie la production dans la base locale, sans les e-mails, les sessions ni les abonnements aux notifications : voir [`base-locale.md`](base-locale.md).
+
 ### Migrations et Worker en ligne
 
 Les migrations passent avant le nouveau Worker : pendant le déploiement, et pour de bon si `wrangler deploy` échoue, l'ancien code tourne sur la base migrée. Une migration reste donc compatible avec le Worker en ligne : elle ajoute (table, colonne facultative ou avec une valeur par défaut), mais ne supprime ni ne renomme rien que le code en ligne lit ou écrit encore. Pour retirer ou renommer, une première PR arrête de s'en servir ; une suivante, une fois la première en ligne, le retire de la base.
