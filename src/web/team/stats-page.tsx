@@ -7,12 +7,12 @@ import { useBoardState } from '../board';
 import { useClub } from '../club';
 import { BackLink } from '../components/back-link';
 import { BoardPending } from '../components/board-pending';
-import { SegmentedControl } from '../components/segmented-control';
+import { FilterSelect } from '../components/filter-select';
 import { TabPage } from '../components/tab-page';
 import { Badge } from '../components/ui/badge';
 import { Card } from '../components/ui/card';
 import { Skeleton } from '../components/ui/skeleton';
-import { type CareerAccount, soloAccountOf } from './career';
+import { type CareerAccount, type CareerScope, soloAccountOf } from './career';
 import {
   type ComparedPlayer,
   comparedPlayers,
@@ -24,8 +24,23 @@ import {
   statsOf,
   winRate,
 } from './comparison';
-import { accounts, type Scope, scopes } from './player-sheet';
 import { rankLightRgb } from './stats';
+
+type Scope = Exclude<CareerScope, 'ranked'>;
+
+const scopes = [
+  { value: 'all', label: 'Tous les modes' },
+  { value: 'duel', label: '1v1' },
+  { value: 'doubles', label: '2v2' },
+  { value: 'standard', label: '3v3' },
+  { value: 'tournament', label: 'Tournoi' },
+] as const satisfies readonly { value: Scope; label: string }[];
+
+const accounts = [
+  { value: 'all', label: 'Tous les comptes' },
+  { value: 'solo', label: 'Compte solo' },
+  { value: 'duo', label: 'Compte duo' },
+] as const satisfies readonly { value: CareerAccount; label: string }[];
 
 /** How the empty page names the matches of each mode. */
 const modeWords: Record<Scope, string> = {
@@ -53,7 +68,8 @@ export function StatsPage() {
   const { board, error } = useBoardState();
   const { saison } = useSearch({ strict: false });
   const navigate = useNavigate();
-  const [scope, setScope] = useState<Scope>('all');
+  // The club plays 2v2 first: it opens there.
+  const [scope, setScope] = useState<Scope>('doubles');
   const [chosenAccount, setAccount] = useState<CareerAccount>('all');
   const current = seasonAt(new Date().toISOString());
   const played = board ? seasonsPlayed(board, club.roster) : [];
@@ -71,32 +87,23 @@ export function StatsPage() {
     });
 
   return (
-    <TabPage
-      back={<BackLink to="/">L’équipe</BackLink>}
-      kicker={season === null ? 'Toutes les saisons' : `Saison ${season}${season === current ? ' · en cours' : ''}`}
-      title="Stats"
-    >
+    <TabPage back={<BackLink to="/">L’équipe</BackLink>} kicker="La team en chiffres" title="Stats">
       <div className="flex animate-rise flex-col gap-6 px-5 pt-6 [animation-delay:.06s] lg:gap-8 lg:px-0 lg:pt-0">
-        <div className="flex flex-col gap-2 lg:flex-row lg:flex-wrap lg:gap-3">
-          <span className="lg:w-[300px]">
-            <SegmentedControl
-              label="Saison"
-              options={[
-                ...seasons.map((number) => ({ value: String(number), label: `S${number}` })),
-                { value: 'tout', label: 'Tout' },
-              ]}
-              value={season === null ? 'tout' : String(season)}
-              onChange={choose}
-            />
-          </span>
-          <span className="lg:w-[380px]">
-            <SegmentedControl label="Mode" options={scopes} value={scope} onChange={setScope} />
-          </span>
-          {hasSolo && (
-            <span className="lg:w-[220px]">
-              <SegmentedControl label="Compte" options={accounts} value={account} onChange={setAccount} />
-            </span>
-          )}
+        <div className="flex flex-wrap gap-2">
+          <FilterSelect
+            label="Saison"
+            options={[
+              ...seasons.map((number) => ({
+                value: String(number),
+                label: `Saison ${number}${number === current ? ' (en cours)' : ''}`,
+              })),
+              { value: 'tout', label: 'Toutes les saisons' },
+            ]}
+            value={season === null ? 'tout' : String(season)}
+            onChange={choose}
+          />
+          <FilterSelect label="Mode" options={scopes} value={scope} onChange={setScope} />
+          {hasSolo && <FilterSelect label="Compte" options={accounts} value={account} onChange={setAccount} />}
         </div>
         {!board && (
           <BoardPending error={error} className="flex flex-col gap-3">
