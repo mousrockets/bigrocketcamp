@@ -238,7 +238,7 @@ test('adds up the stats of collector 0.7.0, names the game’s events, and lines
   expect(players.map((player) => punchingBall?.value(player))).toEqual([2, 0]);
 });
 
-test('measures each peak of the season against the best before it, not against the others’ peaks', () => {
+test('measures each peak of the season against the peak all time, not against the others’ peaks', () => {
   const ranked = boardWith({
     results: [],
     doublesRanks: [
@@ -249,17 +249,13 @@ test('measures each peak of the season against the best before it, not against t
   });
   const gaps = (season: number | null) =>
     comparedPlayers(ranked, seasons, ['alice', 'bob', 'charlie'], 'alice', 'all', 'duo', season).map(
-      (player) => player.peakGap && [player.peakGap.gap, player.peakGap.record],
+      (player) => player.peakGap && [player.peakGap.peak, player.peakGap.allTime, player.peakGap.gap],
     );
-  // Alice: 1 250 this season, 1 120 in season 23; Bob: 1 330, under his best ever; Charlie: never read.
-  expect(gaps(24)).toEqual([[130, false], [-70, false], null]);
-  // Season 23: no season before it read, and the best ever may come from after it.
-  expect(gaps(23)).toEqual([[null, false], null, null]);
+  // Alice reached her peak all time this season; Bob stayed 70 under his; Charlie was never read.
+  expect(gaps(24)).toEqual([[1250, 1250, 0], [1330, 1400, -70], null]);
+  expect(gaps(23)).toEqual([[1120, 1250, -130], null, null]);
   expect(gaps(null)).toEqual([null, null, null]);
-  // A best the season reached with nothing read before it: a record, by an amount unknown.
-  const reached = boardWith({ results: [], doublesRanks: [aRank({ player: 'bob', best: 1330 })] });
-  expect(comparedPlayers(reached, seasons, ['bob'], 'bob', 'all', 'duo', 24)[0]?.peakGap).toMatchObject({
-    gap: null,
-    record: true,
-  });
+  // No best kept by the rank source: the highest season peak read stands for it.
+  const unread = boardWith({ results: [], doublesRanks: [] });
+  expect(comparedPlayers(unread, seasons, ['alice'], 'alice', 'all', 'duo', 23)[0]?.peakGap?.allTime).toBe(1250);
 });

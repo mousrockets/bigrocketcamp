@@ -48,7 +48,6 @@ import {
   type Stat,
   type StatFormat,
   seasonsPlayed,
-  standing,
   type TableMode,
   type TableStat,
   tableSections,
@@ -159,7 +158,7 @@ export function StatsPage() {
           </BoardPending>
         )}
         {board && season !== null && (
-          <RecordPeaks players={players} season={season} showAccount={hasSolo && account === 'all'} />
+          <SeasonPeaks players={players} season={season} showAccount={hasSolo && account === 'all'} />
         )}
         {board && !anyMatch && (
           <p className="m-0 -mt-4 text-[15px] text-t2">
@@ -219,19 +218,18 @@ function PlayerName({ player, className }: { player: ComparedPlayer; className?:
   );
 }
 
-/** The gap to the best before the season, which ranks the players: a record of an amount unknown counts as even. */
+/** The gap between the season's peak and the peak all time, which ranks the players. */
 const gapStat: Stat = {
-  label: 'Écart au record',
+  label: 'Écart au peak all time',
   format: 'mmr',
-  value: (player) => (Number.isFinite(standing(player.peakGap)) ? standing(player.peakGap) : null),
+  value: (player) => player.peakGap?.gap ?? null,
 };
 
 /**
- * « Au plus près de son record »: each player's peak of the season against their best before it, the one who beat
- * their record by the most first, then the one who came closest. Levels differ: the club compares these gaps, not the
- * peaks, which stay in small with the rank.
+ * « Au plus près de son peak all time »: each player's peak of the season against their best ever, the one who reached
+ * it or came closest first. Levels differ: the club compares these gaps, not the peaks, which stay in small.
  */
-function RecordPeaks({
+function SeasonPeaks({
   players,
   season,
   showAccount,
@@ -242,19 +240,18 @@ function RecordPeaks({
 }) {
   const { lines } = ranked(gapStat, players);
   return (
-    <Card variant="glass" role="region" aria-label="Au plus près de son record" className="gap-5 p-5 lg:p-6">
+    <Card variant="glass" role="region" aria-label="Au plus près de son peak all time" className="gap-5 p-5 lg:p-6">
       <span className="flex flex-col gap-1">
-        <span className="label-caps">Saison {season} · au plus près de son record</span>
-        <span className="text-[13px] text-t3">Le peak 2v2 de la saison face au meilleur MMR d’avant.</span>
+        <span className="label-caps">Saison {season} · au plus près de son peak all time</span>
+        <span className="text-[13px] text-t3">L’écart entre le peak 2v2 de la saison et le peak all time.</span>
       </span>
       <ol className="m-0 flex list-none flex-col gap-2 p-0 lg:grid lg:grid-cols-[repeat(auto-fit,minmax(260px,1fr))] lg:gap-4">
-        {lines.map(({ player, place, value }) => {
+        {lines.map(({ player, place }) => {
           const gap = player.peakGap;
           const rank = gap ? splitRankLabel(gap.label) : null;
-          const above = gap?.record || (gap?.gap ?? 0) > 0;
           return (
             <li key={player.name} className={cn('flex min-w-0 items-center gap-3 py-2', player.me && mineClass)}>
-              <Place place={place} mine={player.me} />
+              <Place place={gap ? place : null} mine={player.me} />
               <img
                 src={`/rocket-league/ranks/${gap?.tier ?? 0}.png`}
                 alt=""
@@ -265,8 +262,8 @@ function RecordPeaks({
                 <span className="truncate text-[13px] text-t3">
                   {gap
                     ? [
-                        `Peak ${formatNumber(gap.peak)}`,
-                        gap.before === null ? null : `record ${formatNumber(gap.before)}`,
+                        `Saison ${formatNumber(gap.peak)}`,
+                        `all time ${formatNumber(gap.allTime)}`,
                         rank?.rank,
                         showAccount && `compte ${gap.account}`,
                       ]
@@ -275,27 +272,14 @@ function RecordPeaks({
                     : 'Pas encore relevé cette saison'}
                 </span>
               </span>
-              <span className="flex shrink-0 flex-col items-end gap-1">
-                <b
-                  className={cn(
-                    'num text-[32px] [line-height:.85] lg:text-[40px]',
-                    value === null ? 'text-t3' : above ? 'text-win' : player.me || place === 1 ? 'text-t1' : 'text-t2',
-                  )}
-                >
-                  {gap?.gap != null ? formatted(gap.gap, 'mmr') : gap?.record ? 'Record' : '–'}
-                </b>
-                <span className="text-[12px] text-t3">
-                  {gap?.gap != null
-                    ? gap.gap > 0
-                      ? 'au-dessus'
-                      : gap.gap === 0
-                        ? 'pile son record'
-                        : 'sous son record'
-                    : gap?.record
-                      ? 'battu'
-                      : 'record d’avant inconnu'}
-                </span>
-              </span>
+              <b
+                className={cn(
+                  'num shrink-0 text-[32px] [line-height:.85] lg:text-[40px]',
+                  !gap ? 'text-t3' : gap.gap === 0 ? 'text-win' : player.me || place === 1 ? 'text-t1' : 'text-t2',
+                )}
+              >
+                {gap ? formatted(gap.gap, 'mmr') : '–'}
+              </b>
             </li>
           );
         })}
