@@ -2,7 +2,6 @@ import type { SeasonMmr, SeasonPeak } from '../../lib/contract';
 import { pushupCredit } from '../../lib/domain';
 import type { Board } from '../board';
 import { type Career, type CareerAccount, type CareerScope, careerOf, seasonOf } from './career';
-import { highestTier } from './stats';
 
 // The Stats page: each player over one season (or every match), then, stat by stat, who leads.
 
@@ -36,8 +35,6 @@ export interface ComparedPlayer {
   /** The pseudo to show: their solo account's when only that account is compared, once the rank source read it. */
   shown: string;
   me: boolean;
-  /** Their highest current rank, solo or duo, which gives them their colour. */
-  tier: number | null;
   career: Career;
   mmr: PeriodMmr | null;
   /** Pushups, crunches and plank done, counted in pushups. */
@@ -97,7 +94,6 @@ export function comparedPlayers(
       name,
       shown: (account === 'solo' && ranks?.solo?.pseudo) || name,
       me: name === me,
-      tier: highestTier(ranks?.tier, ranks?.solo?.tier),
       career: careerOf(board, name, scope, account, season),
       mmr: periodMmr(seasonMmr, name, account, season),
       pushups: pushupsOf(board, name, season),

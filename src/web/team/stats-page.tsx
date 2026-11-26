@@ -30,7 +30,7 @@ import {
   type StatFormat,
   seasonsPlayed,
 } from './comparison';
-import { rankLightRgb, splitRankLabel } from './stats';
+import { splitRankLabel } from './stats';
 
 type Scope = Exclude<CareerScope, 'ranked'>;
 
@@ -167,15 +167,10 @@ function Section({ kicker, title, children }: { kicker: string; title: string; c
   );
 }
 
-/** A player's name with their colour, and TOI for the member. */
+/** A player's pseudo, and TOI for the member. Their rank shows in the peaks, not again by every name. */
 function PlayerName({ player, className }: { player: ComparedPlayer; className?: string }) {
   return (
     <span className={cn('flex min-w-0 items-center gap-1.5', className)}>
-      <i
-        aria-hidden="true"
-        className="size-2 shrink-0 rounded-full"
-        style={{ background: `rgb(${rankLightRgb(player.tier)})` }}
-      />
       <span className="truncate">{player.shown}</span>
       {player.me && <Badge variant="me">TOI</Badge>}
     </span>
@@ -279,7 +274,7 @@ function StatCard({ stat, players }: { stat: Stat | Prize; players: ComparedPlay
   );
 }
 
-/** A player's bar: the leader's in white, the others' in grey; the player's colour stays on the dot by their name. */
+/** A player's bar: the leader's in white, the others' in a lighter grey. */
 function Bar({ line, format, leading }: { line: RankedLine; format: StatFormat; leading: boolean }) {
   return (
     <li className="flex flex-col gap-1.5">
@@ -291,7 +286,7 @@ function Bar({ line, format, leading }: { line: RankedLine; format: StatFormat; 
       </span>
       <span aria-hidden="true" className="h-1.5 overflow-hidden rounded-full bg-white/6">
         <i
-          className={cn('block h-full origin-left animate-grow rounded-full', leading ? 'bg-t1' : 'bg-white/28')}
+          className={cn('block h-full origin-left animate-grow rounded-full', leading ? 'bg-t1' : 'bg-white/45')}
           style={{ width: `${line.share * 100}%` }}
         />
       </span>

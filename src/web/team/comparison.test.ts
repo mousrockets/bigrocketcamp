@@ -72,7 +72,6 @@ test('counts each player’s matches of the season chosen, the member first', ()
   ]);
   expect(comparedPlayers(board, seasons, roster, 'bob', 'all', 'all', 23)[0]?.career.goals).toBe(3);
   expect(comparedPlayers(board, seasons, roster, 'bob', 'all', 'all', null)[0]?.career.matches).toBe(3);
-  expect(players[0]?.tier).toBe(19);
 });
 
 test('takes the 2v2 peak of the account that climbed highest, and what the season brought it', () => {
