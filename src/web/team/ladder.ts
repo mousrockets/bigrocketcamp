@@ -88,19 +88,6 @@ export function climbOf(tier: number, mmr: number): Climb | null {
   };
 }
 
-export interface SoloLine {
-  player: string;
-  me: boolean;
-  /** Players level on MMR share a position. */
-  position: number;
-  step: RankStep;
-  mmr: number;
-  /** The solo account's pseudo, or the player's when an older API did not send it. */
-  name: string;
-  /** The account's best rating, every season, when known. */
-  best: number | null;
-}
-
 type DoublesRank = Board['doublesRanks'][number];
 
 /** A solo account's rating, while the rank source can still read it. */
@@ -108,24 +95,4 @@ export function soloReading(ranks: DoublesRank | undefined): { tier: number; mmr
   const solo = ranks?.solo;
   if (!solo || solo.status === 'not_found' || solo.status === 'needs_player_id') return null;
   return solo.tier && solo.mmr !== null ? { tier: solo.tier, mmr: solo.mmr } : null;
-}
-
-/** The club's solo accounts, highest MMR first; a member whose solo account was never read is left out. */
-export function soloLines(
-  doublesRanks: readonly DoublesRank[],
-  roster: readonly string[],
-  me: string | null,
-): SoloLine[] {
-  const read = roster.flatMap((player) => {
-    const ranks = doublesRanks.find((candidate) => candidate.player === player);
-    const solo = ranks?.solo;
-    const reading = soloReading(ranks);
-    const step = reading && rankStep(reading.tier);
-    if (!solo || !reading || !step) return [];
-    const best = solo.best === null ? null : Math.max(solo.best, reading.mmr);
-    return [{ player, me: player === me, step, mmr: reading.mmr, name: solo.pseudo || player, best }];
-  });
-  return read
-    .sort((a, b) => b.mmr - a.mmr || roster.indexOf(a.player) - roster.indexOf(b.player))
-    .map((line) => ({ ...line, position: 1 + read.filter((other) => other.mmr > line.mmr).length }));
 }

@@ -2,7 +2,6 @@ import { Link } from '@tanstack/react-router';
 import { cn } from 'cn';
 import { ChartNoAxesColumn } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { SheetLink } from '../components/sheet-link';
 import { Button, buttonVariants } from '../components/ui/button';
 import {
   Carousel,
@@ -12,9 +11,7 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from '../components/ui/carousel';
-import { useMediaQuery } from '../hooks/use-media-query';
 import { useNow } from '../hooks/use-now';
-import { LadderIcon } from '../shell/icons';
 import { type CardPlayer, PlayerCard } from './player-card';
 import { rankRgb } from './stats';
 
@@ -36,7 +33,6 @@ export function TeamCarousel({ players }: { players: CardPlayer[] }) {
   const [api, setApi] = useState<CarouselApi>();
   const [active, setActive] = useState(0);
   const now = useNow(60_000);
-  const computer = useMediaQuery('(min-width: 64rem)');
   const current = players[active] ?? players[0];
 
   useEffect(() => {
@@ -57,24 +53,12 @@ export function TeamCarousel({ players }: { players: CardPlayer[] }) {
       className="flex animate-rise flex-col gap-4 [animation-delay:.12s] lg:gap-5"
     >
       <div className="flex items-center justify-between gap-3 px-5 lg:px-0">
-        <span className="flex items-baseline gap-3.5 lg:gap-4">
-          <h2 className="title-display text-[22px]">La team</h2>
-          {/* On a phone, Matchs is one tap away in the tab bar. */}
-          {computer && (
-            <Link to="/matchs" className="font-medium text-[13px] text-link">
-              Bilan du jour
-            </Link>
-          )}
-        </span>
+        <h2 className="title-display text-[22px]">La team</h2>
         <span className="flex items-center gap-2">
-          <Link to="/stats" className={buttonVariants({ variant: 'bubble', size: 'hint' })}>
+          <Link to="/stats" className={cn(buttonVariants({ variant: 'bubble', size: 'hint' }), 'lg:mr-2.5')}>
             <ChartNoAxesColumn />
             Stats
           </Link>
-          <SheetLink sheet="ranks" className={cn(buttonVariants({ variant: 'bubble', size: 'hint' }), 'lg:mr-2.5')}>
-            <LadderIcon />
-            Les ranks
-          </SheetLink>
           <CarouselPrevious aria-label="Carte précédente" className={cn(roundButton, 'hidden lg:inline-flex')} />
           <CarouselNext aria-label="Carte suivante" className={cn(roundButton, 'hidden lg:inline-flex')} />
         </span>
