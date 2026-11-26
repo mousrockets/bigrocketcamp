@@ -54,7 +54,11 @@ import {
   ranked,
   type Stat,
   type StatFormat,
+  type StyleAxis,
+  type StyleLine,
   seasonsPlayed,
+  styleAxes,
+  styleOf,
   type TableStat,
   tableSections,
   tableStats,
@@ -177,9 +181,18 @@ export function StatsPage() {
         {board && anyMatch && (
           <>
             <Section kicker="L’essentiel" title="Les chiffres clés">
-              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+              {/* The matches first, the width of the row on a tablet: the time each one spent on the game. */}
+              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-5 md:[&>:first-child]:col-span-2 lg:[&>:first-child]:col-span-1">
                 {keyStats.map((stat) => (
                   <StatCard key={stat.label} stat={stat} players={players} />
+                ))}
+              </div>
+            </Section>
+            <Section kicker="Le style de jeu" title="Quel joueur es-tu ?">
+              <p className="m-0 -mt-2 text-[15px] text-t2">Pas de gagnant ici : chacun face au reste du club.</p>
+              <div className="grid gap-3 md:grid-cols-2">
+                {styleAxes.map((axis) => (
+                  <StyleCard key={axis.label} axis={axis} players={players} />
                 ))}
               </div>
             </Section>
@@ -432,6 +445,105 @@ function StatCard({ stat, players }: { stat: Stat; players: ComparedPlayer[] }) 
       </ol>
     </Card>
   );
+}
+
+/**
+ * An axis of play style: each player a dot in their colour on a line, the club's own ratio in the middle, then each
+ * player's ratio below. No green, no medal: a style is no ranking.
+ */
+function StyleCard({ axis, players }: { axis: StyleAxis; players: ComparedPlayer[] }) {
+  const { lines } = styleOf(axis, players);
+  const dots = laned(lines);
+  return (
+    <Card variant="glass" role="region" aria-label={axis.label} className="gap-5 p-5">
+      <span className="label-caps">{axis.label}</span>
+      <div className="flex flex-col gap-2.5">
+        <div className="relative h-10">
+          <span
+            aria-hidden="true"
+            className="absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-linear-to-r from-white/5 via-white/12 to-white/5"
+          />
+          <span
+            aria-hidden="true"
+            className="absolute top-1/2 left-1/2 h-4 w-0.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/30"
+          />
+          {dots.map(
+            ({ player, position, lane, ratio }) =>
+              position !== null && (
+                // Its target is the dot itself: two close dots, one above the other, must each answer to their own.
+                <FigureBubble
+                  key={player.name}
+                  label={`${player.shown}, ${formatted(ratio, 'perMatch')}`}
+                  className={cn(
+                    'group absolute flex -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full transition-[left] duration-700 ease-(--ease)',
+                    player.me ? 'size-5' : 'size-[18px]',
+                  )}
+                  style={
+                    {
+                      left: `${position * 100}%`,
+                      top: `calc(50% + ${lane * 12}px)`,
+                      '--dot': rankRgb(player.tier),
+                    } as CSSProperties
+                  }
+                  figure={
+                    <i
+                      className={cn(
+                        'block rounded-full bg-[rgb(var(--dot))] transition-transform group-hover:scale-125 group-data-[popup-open]:scale-125',
+                        player.me
+                          ? 'size-5 shadow-[0_0_0_2.5px_var(--color-t1),0_0_16px_rgba(var(--dot),.8)]'
+                          : 'size-3.5 shadow-[0_0_0_2px_rgba(0,0,0,.55)]',
+                      )}
+                    />
+                  }
+                >
+                  <span className="font-semibold text-[12px] text-t2">{player.shown}</span>
+                  <b className="num text-[17px] [line-height:1]">{formatted(ratio, 'perMatch')}</b>
+                </FigureBubble>
+              ),
+          )}
+        </div>
+        <span className="grid grid-cols-3 text-[12px] text-t3">
+          <span>{axis.low}</span>
+          <span className="text-center">Le club</span>
+          <span className="text-right">{axis.high}</span>
+        </span>
+      </div>
+      <ol className="m-0 flex list-none flex-col gap-2 p-0">
+        {lines.map(({ player, ratio }) => (
+          <li
+            key={player.name}
+            className={cn('flex items-center gap-2.5', player.me ? 'text-[15px] text-t1' : 'text-[13px] text-t2')}
+          >
+            <i
+              aria-hidden="true"
+              className="size-2 shrink-0 rounded-full"
+              style={{ background: `rgb(${rankRgb(player.tier)})` }}
+            />
+            <PlayerName player={player} className={cn('flex-1', player.me && 'font-semibold')} />
+            <span className={cn('num', player.me ? 'text-[17px]' : 'text-[15px]', ratio === null && 'text-t3')}>
+              {formatted(ratio, 'perMatch')}
+            </span>
+          </li>
+        ))}
+      </ol>
+    </Card>
+  );
+}
+
+/**
+ * The dots of an axis, each in a lane so that two close ones both show: on the line, then just above, then just
+ * below. The member's comes last, above the others.
+ */
+function laned(lines: StyleLine[]): (StyleLine & { lane: number })[] {
+  const placed: (StyleLine & { lane: number })[] = [];
+  for (const line of [...lines].sort((a, b) => Number(a.player.me) - Number(b.player.me))) {
+    const near = placed.filter(
+      (other) => line.position !== null && other.position !== null && Math.abs(other.position - line.position) < 0.05,
+    );
+    const lane = [0, -1, 1].find((candidate) => !near.some((other) => other.lane === candidate)) ?? 0;
+    placed.push({ ...line, lane });
+  }
+  return placed;
 }
 
 /** The member's place wears a medal's colour on the podium. */
@@ -745,21 +857,52 @@ function StatsTable({ stats, players }: { stats: TableStat[]; players: ComparedP
 }
 
 /**
- * A rate of the table, and the total it comes from in a small bubble: shown on hover on a computer, on a tap on a
- * phone, so that the table keeps one figure per player.
+ * A rate of the table, and the total it comes from in a small bubble, so that the table keeps one figure per player.
  */
 function TotalOf({ figure, tone, count, of }: { figure: string; tone: string; count: string; of: string | null }) {
   return (
-    <Popover>
-      <PopoverTrigger
-        openOnHover
-        delay={120}
-        aria-label={`${figure}, ${count}${of ? ` sur ${of}` : ''} au total`}
-        className={cn(
-          'num -mx-1.5 -my-0.5 rounded-[7px] px-1.5 py-0.5 text-[15px] [line-height:1.1] transition-colors hover:bg-white/8 data-[popup-open]:bg-white/10',
-          tone,
+    <FigureBubble
+      label={`${figure}, ${count}${of ? ` sur ${of}` : ''} au total`}
+      className={cn(
+        'num -mx-1.5 -my-0.5 rounded-[7px] px-1.5 py-0.5 text-[15px] [line-height:1.1] transition-colors hover:bg-white/8 data-[popup-open]:bg-white/10',
+        tone,
+      )}
+      figure={figure}
+    >
+      <span className="label-caps text-[10px]">Au total</span>
+      <span className="flex items-baseline gap-1 whitespace-nowrap">
+        <b className="num text-[17px] [line-height:1]">{count}</b>
+        {of && (
+          <>
+            <span className="text-[12px] text-t3">sur</span>
+            <b className="num text-[17px] [line-height:1]">{of}</b>
+          </>
         )}
-      >
+      </span>
+    </FigureBubble>
+  );
+}
+
+/**
+ * A figure that says more in a small bubble above it: on hover on a computer, on a tap on a phone. Its label tells a
+ * screen reader the same without opening it.
+ */
+function FigureBubble({
+  label,
+  className,
+  style,
+  figure,
+  children,
+}: {
+  label: string;
+  className: string;
+  style?: CSSProperties;
+  figure: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <Popover>
+      <PopoverTrigger openOnHover delay={120} aria-label={label} className={className} style={style}>
         {figure}
       </PopoverTrigger>
       <PopoverContent
@@ -767,16 +910,7 @@ function TotalOf({ figure, tone, count, of }: { figure: string; tone: string; co
         sideOffset={6}
         className="w-auto items-center gap-0.5 rounded-[12px] bg-[rgba(28,28,30,.94)] px-3 py-2 text-t1 ring-white/10 backdrop-blur-[30px]"
       >
-        <span className="label-caps text-[10px]">Au total</span>
-        <span className="flex items-baseline gap-1 whitespace-nowrap">
-          <b className="num text-[17px] [line-height:1]">{count}</b>
-          {of && (
-            <>
-              <span className="text-[12px] text-t3">sur</span>
-              <b className="num text-[17px] [line-height:1]">{of}</b>
-            </>
-          )}
-        </span>
+        {children}
       </PopoverContent>
     </Popover>
   );

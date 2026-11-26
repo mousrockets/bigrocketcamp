@@ -2,7 +2,18 @@ import { expect, test } from 'vitest';
 import type { SeasonMmr } from '../../lib/contract';
 import type { GameStats } from '../../lib/game-stats';
 import { anExercise, aRank, aResult, aSoloRank, boardWith } from '../test-utils';
-import { bestOf, comparedPlayers, keyStats, prizes, ranked, seasonsPlayed, tableStats } from './comparison';
+import {
+  bestOf,
+  comparedPlayers,
+  keyStats,
+  prizes,
+  ranked,
+  seasonsPlayed,
+  styleAxes,
+  styleOf,
+  styleSpan,
+  tableStats,
+} from './comparison';
 
 // The Stats page compares the players over one season: S23 from 10 June, S24 from 23 September 2026.
 
@@ -187,6 +198,41 @@ test('an action reads per match, a win or an MVP as a share, each with its total
   expect(statNamed('MVP').format).toBe('percent');
   // A score of hundreds reads whole, per match too.
   expect(statNamed('Score').format).toBe('count');
+});
+
+test('leads with the time spent on the game, then attack, team play, defence and the MVPs', () => {
+  expect(keyStats.map((stat) => stat.label)).toEqual([
+    'Matchs',
+    'Buts / match',
+    'Passes D / match',
+    'Arrêts / match',
+    'Taux de MVP',
+  ]);
+});
+
+test('places each player’s style against the club’s own, with no winner', () => {
+  const styled = boardWith({
+    results: [
+      aResult({ match_guid: 's1', name: 'alice', goals: 4, saves: 2, assists: 2 }),
+      aResult({ match_guid: 's1', name: 'bob', goals: 1, saves: 4, assists: 1 }),
+    ],
+  });
+  const players = comparedPlayers(styled, [], ['alice', 'bob', 'charlie'], 'alice', 'all', 'all', null);
+  const [goalsPerSave, assistsPerGoal] = styleAxes;
+  if (!goalsPerSave || !assistsPerGoal) throw new Error('two axes');
+  // The club: 5 goals for 6 saves. Alice scores twice what she saves.
+  const { club, lines } = styleOf(goalsPerSave, players);
+  expect(club).toBeCloseTo(5 / 6);
+  expect(lines.map((line) => line.ratio)).toEqual([2, 0.25, null]);
+  // Twice the club's lean and more: at the end, as Bob's, who saves four times what he scores.
+  expect(lines[0]?.position).toBe(0.97);
+  expect(lines[1]?.position).toBe(0.03);
+  // Charlie played no match: no dot.
+  expect(lines[2]?.position).toBeNull();
+  // A pass for every two goals, a little less than the club's 3 for 5: Alice leans towards Finisseur.
+  expect(styleOf(assistsPerGoal, players).lines[0]?.position).toBeCloseTo(
+    0.5 + Math.log(0.5 / 0.6) / (2 * Math.log(styleSpan)),
+  );
 });
 
 test('names a player by their solo pseudo when only the solo accounts are compared', () => {
