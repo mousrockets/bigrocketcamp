@@ -1,10 +1,12 @@
 // The local database that `npm run dev` uses (docs/base-locale.md):
 //   node scripts/local-database.ts pull-prod   replaces it with a minimised copy of production (npm run db:pull-prod)
-//   node scripts/local-database.ts reset       puts back the fictitious players of scripts/seed-dev.sql (npm run db:reset)
+//   node scripts/local-database.ts seed        adds the fictitious club of scripts/dev-seed.ts (npm run db:seed)
+//   node scripts/local-database.ts reset       empties it, then adds the fictitious club (npm run db:reset)
 // The production export goes through .wrangler/database-copy, ignored by git and deleted at the end, even on failure.
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { runnerImport } from 'vite';
 import { dropEverything, localCopy, type SchemaObject, schemaObjects } from './production-copy.ts';
 
 const database = 'bigrocketcamp';
@@ -25,15 +27,11 @@ function localObjects(): SchemaObject[] {
   return answer?.results ?? [];
 }
 
-/** Its answer (one empty result per statement) is left out; errors still show. */
-function executeFile(file: string): void {
-  wrangler(['d1', 'execute', database, '--local', '--yes', '--file', file], { quiet: true });
-}
-
 function executeLocally(sql: string): void {
   const file = join(workDirectory, 'local.sql');
   writeFileSync(file, sql, { mode: 0o600 });
-  executeFile(file);
+  // Its answer (one empty result per statement) is left out; errors still show.
+  wrangler(['d1', 'execute', database, '--local', '--yes', '--file', file], { quiet: true });
 }
 
 function migrate(): void {
@@ -69,16 +67,31 @@ function pullProduction(): void {
   });
 }
 
-function reset(): void {
+/** The seed imports the app's own code (closing a month, Paris days): Vite resolves it as the app does. */
+async function seedSql(): Promise<string> {
+  const { module } = await runnerImport<typeof import('./dev-seed.ts')>(join(import.meta.dirname, 'dev-seed.ts'));
+  return (await module.devSeed()).join('\n');
+}
+
+async function seed(): Promise<void> {
+  const sql = await seedSql();
   withWorkDirectory(() => {
-    executeLocally(['PRAGMA defer_foreign_keys=TRUE;', ...dropEverything(localObjects())].join('\n'));
-    migrate();
-    executeFile(join('scripts', 'seed-dev.sql'));
-    console.log('\nLocal database back to the fictitious players of scripts/seed-dev.sql.');
+    executeLocally(sql);
+    console.log('\nFictitious club added: sign in with dimitri@example.com (code in the npm run dev terminal).');
   });
 }
 
-const commands: Record<string, () => void> = { 'pull-prod': pullProduction, reset };
+async function reset(): Promise<void> {
+  const sql = await seedSql();
+  withWorkDirectory(() => {
+    executeLocally(['PRAGMA defer_foreign_keys=TRUE;', ...dropEverything(localObjects())].join('\n'));
+    migrate();
+    executeLocally(sql);
+    console.log('\nLocal database back to the fictitious club: sign in with dimitri@example.com.');
+  });
+}
+
+const commands: Record<string, () => void | Promise<void>> = { 'pull-prod': pullProduction, seed, reset };
 const command = commands[process.argv[2] ?? ''];
-if (!command) throw new Error('Usage: node scripts/local-database.ts pull-prod | reset');
-command();
+if (!command) throw new Error('Usage: node scripts/local-database.ts pull-prod | seed | reset');
+await command();

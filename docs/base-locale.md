@@ -2,17 +2,35 @@
 
 `npm run dev` lit la base D1 locale, dans `.wrangler/state` (ignoré par git). Elle contient l'une de ces deux choses :
 
-- **les joueurs fictifs** de `scripts/seed-dev.sql`, pour tout le monde ;
+- **le club fictif** de `scripts/dev-seed.ts`, pour tout le monde ;
 - **une copie minimisée de la production**, pour un mainteneur qui a accès au compte Cloudflare de l'instance.
 
 | Commande               | Ce qu'elle fait                                                                                 |
 | ---------------------- | ----------------------------------------------------------------------------------------------- |
 | `npm run db:migrate`   | Applique les migrations de la branche à la base locale.                                         |
-| `npm run db:seed`      | Ajoute les joueurs fictifs (sans rien effacer ni dupliquer).                                    |
-| `npm run db:reset`     | Vide la base locale, applique les migrations et ajoute les joueurs fictifs.                     |
+| `npm run db:seed`      | Ajoute le club fictif (sans rien effacer ni dupliquer).                                         |
+| `npm run db:reset`     | Vide la base locale, applique les migrations et ajoute le club fictif.                          |
 | `npm run db:pull-prod` | Remplace la base locale par une copie minimisée de la production, puis applique les migrations. |
 
 Les deux dernières remplacent toute la base locale, données ajoutées à la main comprises. Le serveur de dev peut rester lancé : il lit la nouvelle base aussitôt.
+
+## Le club fictif
+
+`npm run db:seed` écrit, pour les trois joueurs fictifs (`dimitri@example.com`, administrateur, `vincent@example.com` et `kevin@example.com`), les deux mois précédents et le mois en cours jusqu'à maintenant :
+
+- environ 500 matchs, comme un collecteur les envoie : 2v2 et 3v3 classés, tournois, FF, prolongations, et quelques soirées d'un ancien collecteur, sans horloge ni playlist. L'app les construit elle-même à la première ouverture du tableau ;
+- des séries de pompes, d'abdos et de gainage, avec quelques réactions et sons. Kévin, le moins assidu, traîne en général une dette ; les deux autres sont à jour ;
+- les rangs duo et solo de chacun, qui montent et descendent, avec leurs peaks ;
+- les mois clos par le code de l'app (`monthlyRanking`), avec les verres dus : tous offerts pour le plus ancien, un seul pour le dernier ;
+- des tournois gagnés, déclarés comme dans Matchs.
+
+Ses volumes et ses répartitions (matchs par soirée, heures, écarts de buts, FF, prolongations, scores) suivent ceux de la production, relevés en agrégats ; aucune ligne de la production n'y entre, même pseudonymisée : le dépôt est public. Les adversaires ont des pseudos inventés et des ID en `|seed-…|`.
+
+Chaque jour tire ses données d'une suite aléatoire qui lui est propre, et la simulation part toujours du 1er août 2026 : relancé plus tard, le seed réécrit les mêmes jours à l'identique et n'ajoute que les jours depuis. Les dates suivent le jour du seed : le mois en cours n'est jamais vide.
+
+Pour ajouter un cas, on change `scripts/dev-seed.ts` (un joueur, une règle, une probabilité), on vérifie avec `npx vitest run scripts/dev-seed.test.ts`, puis `npm run db:reset`. Le seed importe le code de l'app (jours de Paris, règles des pompes, clôture des mois) par Vite (`runnerImport`) : il suit ces règles sans les recopier.
+
+Après un `db:reset`, comme après une copie de la production, le navigateur garde l'ancien tableau : se déconnecter avant, ou vider les données du site après.
 
 ## Copier la production
 
