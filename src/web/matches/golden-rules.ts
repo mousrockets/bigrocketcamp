@@ -49,8 +49,8 @@ export const goldenTiers: GoldenTier[] = [
         1,
         'Proximity',
         [
-          'Si l’adversaire est plus proche de la balle, tu attends et tu shadow ; si tu es plus proche, tu y vas.',
-          'Ton green light pour challenge : la balle roule librement au sol (off their car, zéro menace de flick) ou l’adversaire vient de cramer son flip.',
+          'Si l’adversaire est plus proche de la balle, tu attends et tu shadow ; si c’est toi, tu y vas.',
+          'Tu as le feu vert pour challenge quand la balle roule seule au sol (plus sur le toit de sa voiture, aucun flick possible) ou quand l’adversaire vient de cramer son flip.',
         ],
         [
           'If they’re closer to the ball, wait and shadow; if you’re closer, go.',
@@ -61,8 +61,8 @@ export const goldenTiers: GoldenTier[] = [
         2,
         'Play Your Role',
         [
-          'En 2v2, joue ton rôle pour créer une layered defense.',
-          'First man : force l’adversaire (en haut rang, play the ball pour être unfakeable). Second man : attends le force de ton mate pour récupérer un ballon gratuit et ne le laisse jamais en 1v2 trop longtemps.',
+          'En 2v2, joue ton rôle : à deux, vous formez une défense sur deux niveaux (layered defense).',
+          'First man : tu mets la pression et tu forces l’adversaire à donner le ballon (plus haut en rank, joue directement la balle pour ne pas te faire fake). Second man : attends que ton mate force le jeu pour récupérer une free ball, et ne le laisse jamais trop longtemps en 1v2.',
         ],
         [
           'Play your role to build a layered defense.',
@@ -73,8 +73,8 @@ export const goldenTiers: GoldenTier[] = [
         3,
         'Last Man',
         [
-          'Ne dive jamais en last back sauf clean win garanti ; ton job est de stall jusqu’au retour de ton mate.',
-          'Garde ton momentum en shadow, mets des fake / drive challenges pour ne pas être trop passif, et bannis définitivement le backflip challenge.',
+          'En last man, ne plonge jamais sur la balle sauf si tu es sûr de gagner le challenge : ton job, c’est de gagner du temps jusqu’au retour de ton mate.',
+          'Garde ton momentum quand tu shadow, mets des fake challenges et des drive challenges pour ne pas être trop passif, et bannis pour de bon le backflip challenge.',
         ],
         [
           'Never dive as last man back unless you have a clean win—your job is to stall time until your teammate gets back.',
@@ -85,8 +85,8 @@ export const goldenTiers: GoldenTier[] = [
         4,
         'Back Wall',
         [
-          'Dès qu’une action défensive devient awkward (balle qui flotte, aerial, flip reset), monte haut sur le back wall.',
-          'Tu couvres 100 % du net avec une vision totale du terrain. Seule exception : quand la balle reste très basse au sol en low 50s.',
+          'Dès qu’une action défensive devient compliquée (balle qui flotte, aerial, flip reset), monte haut sur le back wall.',
+          'De là, tu couvres 100 % de la cage et tu vois tout le terrain. Seule exception : quand la balle reste collée au sol, en low 50s.',
         ],
         [
           'Whenever a defensive play feels awkward (floating ball, aerial, flip reset), drive high up onto the back wall—it’s your absolute best friend.',
@@ -103,8 +103,8 @@ export const goldenTiers: GoldenTier[] = [
         5,
         'Read the Car',
         [
-          'Garde les yeux sur la voiture adverse plutôt que sur la balle (et utilise le stick droit pour prendre l’info).',
-          'Sa position dicte la trajectoire (à droite de la balle → ça part à gauche ; dessous → ça monte). En attaque, attaque le dos de sa voiture (weak spot).',
+          'Regarde la voiture adverse plutôt que la balle (et sers-toi du stick droit pour prendre l’info).',
+          'Sa position dit où partira la balle : à droite de la balle, elle part à gauche ; dessous, elle monte. En attaque, attaque dans le dos de sa voiture : c’est son point faible.',
         ],
         [
           'Keep your eyes locked on the opponent’s car rather than the ball (and use your right stick for info).',
@@ -115,8 +115,8 @@ export const goldenTiers: GoldenTier[] = [
         6,
         'Spacing',
         [
-          'Ne te trouve jamais dans la même zone que ton mate.',
-          'Reste légèrement en retrait au centre : c’est là que ressortent presque tous les 50/50. En cas de doute, il vaut presque toujours mieux être un peu trop loin que too pushed up.',
+          'Ne te retrouve jamais dans la même zone que ton mate.',
+          'Reste un peu en retrait, vers le centre : c’est là que ressortent presque tous les 50/50. Dans le doute, mieux vaut presque toujours être un peu trop en retrait que trop avancé.',
         ],
         [
           'Never sit in the same pocket of space as your teammate.',
@@ -127,8 +127,8 @@ export const goldenTiers: GoldenTier[] = [
         7,
         'Best & Worst Case',
         [
-          'Positionne-toi pour couvrir un maximum d’options à la fois.',
-          'Le best case (si ton mate gagne) et le worst case (s’il whiff ou perd son 50/50).',
+          'Place-toi pour couvrir un maximum d’options à la fois.',
+          'Le meilleur cas (ton mate gagne son challenge) comme le pire (il whiff ou perd son 50/50).',
         ],
         [
           'Position yourself to cover as many options as possible at once.',
@@ -139,8 +139,8 @@ export const goldenTiers: GoldenTier[] = [
         8,
         'Do Nothing',
         [
-          'Garde tes quatre roues au sol et arrête de pre-jump (« they’re not pros »).',
-          'En défense comme en attaque, la patience force les adversaires à overthink et à te rendre la balle gratuitement.',
+          'Garde tes quatre roues au sol et arrête de pre-jump : en face, ce ne sont pas des pros.',
+          'En défense comme en attaque, ta patience pousse l’adversaire à trop réfléchir et à te donner une free ball.',
         ],
         [
           'Keep all four wheels on the floor and stop pre-jumping—remember, they’re not pros.',
@@ -151,8 +151,8 @@ export const goldenTiers: GoldenTier[] = [
         9,
         'Single-Jump 50s',
         [
-          'Ne flip pas dans les duels.',
-          'Un single jump en inclinant ta voiture sur le côté pour bloquer le centre de la balle te permet de recover instantanément sur quatre roues.',
+          'Ne flip pas dans les challenges.',
+          'Fais un single jump en penchant ta voiture sur le côté pour bloquer le centre de la balle : tu retombes aussitôt sur tes quatre roues et tu recover le premier.',
         ],
         [
           'Don’t flip into 50/50s.',
@@ -169,8 +169,8 @@ export const goldenTiers: GoldenTier[] = [
         10,
         'Bounce Dribble',
         [
-          'Frappe la balle une fraction de seconde après le rebond (pas pendant, sinon c’est un pinch).',
-          'C’est la base de toutes les mécaniques : power shot à 110+ km/h, air dribble low-risk ou fake sur le premier rebond.',
+          'Frappe la balle juste après le rebond, pas pendant (sinon, c’est un pinch).',
+          'C’est la base de toutes les mécaniques : des power shots à plus de 110 km/h, des air dribbles peu risqués, ou un fake sur le premier rebond.',
         ],
         [
           'Hit the ball a fraction of a second right after it bounces (not as it hits the floor, or you’ll pinch it).',
@@ -181,8 +181,8 @@ export const goldenTiers: GoldenTier[] = [
         11,
         'Control & Follow-Up',
         [
-          'Quand tu as du temps, arrête de boom la balle (ne boom que low boost sous pression).',
-          'Utilise des soft touches que tu peux follow up pour rester menaçant, et joue vers ton coin (corner is safe) quand tu dois stall.',
+          'Quand tu as le temps, arrête de boom la balle (ne boom que si tu es low boost et sous pression).',
+          'Fais des soft touches que tu peux suivre toi-même pour rester dangereux, et joue vers ton corner quand tu dois gagner du temps : le corner, c’est safe.',
         ],
         [
           'When you have time, stop booming the ball away (only boom a clear when you’re low boost under heavy pressure).',
@@ -193,8 +193,8 @@ export const goldenTiers: GoldenTier[] = [
         12,
         'Play the Space',
         [
-          'Arrête de tunnel-vision le net.',
-          'Active les big nameplates pour scanner les espaces vides (murs, coins, au-dessus d’eux) : exploiter l’espace finit toujours par ouvrir un open net.',
+          'Arrête de ne regarder que la cage.',
+          'Active les big nameplates (les grands noms au-dessus des voitures, dans les options) pour repérer les espaces vides (murs, corners, au-dessus d’eux) : exploiter l’espace finit toujours par ouvrir la cage.',
         ],
         [
           'Stop tunnel-visioning the net.',
@@ -205,8 +205,8 @@ export const goldenTiers: GoldenTier[] = [
         13,
         'Boost Economy',
         [
-          'N’utilise jamais de boost pour aller chercher un gros boost (boosting to boost) et priorise toujours la bonne touche avant le boost.',
-          'Prends les small pads pour rester dans le jeu, évite les flips inutiles sans boost, et garde ~30 de boost après un solo play pour recover.',
+          'Ne brûle jamais de boost pour aller chercher un gros boost, et fais toujours passer la bonne touche de balle avant le boost.',
+          'Prends les small pads pour rester dans le jeu, évite les flips inutiles quand tu n’as plus de boost, et garde environ 30 de boost après un solo play pour recover.',
         ],
         [
           'Never boost to boost, and always prioritize a good touch over grabbing boost.',
@@ -217,8 +217,8 @@ export const goldenTiers: GoldenTier[] = [
         14,
         'Soft Cheat',
         [
-          'Ne hard cheat jamais en solo queue (sauf en comms sur un kill annoncé).',
-          'Fais un front-flip propre jusqu’au premier small pad pour arriver avec 40 à 50 de boost et couvrir toutes les sorties de kickoff.',
+          'Ne hard cheat jamais en solo queue (sauf en vocal, quand ton mate annonce qu’il tue la balle au kickoff).',
+          'Fais un front flip propre jusqu’au premier small pad : tu arrives avec 40 à 50 de boost, prêt à couvrir toutes les sorties de kickoff.',
         ],
         [
           'Don’t hard cheat in solo queue (unless you’re in comms and your teammate is intentionally killing the ball).',
@@ -235,8 +235,8 @@ export const goldenTiers: GoldenTier[] = [
         15,
         'Boost Starve',
         [
-          'Voler le back corner boost adverse vaut souvent mieux qu’un tir difficile.',
-          'Deux adversaires starve à zéro boost ne peuvent ni contest le back wall ni contre-attaquer.',
+          'Voler le back boost adverse vaut souvent mieux qu’un tir difficile.',
+          'Deux adversaires starve, à zéro boost, ne peuvent ni défendre sur le back wall ni contre-attaquer.',
         ],
         [
           'Stealing the opponent’s back corner boost is often more game-winning than forcing a low-percentage shot.',
@@ -247,8 +247,8 @@ export const goldenTiers: GoldenTier[] = [
         16,
         'Flip = Threat',
         [
-          'En attaque, garde ton flip le plus longtemps possible (save your flip) pour menacer early flip, late fake, ground pinch ou musty.',
-          'Un reset fake (prendre le reset sans l’utiliser) suffit souvent à faire pre-jump toute la défense.',
+          'En attaque, garde ton flip le plus longtemps possible : tant que tu l’as, tu menaces un flip rapide, un fake tardif, un ground pinch ou un musty.',
+          'Prendre un flip reset sans même t’en servir suffit souvent à faire pre-jump toute la défense.',
         ],
         [
           'On offense, save your flip as long as possible to threaten multiple options at once (early flip, late fake, ground pinch, musty).',
@@ -259,8 +259,8 @@ export const goldenTiers: GoldenTier[] = [
         17,
         'Low-Risk Aerials',
         [
-          'Utilise tes mécaniques au bon moment (zones dangereuses, sans over-air-roll).',
-          'Les deux plays les plus rentables en 2v2 sont l’air dribble into 50/50 (bloquer avec le toit pour recover avec du boost) et l’air dribble bump sur le last man. En défense aérienne, utilise le floating (shadow à leur altitude) et hide behind the ball pour couper leur vision.',
+          'Sors tes mécaniques quand elles créent vraiment du danger, et sans abuser de l’air roll.',
+          'En 2v2, les deux plays les plus rentables : l’air dribble into 50/50 (bloque la balle avec le toit pour recover avec du boost) et l’air dribble bump sur le last man. En défense aérienne, fais du floating (shadow à leur hauteur dans les airs), et cache-toi derrière la balle pour leur couper la vue.',
         ],
         [
           'Use mechanics when they actually create danger (central, threatening spots) and don’t over-air-roll.',
@@ -271,8 +271,8 @@ export const goldenTiers: GoldenTier[] = [
         18,
         'Wincon & Lead Management',
         [
-          'Quand tu mènes (+2/+3), tu n’as plus besoin de marquer : ralentis, joue les coins et abuse des fakes face à des adversaires qui vont full speed.',
-          'Quand tu es mené, ils vont jouer défensif : augmente les bumps/demos.',
+          'Quand tu mènes de 2 ou 3 buts, tu n’as plus besoin de marquer : ralentis le jeu, joue dans les corners et multiplie les fakes face à des adversaires qui vont full speed.',
+          'Quand tu es mené, ils vont défendre : mets plus de bumps et de demos.',
         ],
         [
           'When you have a 2 or 3-goal lead, you don’t need to score—slow the game down, play the corners, and abuse fakes against opponents going full speed.',
@@ -283,8 +283,8 @@ export const goldenTiers: GoldenTier[] = [
         19,
         'Body Language & Adapt',
         [
-          'Rends tes rotations claires pour ton mate sans les rendre trop lisibles pour l’adversaire.',
-          'Si ton mate est très agressif, adapte-toi en jouant plus passif au lieu de double commit (sauf pour contrer un air dribble bump).',
+          'Rends tes rotations claires pour ton mate, sans qu’elles deviennent trop lisibles pour l’adversaire.',
+          'Si ton mate est très agressif, adapte-toi en jouant plus en retrait au lieu de double commit (sauf pour contrer un air dribble bump).',
         ],
         [
           'Make your rotations obvious to your teammate with clear car body language, without making them too easy for opponents to read.',
@@ -295,8 +295,8 @@ export const goldenTiers: GoldenTier[] = [
         20,
         'Zero Tilt & Queue Dodge',
         [
-          'Zéro flame dans le chat : un mate tilté est un mate qui décroche.',
-          'Si les serveurs laguent, que tu prends deux défaites d’affilée ou que tu retombes sur le même lobby toxique, fais une pause de 2 minutes pour reset la queue.',
+          'Zéro flame dans le quick chat : un mate qui tilt est un mate qui décroche.',
+          'Si les serveurs laguent, si tu enchaînes deux défaites ou si tu retombes sur le même lobby toxique, fais 2 minutes de pause pour reset la queue.',
         ],
         [
           'Never flame your teammate in quick chat—the second they tilt, they check out mentally.',
