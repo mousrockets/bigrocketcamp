@@ -35,6 +35,17 @@ test.each([
   expect(open(address)).toMatchObject({ routes: ['__root__', route], notFoundAt: null });
 });
 
+test('the Golden Rules open in the shell, in English from their address', () => {
+  expect(open('/matchs/golden-rules')).toMatchObject({
+    routes: ['__root__', '/_shell', '/_shell/matchs/golden-rules'],
+    notFoundAt: null,
+  });
+  const english = router.parseLocation(
+    createMemoryHistory({ initialEntries: ['/matchs/golden-rules?langue=en'] }).location,
+  );
+  expect(english.search).toEqual({ langue: 'en' });
+});
+
 test('the declaration sheet opens over the tab, from its search', () => {
   const location = router.parseLocation(createMemoryHistory({ initialEntries: ['/matchs?declarer=true'] }).location);
   expect(location.search).toEqual({ declarer: true });

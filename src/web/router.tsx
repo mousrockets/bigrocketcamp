@@ -2,6 +2,8 @@ import { createRootRoute, createRoute, createRouter, type RouterHistory, redirec
 import { z } from '../lib/validation';
 import { App, NotFound } from './app';
 import { ChallengesPage } from './challenges/challenges-page';
+import { rulesLanguages } from './matches/golden-rules';
+import { GoldenRulesPage } from './matches/golden-rules-page';
 import { MatchesPage } from './matches/matches-page';
 import { AccountSettings } from './settings/account';
 import { ClubSettings } from './settings/club-info';
@@ -69,6 +71,13 @@ const matchesRoute = createRoute({
     tournoi: z.string().min(1).max(128).optional().catch(undefined),
   }),
 });
+// Squishy's Golden Rules, opened from Matchs; `?langue=en` shows them in English.
+const goldenRulesRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: '/matchs/golden-rules',
+  component: GoldenRulesPage,
+  validateSearch: z.object({ langue: z.enum(rulesLanguages).optional().catch(undefined) }),
+});
 const settingsRoute = createRoute({ getParentRoute: () => shellRoute, path: '/reglages', component: SettingsHome });
 // Réglages opens its screens like iOS Settings, each with the way back to it.
 const settingsScreens = (
@@ -99,7 +108,14 @@ const profileRoute = createRoute({
 });
 
 export const routeTree = rootRoute.addChildren([
-  shellRoute.addChildren([teamRoute, challengesRoute, matchesRoute, settingsRoute, ...settingsScreens]),
+  shellRoute.addChildren([
+    teamRoute,
+    challengesRoute,
+    matchesRoute,
+    goldenRulesRoute,
+    settingsRoute,
+    ...settingsScreens,
+  ]),
   connectionsRoute,
   profileRoute,
 ]);
