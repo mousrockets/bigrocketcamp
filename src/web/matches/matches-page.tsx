@@ -63,7 +63,7 @@ export function MatchesPage() {
           <LiveStatus lastReceived={board?.collectors[0]?.last_seen ?? null} reception={false} />
           <Link to="/matchs/golden-rules" className={buttonVariants({ variant: 'bubble', size: 'hint' })}>
             <Crown className="text-gold" />
-            <span className="sr-only lg:not-sr-only">Golden Rules</span>
+            Golden Rules
           </Link>
         </>
       }

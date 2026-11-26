@@ -56,7 +56,7 @@ const buttonVariants = cva(
         "cta-xl": "h-[54px] gap-2 rounded-[27px] px-6 text-[17px]",
         quiet: "h-11 gap-2 px-3 [&_svg:not([class*='size-'])]:size-3.5",
         pill: "h-9 gap-1.5 rounded-[18px] px-3.5 [&_svg:not([class*='size-'])]:size-3.5",
-        hint: "size-[34px] gap-[7px] lg:w-auto lg:pr-3.5 lg:pl-2.5 [&_svg:not([class*='size-'])]:size-[18px]",
+        hint: "h-[34px] gap-[7px] pr-3.5 pl-2.5 [&_svg:not([class*='size-'])]:size-[18px]",
         round: "size-9 rounded-full [&_svg:not([class*='size-'])]:size-3.5",
         "capsule-arrow": "size-[30px] [&_svg:not([class*='size-'])]:size-3",
         "capsule-label": "h-[30px] gap-1.5 px-2.5 font-semibold text-[12.5px] tracking-[-.005em] tabular-nums [&_svg:not([class*='size-'])]:size-3",

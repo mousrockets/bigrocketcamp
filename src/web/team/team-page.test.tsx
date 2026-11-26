@@ -181,12 +181,6 @@ test('opens the ranks’ ladder from the team', async () => {
   expect(await screen.findByRole('link', { name: 'Les ranks' })).toHaveAttribute('href', '/?ranks=true');
 });
 
-test('opens the club’s rules from the member’s challenges', async () => {
-  renderInApp(<TeamPage />, { board });
-  const debt = await screen.findByRole('region', { name: 'Ta dette' });
-  expect(within(debt).getByRole('link', { name: 'Les règles' })).toHaveAttribute('href', '/?regles=true');
-});
-
 test('links the day’s summary from the team on a computer', async () => {
   setViewportWidth(1440);
   try {

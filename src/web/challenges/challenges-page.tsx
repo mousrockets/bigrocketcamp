@@ -6,10 +6,13 @@ import { useBoardState } from '../board';
 import { useClub } from '../club';
 import { BoardPending, TitleSkeleton } from '../components/board-pending';
 import { NowDot, PeriodPicker, periodLabelClass } from '../components/period-picker';
+import { SheetLink } from '../components/sheet-link';
 import { TabPage } from '../components/tab-page';
+import { buttonVariants } from '../components/ui/button';
 import { cardVariants } from '../components/ui/card';
 import { Skeleton } from '../components/ui/skeleton';
 import { useNow } from '../hooks/use-now';
+import { WhistleIcon } from '../shell/icons';
 import { weeklyJournal, weeklyTotals } from './journal';
 import { ExerciseJournal } from './journal-section';
 import { MonthlyChallenge } from './monthly-challenge';
@@ -55,7 +58,16 @@ export function ChallengesPage() {
   const recaps = board ? recapMonths(board, club.roster, parisMonth(now)) : [];
 
   return (
-    <TabPage kicker={formatLongDay(now)} title="Défis">
+    <TabPage
+      kicker={formatLongDay(now)}
+      title="Défis"
+      aside={
+        <SheetLink sheet="regles" className={buttonVariants({ variant: 'bubble', size: 'hint' })}>
+          <WhistleIcon />
+          Les règles
+        </SheetLink>
+      }
+    >
       {!board && (
         <BoardPending error={error} className="flex flex-col lg:flex-row lg:flex-wrap lg:items-start lg:gap-6">
           {['podium', 'month'].map((block) => (

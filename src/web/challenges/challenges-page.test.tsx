@@ -482,3 +482,8 @@ test('follows the podium’s week, and hides while nobody sweated', async () => 
   expect(within(journal).getByText('Semaine du 26 oct. – 1 nov.')).toBeInTheDocument();
   expect(within(journal).getByRole('list', { name: 'Mercredi 28 octobre' })).toHaveTextContent('carol30 pompes');
 });
+
+test('opens the club’s rules from the header of Défis', async () => {
+  renderInApp(<ChallengesPage />, { path: '/defis' });
+  expect(await screen.findByRole('link', { name: 'Les règles' })).toHaveAttribute('href', '/defis?regles=true');
+});
