@@ -107,6 +107,20 @@ test('opens on the season under way, in 2v2, on every account', async () => {
   expect(within(goals).getByText('0,5')).toBeInTheDocument();
 });
 
+test('a key figure shows the member’s own in big, above every player’s bar', async () => {
+  renderInApp(<StatsPage />, { board, path: '/stats' });
+  // This season Alice leads: 2 goals a match, Bob 0,5.
+  const goals = await screen.findByRole('region', { name: 'Buts / match' });
+  expect(goals).toHaveTextContent(/^Buts \/ match2\s*1alice/);
+});
+
+test('a key figure shows the member’s own even when another leads it', async () => {
+  renderInApp(<StatsPage />, { board, path: '/stats?saison=23' });
+  // In season 23, Bob scored 4, Alice none: her 0 shows, behind him.
+  const goals = await screen.findByRole('region', { name: 'Buts / match' });
+  expect(goals).toHaveTextContent(/^Buts \/ match0\s*1bob/);
+});
+
 test('shows a past season from its address, and every match from the season list', async () => {
   renderInApp(<StatsPage />, { board, path: '/stats?saison=23' });
   expect(await screen.findByRole('combobox', { name: 'Saison' })).toHaveTextContent('Saison 23');
@@ -173,14 +187,14 @@ test('the member finds their own line: their place in each stat, their column ti
 
 test('crowns the prizes and lights the best of each line of the table', async () => {
   renderInApp(<StatsPage />, { board, path: '/stats' });
-  const rageQuit = (await screen.findByRole('heading', { name: 'Rage quit' })).closest('li') as HTMLElement;
+  const runaway = (await screen.findByRole('heading', { name: 'Le fugueur' })).closest('li') as HTMLElement;
   // Nobody left a match: nobody wins it, nobody lacks anything, and every player still has a line.
   expect(
-    within(rageQuit)
+    within(runaway)
       .getAllByRole('listitem')
       .map((line) => line.textContent),
-  ).toEqual(['alice0', 'bob0']);
-  expect(within(rageQuit).queryByText(/Il te manque/)).not.toBeInTheDocument();
+  ).toEqual(['alice0\u00a0%0\u00a0fois', 'bob0\u00a0%0\u00a0fois']);
+  expect(within(runaway).queryByText(/Il te manque/)).not.toBeInTheDocument();
   // No collector counted the demolitions of these matches: that prize waits.
   expect(screen.queryByRole('heading', { name: 'Le démolisseur' })).not.toBeInTheDocument();
   const goals = () =>
@@ -197,6 +211,8 @@ test('crowns the prizes and lights the best of each line of the table', async ()
   // The table reads part by part, each one saying whether it reads per match.
   expect(within(screen.getByRole('table')).getByRole('columnheader', { name: 'Attaque' })).toBeInTheDocument();
   expect(within(screen.getByRole('table')).getByRole('rowheader', { name: 'Défaites ↓' })).toBeInTheDocument();
+  // The rank and the pushups have their own pages: the table keeps to the matches.
+  expect(within(screen.getByRole('table')).queryByRole('columnheader', { name: 'Le rang et le club' })).toBeNull();
 });
 
 test('shows the game’s ball speeds in km/h, and what the member lacks to take a prize', async () => {

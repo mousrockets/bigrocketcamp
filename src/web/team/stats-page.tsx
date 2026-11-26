@@ -45,7 +45,6 @@ import {
   keyStats,
   type PeakAccount,
   type PeakGap,
-  type Prize,
   prizes,
   type RankedLine,
   ranked,
@@ -140,7 +139,8 @@ export function StatsPage() {
   return (
     <TabPage back={<BackLink to="/">L’équipe</BackLink>} kicker="La team en chiffres" title="Stats">
       <div className="flex animate-rise flex-col gap-10 px-5 pt-6 [animation-delay:.06s] lg:gap-14 lg:px-0 lg:pt-0">
-        <div className="flex flex-wrap gap-2">
+        {/* On a phone, the filters stay on one line and scroll sideways, to the screen's edges, as iOS chips do. */}
+        <div className="-mx-5 flex gap-2 overflow-x-auto px-5 [scrollbar-width:none] lg:mx-0 lg:flex-wrap lg:px-0 [&>*]:shrink-0">
           <FilterSelect
             label="Saison"
             options={[
@@ -211,11 +211,14 @@ function Section({ kicker, title, children }: { kicker: string; title: string; c
   );
 }
 
-/** A player's pseudo, and TOI for the member. Their rank shows in the peaks, not again by every name. */
-function PlayerName({ player, className }: { player: ComparedPlayer; className?: string }) {
+/**
+ * A player's pseudo, and TOI for the member. Their rank shows in the peaks, not again by every name. In a narrow
+ * column, the pseudo wraps rather than losing its end.
+ */
+function PlayerName({ player, wrap, className }: { player: ComparedPlayer; wrap?: boolean; className?: string }) {
   return (
-    <span className={cn('flex min-w-0 items-center gap-1.5', className)}>
-      <span className="truncate">{player.shown}</span>
+    <span className={cn('flex min-w-0 items-center gap-1.5', wrap && 'flex-wrap gap-y-1', className)}>
+      <span className={wrap ? '[overflow-wrap:anywhere]' : 'truncate'}>{player.shown}</span>
       {player.me && <Badge variant="me">TOI</Badge>}
     </span>
   );
@@ -411,25 +414,19 @@ function PodiumCard({ line, gap, name, step }: { line: RankedLine; gap: PeakGap;
   );
 }
 
-/** One stat, or a prize: the leader's figure in big, then every player's bar against it. */
-function StatCard({ stat, players }: { stat: Stat | Prize; players: ComparedPlayer[] }) {
+/**
+ * One of the figures that say the most: the member's own in big, then every player's bar, the best first. A member
+ * without a line of their own sees the leader's figure.
+ */
+function StatCard({ stat, players }: { stat: Stat; players: ComparedPlayer[] }) {
   const { lines, leaders } = ranked(stat, players);
-  const [leader] = leaders;
-  const prize = 'prize' in stat ? stat.prize : null;
+  const value = (lines.find((line) => line.player.me) ?? leaders[0])?.value ?? null;
   return (
-    <Card variant="glass" role="region" aria-label={prize ?? stat.label} className="gap-4 p-5">
-      <span className="flex flex-col gap-1">
-        <span className="label-caps">{stat.label}</span>
-        {prize && <h3 className="title-display text-[20px] [line-height:1.1]">{prize}</h3>}
-      </span>
-      <div className="flex min-w-0 items-end justify-between gap-3">
-        <b className={cn('num text-[40px] [line-height:.85]', !leader && 'text-t3')}>
-          {formatted(leader?.value ?? null, stat.format)}
-        </b>
-        <span className="min-w-0 truncate pb-0.5 text-[14px] text-t2">
-          {leaders.length > 1 ? 'Égalité' : leader ? leader.player.shown : 'Personne'}
-        </span>
-      </div>
+    <Card variant="glass" role="region" aria-label={stat.label} className="gap-4 p-5">
+      <span className="label-caps">{stat.label}</span>
+      <b className={cn('num text-[40px] [line-height:.85]', value === null && 'text-t3')}>
+        {formatted(value, stat.format)}
+      </b>
       <ol className="m-0 flex list-none flex-col gap-1.5 p-0">
         {lines.map((line) => (
           <Bar key={line.player.name} line={line} format={stat.format} />
@@ -505,11 +502,11 @@ const prizeIcons: Record<string, LucideIcon> = {
   'Le démolisseur': Bomb,
   'L’abonné aux montants': Goal,
   'Le roi des prolongations': Timer,
-  'Clean sheet': ShieldCheck,
+  'Le mur': ShieldCheck,
   'Le noctambule': Moon,
-  'Rage quit': DoorOpen,
-  'Les bras d’acier': Dumbbell,
-  'La chute': TrendingDown,
+  'Le fugueur': DoorOpen,
+  'Le pompier': Dumbbell,
+  'Le parachutiste': TrendingDown,
   'Le canonnier': Zap,
   'Le bolide': Rocket,
   'Le sniper': Crosshair,
@@ -527,8 +524,20 @@ function gapOf(leader: number | null, mine: number, format: StatFormat): string 
   return formatted(gap, format);
 }
 
-/** A player's bar in a trophy: their pseudo and figure, then their bar against the leader's; the member's in white. */
-function PrizeLine({ line, format }: { line: RankedLine; format: StatFormat }) {
+/**
+ * A player's bar in a trophy: their pseudo and figure, then their bar against the leader's; the member's in white. A
+ * prize given to a rate ends each bar with how many times it happened, in small: the rate ranks, the count tells. It
+ * keeps the same width on every line, so that the bars keep one scale.
+ */
+function PrizeLine({
+  line,
+  format,
+  count,
+}: {
+  line: RankedLine;
+  format: StatFormat;
+  count: number | null | undefined;
+}) {
   const mine = line.player.me;
   return (
     <li className="flex flex-col gap-1">
@@ -540,11 +549,18 @@ function PrizeLine({ line, format }: { line: RankedLine; format: StatFormat }) {
           {formatted(line.value, format)}
         </span>
       </span>
-      <span aria-hidden="true" className="h-1 overflow-hidden rounded-full bg-white/6">
-        <i
-          className={cn('block h-full origin-left animate-grow rounded-full', mine ? 'bg-t1' : 'bg-white/40')}
-          style={{ width: `${line.share * 100}%` }}
-        />
+      <span className="flex items-center gap-2">
+        <span aria-hidden="true" className="h-1 flex-1 overflow-hidden rounded-full bg-white/6">
+          <i
+            className={cn('block h-full origin-left animate-grow rounded-full', mine ? 'bg-t1' : 'bg-white/40')}
+            style={{ width: `${line.share * 100}%` }}
+          />
+        </span>
+        {count !== undefined && (
+          <span className="w-12 shrink-0 text-right text-[11px] text-t3 [line-height:1]">
+            {line.value === null || count === null ? '' : `${formatNumber(count)}\u00a0fois`}
+          </span>
+        )}
       </span>
     </li>
   );
@@ -599,7 +615,12 @@ function PrizeShelf({ players }: { players: ComparedPlayer[] }) {
               </span>
               <ol aria-label={`Classement : ${prize.prize}`} className="m-0 mt-auto flex list-none flex-col gap-2 p-0">
                 {lines.map((line) => (
-                  <PrizeLine key={line.player.name} line={line} format={prize.format} />
+                  <PrizeLine
+                    key={line.player.name}
+                    line={line}
+                    format={prize.format}
+                    count={prize.total ? prize.total(line.player) : undefined}
+                  />
                 ))}
               </ol>
               <span className={cn('text-[12px] [line-height:1.3]', mine ? 'text-medal-1' : 'text-t2')}>
@@ -618,6 +639,13 @@ function PrizeShelf({ players }: { players: ComparedPlayer[] }) {
 }
 
 /**
+ * The stats' column, kept in view as the players' scroll under it. On a phone it takes a set width and its labels
+ * wrap, so that the players keep the room; a line marks its edge.
+ */
+const labelColumn =
+  'sticky left-0 z-1 h-auto w-[8.75rem] min-w-[8.75rem] max-w-[8.75rem] whitespace-normal bg-card py-2.5 pl-4 font-normal text-[13px] [line-height:1.25] shadow-[inset_-1px_0_0_var(--line)] lg:w-auto lg:min-w-0 lg:max-w-none lg:whitespace-nowrap lg:pl-5 lg:text-[14px] lg:shadow-none';
+
+/**
  * Every stat, part by part, one column per player, the member's tinted, the best figure of each line lit. Each part
  * says above it whether its figures read per match.
  */
@@ -631,15 +659,22 @@ function StatsTable({ stats, players }: { stats: TableStat[]; players: ComparedP
         <Table className="text-[14px]">
           <TableHeader>
             <TableRow className="border-line hover:bg-transparent">
-              <TableHead className="sticky left-0 z-1 bg-card pl-4 font-normal text-t3 lg:pl-5">
+              <TableHead className={cn(labelColumn, 'text-t3')}>
                 <span className="sr-only">Stat</span>
               </TableHead>
               {players.map((player) => (
                 <TableHead
                   key={player.name}
-                  className={cn('min-w-24 text-right last:pr-4 lg:last:pr-5', player.me && 'bg-white/6')}
+                  className={cn(
+                    'h-auto min-w-[4.25rem] whitespace-normal py-3 text-right align-bottom last:pr-4 lg:min-w-24 lg:last:pr-5',
+                    player.me && 'bg-white/6',
+                  )}
                 >
-                  <PlayerName player={player} className="justify-end font-semibold text-[13px] text-t1" />
+                  <PlayerName
+                    player={player}
+                    wrap
+                    className="justify-end font-semibold text-[13px] text-t1 [line-height:1.2]"
+                  />
                 </TableHead>
               ))}
             </TableRow>
@@ -662,7 +697,7 @@ function StatsTable({ stats, players }: { stats: TableStat[]; players: ComparedP
                 const best = bestOf(stat, players);
                 return (
                   <TableRow key={stat.label} className="border-line hover:bg-white/3">
-                    <TableHead scope="row" className="sticky left-0 z-1 bg-card pl-4 font-normal text-t2 lg:pl-5">
+                    <TableHead scope="row" className={cn(labelColumn, 'text-t2')}>
                       {stat.label}
                       {stat.lowerIsBetter && (
                         <span className="ml-1 text-t3" title="Le plus bas est le meilleur">

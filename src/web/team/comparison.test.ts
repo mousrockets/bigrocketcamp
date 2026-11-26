@@ -86,14 +86,14 @@ test('counts each player’s matches of the season chosen, the member first', ()
   expect(comparedPlayers(board, seasons, roster, 'bob', 'all', 'all', null)[0]?.career.matches).toBe(3);
 });
 
-test('takes the 2v2 peak of the account that climbed highest, and what the season brought it', () => {
+test('takes the 2v2 peak of the account that climbed highest, and how far it fell from it', () => {
   const [alice] = comparedPlayers(board, seasons, roster, 'alice', 'all', 'all', 24);
-  expect(alice?.mmr).toEqual({ account: 'duo', peak: peak(1250, 16), gained: 80, fall: 70 });
+  expect(alice?.mmr).toEqual({ account: 'duo', peak: peak(1250, 16), fall: 70 });
   const [solo] = comparedPlayers(board, seasons, roster, 'alice', 'all', 'solo', 24);
-  expect(solo?.mmr).toMatchObject({ account: 'solo', gained: -20, fall: 60 });
-  // Every season: the highest peak, the seasons' gains added up.
+  expect(solo?.mmr).toMatchObject({ account: 'solo', fall: 60 });
+  // Every season: the highest peak, and the worst fall of a season.
   const [always] = comparedPlayers(board, seasons, roster, 'alice', 'all', 'duo', null);
-  expect(always?.mmr).toMatchObject({ peak: peak(1250, 16), gained: 170, fall: 70 });
+  expect(always?.mmr).toMatchObject({ peak: peak(1250, 16), fall: 70 });
   expect(comparedPlayers(board, seasons, roster, 'alice', 'all', 'all', 24)[2]?.mmr).toBe(null);
 });
 
@@ -160,6 +160,8 @@ test('per match, an action is averaged, a win or an MVP becomes a share, an endi
   expect(statNamed('Buts', 'perMatch').section).toBe('Attaque');
   expect(statNamed('Matchs quittés', 'perMatch').perMatch).toBe(false);
   expect(statNamed('MVP', 'perMatch').format).toBe('percent');
+  // A score of hundreds reads whole, per match too.
+  expect(statNamed('Score', 'perMatch').format).toBe('count');
 });
 
 test('names a player by their solo pseudo when only the solo accounts are compared', () => {
@@ -168,6 +170,60 @@ test('names a player by their solo pseudo when only the solo accounts are compar
   expect(shown('solo')).toEqual(['alice-en-solo', 'bob', 'charlie']);
   expect(shown('all')).toEqual(['alice', 'bob', 'charlie']);
   expect(shown('duo')).toEqual(['alice', 'bob', 'charlie']);
+});
+
+test('a prize of something that happens in a match goes to its rate, its count beside it', () => {
+  const ending = (guid: string, name: string, parts: Partial<Parameters<typeof aResult>[0]>) =>
+    aResult({ match_guid: guid, name, blue_goals: 2, orange_goals: 1, ...parts });
+  const played = boardWith({
+    results: [
+      // Alice: three overtimes, two won; two clean sheets in four matches.
+      ending('o1', 'alice', { winner: 0, overtime: true, orange_goals: 0 }),
+      ending('o2', 'alice', { winner: 0, overtime: true, orange_goals: 0 }),
+      ending('o3', 'alice', { winner: 1, overtime: true }),
+      ending('o4', 'alice', { winner: 0 }),
+      // Bob: one overtime won, too few to crown him.
+      ending('o1', 'bob', { winner: 0, overtime: true }),
+    ],
+  });
+  const players = comparedPlayers(played, [], ['alice', 'bob'], 'alice', 'all', 'all', null);
+  const prize = (name: string) => {
+    const found = prizes.find((candidate) => candidate.prize === name);
+    if (!found) throw new Error(`${name} is a prize`);
+    return players.map((player) => [found.value(player), found.total?.(player) ?? null]);
+  };
+  expect(prize('Le roi des prolongations')).toEqual([
+    [(2 / 3) * 100, 2],
+    [null, 1],
+  ]);
+  expect(prize('Le mur')).toEqual([
+    [50, 2],
+    [0, 0],
+  ]);
+  expect(prize('Le fugueur')).toEqual([
+    [0, 0],
+    [0, 0],
+  ]);
+  // The one who fell furthest from the season's peak jumped from highest.
+  expect(prizes.map((candidate) => candidate.prize)).toContain('Le parachutiste');
+  // A night owl plays many nights: that one stays a count.
+  expect(prizes.find((candidate) => candidate.prize === 'Le noctambule')?.total).toBeUndefined();
+});
+
+test('the posts and the demolitions taken crown per match: who plays most does not win them', () => {
+  const posts = boardWith({
+    results: [
+      aResult({ match_guid: 'p1', name: 'alice', crossbar_hits: 3 }),
+      aResult({ match_guid: 'p2', name: 'alice', crossbar_hits: 1 }),
+      // An older collector sent no count: the match does not lower her average.
+      aResult({ match_guid: 'p3', name: 'alice', crossbar_hits: null }),
+      aResult({ match_guid: 'p1', name: 'bob', crossbar_hits: 3 }),
+    ],
+  });
+  const players = comparedPlayers(posts, [], ['alice', 'bob'], 'alice', 'all', 'all', null);
+  const posted = prizes.find((prize) => prize.prize === 'L’abonné aux montants');
+  // Alice hit 4 posts in 2 matches, Bob 3 in 1: he wins it.
+  expect(players.map((player) => posted?.value(player))).toEqual([2, 3]);
 });
 
 test('adds up the stats of collector 0.7.0, names the game’s events, and lines the assists up by scorer', () => {
@@ -234,7 +290,9 @@ test('adds up the stats of collector 0.7.0, names the game’s events, and lines
   // Per match, over the matches that came with them.
   const perMatch = tableStats('all', 'perMatch', players).find((stat) => stat.label === 'Touches de balle');
   expect(players.map((player) => perMatch?.value(player))).toEqual([30, 20]);
+  // The demolitions taken count per match, over the matches that came with the game's feed: one each here.
   const punchingBall = prizes.find((prize) => prize.prize === 'Le punching-ball');
+  expect(punchingBall?.format).toBe('perMatch');
   expect(players.map((player) => punchingBall?.value(player))).toEqual([2, 0]);
 });
 
