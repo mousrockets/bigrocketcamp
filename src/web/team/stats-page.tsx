@@ -724,7 +724,7 @@ function StatsTable({ stats, players }: { stats: TableStat[]; players: ComparedP
                           {count !== null && (
                             <span className="mt-1 block text-[11px] text-t3 tabular-nums [line-height:1.1]">
                               {formatNumber(count)}
-                              {stat.of && ` sur ${formatNumber(stat.of(player))}`}
+                              {stat.of && `/${formatNumber(stat.of(player))}`}
                             </span>
                           )}
                         </TableCell>
