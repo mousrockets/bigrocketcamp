@@ -526,9 +526,18 @@ function gapOf(leader: number | null, mine: number, format: StatFormat): string 
 
 /**
  * A player's bar in a trophy: their pseudo and figure, then their bar against the leader's; the member's in white. A
- * prize given to a rate shows, before it and in small, how many times it happened: the rate ranks, the count tells.
+ * prize given to a rate ends each bar with how many times it happened, in small: the rate ranks, the count tells. It
+ * keeps the same width on every line, so that the bars keep one scale.
  */
-function PrizeLine({ line, format, count }: { line: RankedLine; format: StatFormat; count: number | null }) {
+function PrizeLine({
+  line,
+  format,
+  count,
+}: {
+  line: RankedLine;
+  format: StatFormat;
+  count: number | null | undefined;
+}) {
   const mine = line.player.me;
   return (
     <li className="flex flex-col gap-1">
@@ -536,20 +545,22 @@ function PrizeLine({ line, format, count }: { line: RankedLine; format: StatForm
         className={cn('flex min-w-0 items-baseline justify-between gap-2 text-[12px]', mine ? 'text-t1' : 'text-t2')}
       >
         <span className={cn('min-w-0 truncate', mine && 'font-semibold')}>{line.player.shown}</span>
-        <span className="flex shrink-0 items-baseline gap-1.5">
-          {line.value !== null && count !== null && (
-            <span className="text-[11px] text-t3">{formatNumber(count)}&nbsp;fois</span>
-          )}
-          <span className={cn('num text-[13px]', line.value === null && 'text-t3')}>
-            {formatted(line.value, format)}
-          </span>
+        <span className={cn('num shrink-0 text-[13px]', line.value === null && 'text-t3')}>
+          {formatted(line.value, format)}
         </span>
       </span>
-      <span aria-hidden="true" className="h-1 overflow-hidden rounded-full bg-white/6">
-        <i
-          className={cn('block h-full origin-left animate-grow rounded-full', mine ? 'bg-t1' : 'bg-white/40')}
-          style={{ width: `${line.share * 100}%` }}
-        />
+      <span className="flex items-center gap-2">
+        <span aria-hidden="true" className="h-1 flex-1 overflow-hidden rounded-full bg-white/6">
+          <i
+            className={cn('block h-full origin-left animate-grow rounded-full', mine ? 'bg-t1' : 'bg-white/40')}
+            style={{ width: `${line.share * 100}%` }}
+          />
+        </span>
+        {count !== undefined && (
+          <span className="w-12 shrink-0 text-right text-[11px] text-t3 [line-height:1]">
+            {line.value === null || count === null ? '' : `${formatNumber(count)}\u00a0fois`}
+          </span>
+        )}
       </span>
     </li>
   );
@@ -608,7 +619,7 @@ function PrizeShelf({ players }: { players: ComparedPlayer[] }) {
                     key={line.player.name}
                     line={line}
                     format={prize.format}
-                    count={prize.total?.(line.player) ?? null}
+                    count={prize.total ? prize.total(line.player) : undefined}
                   />
                 ))}
               </ol>

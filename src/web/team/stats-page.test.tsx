@@ -193,7 +193,7 @@ test('crowns the prizes and lights the best of each line of the table', async ()
     within(rageQuit)
       .getAllByRole('listitem')
       .map((line) => line.textContent),
-  ).toEqual(['alice0\u00a0fois0\u00a0%', 'bob0\u00a0fois0\u00a0%']);
+  ).toEqual(['alice0\u00a0%0\u00a0fois', 'bob0\u00a0%0\u00a0fois']);
   expect(within(rageQuit).queryByText(/Il te manque/)).not.toBeInTheDocument();
   // No collector counted the demolitions of these matches: that prize waits.
   expect(screen.queryByRole('heading', { name: 'Le démolisseur' })).not.toBeInTheDocument();
