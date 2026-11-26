@@ -48,6 +48,7 @@ import {
   type Stat,
   type StatFormat,
   seasonsPlayed,
+  standing,
   type TableMode,
   type TableStat,
   tableSections,
@@ -157,7 +158,9 @@ export function StatsPage() {
             <Skeleton className="h-[300px] rounded-[22px]" />
           </BoardPending>
         )}
-        {board && <Peaks players={players} season={season} showAccount={hasSolo && account === 'all'} />}
+        {board && season !== null && (
+          <RecordPeaks players={players} season={season} showAccount={hasSolo && account === 'all'} />
+        )}
         {board && !anyMatch && (
           <p className="m-0 -mt-4 text-[15px] text-t2">
             {modeWords[scope]} {season === null ? 'au compteur' : `en saison ${season}`}. Le kickoff attend.
@@ -216,69 +219,82 @@ function PlayerName({ player, className }: { player: ComparedPlayer; className?:
   );
 }
 
-/** The highest 2v2 rating of the period, which ranks the players in the peaks. */
-const peakStat: Stat = { label: 'Peak 2v2', format: 'count', value: (player) => player.mmr?.peak.mmr ?? null };
+/** The gap to the best before the season, which ranks the players: a record of an amount unknown counts as even. */
+const gapStat: Stat = {
+  label: 'Écart au record',
+  format: 'mmr',
+  value: (player) => (Number.isFinite(standing(player.peakGap)) ? standing(player.peakGap) : null),
+};
 
 /**
- * The highest 2v2 rating of each player over the period, with its rank, and what the period brought from its first
- * rating to its last: a level, where a share of wins only tells a streak.
+ * « Au plus près de son record »: each player's peak of the season against their best before it, the one who beat
+ * their record by the most first, then the one who came closest. Levels differ: the club compares these gaps, not the
+ * peaks, which stay in small with the rank.
  */
-function Peaks({
+function RecordPeaks({
   players,
   season,
   showAccount,
 }: {
   players: ComparedPlayer[];
-  season: number | null;
-  /** Both accounts count: each line says which one climbed highest. */
+  season: number;
   showAccount: boolean;
 }) {
-  const { lines } = ranked(peakStat, players);
+  const { lines } = ranked(gapStat, players);
   return (
-    <Card variant="glass" role="region" aria-label="Peak 2v2" className="gap-5 p-5 lg:p-6">
-      <span className="label-caps">
-        {season === null ? 'Peak 2v2 · toutes saisons' : `Peak 2v2 · saison ${season}`}
+    <Card variant="glass" role="region" aria-label="Au plus près de son record" className="gap-5 p-5 lg:p-6">
+      <span className="flex flex-col gap-1">
+        <span className="label-caps">Saison {season} · au plus près de son record</span>
+        <span className="text-[13px] text-t3">Le peak 2v2 de la saison face au meilleur MMR d’avant.</span>
       </span>
-      <ol className="m-0 flex list-none flex-col gap-2 p-0 lg:grid lg:grid-cols-[repeat(auto-fit,minmax(240px,1fr))] lg:gap-4">
-        {lines.map(({ player, place }) => {
-          const mmr = player.mmr;
-          const rank = mmr ? splitRankLabel(mmr.peak.label) : null;
+      <ol className="m-0 flex list-none flex-col gap-2 p-0 lg:grid lg:grid-cols-[repeat(auto-fit,minmax(260px,1fr))] lg:gap-4">
+        {lines.map(({ player, place, value }) => {
+          const gap = player.peakGap;
+          const rank = gap ? splitRankLabel(gap.label) : null;
+          const above = gap?.record || (gap?.gap ?? 0) > 0;
           return (
             <li key={player.name} className={cn('flex min-w-0 items-center gap-3 py-2', player.me && mineClass)}>
               <Place place={place} mine={player.me} />
               <img
-                src={`/rocket-league/ranks/${mmr?.peak.tier ?? 0}.png`}
+                src={`/rocket-league/ranks/${gap?.tier ?? 0}.png`}
                 alt=""
                 className="size-11 shrink-0 object-contain lg:size-14"
               />
               <span className="flex min-w-0 flex-1 flex-col gap-1">
                 <PlayerName player={player} className="font-semibold text-[15px]" />
                 <span className="truncate text-[13px] text-t3">
-                  {rank
-                    ? [rank.rank, rank.division, showAccount && `compte ${mmr?.account}`].filter(Boolean).join(' · ')
-                    : 'Pas encore relevé'}
+                  {gap
+                    ? [
+                        `Peak ${formatNumber(gap.peak)}`,
+                        gap.before === null ? null : `record ${formatNumber(gap.before)}`,
+                        rank?.rank,
+                        showAccount && `compte ${gap.account}`,
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')
+                    : 'Pas encore relevé cette saison'}
                 </span>
               </span>
               <span className="flex shrink-0 flex-col items-end gap-1">
                 <b
                   className={cn(
                     'num text-[32px] [line-height:.85] lg:text-[40px]',
-                    !mmr ? 'text-t3' : place === 1 || player.me ? 'text-t1' : 'text-t2',
+                    value === null ? 'text-t3' : above ? 'text-win' : player.me || place === 1 ? 'text-t1' : 'text-t2',
                   )}
                 >
-                  {mmr ? formatNumber(mmr.peak.mmr) : '–'}
+                  {gap?.gap != null ? formatted(gap.gap, 'mmr') : gap?.record ? 'Record' : '–'}
                 </b>
-                {mmr && (
-                  <span
-                    className={cn(
-                      'num text-[14px]',
-                      mmr.gained > 0 ? 'text-win' : mmr.gained < 0 ? 'text-cost-strong' : 'text-t3',
-                    )}
-                    title="Du premier MMR relevé de la saison au dernier"
-                  >
-                    {formatted(mmr.gained, 'mmr')} MMR
-                  </span>
-                )}
+                <span className="text-[12px] text-t3">
+                  {gap?.gap != null
+                    ? gap.gap > 0
+                      ? 'au-dessus'
+                      : gap.gap === 0
+                        ? 'pile son record'
+                        : 'sous son record'
+                    : gap?.record
+                      ? 'battu'
+                      : 'record d’avant inconnu'}
+                </span>
               </span>
             </li>
           );

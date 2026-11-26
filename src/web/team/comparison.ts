@@ -41,7 +41,71 @@ export interface ComparedPlayer {
   pushups: number;
   /** Their game IDs, in lower case, as their matches show them: whom an assist went to. */
   ids: Set<string>;
+  /** How their peak of the season stands against their best before it; null for every season, or none read. */
+  peakGap: PeakGap | null;
 }
+
+/**
+ * A player's peak of a season against their best before it: above it, a record broken; below it, how far from it.
+ * Levels differ, so the club compares these gaps, not the peaks.
+ */
+export interface PeakGap {
+  account: 'duo' | 'solo';
+  peak: number;
+  /** The rank the peak came with: « Champion III · Division II », and its tier for the icon. */
+  label: string;
+  tier: number | null;
+  /** Their best rating before the season; null while unknown. */
+  before: number | null;
+  /** The peak minus that best: above 0, a record broken by that much. Null while the best before is unknown. */
+  gap: number | null;
+  /** The season's peak is the account's best ever, by an amount unknown: no best before the season was read. */
+  record: boolean;
+}
+
+/**
+ * The best before a season: the highest peak of the seasons before it, and, for the latest season read, the account's
+ * best ever when the season did not reach it (that best was then set before). A best the season reached or beat is
+ * this season's own, and says nothing of before.
+ */
+function peakGapOf(
+  board: Board,
+  seasonMmr: readonly SeasonMmr[],
+  name: string,
+  account: CareerAccount,
+  season: number | null,
+): PeakGap | null {
+  if (season === null) return null;
+  const ranks = board.doublesRanks?.find((rank) => rank.player === name);
+  const gaps = (['duo', 'solo'] as const)
+    .filter((kind) => account === 'all' || account === kind)
+    .flatMap((kind): PeakGap[] => {
+      const own = seasonMmr.filter((line) => line.player === name && line.account === kind);
+      const line = own.find((candidate) => candidate.season === season);
+      if (!line) return [];
+      const peak = line.peak.mmr;
+      const earlier = own.filter((other) => other.season < season).map((other) => other.peak.mmr);
+      const latest = own.every((other) => other.season <= season);
+      const best = (kind === 'duo' ? ranks?.best : ranks?.solo?.best) ?? null;
+      const before = Math.max(...earlier, latest && best !== null && best > peak ? best : Number.NEGATIVE_INFINITY);
+      const known = Number.isFinite(before) ? before : null;
+      return [
+        {
+          account: kind,
+          peak,
+          label: line.peak.label,
+          tier: line.peak.tier,
+          before: known,
+          gap: known === null ? null : peak - known,
+          record: known === null && latest && best !== null && best <= peak,
+        },
+      ];
+    });
+  return gaps.reduce<PeakGap | null>((top, gap) => (!top || standing(gap) > standing(top) ? gap : top), null);
+}
+
+/** How a gap ranks: its value, a record of an unknown amount as an even one, an unknown gap last. */
+export const standing = (gap: PeakGap | null): number => gap?.gap ?? (gap?.record ? 0 : Number.NEGATIVE_INFINITY);
 
 function periodMmr(
   seasonMmr: readonly SeasonMmr[],
@@ -100,6 +164,7 @@ export function comparedPlayers(
       mmr: periodMmr(seasonMmr, name, account, season),
       pushups: pushupsOf(board, name, season),
       ids: new Set(board.results.filter((row) => row.name === name).map((row) => row.player_id.toLowerCase())),
+      peakGap: peakGapOf(board, seasonMmr, name, account, season),
     };
   });
   return [...players.filter((player) => player.me), ...players.filter((player) => !player.me)];

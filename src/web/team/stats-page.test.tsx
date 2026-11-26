@@ -42,6 +42,8 @@ const board = boardWith({
     ...duo('s24-win', '2026-11-02', true, { alice: 3, bob: 0 }),
     ...duo('s24-loss', '2026-11-03', false, { alice: 1, bob: 1 }),
   ],
+  // Their best ever: Bob's set before this season, Alice's this season.
+  doublesRanks: [aRank({ player: 'bob', best: 1400 }), aRank({ player: 'alice', best: 1210 })],
 });
 
 /** What the API answers the Stats page about each season's ratings. */
@@ -61,6 +63,14 @@ const seasons = [
     first: 1100,
     last: 1184,
     peak: { mmr: 1210, label: 'Champion III · Division II', tier: 18 },
+  },
+  {
+    player: 'alice',
+    account: 'duo',
+    season: 23,
+    first: 1050,
+    last: 1120,
+    peak: { mmr: 1150, label: 'Champion II · Division IV', tier: 17 },
   },
 ];
 
@@ -101,18 +111,20 @@ test('shows a past season from its address, and every match from the season list
   expect(within(wins).getAllByText('67 %')).toHaveLength(2);
 });
 
-test('leads with each player’s 2v2 peak and what the season brought, the highest first', async () => {
+test('leads with who came closest to their record this season, or beat it by the most', async () => {
   renderInApp(<StatsPage />, { board, path: '/stats' });
-  const peaks = await screen.findByRole('region', { name: 'Peak 2v2' });
+  const record = await screen.findByRole('region', { name: 'Au plus près de son record' });
   // The ratings arrive apart from the board.
-  await within(peaks).findByText('1 340');
-  const [first, second] = within(peaks).getAllByRole('listitem');
-  expect(first).toHaveTextContent('bob');
-  expect(first).toHaveTextContent('Grand Champion I · Division I');
-  expect(first).toHaveTextContent('1 340');
-  expect(first).toHaveTextContent('−20 MMR');
-  expect(second).toHaveTextContent('alice');
-  expect(second).toHaveTextContent('+84 MMR');
+  await within(record).findByText('+60');
+  // Alice beat her best of season 23 (1 150) by 60; Bob stayed 60 under his best ever (1 400).
+  const [first, second] = within(record).getAllByRole('listitem');
+  expect(first).toHaveTextContent('alice');
+  expect(first).toHaveTextContent('Peak 1 210 · record 1 150');
+  expect(first).toHaveTextContent('+60au-dessus');
+  expect(within(first as HTMLElement).getByText('+60')).toHaveClass('text-win');
+  expect(second).toHaveTextContent('bob');
+  expect(second).toHaveTextContent('Peak 1 340 · record 1 400');
+  expect(second).toHaveTextContent('−60sous son record');
 });
 
 test('the solo accounts are named by their own pseudo', async () => {
@@ -124,7 +136,7 @@ test('the solo accounts are named by their own pseudo', async () => {
   };
   renderInApp(<StatsPage />, { board: withSolo, path: '/stats' });
   await pick('Compte', 'Compte solo');
-  expect(await screen.findAllByText('alice-en-solo')).not.toHaveLength(0);
+  expect(await screen.findAllByText(/alice-en-solo/)).not.toHaveLength(0);
   expect(screen.queryByText('alice')).not.toBeInTheDocument();
 });
 

@@ -237,3 +237,29 @@ test('adds up the stats of collector 0.7.0, names the game’s events, and lines
   const punchingBall = prizes.find((prize) => prize.prize === 'Le punching-ball');
   expect(players.map((player) => punchingBall?.value(player))).toEqual([2, 0]);
 });
+
+test('measures each peak of the season against the best before it, not against the others’ peaks', () => {
+  const ranked = boardWith({
+    results: [],
+    doublesRanks: [
+      aRank({ player: 'alice', best: 1250 }),
+      aRank({ player: 'bob', best: 1400 }),
+      aRank({ player: 'charlie', best: 900 }),
+    ],
+  });
+  const gaps = (season: number | null) =>
+    comparedPlayers(ranked, seasons, ['alice', 'bob', 'charlie'], 'alice', 'all', 'duo', season).map(
+      (player) => player.peakGap && [player.peakGap.gap, player.peakGap.record],
+    );
+  // Alice: 1 250 this season, 1 120 in season 23; Bob: 1 330, under his best ever; Charlie: never read.
+  expect(gaps(24)).toEqual([[130, false], [-70, false], null]);
+  // Season 23: no season before it read, and the best ever may come from after it.
+  expect(gaps(23)).toEqual([[null, false], null, null]);
+  expect(gaps(null)).toEqual([null, null, null]);
+  // A best the season reached with nothing read before it: a record, by an amount unknown.
+  const reached = boardWith({ results: [], doublesRanks: [aRank({ player: 'bob', best: 1330 })] });
+  expect(comparedPlayers(reached, seasons, ['bob'], 'bob', 'all', 'duo', 24)[0]?.peakGap).toMatchObject({
+    gap: null,
+    record: true,
+  });
+});
