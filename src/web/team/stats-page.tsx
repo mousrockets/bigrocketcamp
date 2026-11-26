@@ -1,6 +1,7 @@
+import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { cn } from 'cn';
-import { useState } from 'react';
+import { type ReactNode, useState } from 'react';
 import { formatNumber } from '../../lib/format';
 import { seasonAt } from '../../lib/season';
 import { useBoardState } from '../board';
@@ -12,19 +13,24 @@ import { TabPage } from '../components/tab-page';
 import { Badge } from '../components/ui/badge';
 import { Card } from '../components/ui/card';
 import { Skeleton } from '../components/ui/skeleton';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
+import { seasonMmrQuery } from '../queries';
 import { type CareerAccount, type CareerScope, soloAccountOf } from './career';
 import {
+  allStats,
+  bestOf,
   type ComparedPlayer,
   comparedPlayers,
+  keyStats,
+  type Prize,
+  prizes,
   type RankedLine,
   ranked,
   type Stat,
   type StatFormat,
   seasonsPlayed,
-  statsOf,
-  winRate,
 } from './comparison';
-import { rankLightRgb } from './stats';
+import { rankLightRgb, splitRankLabel } from './stats';
 
 type Scope = Exclude<CareerScope, 'ranked'>;
 
@@ -51,17 +57,18 @@ const modeWords: Record<Scope, string> = {
   tournament: 'Pas un match de tournoi',
 };
 
-const formatted = (value: number | null, format: StatFormat) => {
+function formatted(value: number | null, format: StatFormat): string {
   if (value === null) return '–';
   if (format === 'percent') return `${formatNumber(Math.round(value))} %`;
   // Two decimals: averages of a few matches are close, and one decimal would show a tie the bars deny.
   if (format === 'perMatch') return formatNumber(Math.round(value * 100) / 100);
-  return formatNumber(value);
-};
+  if (format === 'mmr') return value > 0 ? `+${formatNumber(value)}` : value < 0 ? `−${formatNumber(-value)}` : '0';
+  return formatNumber(Math.round(value));
+}
 
 /**
- * The Stats page, opened from L'équipe: every player side by side over one season, or every match. The share of
- * wins leads; each other stat ranks the players, the leader in big.
+ * The Stats page, opened from L'équipe: every player side by side over one season, or every season. The 2v2 peak
+ * leads, as it tells a level; then the figures that say the most, the prizes, and every stat in a table.
  */
 export function StatsPage() {
   const club = useClub();
@@ -72,12 +79,16 @@ export function StatsPage() {
   const [scope, setScope] = useState<Scope>('doubles');
   const [chosenAccount, setAccount] = useState<CareerAccount>('all');
   const current = seasonAt(new Date().toISOString());
-  const played = board ? seasonsPlayed(board, club.roster) : [];
+  // The ratings come apart from the board: until they arrive, the peaks wait and the rest shows.
+  const seasonMmr = useQuery(seasonMmrQuery).data ?? [];
+  const played = board ? seasonsPlayed(board, seasonMmr, club.roster) : [];
   const seasons = [...new Set([...(current === null ? [] : [current]), ...played])].sort((a, b) => b - a);
   const season = saison === 'tout' ? null : (saison ?? current);
   const hasSolo = board ? club.roster.some((name) => soloAccountOf(board, name) !== null) : false;
   const account = hasSolo ? chosenAccount : 'all';
-  const players = board ? comparedPlayers(board, club.roster, club.me.duoPseudo, scope, account, season) : [];
+  const players = board
+    ? comparedPlayers(board, seasonMmr, club.roster, club.me.duoPseudo, scope, account, season)
+    : [];
   const anyMatch = players.some((player) => player.career.matches > 0);
   const choose = (next: string) =>
     void navigate({
@@ -88,7 +99,7 @@ export function StatsPage() {
 
   return (
     <TabPage back={<BackLink to="/">L’équipe</BackLink>} kicker="La team en chiffres" title="Stats">
-      <div className="flex animate-rise flex-col gap-6 px-5 pt-6 [animation-delay:.06s] lg:gap-8 lg:px-0 lg:pt-0">
+      <div className="flex animate-rise flex-col gap-10 px-5 pt-6 [animation-delay:.06s] lg:gap-14 lg:px-0 lg:pt-0">
         <div className="flex flex-wrap gap-2">
           <FilterSelect
             label="Saison"
@@ -107,27 +118,52 @@ export function StatsPage() {
         </div>
         {!board && (
           <BoardPending error={error} className="flex flex-col gap-3">
-            <Skeleton className="h-[200px] rounded-[22px]" />
+            <Skeleton className="h-[220px] rounded-[22px]" />
             <Skeleton className="h-[300px] rounded-[22px]" />
           </BoardPending>
         )}
+        {board && <Peaks players={players} season={season} />}
         {board && !anyMatch && (
-          <p className="m-0 text-[15px] text-t2">
+          <p className="m-0 -mt-4 text-[15px] text-t2">
             {modeWords[scope]} {season === null ? 'au compteur' : `en saison ${season}`}. Le kickoff attend.
           </p>
         )}
         {board && anyMatch && (
           <>
-            <WinRates players={players} />
-            <section aria-label="Le détail" className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-              {statsOf(scope).map((stat) => (
-                <StatCard key={stat.label} stat={stat} players={players} />
-              ))}
-            </section>
+            <Section kicker="L’essentiel" title="Qui porte l’équipe">
+              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+                {keyStats.map((stat) => (
+                  <StatCard key={stat.label} stat={stat} players={players} />
+                ))}
+              </div>
+            </Section>
+            <Section kicker="Les prix" title="Et le trophée revient à…">
+              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+                {prizes.map((prize) => (
+                  <StatCard key={prize.prize} stat={prize} players={players} />
+                ))}
+              </div>
+            </Section>
+            <Section kicker="Tout le détail" title="Le tableau">
+              <StatsTable stats={allStats(scope)} players={players} />
+            </Section>
           </>
         )}
       </div>
     </TabPage>
+  );
+}
+
+/** A block of the page, after the tabs' model: small capitals, then a title. */
+function Section({ kicker, title, children }: { kicker: string; title: string; children: ReactNode }) {
+  return (
+    <section aria-label={kicker} className="flex flex-col gap-[18px]">
+      <span className="flex flex-col gap-1.5">
+        <span className="label-caps">{kicker}</span>
+        <h2 className="title-display text-[24px] [line-height:normal]">{title}</h2>
+      </span>
+      {children}
+    </section>
   );
 }
 
@@ -146,55 +182,75 @@ function PlayerName({ player, className }: { player: ComparedPlayer; className?:
   );
 }
 
-/** The share of wins, each player's in big, side by side: the stat that sums up all the others. */
-function WinRates({ players }: { players: ComparedPlayer[] }) {
-  const { lines, leaders } = ranked(winRate, players);
+/**
+ * The highest 2v2 rating of each player over the period, with its rank, and what the period brought from its first
+ * rating to its last: a level, where a share of wins only tells a streak.
+ */
+function Peaks({ players, season }: { players: ComparedPlayer[]; season: number | null }) {
+  const lines = [...players].sort((a, b) => (b.mmr?.peak.mmr ?? -1) - (a.mmr?.peak.mmr ?? -1));
+  const [top] = lines;
   return (
-    <Card variant="glass" role="region" aria-label={winRate.label} className="gap-5 p-5 lg:p-6">
-      <span className="label-caps">{winRate.label}</span>
-      {/* On a phone, one line per player, the share at the right; on a computer, the players side by side. */}
-      <ol className="m-0 flex list-none flex-col gap-4 p-0 lg:grid lg:grid-cols-[repeat(auto-fit,minmax(160px,1fr))] lg:gap-4">
-        {lines.map((line) => (
-          <li
-            key={line.player.name}
-            className="flex min-w-0 items-end justify-between gap-3 lg:flex-col-reverse lg:items-start lg:justify-end lg:gap-2"
-          >
-            <span className="flex min-w-0 flex-col gap-1 lg:contents">
-              <PlayerName player={line.player} className="font-semibold text-[15px] lg:order-3 lg:text-[14px]" />
-              <span className="text-[13px] text-t3 lg:order-1">
-                {line.player.career.matches === 0 ? (
-                  'Pas de match'
-                ) : (
-                  <>
-                    <span className="text-win">{formatNumber(line.player.career.wins)} W</span> ·{' '}
-                    <span className="text-cost-strong">{formatNumber(line.player.career.losses)} L</span>
-                  </>
+    <Card variant="glass" role="region" aria-label="Peak 2v2" className="gap-5 p-5 lg:p-6">
+      <span className="label-caps">
+        {season === null ? 'Peak 2v2 · toutes saisons' : `Peak 2v2 · saison ${season}`}
+      </span>
+      <ol className="m-0 flex list-none flex-col gap-4 p-0 lg:grid lg:grid-cols-[repeat(auto-fit,minmax(220px,1fr))] lg:gap-6">
+        {lines.map((player) => {
+          const mmr = player.mmr;
+          const rank = mmr ? splitRankLabel(mmr.peak.label) : null;
+          return (
+            <li key={player.name} className="flex min-w-0 items-center gap-3">
+              <img
+                src={`/rocket-league/ranks/${mmr?.peak.tier ?? 0}.png`}
+                alt=""
+                className="size-11 shrink-0 object-contain lg:size-14"
+              />
+              <span className="flex min-w-0 flex-1 flex-col gap-1">
+                <PlayerName player={player} className="font-semibold text-[15px]" />
+                <span className="truncate text-[13px] text-t3">
+                  {rank ? `${rank.rank}${rank.division ? ` · ${rank.division}` : ''}` : 'Pas encore relevé'}
+                </span>
+              </span>
+              <span className="flex shrink-0 flex-col items-end gap-1">
+                <b
+                  className={cn(
+                    'num text-[32px] [line-height:.85] lg:text-[40px]',
+                    !mmr ? 'text-t3' : player === top ? 'text-t1' : 'text-t2',
+                  )}
+                >
+                  {mmr ? formatNumber(mmr.peak.mmr) : '–'}
+                </b>
+                {mmr && (
+                  <span
+                    className={cn(
+                      'num text-[14px]',
+                      mmr.gained > 0 ? 'text-win' : mmr.gained < 0 ? 'text-cost-strong' : 'text-t3',
+                    )}
+                    title="Du premier MMR relevé de la saison au dernier"
+                  >
+                    {formatted(mmr.gained, 'mmr')} MMR
+                  </span>
                 )}
               </span>
-            </span>
-            <b
-              className={cn(
-                'num shrink-0 text-[40px] [line-height:.85] lg:order-2 lg:text-[56px]',
-                leaders.includes(line) ? 'text-t1' : 'text-t2',
-                line.value === null && 'text-t3',
-              )}
-            >
-              {formatted(line.value, winRate.format)}
-            </b>
-          </li>
-        ))}
+            </li>
+          );
+        })}
       </ol>
     </Card>
   );
 }
 
-/** One stat: the leader's figure in big, then every player's bar against it. */
-function StatCard({ stat, players }: { stat: Stat; players: ComparedPlayer[] }) {
+/** One stat, or a prize: the leader's figure in big, then every player's bar against it. */
+function StatCard({ stat, players }: { stat: Stat | Prize; players: ComparedPlayer[] }) {
   const { lines, leaders } = ranked(stat, players);
   const [leader] = leaders;
+  const prize = 'prize' in stat ? stat.prize : null;
   return (
-    <Card variant="glass" role="region" aria-label={stat.label} className="gap-4 p-5">
-      <span className="label-caps">{stat.label}</span>
+    <Card variant="glass" role="region" aria-label={prize ?? stat.label} className="gap-4 p-5">
+      <span className="flex flex-col gap-1">
+        <span className="label-caps">{stat.label}</span>
+        {prize && <h3 className="title-display text-[20px] [line-height:1.1]">{prize}</h3>}
+      </span>
       <div className="flex min-w-0 items-end justify-between gap-3">
         <b className={cn('num text-[40px] [line-height:.85]', !leader && 'text-t3')}>
           {formatted(leader?.value ?? null, stat.format)}
@@ -228,5 +284,53 @@ function Bar({ line, format }: { line: RankedLine; format: StatFormat }) {
         />
       </span>
     </li>
+  );
+}
+
+/** Every stat, one line each, one column per player, the best figure of each line lit. */
+function StatsTable({ stats, players }: { stats: Stat[]; players: ComparedPlayer[] }) {
+  return (
+    <Card variant="glass" className="gap-0 py-1">
+      <Table className="text-[14px]">
+        <TableHeader>
+          <TableRow className="border-line hover:bg-transparent">
+            <TableHead className="sticky left-0 z-1 bg-card pl-4 font-normal text-t3 lg:pl-5">
+              <span className="sr-only">Stat</span>
+            </TableHead>
+            {players.map((player) => (
+              <TableHead key={player.name} className="min-w-24 text-right last:pr-4 lg:last:pr-5">
+                <PlayerName player={player} className="justify-end font-semibold text-[13px] text-t1" />
+              </TableHead>
+            ))}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {stats.map((stat) => {
+            const best = bestOf(stat, players);
+            return (
+              <TableRow key={stat.label} className="border-line hover:bg-white/3">
+                <TableHead scope="row" className="sticky left-0 z-1 bg-card pl-4 font-normal text-t2 lg:pl-5">
+                  {stat.label}
+                </TableHead>
+                {players.map((player) => {
+                  const value = stat.value(player);
+                  return (
+                    <TableCell
+                      key={player.name}
+                      className={cn(
+                        'num text-right text-[15px] last:pr-4 lg:last:pr-5',
+                        value === null ? 'text-t3' : value === best ? 'text-win' : 'text-t1',
+                      )}
+                    >
+                      {formatted(value, stat.format)}
+                    </TableCell>
+                  );
+                })}
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
+    </Card>
   );
 }

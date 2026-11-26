@@ -1,4 +1,4 @@
-import { parisDay } from '../../lib/days';
+import { parisDay, parisHour } from '../../lib/days';
 import { matchModeOf } from '../../lib/live-stats';
 import { mvpOf } from '../../lib/match-history';
 import { matchIndex } from '../../lib/match-rules';
@@ -22,6 +22,21 @@ export interface Career {
   lossStreak: number;
   /** Tournaments the club declared won on a match this player won. */
   tournamentsWon: number;
+  /** The points the game gave them, all matches added. */
+  score: number;
+  /** The goals the other team scored, and the matches with none, among the matches whose final score is known. */
+  conceded: number | null;
+  cleanSheets: number;
+  /** Matches that went to overtime, won and lost. */
+  overtimeWins: number;
+  overtimeLosses: number;
+  /** Matches the other team gave up (received), and their own team gave up (given). */
+  forfeitsReceived: number;
+  forfeitsGiven: number;
+  /** Matches they left before the end. */
+  left: number;
+  /** Matches played between midnight and 5 in Paris. */
+  lateNight: number;
 }
 
 /**
@@ -97,6 +112,15 @@ export function careerOf(
     winStreak: 0,
     lossStreak: 0,
     tournamentsWon: 0,
+    score: 0,
+    conceded: null,
+    cleanSheets: 0,
+    overtimeWins: 0,
+    overtimeLosses: 0,
+    forfeitsReceived: 0,
+    forfeitsGiven: 0,
+    left: 0,
+    lateNight: 0,
   };
   const tournamentsWon = board.rules?.tournamentWins ?? [];
   // A match received late (an import, a source catching up) still belongs to its own day.
@@ -120,6 +144,18 @@ export function careerOf(
     career.crossbarHits = added(career.crossbarHits, row.crossbar_hits);
     if (!row.left && mvpOf(index.get(guid)) === row.player_id) career.mvps++;
     if (won && tournamentsWon.includes(guid)) career.tournamentsWon++;
+    career.score += row.score;
+    // The final score as the game counted it, blue first: a team is 0 for blue, 1 for orange.
+    if (typeof row.blue_goals === 'number' && typeof row.orange_goals === 'number') {
+      const against = row.team === 0 ? row.orange_goals : row.blue_goals;
+      career.conceded = (career.conceded ?? 0) + against;
+      if (against === 0) career.cleanSheets++;
+    }
+    if (row.overtime) career[won ? 'overtimeWins' : 'overtimeLosses']++;
+    if (row.forfeit && !row.left) career[won ? 'forfeitsReceived' : 'forfeitsGiven']++;
+    if (row.left) career.left++;
+    // A match received on its own day was played just before: its hour is the one the collector sent it at.
+    if (parisDay(row.received) === row.day && parisHour(row.received) < 5) career.lateNight++;
   }
   return career;
 }

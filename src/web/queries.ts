@@ -11,7 +11,9 @@ import {
   memberList,
   type ReminderSettings,
   reminderSettings,
+  type SeasonMmrList,
   type SoundCollections,
+  seasonMmrList,
   soundCollections,
 } from '../lib/contract';
 import { parseOrThrow } from '../lib/validation';
@@ -111,6 +113,13 @@ export const soundCollectionsQuery = queryOptions({
   queryKey: ['sounds'],
   queryFn: async (): Promise<SoundCollections['collections']> =>
     (await dataOf(api.sounds.$get(), soundCollections, 'Badges indisponibles.')).collections,
+});
+
+/** Each account's MMR over each season, for the Stats page: read when it opens, not kept for offline. */
+export const seasonMmrQuery = queryOptions({
+  queryKey: ['stats', 'seasons'],
+  queryFn: async (): Promise<SeasonMmrList['seasons']> =>
+    (await dataOf(api.stats.seasons.$get(), seasonMmrList, 'Saisons indisponibles.')).seasons,
 });
 
 /**
