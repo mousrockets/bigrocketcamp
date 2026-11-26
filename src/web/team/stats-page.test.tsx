@@ -132,7 +132,8 @@ test('stands the solo accounts closest to their peak all time before the season 
   expect(within(first as HTMLElement).getByText('+60')).toHaveClass('text-win');
   expect(second).toHaveTextContent(/^−60écart\s*bob-solo\s*Saison1 340\s*All time1 400/);
   expect(second).toHaveTextContent(/Place 2$/);
-  // The peak all time takes its rank's colour.
+  // Both peaks take their rank's colour.
+  expect(within(second as HTMLElement).getByText('1 340')).toHaveAttribute('style', expect.stringContaining('color'));
   expect(within(second as HTMLElement).getByText('1 400')).toHaveAttribute('style', expect.stringContaining('color'));
 
   await userEvent.click(within(podium).getByRole('button', { name: 'Duo' }));

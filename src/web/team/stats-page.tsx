@@ -2,6 +2,8 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { cn } from 'cn';
 import {
+  ArrowDown,
+  ArrowUp,
   Bomb,
   Crosshair,
   DoorOpen,
@@ -299,16 +301,36 @@ function SeasonPeaks({ players, season }: { players: ComparedPlayer[]; season: n
   );
 }
 
-/** A peak in small: its capitals, then the figure, in the colour of the rank it reaches when it has one. */
-function PeakFigure({ label, value, tier }: { label: string; value: number; tier?: number | null }) {
+/**
+ * A peak in small: its capitals, then the figure in the colour of its rank. The season's peak carries an arrow, up
+ * when it went past the peak all time, down when it stayed under: the gap above says by how much.
+ */
+function PeakFigure({
+  label,
+  value,
+  tier,
+  rise,
+}: {
+  label: string;
+  value: number;
+  tier: number | null;
+  rise?: number | null;
+}) {
+  const Arrow = rise ? (rise > 0 ? ArrowUp : ArrowDown) : null;
   return (
     <span className="flex items-baseline justify-between gap-2">
       <span className="text-t3">{label}</span>
-      <span
-        className="num text-[14px] lg:text-[15px]"
-        style={tier === undefined ? undefined : { color: `rgb(${rankLightRgb(tier)})` }}
-      >
-        {formatNumber(value)}
+      <span className="flex items-center gap-0.5">
+        {Arrow && (
+          <Arrow
+            aria-hidden="true"
+            strokeWidth={3}
+            className={cn('size-3', rise && rise > 0 ? 'text-win' : 'text-t3')}
+          />
+        )}
+        <span className="num text-[14px] lg:text-[15px]" style={{ color: `rgb(${rankLightRgb(tier)})` }}>
+          {formatNumber(value)}
+        </span>
       </span>
     </span>
   );
@@ -365,7 +387,7 @@ function PodiumCard({ line, gap, name, step }: { line: RankedLine; gap: PeakGap;
           </span>
           {/* The season's peak over the peak all time before it: the gap reads from one to the other. */}
           <span className="flex w-full max-w-[150px] flex-col gap-1 text-[11px] lg:text-[12px]">
-            <PeakFigure label="Saison" value={gap.peak} />
+            <PeakFigure label="Saison" value={gap.peak} tier={gap.tier} rise={gap.gap} />
             {gap.allTime !== null && <PeakFigure label="All time" value={gap.allTime} tier={gap.allTimeTier} />}
           </span>
         </span>
