@@ -123,6 +123,20 @@ test('a key figure shows the member’s own even when another leads it', async (
   expect(goals).toHaveTextContent(/^Buts \/ match0\s*1bob/);
 });
 
+test('places each player’s style on two axes, against the club, with no winner', async () => {
+  renderInApp(<StatsPage />, { board, path: '/stats' });
+  const style = await screen.findByRole('region', { name: 'Le style de jeu' });
+  expect(style).toHaveTextContent('Pas de gagnant ici');
+  const attack = within(style).getByRole('region', { name: 'Buts par arrêt' });
+  expect(attack).toHaveTextContent(/DéfenseurLe clubAttaquant/);
+  // Nobody saved a shot in these matches: no ratio to show.
+  expect(
+    within(attack)
+      .getAllByRole('listitem')
+      .map((line) => line.textContent),
+  ).toEqual(['aliceTOI–', 'bob–']);
+});
+
 test('shows a past season from its address, and every match from the season list', async () => {
   renderInApp(<StatsPage />, { board, path: '/stats?saison=23' });
   expect(await screen.findByRole('combobox', { name: 'Saison' })).toHaveTextContent('Saison 23');

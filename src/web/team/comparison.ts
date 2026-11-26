@@ -3,7 +3,8 @@ import { pushupCredit } from '../../lib/domain';
 import { currentSeason } from '../../lib/season';
 import type { Board } from '../board';
 import { type Career, type CareerAccount, type CareerScope, careerOf, seasonOf, type Tally } from './career';
-import { ratingOnLadder } from './ladder';
+import { ratingOnLadder, soloReading } from './ladder';
+import { highestTier } from './stats';
 
 // The Stats page: each player over one season (or every match), then, stat by stat, who leads.
 
@@ -45,6 +46,8 @@ export interface ComparedPlayer {
   peakGaps: Record<PeakAccount, PeakGap | null>;
   /** Their solo account's pseudo, where only that account shows; their duo pseudo while the rank source found none. */
   soloShown: string;
+  /** Their colour's rank: their highest current one, duo or solo. */
+  tier: number | null;
 }
 
 /** The account a podium of peaks compares: each player's solo one, or the duo one the club plays on. */
@@ -158,6 +161,7 @@ export function comparedPlayers(
         duo: peakGapOf(board, seasonMmr, name, 'duo', season),
       },
       soloShown: ranks?.solo?.pseudo || name,
+      tier: highestTier(ranks?.tier, soloReading(ranks)?.tier),
     };
   });
   return [...players.filter((player) => player.me), ...players.filter((player) => !player.me)];
@@ -204,14 +208,72 @@ const accuracy = (player: ComparedPlayer) => {
 const feed = (player: ComparedPlayer, name: string, side: 'statfeed' | 'statfeedSecondary') =>
   player.career.game.statfeedMatches === 0 ? null : (player.career.game[side].get(name) ?? 0);
 
-const score: Stat = { label: 'Score moyen', format: 'count', value: (p) => average(p, p.career.score) };
+const matches: Stat = { label: 'Matchs', format: 'count', value: (p) => counted(p, p.career.matches) };
 const goals: Stat = { label: 'Buts / match', format: 'perMatch', value: (p) => average(p, p.career.goals) };
+const assists: Stat = {
+  label: 'Passes D / match',
+  format: 'perMatch',
+  value: (p) => average(p, p.career.assists),
+};
 const saves: Stat = { label: 'Arrêts / match', format: 'perMatch', value: (p) => average(p, p.career.saves) };
 const mvpRate: Stat = { label: 'Taux de MVP', format: 'percent', value: (p) => share(p, p.career.mvps) };
 const pushups: Stat = { label: 'Pompes faites', format: 'count', value: (p) => p.pushups };
 
-/** The figures that say the most, after the peak: a card each. */
-export const keyStats: Stat[] = [score, mvpRate, goals, saves];
+/**
+ * The figures that say the most, after the peak: the time spent on the game, then attack, team play and defence, and
+ * the MVPs. A card each.
+ */
+export const keyStats: Stat[] = [matches, goals, assists, saves, mvpRate];
+
+/**
+ * An axis of play style: a ratio of two of a player's counts, which says what kind of player they are, not how good.
+ * Low at the left, high at the right.
+ */
+export interface StyleAxis {
+  label: string;
+  low: string;
+  high: string;
+  counts: (player: ComparedPlayer) => [over: number, under: number];
+}
+
+export const styleAxes: StyleAxis[] = [
+  { label: 'Buts par arrêt', low: 'Défenseur', high: 'Attaquant', counts: (p) => [p.career.goals, p.career.saves] },
+  { label: 'Passes par but', low: 'Finisseur', high: 'Passeur', counts: (p) => [p.career.assists, p.career.goals] },
+];
+
+/** The club's ratio sits in the middle; this many times more, or less, at each end. */
+const styleSpan = 3;
+
+export interface StyleLine {
+  player: ComparedPlayer;
+  /** Null without a match, or with nothing to divide by. */
+  ratio: number | null;
+  /** From 0 at the left to 1 at the right. */
+  position: number | null;
+}
+
+/**
+ * Where each player stands on an axis, against the club: its ratio over every match of the players compared sits in
+ * the middle. A log scale, so that twice and half the club's sit as far from it.
+ */
+export function styleOf(
+  axis: StyleAxis,
+  players: readonly ComparedPlayer[],
+): { club: number | null; lines: StyleLine[] } {
+  const played = players.filter((player) => player.career.matches > 0);
+  const [over, under] = played.map(axis.counts).reduce(([a, b], [x, y]) => [a + x, b + y], [0, 0]);
+  const club = over > 0 && under > 0 ? over / under : null;
+  const lines = players.map((player): StyleLine => {
+    const [a, b] = axis.counts(player);
+    const ratio = player.career.matches > 0 && b > 0 ? a / b : null;
+    const position =
+      ratio === null || club === null
+        ? null
+        : Math.min(0.97, Math.max(0.03, 0.5 + Math.log(Math.max(ratio, 1e-6) / club) / (2 * Math.log(styleSpan))));
+    return { player, ratio, position };
+  });
+  return { club, lines };
+}
 
 /**
  * The fun ones, each with its prize. A prize of something that happens in a match goes to its rate, per match or in

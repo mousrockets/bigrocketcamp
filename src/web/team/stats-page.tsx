@@ -54,7 +54,10 @@ import {
   ranked,
   type Stat,
   type StatFormat,
+  type StyleAxis,
   seasonsPlayed,
+  styleAxes,
+  styleOf,
   type TableStat,
   tableSections,
   tableStats,
@@ -177,9 +180,18 @@ export function StatsPage() {
         {board && anyMatch && (
           <>
             <Section kicker="L’essentiel" title="Les chiffres clés">
-              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+              {/* The matches first, the width of the row on a tablet: the time each one spent on the game. */}
+              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-5 md:[&>:first-child]:col-span-2 lg:[&>:first-child]:col-span-1">
                 {keyStats.map((stat) => (
                   <StatCard key={stat.label} stat={stat} players={players} />
+                ))}
+              </div>
+            </Section>
+            <Section kicker="Le style de jeu" title="Quel joueur es-tu ?">
+              <p className="m-0 -mt-2 text-[15px] text-t2">Pas de gagnant ici : chacun face au reste du club.</p>
+              <div className="grid gap-3 md:grid-cols-2">
+                {styleAxes.map((axis) => (
+                  <StyleCard key={axis.label} axis={axis} players={players} />
                 ))}
               </div>
             </Section>
@@ -428,6 +440,71 @@ function StatCard({ stat, players }: { stat: Stat; players: ComparedPlayer[] }) 
       <ol className="m-0 flex list-none flex-col gap-1.5 p-0">
         {lines.map((line) => (
           <Bar key={line.player.name} line={line} format={stat.format} />
+        ))}
+      </ol>
+    </Card>
+  );
+}
+
+/**
+ * An axis of play style: each player a dot in their colour on a line, the club's own ratio in the middle, then each
+ * player's ratio below. No green, no medal: a style is no ranking.
+ */
+function StyleCard({ axis, players }: { axis: StyleAxis; players: ComparedPlayer[] }) {
+  const { lines } = styleOf(axis, players);
+  // The member's dot last, so that it shows above the others.
+  const dots = [...lines.filter((line) => !line.player.me), ...lines.filter((line) => line.player.me)];
+  return (
+    <Card variant="glass" role="region" aria-label={axis.label} className="gap-5 p-5">
+      <span className="label-caps">{axis.label}</span>
+      <div className="flex flex-col gap-2.5">
+        <div aria-hidden="true" className="relative h-6">
+          <span className="absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-linear-to-r from-white/5 via-white/12 to-white/5" />
+          <span className="absolute top-1/2 left-1/2 h-4 w-0.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/30" />
+          {dots.map(
+            ({ player, position }) =>
+              position !== null && (
+                <i
+                  key={player.name}
+                  className={cn(
+                    'absolute top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full transition-[left] duration-700 ease-(--ease)',
+                    player.me
+                      ? 'size-5 shadow-[0_0_0_2.5px_var(--color-t1),0_0_16px_rgba(var(--dot),.8)]'
+                      : 'size-3.5 shadow-[0_0_0_2px_rgba(0,0,0,.55)]',
+                  )}
+                  style={
+                    {
+                      left: `${position * 100}%`,
+                      background: `rgb(var(--dot))`,
+                      '--dot': rankRgb(player.tier),
+                    } as CSSProperties
+                  }
+                />
+              ),
+          )}
+        </div>
+        <span className="grid grid-cols-3 text-[12px] text-t3">
+          <span>{axis.low}</span>
+          <span className="text-center">Le club</span>
+          <span className="text-right">{axis.high}</span>
+        </span>
+      </div>
+      <ol className="m-0 flex list-none flex-col gap-2 p-0">
+        {lines.map(({ player, ratio }) => (
+          <li
+            key={player.name}
+            className={cn('flex items-center gap-2.5', player.me ? 'text-[15px] text-t1' : 'text-[13px] text-t2')}
+          >
+            <i
+              aria-hidden="true"
+              className="size-2 shrink-0 rounded-full"
+              style={{ background: `rgb(${rankRgb(player.tier)})` }}
+            />
+            <PlayerName player={player} className={cn('flex-1', player.me && 'font-semibold')} />
+            <span className={cn('num', player.me ? 'text-[17px]' : 'text-[15px]', ratio === null && 'text-t3')}>
+              {formatted(ratio, 'perMatch')}
+            </span>
+          </li>
         ))}
       </ol>
     </Card>
