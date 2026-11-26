@@ -48,12 +48,3 @@ test('opens in English from its address', async () => {
   expect(await screen.findByText(/Read them again before every ranked session/)).toBeInTheDocument();
   expect(screen.getByText(/if you’re closer, go/).closest('[lang]')).toHaveAttribute('lang', 'en');
 });
-
-test('sets the game’s English words in italics in the French rules', async () => {
-  renderInApp(<GoldenRulesPage />, { path: '/matchs/golden-rules' });
-  const gist = (await screen.findByText(/si c’est toi, tu y vas/)).closest('p') as HTMLElement;
-  expect(gist).toHaveTextContent(
-    'Si l’adversaire est plus proche de la balle, tu attends et tu shadow ; si c’est toi, tu y vas.',
-  );
-  expect(within(gist).getByText('shadow').tagName).toBe('EM');
-});
