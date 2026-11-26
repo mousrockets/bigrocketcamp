@@ -1,12 +1,11 @@
-import { Link } from '@tanstack/react-router';
 import { cn } from 'cn';
 import type { ComponentProps, ReactNode } from 'react';
+import { BackLink } from '../components/back-link';
 import { epicNotice } from '../components/epic-notice';
 import { Card } from '../components/ui/card';
 import { Field, FieldError, FieldLabel } from '../components/ui/field';
 import { Input } from '../components/ui/input';
 import { Item, ItemMedia } from '../components/ui/item';
-import { BackChevron } from './icons';
 
 // The pieces every Réglages screen is made of, after iOS Settings: grouped cards of rows, a title, a way back.
 
@@ -50,13 +49,7 @@ export function SettingsPage({ kicker, title, children }: { kicker: string; titl
       <Glow />
       <div className={wrapClass}>
         <header className="flex animate-rise flex-col gap-1.5 px-5 pt-0 lg:p-0">
-          <Link
-            to="/reglages"
-            className="-ml-3 mb-[-2px] inline-flex h-11 w-fit items-center gap-1.5 text-[17px] text-link hover:text-[#8fc0ff] lg:mb-2.5 lg:ml-0 lg:h-auto lg:text-[15px]"
-          >
-            <BackChevron />
-            Réglages
-          </Link>
+          <BackLink to="/reglages">Réglages</BackLink>
           <span className="label-caps">{kicker}</span>
           <h1 className="title-display text-[34px] [line-height:1] lg:text-[40px]">{title}</h1>
         </header>

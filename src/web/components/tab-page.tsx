@@ -10,6 +10,7 @@ export function TabPage({
   kicker,
   title,
   aside,
+  back,
   children,
 }: {
   /** The small capitals above the title, often the day. */
@@ -17,17 +18,27 @@ export function TabPage({
   title: string;
   /** What sits at the right of the header, like « Direct ». */
   aside?: ReactNode;
+  /** The way back, above the kicker, on a page opened from a tab. */
+  back?: ReactNode;
   children: ReactNode;
 }) {
   return (
-    <main className="relative flex min-h-dvh flex-col pt-[max(60px,calc(env(safe-area-inset-top)+12px))] pb-[120px] lg:px-[clamp(20px,5vw,72px)] lg:pt-11 lg:pb-16">
+    <main
+      className={cn(
+        'relative flex min-h-dvh flex-col pb-[120px] lg:px-[clamp(20px,5vw,72px)] lg:pt-11 lg:pb-16',
+        back
+          ? 'pt-[max(40px,calc(env(safe-area-inset-top)-4px))]'
+          : 'pt-[max(60px,calc(env(safe-area-inset-top)+12px))]',
+      )}
+    >
       <div
         aria-hidden="true"
         className="top-glow pointer-events-none absolute inset-x-0 top-0 h-[360px] bg-[radial-gradient(90%_60%_at_50%_-12%,rgba(70,120,220,.16),rgba(0,0,0,0)_70%)] lg:h-[440px] lg:bg-[radial-gradient(60%_70%_at_30%_-15%,rgba(70,120,220,.13),rgba(0,0,0,0)_70%)]"
       />
       <div className="relative flex w-full flex-col lg:mx-auto lg:max-w-[1060px] lg:gap-14">
-        <header className="flex animate-rise items-end justify-between gap-4 px-5 pt-2 lg:p-0">
+        <header className={cn('flex animate-rise items-end justify-between gap-4 px-5 lg:p-0', !back && 'pt-2')}>
           <span className="flex flex-col gap-1.5">
+            {back}
             <span className="label-caps">{kicker}</span>
             <h1 className="title-display text-[36px] [line-height:1] lg:text-[40px]">{title}</h1>
           </span>

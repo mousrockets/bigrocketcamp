@@ -1,6 +1,6 @@
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { cn } from 'cn';
-import { Gamepad2, type LucideIcon, TrendingUp, Trophy, UserRound, UsersRound } from 'lucide-react';
+import { Crown, Gamepad2, type LucideIcon, TrendingUp, Trophy, UserRound, UsersRound } from 'lucide-react';
 import { useState } from 'react';
 import { parisDay, shiftDay } from '../../lib/days';
 import { highScorePoints } from '../../lib/domain';
@@ -58,7 +58,15 @@ export function MatchesPage() {
     <TabPage
       kicker={formatLongDay(now)}
       title="Matchs"
-      aside={<LiveStatus lastReceived={board?.collectors[0]?.last_seen ?? null} reception={false} />}
+      aside={
+        <>
+          <LiveStatus lastReceived={board?.collectors[0]?.last_seen ?? null} reception={false} />
+          <Link to="/matchs/golden-rules" className={buttonVariants({ variant: 'bubble', size: 'hint' })}>
+            <Crown className="text-gold" />
+            <span className="sr-only lg:not-sr-only">Golden Rules</span>
+          </Link>
+        </>
+      }
     >
       {!board && (
         <BoardPending error={error} className="flex flex-col lg:flex-row lg:flex-wrap lg:items-start lg:gap-10">
