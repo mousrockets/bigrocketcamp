@@ -263,6 +263,8 @@ export interface RankedLine {
   player: ComparedPlayer;
   value: number | null;
   share: number;
+  /** Their place in the stat, shared on a tie; none without a figure. */
+  place: number | null;
 }
 
 /**
@@ -274,7 +276,14 @@ export function ranked(stat: Stat, players: readonly ComparedPlayer[]): { lines:
   const best = Math.max(0, ...figures.map(({ value }) => value ?? 0));
   const lines = figures
     .map((figure) => ({ ...figure, share: best > 0 && figure.value !== null ? Math.max(0, figure.value) / best : 0 }))
-    .sort((a, b) => (b.value ?? Number.NEGATIVE_INFINITY) - (a.value ?? Number.NEGATIVE_INFINITY));
+    .sort((a, b) => (b.value ?? Number.NEGATIVE_INFINITY) - (a.value ?? Number.NEGATIVE_INFINITY))
+    .map((line, _, all) => ({
+      ...line,
+      place:
+        line.value === null
+          ? null
+          : 1 + all.filter((other) => (other.value ?? Number.NEGATIVE_INFINITY) > (line.value ?? 0)).length,
+    }));
   return { lines, leaders: best > 0 ? lines.filter((line) => line.value === best) : [] };
 }
 

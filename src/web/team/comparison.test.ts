@@ -121,6 +121,8 @@ test('ranks the players, ties sharing the lead and those without a figure last',
     ['dana', null],
   ]);
   expect(wins.leaders.map((line) => line.player.name)).toEqual(['alice', 'bob']);
+  // A tie shares its place; the next player comes after both.
+  expect(wins.lines.map((line) => line.place)).toEqual([1, 1, 3, null]);
 
   const goals = keyStats.find((stat) => stat.label === 'Buts / match');
   if (!goals) throw new Error('Buts / match is a key stat');

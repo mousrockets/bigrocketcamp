@@ -128,6 +128,17 @@ test('the solo accounts are named by their own pseudo', async () => {
   expect(screen.queryByText('alice')).not.toBeInTheDocument();
 });
 
+test('the member finds their own line: their place in each stat, their column tinted in the table', async () => {
+  renderInApp(<StatsPage />, { board, path: '/stats' });
+  const goals = await screen.findByRole('region', { name: 'Buts / match' });
+  // Alice, the member, scored 2 a match, Bob 0,5.
+  const [first, second] = within(goals).getAllByRole('listitem');
+  expect(first).toHaveTextContent(/^1alice\s*TOI2$/);
+  expect(second).toHaveTextContent(/^2bob0,5$/);
+  const header = within(screen.getByRole('table')).getByRole('columnheader', { name: /alice/ });
+  expect(header).toHaveClass('bg-white/6');
+});
+
 test('crowns the prizes and lights the best of each line of the table', async () => {
   renderInApp(<StatsPage />, { board, path: '/stats' });
   const assassin = await screen.findByRole('region', { name: 'Le démolisseur' });

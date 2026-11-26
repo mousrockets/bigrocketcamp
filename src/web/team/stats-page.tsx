@@ -284,26 +284,33 @@ function StatCard({ stat, players }: { stat: Stat | Prize; players: ComparedPlay
       </div>
       <ol className="m-0 flex list-none flex-col gap-3 p-0">
         {lines.map((line) => (
-          <Bar key={line.player.name} line={line} format={stat.format} leading={leaders.includes(line)} />
+          <Bar key={line.player.name} line={line} format={stat.format} />
         ))}
       </ol>
     </Card>
   );
 }
 
-/** A player's bar: the leader's in white, the others' in a lighter grey. */
-function Bar({ line, format, leading }: { line: RankedLine; format: StatFormat; leading: boolean }) {
+/**
+ * A player's line in a stat: their place, pseudo and figure, then their bar. The member's stands out in white, the
+ * others' stay grey: the leader already shows in big above, the member finds their own place at a glance.
+ */
+function Bar({ line, format }: { line: RankedLine; format: StatFormat }) {
+  const mine = line.player.me;
   return (
     <li className="flex flex-col gap-1.5">
-      <span className="flex items-baseline justify-between gap-3 text-[13px] text-t2">
-        <PlayerName player={line.player} />
-        <span className={cn('num text-[15px]', line.value === null ? 'text-t3' : 'text-t1')}>
+      <span className={cn('flex items-baseline justify-between gap-3 text-[13px]', mine ? 'text-t1' : 'text-t2')}>
+        <span className="flex min-w-0 items-baseline gap-2">
+          <span className="num w-3 shrink-0 text-right text-[13px] text-t3">{line.place ?? '–'}</span>
+          <PlayerName player={line.player} className={cn(mine && 'font-semibold')} />
+        </span>
+        <span className={cn('num text-[15px]', line.value === null ? 'text-t3' : mine ? 'text-t1' : 'text-t2')}>
           {formatted(line.value, format)}
         </span>
       </span>
       <span aria-hidden="true" className="h-1.5 overflow-hidden rounded-full bg-white/6">
         <i
-          className={cn('block h-full origin-left animate-grow rounded-full', leading ? 'bg-t1' : 'bg-white/45')}
+          className={cn('block h-full origin-left animate-grow rounded-full', mine ? 'bg-t1' : 'bg-white/40')}
           style={{ width: `${line.share * 100}%` }}
         />
       </span>
@@ -311,7 +318,7 @@ function Bar({ line, format, leading }: { line: RankedLine; format: StatFormat; 
   );
 }
 
-/** Every stat, one line each, one column per player, the best figure of each line lit. */
+/** Every stat, one line each, one column per player, the member's tinted, the best figure of each line lit. */
 function StatsTable({ stats, players }: { stats: Stat[]; players: ComparedPlayer[] }) {
   const lowest = new Intl.ListFormat('fr', { type: 'conjunction' }).format(
     stats.filter((stat) => stat.lowerIsBetter).map((stat) => stat.label.toLowerCase()),
@@ -326,7 +333,10 @@ function StatsTable({ stats, players }: { stats: Stat[]; players: ComparedPlayer
                 <span className="sr-only">Stat</span>
               </TableHead>
               {players.map((player) => (
-                <TableHead key={player.name} className="min-w-24 text-right last:pr-4 lg:last:pr-5">
+                <TableHead
+                  key={player.name}
+                  className={cn('min-w-24 text-right last:pr-4 lg:last:pr-5', player.me && 'bg-white/6')}
+                >
                   <PlayerName player={player} className="justify-end font-semibold text-[13px] text-t1" />
                 </TableHead>
               ))}
@@ -347,6 +357,7 @@ function StatsTable({ stats, players }: { stats: Stat[]; players: ComparedPlayer
                         key={player.name}
                         className={cn(
                           'num text-right text-[15px] last:pr-4 lg:last:pr-5',
+                          player.me && 'bg-white/6',
                           value === null ? 'text-t3' : value === best ? 'text-win' : 'text-t1',
                         )}
                       >
