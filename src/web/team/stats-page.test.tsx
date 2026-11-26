@@ -201,18 +201,20 @@ test('crowns the prizes and lights the best of each line of the table', async ()
   expect(screen.queryByRole('heading', { name: 'Le démolisseur' })).not.toBeInTheDocument();
   const goals = () =>
     within(screen.getByRole('table')).getByRole('rowheader', { name: 'Buts' }).closest('tr') as HTMLElement;
-  // Alice scored 4 in 2 matches this season, Bob 1: per match first, then the totals.
+  // Alice scored 4 in 2 matches this season, Bob 1: per match, each with its total in small below, no switch.
   expect(within(goals()).getByText('2')).toHaveClass('text-win');
   expect(within(goals()).getByText('0,5')).not.toHaveClass('text-win');
-  await userEvent.click(
-    within(screen.getByRole('group', { name: 'Chiffres du tableau' })).getByRole('button', { name: 'Total' }),
-  );
-  expect(within(goals()).getByText('4')).toHaveClass('text-win');
-  expect(within(goals()).getByText('1')).not.toHaveClass('text-win');
-  expect(screen.getByText(/le meilleur de chaque ligne ; ↓ : le plus bas est le meilleur/)).toBeInTheDocument();
+  expect(within(goals()).getByText('4')).toHaveClass('text-t3');
+  expect(within(goals()).getByText('1')).toHaveClass('text-t3');
+  expect(screen.queryByRole('group', { name: 'Chiffres du tableau' })).not.toBeInTheDocument();
+  expect(
+    screen.getByText(/le meilleur de chaque ligne ; en petit, le total ; ↓ : le plus bas est le meilleur/),
+  ).toBeInTheDocument();
   // The table reads part by part, each one saying whether it reads per match.
-  expect(within(screen.getByRole('table')).getByRole('columnheader', { name: 'Attaque' })).toBeInTheDocument();
-  expect(within(screen.getByRole('table')).getByRole('rowheader', { name: 'Défaites ↓' })).toBeInTheDocument();
+  expect(
+    within(screen.getByRole('table')).getByRole('columnheader', { name: 'Attaque · par match' }),
+  ).toBeInTheDocument();
+  expect(within(screen.getByRole('table')).getByRole('rowheader', { name: 'Lose streak max ↓' })).toBeInTheDocument();
   // The rank and the pushups have their own pages: the table keeps to the matches.
   expect(within(screen.getByRole('table')).queryByRole('columnheader', { name: 'Le rang et le club' })).toBeNull();
 });

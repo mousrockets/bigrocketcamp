@@ -54,7 +54,6 @@ import {
   type Stat,
   type StatFormat,
   seasonsPlayed,
-  type TableMode,
   type TableStat,
   tableSections,
   tableStats,
@@ -77,11 +76,6 @@ const accounts = [
   { value: 'solo', label: 'Compte solo' },
   { value: 'duo', label: 'Compte duo' },
 ] as const satisfies readonly { value: CareerAccount; label: string }[];
-
-const tableModes = [
-  { value: 'perMatch', label: 'Par match' },
-  { value: 'total', label: 'Total' },
-] as const satisfies readonly { value: TableMode; label: string }[];
 
 /** How the empty page names the matches of each mode. */
 const modeWords: Record<Scope, string> = {
@@ -117,8 +111,6 @@ export function StatsPage() {
   // The club plays 2v2 first: it opens there.
   const [scope, setScope] = useState<Scope>('doubles');
   const [chosenAccount, setAccount] = useState<CareerAccount>('all');
-  // Per match first: the players did not all play as many matches.
-  const [tableMode, setTableMode] = useState<TableMode>('perMatch');
   const current = seasonAt(new Date().toISOString());
   // The ratings come apart from the board: until they arrive, the peaks wait and the rest shows.
   const stats = useQuery(seasonMmrQuery).data;
@@ -194,15 +186,7 @@ export function StatsPage() {
               <PrizeShelf players={players} />
             </Section>
             <Section kicker="Tout le détail" title="Le tableau">
-              <span className="w-full max-w-[260px]">
-                <SegmentedControl
-                  label="Chiffres du tableau"
-                  options={tableModes}
-                  value={tableMode}
-                  onChange={setTableMode}
-                />
-              </span>
-              <StatsTable stats={tableStats(scope, tableMode, players, stats?.statfeedLabels)} players={players} />
+              <StatsTable stats={tableStats(scope, players, stats?.statfeedLabels)} players={players} />
             </Section>
           </>
         )}
@@ -656,7 +640,7 @@ function PrizeShelf({ players }: { players: ComparedPlayer[] }) {
  * wrap, so that the players keep the room; a line marks its edge.
  */
 const labelColumn =
-  'sticky left-0 z-1 h-auto w-[8.75rem] min-w-[8.75rem] max-w-[8.75rem] whitespace-normal bg-card py-2.5 pl-4 font-normal text-[13px] [line-height:1.25] shadow-[inset_-1px_0_0_var(--line)] lg:w-auto lg:min-w-0 lg:max-w-none lg:whitespace-nowrap lg:pl-5 lg:text-[14px] lg:shadow-none';
+  'sticky left-0 z-1 h-auto align-top w-[8.75rem] min-w-[8.75rem] max-w-[8.75rem] whitespace-normal bg-card py-2.5 pl-4 font-normal text-[13px] [line-height:1.25] shadow-[inset_-1px_0_0_var(--line)] lg:w-auto lg:min-w-0 lg:max-w-none lg:whitespace-nowrap lg:pl-5 lg:text-[14px] lg:shadow-none';
 
 /**
  * Every stat, part by part, one column per player, the member's tinted, the best figure of each line lit. Each part
@@ -720,16 +704,29 @@ function StatsTable({ stats, players }: { stats: TableStat[]; players: ComparedP
                     </TableHead>
                     {players.map((player) => {
                       const value = stat.value(player);
+                      const count = value === null ? null : (stat.total?.(player) ?? null);
                       return (
                         <TableCell
                           key={player.name}
                           className={cn(
-                            'num text-right text-[15px] last:pr-4 lg:last:pr-5',
+                            'py-2.5 text-right align-top last:pr-4 lg:last:pr-5',
                             player.me && 'bg-white/6',
-                            value === null ? 'text-t3' : value === best ? 'text-win' : 'text-t1',
                           )}
                         >
-                          {formatted(value, stat.format)}
+                          <b
+                            className={cn(
+                              'num block text-[15px] [line-height:1.1]',
+                              value === null ? 'text-t3' : value === best ? 'text-win' : 'text-t1',
+                            )}
+                          >
+                            {formatted(value, stat.format)}
+                          </b>
+                          {count !== null && (
+                            <span className="mt-1 block text-[11px] text-t3 tabular-nums [line-height:1.1]">
+                              {formatNumber(count)}
+                              {stat.of && ` sur ${formatNumber(stat.of(player))}`}
+                            </span>
+                          )}
                         </TableCell>
                       );
                     })}
@@ -741,7 +738,8 @@ function StatsTable({ stats, players }: { stats: TableStat[]; players: ComparedP
         </Table>
       </Card>
       <p className="m-0 -mt-2 px-1 text-[12px] text-t3 [line-height:1.45]">
-        <span className="text-win">En vert</span>, le meilleur de chaque ligne ; ↓ : le plus bas est le meilleur.
+        <span className="text-win">En vert</span>, le meilleur de chaque ligne ; en petit, le total ; ↓ : le plus bas
+        est le meilleur.
       </p>
     </>
   );
