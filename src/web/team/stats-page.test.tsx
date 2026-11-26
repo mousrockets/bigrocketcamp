@@ -137,6 +137,28 @@ test('places each player’s style on two axes, against the club, with no winner
   ).toEqual(['aliceTOI–', 'bob–']);
 });
 
+test('names the player of a dot, with their figure, on a tap or a hover', async () => {
+  const line = (name: string, goals: number, saves: number) =>
+    aResult({
+      match_guid: 'styled',
+      name,
+      day: '2026-11-02',
+      received: '2026-11-02T20:00:00Z',
+      goals,
+      saves,
+      playlist: 11,
+    });
+  renderInApp(<StatsPage />, {
+    board: boardWith({ results: [line('alice', 2, 1), line('bob', 1, 2)] }),
+    path: '/stats',
+  });
+  const attack = await screen.findByRole('region', { name: 'Buts par arrêt' });
+  // Both dots share a colour when both players share a rank: the bubble tells them apart.
+  await userEvent.click(within(attack).getByRole('button', { name: 'bob, 0,5' }));
+  const bubble = (await screen.findAllByText('bob')).find((element) => element.closest('[data-slot=popover-content]'));
+  expect(bubble?.closest('[data-slot=popover-content]')).toHaveTextContent(/^bob0,5$/);
+});
+
 test('shows a past season from its address, and every match from the season list', async () => {
   renderInApp(<StatsPage />, { board, path: '/stats?saison=23' });
   expect(await screen.findByRole('combobox', { name: 'Saison' })).toHaveTextContent('Saison 23');
