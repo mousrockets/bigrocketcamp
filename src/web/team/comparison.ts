@@ -107,7 +107,7 @@ export function comparedPlayers(
 
 /**
  * How a stat is read: a share of the matches, an average per match, a plain count, MMR (signed), a ball speed (in
- * Unreal units per second, shown in km/h), a distance (in Unreal units, shown in metres), or seconds.
+ * km/h), a distance (in Unreal units, shown in metres), or seconds.
  */
 export type StatFormat = 'percent' | 'perMatch' | 'count' | 'mmr' | 'speed' | 'distance' | 'seconds';
 
@@ -190,6 +190,7 @@ export const prizes: Prize[] = [
   { ...pushups, prize: 'Les bras d’acier' },
   { label: 'MMR perdus depuis le peak', format: 'count', value: (p) => p.mmr?.fall ?? null, prize: 'La chute' },
   { label: 'Frappe la plus puissante', format: 'speed', value: (p) => p.career.game.hardestHit, prize: 'Le canonnier' },
+  { label: 'But le plus rapide', format: 'speed', value: (p) => p.career.game.fastestGoal, prize: 'Le bolide' },
   { label: 'But le plus lointain', format: 'distance', value: (p) => p.career.game.longestGoal, prize: 'Le sniper' },
   {
     label: 'Précision des tirs',
@@ -218,18 +219,32 @@ export const prizes: Prize[] = [
   },
 ];
 
-/** How the table shows its figures: each match's average, or the totals. */
+/** How the table shows the actions of the game: each match's average, or the totals. */
 export type TableMode = 'perMatch' | 'total';
 
 /**
- * A line of the table. Its total, and what it becomes per match: an action (goals, saves…) is averaged over the
- * matches, an ending (a win, an MVP, a forfeit…) becomes the share of the matches it happened in; a record (a streak,
- * the peak) stays as it is.
+ * The parts of the table, in reading order. Only the actions of the game (goals, saves, touches, the stat feed…)
+ * switch between per match and total: an ending (a forfeit, a late night) reads best as a count, a record as it is.
  */
+export const tableSections = [
+  'Résultats',
+  'Attaque',
+  'Défense',
+  'Dans le jeu',
+  'Le fil du jeu',
+  'Les fins de match',
+  'Les records',
+  'Les passes décisives',
+  'Le rang et le club',
+] as const;
+export type TableSection = (typeof tableSections)[number];
+
+/** A line of the table: its total, and what it becomes per match (an average, or a share of the matches). */
 interface TableRow {
+  section: TableSection;
   label: string;
   total: (player: ComparedPlayer) => number | null;
-  /** How it reads per match; none for a record. */
+  /** How it reads per match; none for a line that stays as it is. */
   perMatch?: 'average' | 'share';
   /** The matches the figure was measured in, when an older collector did not send it. */
   measuredIn?: (player: ComparedPlayer) => number;
@@ -237,60 +252,56 @@ interface TableRow {
   lowerIsBetter?: boolean;
 }
 
+const gameRow = (
+  section: TableSection,
+  label: string,
+  of: (game: Career['game']) => Tally,
+  extra: Partial<TableRow> = {},
+): TableRow => ({
+  section,
+  label,
+  total: (p) => total(of(p.career.game)),
+  perMatch: 'average',
+  measuredIn: (p) => of(p.career.game).matches,
+  ...extra,
+});
+
 const tableRows = (scope: CareerScope): TableRow[] => [
-  { label: 'Matchs', total: (p) => counted(p, p.career.matches) },
-  { label: 'Victoires', total: (p) => counted(p, p.career.wins), perMatch: 'share' },
-  { label: 'Défaites', total: (p) => counted(p, p.career.losses), perMatch: 'share', lowerIsBetter: true },
-  { label: 'Score', total: (p) => counted(p, p.career.score), perMatch: 'average' },
-  { label: 'Buts', total: (p) => counted(p, p.career.goals), perMatch: 'average' },
-  { label: 'Passes D', total: (p) => counted(p, p.career.assists), perMatch: 'average' },
-  { label: 'Arrêts', total: (p) => counted(p, p.career.saves), perMatch: 'average' },
+  { section: 'Résultats', label: 'Matchs', total: (p) => counted(p, p.career.matches) },
+  { section: 'Résultats', label: 'Victoires', total: (p) => counted(p, p.career.wins), perMatch: 'share' },
+  { section: 'Résultats', label: 'Défaites', total: (p) => counted(p, p.career.losses), lowerIsBetter: true },
+  { section: 'Résultats', label: 'MVP', total: (p) => counted(p, p.career.mvps), perMatch: 'share' },
+  { section: 'Résultats', label: 'Win streak max', total: (p) => counted(p, p.career.winStreak) },
   {
-    label: 'Démos',
-    total: (p) => counted(p, p.career.demos),
-    perMatch: 'average',
-    measuredIn: (p) => p.career.measured.demos,
+    section: 'Résultats',
+    label: 'Lose streak max',
+    total: (p) => counted(p, p.career.lossStreak),
+    lowerIsBetter: true,
   },
+  ...(scope === 'tournament'
+    ? [
+        {
+          section: 'Résultats',
+          label: 'Tournois gagnés',
+          total: (p: ComparedPlayer) => counted(p, p.career.tournamentsWon),
+        } satisfies TableRow,
+      ]
+    : []),
+  { section: 'Attaque', label: 'Score', total: (p) => counted(p, p.career.score), perMatch: 'average' },
+  { section: 'Attaque', label: 'Buts', total: (p) => counted(p, p.career.goals), perMatch: 'average' },
+  { section: 'Attaque', label: 'Passes D', total: (p) => counted(p, p.career.assists), perMatch: 'average' },
+  gameRow('Attaque', 'Tirs', (game) => game.shots),
+  { section: 'Attaque', label: 'Précision des tirs', total: accuracy, format: 'percent' },
   {
+    section: 'Attaque',
     label: 'Poteaux',
     total: (p) => counted(p, p.career.crossbarHits),
     perMatch: 'average',
     measuredIn: (p) => p.career.measured.crossbarHits,
   },
+  { section: 'Défense', label: 'Arrêts', total: (p) => counted(p, p.career.saves), perMatch: 'average' },
   {
-    label: 'Tirs',
-    total: (p) => total(p.career.game.shots),
-    perMatch: 'average',
-    measuredIn: (p) => p.career.game.shots.matches,
-  },
-  { label: 'Précision des tirs', total: accuracy, format: 'percent' },
-  {
-    label: 'Touches de balle',
-    total: (p) => total(p.career.game.touches),
-    perMatch: 'average',
-    measuredIn: (p) => p.career.game.touches.matches,
-  },
-  {
-    label: 'Contacts carrosserie',
-    total: (p) => total(p.career.game.carTouches),
-    perMatch: 'average',
-    measuredIn: (p) => p.career.game.carTouches.matches,
-  },
-  {
-    label: 'Premiers au coup d’envoi',
-    total: (p) => total(p.career.game.kickoffTouches),
-    perMatch: 'average',
-    measuredIn: (p) => p.career.game.kickoffTouches.matches,
-  },
-  {
-    label: 'Buts contre son camp',
-    total: (p) => total(p.career.game.ownGoals),
-    perMatch: 'average',
-    measuredIn: (p) => p.career.game.ownGoals.matches,
-    lowerIsBetter: true,
-  },
-  { label: 'MVP', total: (p) => counted(p, p.career.mvps), perMatch: 'share' },
-  {
+    section: 'Défense',
     label: 'Buts encaissés',
     total: (p) => counted(p, p.career.conceded),
     perMatch: 'average',
@@ -298,52 +309,118 @@ const tableRows = (scope: CareerScope): TableRow[] => [
     lowerIsBetter: true,
   },
   {
+    section: 'Défense',
     label: 'Clean sheets',
     total: (p) => counted(p, p.career.conceded === null ? null : p.career.cleanSheets),
-    perMatch: 'share',
-    measuredIn: (p) => p.career.measured.conceded,
   },
-  { label: 'Prolongations gagnées', total: (p) => counted(p, p.career.overtimeWins), perMatch: 'share' },
   {
-    label: 'Prolongations perdues',
-    total: (p) => counted(p, p.career.overtimeLosses),
-    perMatch: 'share',
+    section: 'Défense',
+    label: 'Buts contre son camp',
+    total: (p) => total(p.career.game.ownGoals),
     lowerIsBetter: true,
   },
-  { label: 'FF reçus', total: (p) => counted(p, p.career.forfeitsReceived), perMatch: 'share' },
-  { label: 'FF donnés', total: (p) => counted(p, p.career.forfeitsGiven), perMatch: 'share', lowerIsBetter: true },
-  { label: 'Matchs quittés', total: (p) => counted(p, p.career.left), perMatch: 'share', lowerIsBetter: true },
-  { label: 'Matchs après minuit', total: (p) => counted(p, p.career.lateNight), perMatch: 'share' },
-  { label: 'Win streak max', total: (p) => counted(p, p.career.winStreak) },
-  { label: 'Lose streak max', total: (p) => counted(p, p.career.lossStreak), lowerIsBetter: true },
-  ...(scope === 'tournament'
-    ? [{ label: 'Tournois gagnés', total: (p: ComparedPlayer) => counted(p, p.career.tournamentsWon) }]
-    : []),
-  { label: 'Frappe la plus puissante', total: (p) => p.career.game.hardestHit, format: 'speed' },
-  { label: 'But le plus lointain', total: (p) => p.career.game.longestGoal, format: 'distance' },
+  gameRow('Dans le jeu', 'Touches de balle', (game) => game.touches),
+  gameRow('Dans le jeu', 'Contacts carrosserie', (game) => game.carTouches),
+  gameRow('Dans le jeu', 'Premiers au coup d’envoi', (game) => game.kickoffTouches),
   {
+    section: 'Dans le jeu',
+    label: 'Démos',
+    total: (p) => counted(p, p.career.demos),
+    perMatch: 'average',
+    measuredIn: (p) => p.career.measured.demos,
+  },
+  { section: 'Les fins de match', label: 'Prolongations gagnées', total: (p) => counted(p, p.career.overtimeWins) },
+  {
+    section: 'Les fins de match',
+    label: 'Prolongations perdues',
+    total: (p) => counted(p, p.career.overtimeLosses),
+    lowerIsBetter: true,
+  },
+  { section: 'Les fins de match', label: 'FF reçus', total: (p) => counted(p, p.career.forfeitsReceived) },
+  {
+    section: 'Les fins de match',
+    label: 'FF donnés',
+    total: (p) => counted(p, p.career.forfeitsGiven),
+    lowerIsBetter: true,
+  },
+  {
+    section: 'Les fins de match',
+    label: 'Matchs quittés',
+    total: (p) => counted(p, p.career.left),
+    lowerIsBetter: true,
+  },
+  { section: 'Les fins de match', label: 'Matchs après minuit', total: (p) => counted(p, p.career.lateNight) },
+  {
+    section: 'Les records',
+    label: 'Frappe la plus puissante',
+    total: (p) => p.career.game.hardestHit,
+    format: 'speed',
+  },
+  { section: 'Les records', label: 'But le plus rapide', total: (p) => p.career.game.fastestGoal, format: 'speed' },
+  {
+    section: 'Les records',
+    label: 'But le plus lointain',
+    total: (p) => p.career.game.longestGoal,
+    format: 'distance',
+  },
+  {
+    section: 'Les records',
     label: 'But le plus rapide après le coup d’envoi',
     total: (p) => p.career.game.quickestGoal,
     format: 'seconds',
     lowerIsBetter: true,
   },
-  { label: 'Peak 2v2', total: (p) => p.mmr?.peak.mmr ?? null },
-  { label: 'MMR gagné', total: (p) => p.mmr?.gained ?? null, format: 'mmr' },
-  { label: 'Pompes faites', total: (p) => p.pushups },
+  { section: 'Le rang et le club', label: 'Peak 2v2', total: (p) => p.mmr?.peak.mmr ?? null },
+  { section: 'Le rang et le club', label: 'MMR gagné', total: (p) => p.mmr?.gained ?? null, format: 'mmr' },
+  { section: 'Le rang et le club', label: 'Pompes faites', total: (p) => p.pushups },
 ];
 
 /** The game's stat feed events a line of the scoreboard already counts: the table shows them once. */
-const scoreboardEvents = new Set(['Goal', 'Assist', 'Save', 'Shot', 'Demolish']);
+const scoreboardEvents = new Set(['Goal', 'Assist', 'Save', 'Shot', 'Demolish', 'MVP', 'Win']);
 
 /**
- * The lines the players' own data brings: each stat feed event the game sent, got and taken, named with the game's
- * words; and the assists each player gave to each teammate.
+ * The game's events in French, whatever the language the game was played in: the words it sends follow the
+ * player's game. An event not listed keeps the game's own words, or its name.
+ */
+const eventWords: Readonly<Record<string, string>> = {
+  AerialGoal: 'But aérien',
+  Assist: 'Passe décisive',
+  BackwardsGoal: 'But à reculons',
+  BicycleGoal: 'But en retourné',
+  BicycleHit: 'Retourné',
+  Center: 'Centre',
+  Clear: 'Dégagement',
+  Demolish: 'Démolition',
+  EpicSave: 'Arrêt décisif',
+  FirstTouch: 'Premier toucher',
+  Goal: 'But',
+  HatTrick: 'Coup du chapeau',
+  HighFive: 'Check',
+  LongGoal: 'But de loin',
+  LowFive: 'Check en bas',
+  MVP: 'MVP',
+  OwnGoal: 'But contre son camp',
+  Playmaker: 'Meneur de jeu',
+  PoolShot: 'Coup de billard',
+  Save: 'Arrêt',
+  Savior: 'Sauveur',
+  Shot: 'Tir cadré',
+  TurtleGoal: 'But en tortue',
+  Win: 'Victoire',
+};
+
+const eventLabel = (name: string, labels: Readonly<Record<string, string>>) => eventWords[name] ?? labels[name] ?? name;
+
+/**
+ * The lines the players' own data brings: each stat feed event the game sent, got and taken, in French; and the
+ * assists each player gave to each teammate.
  */
 function dataRows(players: readonly ComparedPlayer[], labels: Readonly<Record<string, string>>): TableRow[] {
   const names = (side: 'statfeed' | 'statfeedSecondary') =>
     [...new Set(players.flatMap((player) => [...player.career.game[side].keys()]))].sort();
   const feedRow = (name: string, side: 'statfeed' | 'statfeedSecondary'): TableRow => ({
-    label: side === 'statfeed' ? (labels[name] ?? name) : `Subi : ${labels[name] ?? name}`,
+    section: 'Le fil du jeu',
+    label: side === 'statfeed' ? eventLabel(name, labels) : `Subi : ${eventLabel(name, labels)}`,
     total: (p) => feed(p, name, side),
     perMatch: 'average',
     measuredIn: (p) => p.career.game.statfeedMatches,
@@ -363,33 +440,42 @@ function dataRows(players: readonly ComparedPlayer[], labels: Readonly<Record<st
     ...names('statfeedSecondary').map((name) => feedRow(name, 'statfeedSecondary')),
     ...players.map(
       (scorer): TableRow => ({
-        label: `Passes D pour ${scorer.shown}`,
+        section: 'Les passes décisives',
+        label: `Pour ${scorer.shown}`,
         total: (giver) => assistsTo(giver, scorer),
       }),
     ),
   ];
 }
 
+/** A line of the table as shown: its stat in the mode chosen, its part, and whether the mode changed it. */
+export interface TableStat extends Stat {
+  section: TableSection;
+  /** Whether the line reads per match in that mode: the part says so above it. */
+  perMatch: boolean;
+}
+
 /**
- * Every stat the page has, for the table, in its mode: the matches, the play, the endings, the game's own events, the
- * rating, the club. A line nobody has a figure for (a stat no collector sent yet) is left out.
+ * Every stat the page has, for the table, in its mode, part by part. A line nobody has a figure for (a stat no
+ * collector sent yet) is left out.
  */
 export const tableStats = (
   scope: CareerScope,
   mode: TableMode,
   players: readonly ComparedPlayer[],
   labels: Readonly<Record<string, string>> = {},
-): Stat[] =>
+): TableStat[] =>
   [...tableRows(scope), ...dataRows(players, labels)]
-    .map(({ label, total, perMatch, measuredIn, format = 'count', lowerIsBetter }): Stat => {
-      const base = { label, ...(lowerIsBetter && { lowerIsBetter }) };
-      if (mode === 'total' || !perMatch) return { ...base, format, value: total };
+    .map(({ section, label, total, perMatch, measuredIn, format = 'count', lowerIsBetter }): TableStat => {
+      const base = { section, label, ...(lowerIsBetter && { lowerIsBetter }) };
+      if (mode === 'total' || !perMatch) return { ...base, perMatch: false, format, value: total };
       const of = (player: ComparedPlayer) => measuredIn?.(player) ?? player.career.matches;
       return perMatch === 'average'
-        ? { ...base, format: 'perMatch', value: (p) => average(p, total(p), of(p)) }
-        : { ...base, format: 'percent', value: (p) => share(p, total(p), of(p)) };
+        ? { ...base, perMatch: true, format: 'perMatch', value: (p) => average(p, total(p), of(p)) }
+        : { ...base, perMatch: true, format: 'percent', value: (p) => share(p, total(p), of(p)) };
     })
-    .filter((stat) => players.some((player) => stat.value(player) !== null));
+    .filter((stat) => players.some((player) => stat.value(player) !== null))
+    .sort((a, b) => tableSections.indexOf(a.section) - tableSections.indexOf(b.section));
 
 /** A player's line in a stat: their figure, and its length against the leader's, from 0 to 1. */
 export interface RankedLine {

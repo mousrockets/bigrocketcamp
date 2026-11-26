@@ -144,16 +144,21 @@ test('the table lights the best figure of a line, the lowest when less is better
   expect(tableStats('doubles', 'total', everyone()).map((stat) => stat.label)).not.toContain('Tirs');
 });
 
-test('per match, an action is averaged, an ending becomes a share of the matches, a record stays as it is', () => {
+test('per match, an action is averaged, a win or an MVP becomes a share, an ending or a record stays a count', () => {
   const players = comparedPlayers(board, seasons, roster, 'alice', 'all', 'all', 24);
   const row = (label: string) => players.map((player) => statNamed(label, 'perMatch').value(player));
   expect(row('Buts')).toEqual([1.5, 0, 0]);
-  expect(row('Prolongations gagnées')).toEqual([50, 50, 0]);
-  expect(row('Matchs quittés')).toEqual([0, 0, 100]);
+  // Charlie lost his only match: he left it.
+  expect(row('Victoires')).toEqual([50, 50, 0]);
+  // A late night or a match left reads best as a count.
+  expect(row('Prolongations gagnées')).toEqual([1, 1, 0]);
+  expect(row('Matchs quittés')).toEqual([0, 0, 1]);
   expect(row('Win streak max')).toEqual([1, 1, 0]);
   // Only the matches that came with a final score count: Charlie's has none.
   expect(row('Buts encaissés')).toEqual([1.5, 1.5, null]);
   expect(statNamed('Buts', 'perMatch').format).toBe('perMatch');
+  expect(statNamed('Buts', 'perMatch').section).toBe('Attaque');
+  expect(statNamed('Matchs quittés', 'perMatch').perMatch).toBe(false);
   expect(statNamed('MVP', 'perMatch').format).toBe('percent');
 });
 
@@ -185,7 +190,8 @@ test('adds up the stats of collector 0.7.0, names the game’s events, and lines
           shots: 4,
           touches: 30,
           kickoffTouches: 2,
-          statfeed: { Save: 1, AerialGoal: 1 },
+          statfeed: { Save: 1, AerialGoal: 1, BicycleHit: 2, MVP: 1, Win: 1, Mystery: 1 },
+          fastestGoal: 116.3,
           statfeedSecondary: { Demolish: 2 },
           assistsTo: { 'Epic|bob|0': 1 },
           hardestHit: 2500,
@@ -199,7 +205,8 @@ test('adds up the stats of collector 0.7.0, names the game’s events, and lines
     ],
   });
   const players = comparedPlayers(withGame, [], ['alice', 'bob'], 'alice', 'all', 'all', 24);
-  const table = tableStats('all', 'total', players, { AerialGoal: 'But aérien', Demolish: 'Démolition' });
+  // The game's words follow the language it was played in: English here.
+  const table = tableStats('all', 'total', players, { BicycleHit: 'Bicycle Hit', Mystery: 'Mystery Event' });
   const row = (label: string) => {
     const stat = table.find((candidate) => candidate.label === label);
     if (!stat) throw new Error(`${label} is in the table`);
@@ -210,13 +217,20 @@ test('adds up the stats of collector 0.7.0, names the game’s events, and lines
   expect(row('Précision des tirs')).toEqual([50, 50]);
   expect(row('Premiers au coup d’envoi')).toEqual([2, 1]);
   expect(row('But aérien')).toEqual([1, 0]);
+  expect(row('Retourné')).toEqual([2, 0]);
+  // An event the app does not know keeps the game's words.
+  expect(row('Mystery Event')).toEqual([1, 0]);
+  expect(row('But le plus rapide')).toEqual([116.3, null]);
   expect(row('Subi : Démolition')).toEqual([2, 0]);
-  expect(row('Passes D pour bob')).toEqual([1, null]);
-  expect(row('Passes D pour alice')).toEqual([null, 0]);
+  expect(row('Pour bob')).toEqual([1, null]);
+  expect(row('Pour alice')).toEqual([null, 0]);
   expect(row('Frappe la plus puissante')).toEqual([2500, 3000]);
   expect(row('But le plus rapide après le coup d’envoi')).toEqual([9.5, 12]);
   // A save already has its line, from the scoreboard.
-  expect(table.map((stat) => stat.label)).not.toContain('Save');
+  // Their own line already counts them: the game's MVP and Win are not lined up again.
+  for (const double of ['Arrêt', 'Victoire', 'Save', 'Win'])
+    expect(table.map((stat) => stat.label)).not.toContain(double);
+  expect(table.filter((stat) => stat.label === 'MVP')).toHaveLength(1);
   // Per match, over the matches that came with them.
   const perMatch = tableStats('all', 'perMatch', players).find((stat) => stat.label === 'Touches de balle');
   expect(players.map((player) => perMatch?.value(player))).toEqual([30, 20]);

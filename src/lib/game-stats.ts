@@ -66,13 +66,16 @@ export const gameStats = z.looseObject({
   ownGoals: dropped(count),
   /** Assists they gave, by the scorer's game ID. */
   assistsTo: dropped(z.record(z.string(), count)),
-  /** Their fastest goal's speed, as the game sends it (Unreal units per second, according to its documentation). */
+  /**
+   * Their fastest goal's speed, in km/h: the game's documentation says Unreal units per second, but a real match
+   * (26 November 2026) sent 85 to 116, as the game shows in km/h.
+   */
   fastestGoal: dropped(z.number().positive()),
   /** Their longest goal, in Unreal units (centimetres), on the ground, from their last touch to the goal line. */
   longestGoal: dropped(z.number().positive()),
   /** Their quickest goal after a kickoff, in seconds. */
   quickestGoal: dropped(z.number().positive()),
-  /** Their hardest hit's ball speed, in Unreal units per second. */
+  /** Their hardest hit's ball speed, in km/h, as the fastest goal's (124 to 181 in that match). */
   hardestHit: dropped(z.number().positive()),
   arena: dropped(arenaName),
 });
