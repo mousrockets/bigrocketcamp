@@ -17,7 +17,7 @@ import {
 } from '../src/lib/match-rules';
 import type { MmrEntry } from '../src/lib/mmr-ledger';
 import { midnightParis, monthBounds, monthCloseGraceMs, monthlyRanking, nextMonth } from '../src/lib/monthly-mmr';
-import { currentSeason } from '../src/lib/season';
+import { currentSeason, seasonAt } from '../src/lib/season';
 import { soundIds } from '../src/lib/sounds';
 
 interface SeedMember {
@@ -723,6 +723,11 @@ function rankRows(tables: Tables, now: number): { duo: Table; solo: Table } {
     if (!last || !top) return [];
     const bestMmr = Math.max(best, Number(top.mmr));
     const bestRank = rankOf(bestMmr);
+    // What the rank source kept at the season's first reading: the best before it, whatever the season does since.
+    const seasonStartBest = rows
+      .filter((row) => row.player === player && seasonAt(String(row.recorded_at)) !== currentSeason.number)
+      .reduce((highest, row) => Math.max(highest, Number(row.mmr)), best);
+    const seasonStartRank = rankOf(seasonStartBest);
     return [
       {
         player,
@@ -741,6 +746,10 @@ function rankRows(tables: Tables, now: number): { duo: Table; solo: Table } {
         best_mmr: bestMmr,
         best_tier: bestRank.tier,
         best_division: bestRank.division,
+        season_start_season: currentSeason.number,
+        season_start_best_mmr: seasonStartBest,
+        season_start_best_tier: seasonStartRank.tier,
+        season_start_best_division: seasonStartRank.division,
       },
     ];
   };
