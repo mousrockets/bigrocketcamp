@@ -21,3 +21,10 @@ test('the tab bar links every tab and marks the open one', async () => {
     '/matchs?declarer=true',
   );
 });
+
+test('L’équipe stays lit on the Stats page it opens', async () => {
+  renderInApp(<TabBar />, { path: '/stats' });
+  const navigation = await screen.findByRole('navigation', { name: 'Navigation principale' });
+  expect(within(navigation).getByRole('link', { name: 'L’équipe' })).toHaveAttribute('aria-current', 'page');
+  expect(within(navigation).getByRole('link', { name: 'Matchs' })).not.toHaveAttribute('aria-current');
+});

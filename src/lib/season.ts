@@ -16,6 +16,21 @@ export const currentSeason: Season = {
   officialSource: 'https://www.epicgames.com/help/c-37599050/c-32343914/a15022797?lang=fr',
 };
 
+/**
+ * When each competitive season began, the oldest first: Psyonix launches them at 9 AM Pacific. Checked on 2026-11-26
+ * against the launch announcements (S22: v2.66 patch notes, S23: rocketleague.com news, S24: v2.76 on Steam). A new
+ * season adds its line on launch day.
+ */
+export const seasonStarts: readonly { number: number; start: string }[] = [
+  { number: 22, start: '2026-03-11T16:00:00Z' },
+  { number: 23, start: '2026-06-10T16:00:00Z' },
+  { number: 24, start: '2026-09-23T16:00:00Z' },
+];
+
+/** The season a moment belongs to, or null before the first one listed. */
+export const seasonAt = (instant: string): number | null =>
+  seasonStarts.findLast((season) => Date.parse(season.start) <= Date.parse(instant))?.number ?? null;
+
 export type SeasonTiming =
   | { exact: true; ended: boolean; days: number; hours: number; minutes: number; seconds: number }
   | { exact: false; ended: false; days: number; estimateReached: boolean };

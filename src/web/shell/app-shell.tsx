@@ -23,13 +23,27 @@ import { ChallengesIcon, MatchesIcon, PlusIcon, SettingsIcon, TeamIcon } from '.
 
 // Around every tab: on a phone, a floating glass tab bar with the + to declare beside it; on a computer, a sidebar.
 
-const tabs: { to: '/' | '/defis' | '/matchs' | '/reglages'; label: string; Icon: ComponentType<{ size?: number }> }[] =
-  [
-    { to: '/', label: 'L’équipe', Icon: TeamIcon },
-    { to: '/defis', label: 'Défis', Icon: ChallengesIcon },
-    { to: '/matchs', label: 'Matchs', Icon: MatchesIcon },
-    { to: '/reglages', label: 'Réglages', Icon: SettingsIcon },
-  ];
+const tabs: {
+  to: '/' | '/defis' | '/matchs' | '/reglages';
+  label: string;
+  Icon: ComponentType<{ size?: number }>;
+  /** The pages opened from the tab that live outside its address, which keep it lit. */
+  pages?: '/stats'[];
+}[] = [
+  { to: '/', label: 'L’équipe', Icon: TeamIcon, pages: ['/stats'] },
+  { to: '/defis', label: 'Défis', Icon: ChallengesIcon },
+  { to: '/matchs', label: 'Matchs', Icon: MatchesIcon },
+  { to: '/reglages', label: 'Réglages', Icon: SettingsIcon },
+];
+
+/** Which tab is lit: the one whose address the page is at, or opened from. */
+function useActiveTab(): number {
+  const matchRoute = useMatchRoute();
+  return tabs.findIndex(
+    ({ to, pages = [] }) =>
+      matchRoute({ to, fuzzy: to !== '/' }) || pages.some((page) => matchRoute({ to: page, fuzzy: true })),
+  );
+}
 
 export function AppShell() {
   const { declarer = false, ranks = false, regles = false } = useSearch({ from: '/_shell' });
@@ -54,7 +68,7 @@ export function AppShell() {
 }
 
 function AppSidebar() {
-  const matchRoute = useMatchRoute();
+  const active = useActiveTab();
   return (
     <Sidebar
       collapsible="none"
@@ -67,11 +81,11 @@ function AppSidebar() {
       <SidebarContent>
         <nav aria-label="Navigation principale">
           <SidebarMenu className="flex-row flex-wrap gap-0.5">
-            {tabs.map(({ to, label, Icon }) => (
+            {tabs.map(({ to, label, Icon }, index) => (
               <SidebarMenuItem key={to} className="flex-[1_1_170px]">
                 <SidebarMenuButton
                   size="nav"
-                  isActive={Boolean(matchRoute({ to, fuzzy: to !== '/' }))}
+                  isActive={index === active}
                   render={<Link to={to} activeOptions={{ exact: to === '/' }} />}
                 >
                   <Icon size={18} />
@@ -87,8 +101,7 @@ function AppSidebar() {
 }
 
 export function TabBar() {
-  const matchRoute = useMatchRoute();
-  const active = tabs.findIndex(({ to }) => matchRoute({ to, fuzzy: to !== '/' }));
+  const active = useActiveTab();
   // The pill leaves a boost trail behind it, on the side it comes from.
   const previous = useRef(active);
   const from = previous.current;
@@ -117,11 +130,13 @@ export function TabBar() {
               {from !== active && <b key={active} className="tab-trail" />}
             </i>
           )}
-          {tabs.map(({ to, label, Icon }) => (
+          {tabs.map(({ to, label, Icon }, index) => (
             <Link
               key={to}
               to={to}
               activeOptions={{ exact: to === '/' }}
+              // A page opened from the tab, outside its address, is still the tab's.
+              aria-current={index === active ? 'page' : undefined}
               className={cn(
                 buttonVariants({ variant: 'tab' }),
                 'relative h-full aria-[current=page]:bg-transparent aria-[current=page]:shadow-none',

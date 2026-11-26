@@ -8,9 +8,9 @@ import { SoundCollection } from '../components/sound-badge';
 import { Card } from '../components/ui/card';
 import { type Career, type CareerAccount, type CareerScope, careerOf, soloAccountOf } from './career';
 
-type Scope = Exclude<CareerScope, 'ranked'>;
+export type Scope = Exclude<CareerScope, 'ranked'>;
 
-const scopes = [
+export const scopes = [
   { value: 'all', label: 'Tout' },
   { value: 'duel', label: '1v1' },
   { value: 'doubles', label: '2v2' },
@@ -18,7 +18,7 @@ const scopes = [
   { value: 'tournament', label: 'Tournoi' },
 ] as const satisfies readonly { value: Scope; label: string }[];
 
-const accounts = [
+export const accounts = [
   { value: 'all', label: 'Tout' },
   { value: 'solo', label: 'Solo' },
   { value: 'duo', label: 'Duo' },

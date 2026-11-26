@@ -1,6 +1,8 @@
+import { parisDay } from '../../lib/days';
 import { matchModeOf } from '../../lib/live-stats';
 import { mvpOf } from '../../lib/match-history';
 import { matchIndex } from '../../lib/match-rules';
+import { seasonAt } from '../../lib/season';
 import type { Board } from '../board';
 
 /** What a player did in every match the club received, as the sheet of their card shows it. */
@@ -48,11 +50,25 @@ function onAccount(account: CareerAccount, solo: string | null, playerId: string
   return (solo === playerId.toLowerCase()) === (account === 'solo');
 }
 
+/**
+ * The season a match was played in. A match received on its own day was played just before; one received later (an
+ * import, a source catching up) only tells its day, counted at noon in Paris.
+ */
+export const seasonOf = (row: { day: string; received: string }): number | null =>
+  seasonAt(parisDay(row.received) === row.day ? row.received : `${row.day}T12:00:00+01:00`);
+
 const added = (total: number | null, value: number | null | undefined) =>
   typeof value === 'number' ? (total ?? 0) + value : total;
 
 /** The player's lines of the matches no source disputes, each match once, and the MVPs among them. */
-export function careerOf(board: Board, name: string, scope: CareerScope, account: CareerAccount = 'all'): Career {
+export function careerOf(
+  board: Board,
+  name: string,
+  scope: CareerScope,
+  account: CareerAccount = 'all',
+  /** One competitive season, or every match when null. */
+  season: number | null = null,
+): Career {
   const solo = soloAccountOf(board, name);
   const index = matchIndex(board.results, board.matchRosters ?? []);
   const lines = new Map(
@@ -63,7 +79,8 @@ export function careerOf(board: Board, name: string, scope: CareerScope, account
           row.kind === 'match' &&
           !row.review_required &&
           inScope(scope, row.playlist) &&
-          onAccount(account, solo, row.player_id),
+          onAccount(account, solo, row.player_id) &&
+          (season === null || seasonOf(row) === season),
       )
       .map((row) => [row.match_guid, row]),
   );
