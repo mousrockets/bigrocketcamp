@@ -1,7 +1,9 @@
 import type { SeasonMmr, SeasonPeak } from '../../lib/contract';
 import { pushupCredit } from '../../lib/domain';
+import { currentSeason } from '../../lib/season';
 import type { Board } from '../board';
 import { type Career, type CareerAccount, type CareerScope, careerOf, seasonOf, type Tally } from './career';
+import { ratingOnLadder } from './ladder';
 
 // The Stats page: each player over one season (or every match), then, stat by stat, who leads.
 
@@ -41,40 +43,60 @@ export interface ComparedPlayer {
   pushups: number;
   /** Their game IDs, in lower case, as their matches show them: whom an assist went to. */
   ids: Set<string>;
-  /** How their solo peak of the season stands against their solo peak all time; null for every season, or none read. */
-  peakGap: PeakGap | null;
+  /** How each account's peak of the season stands against its peak all time before it; null when unknown. */
+  peakGaps: Record<PeakAccount, PeakGap | null>;
   /** Their solo account's pseudo, where only that account shows; their duo pseudo while the rank source found none. */
   soloShown: string;
 }
 
+/** The account a podium of peaks compares: each player's solo one, or the duo one the club plays on. */
+export type PeakAccount = 'solo' | 'duo';
+
 /**
- * A player's solo peak of a season against their solo peak all time: 0 when the season reached it, below 0 by how far
- * it stayed from it. Levels differ, so the club compares these gaps, not the peaks.
+ * A player's peak of a season against their peak all time before it: above 0, they beat it by that much; below 0,
+ * how far they stayed from it. Levels differ, so the club compares these gaps, not the peaks.
  */
 export interface PeakGap {
-  /** The season's peak, with the rank it came with (« Champion III · Division II ») and its tier for the icon. */
+  /** The season's peak, with the rank it came with and its tier, for the icon. */
   peak: number;
-  label: string;
   tier: number | null;
-  /** The account's best rating ever: the one the rank source keeps, or the highest season peak read. */
-  allTime: number;
-  /** The season's peak minus the peak all time. */
-  gap: number;
+  /** The peak all time before the season, and the tier of its rank; null while unknown. */
+  allTime: number | null;
+  allTimeTier: number | null;
+  /** The season's peak minus the peak all time before it; null while that one is unknown. */
+  gap: number | null;
 }
 
 /**
- * The solo account's peak of the season against its peak all time, whatever the accounts the page compares: the
- * solo account is each player's own level, the duo one the club's.
+ * The peak all time before a season: for the season under way, the best the account had when it began, kept by the
+ * API; for a past one, the highest peak of the seasons before it that the app read.
  */
-function peakGapOf(board: Board, seasonMmr: readonly SeasonMmr[], name: string, season: number | null): PeakGap | null {
+function peakGapOf(
+  board: Board,
+  seasonMmr: readonly SeasonMmr[],
+  name: string,
+  kind: PeakAccount,
+  season: number | null,
+): PeakGap | null {
   if (season === null) return null;
-  const own = seasonMmr.filter((line) => line.player === name && line.account === 'solo');
+  const own = seasonMmr.filter((line) => line.player === name && line.account === kind);
   const line = own.find((candidate) => candidate.season === season);
   if (!line) return null;
-  const best = board.doublesRanks?.find((rank) => rank.player === name)?.solo?.best ?? 0;
-  const allTime = Math.max(best, ...own.map((other) => other.peak.mmr));
+  const ranks = board.doublesRanks?.find((rank) => rank.player === name);
+  const kept = kind === 'duo' ? ranks?.seasonStartBest : ranks?.solo?.seasonStartBest;
+  const earlier = own
+    .filter((other) => other.season < season)
+    .reduce<SeasonMmr | null>((best, other) => (!best || other.peak.mmr > best.peak.mmr ? other : best), null);
+  const before = season === currentSeason.number ? (kept ?? null) : (earlier?.peak ?? null);
   const peak = line.peak.mmr;
-  return { peak, label: line.peak.label, tier: line.peak.tier, allTime, gap: peak - allTime };
+  return {
+    peak,
+    tier: line.peak.tier,
+    allTime: before?.mmr ?? null,
+    // A best set by hand has no rank of its own: the ladder gives the one it reaches.
+    allTimeTier: before ? (before.tier ?? ratingOnLadder(before.mmr).tier) : null,
+    gap: before ? peak - before.mmr : null,
+  };
 }
 
 function periodMmr(
@@ -134,7 +156,10 @@ export function comparedPlayers(
       mmr: periodMmr(seasonMmr, name, account, season),
       pushups: pushupsOf(board, name, season),
       ids: new Set(board.results.filter((row) => row.name === name).map((row) => row.player_id.toLowerCase())),
-      peakGap: peakGapOf(board, seasonMmr, name, season),
+      peakGaps: {
+        solo: peakGapOf(board, seasonMmr, name, 'solo', season),
+        duo: peakGapOf(board, seasonMmr, name, 'duo', season),
+      },
       soloShown: ranks?.solo?.pseudo || name,
     };
   });

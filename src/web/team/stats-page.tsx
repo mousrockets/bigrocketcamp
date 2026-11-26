@@ -41,6 +41,7 @@ import {
   type ComparedPlayer,
   comparedPlayers,
   keyStats,
+  type PeakAccount,
   type PeakGap,
   type Prize,
   prizes,
@@ -218,12 +219,18 @@ function PlayerName({ player, className }: { player: ComparedPlayer; className?:
   );
 }
 
-/** The gap between the season's peak and the peak all time, which ranks the players. */
-const gapStat: Stat = {
+/** The accounts a podium of peaks can compare: the solo one, each player's own level, first. */
+const peakAccounts = [
+  { value: 'solo', label: 'Solo' },
+  { value: 'duo', label: 'Duo' },
+] as const satisfies readonly { value: PeakAccount; label: string }[];
+
+/** The gap between the season's peak and the peak all time before it, on an account: what ranks the players. */
+const gapStatOf = (kind: PeakAccount): Stat => ({
   label: 'Écart au peak all time',
   format: 'mmr',
-  value: (player) => player.peakGap?.gap ?? null,
-};
+  value: (player) => player.peakGaps[kind]?.gap ?? null,
+});
 
 /** The podium's steps: the first in the middle and highest, the second on the left, the third on the right. */
 const podiumSteps = {
@@ -233,23 +240,39 @@ const podiumSteps = {
 } as const;
 
 /**
- * « Au plus près de son peak all time »: the podium of the solo accounts whose peak of the season came closest to
- * their peak all time. Each step is a player card: the gap reads first, then the player under their rank, then the
- * two peaks it comes from. Levels differ: the club compares the gaps, not the peaks. Whoever is not on it follows.
+ * « Au plus près de son peak all time »: the podium of the accounts whose peak of the season came closest to their
+ * peak all time before it, or beat it by the most; the solo accounts first, each player's own level, the duo ones a
+ * tap away. Each step is a player card: the gap reads first, then the player under their rank, then the season's peak
+ * over the peak all time it is measured against. Levels differ: the club compares the gaps, not the peaks.
  */
 function SeasonPeaks({ players, season }: { players: ComparedPlayer[]; season: number }) {
-  const { lines } = ranked(gapStat, players);
-  const climbers = lines.filter((line) => line.player.peakGap);
-  const unread = lines.filter((line) => !line.player.peakGap).map((line) => line.player.soloShown);
+  const [kind, setKind] = useState<PeakAccount>('solo');
+  const { lines } = ranked(gapStatOf(kind), players);
+  const climbers = lines.filter((line) => line.player.peakGaps[kind]?.gap != null);
+  const nameOf = (player: ComparedPlayer) => (kind === 'solo' ? player.soloShown : player.name);
+  const unknown = lines.filter((line) => line.player.peakGaps[kind]?.gap == null).map((line) => nameOf(line.player));
   return (
     <section aria-label="Au plus près de son peak all time" className="flex flex-col gap-4">
-      <span className="flex flex-col gap-1.5">
-        <span className="label-caps">Saison {season} · peak solo</span>
-        <h2 className="title-display text-[24px] [line-height:normal]">Au plus près de son peak all time</h2>
+      <span className="flex flex-wrap items-end justify-between gap-3">
+        <span className="flex flex-col gap-1.5">
+          <span className="label-caps">
+            Saison {season} · peak {kind}
+          </span>
+          <h2 className="title-display text-[24px] [line-height:normal]">Au plus près de son peak all time</h2>
+        </span>
+        <span className="w-[160px]">
+          <SegmentedControl label="Compte du podium" options={peakAccounts} value={kind} onChange={setKind} />
+        </span>
       </span>
       <ol className="m-0 grid list-none grid-cols-3 items-end gap-2 p-0 lg:mx-auto lg:w-full lg:max-w-[760px] lg:gap-5">
         {climbers.slice(0, 3).map((line, index) => (
-          <PodiumCard key={line.player.name} line={line} step={(index + 1) as 1 | 2 | 3} />
+          <PodiumCard
+            key={line.player.name}
+            line={line}
+            gap={line.player.peakGaps[kind] as PeakGap}
+            name={nameOf(line.player)}
+            step={(index + 1) as 1 | 2 | 3}
+          />
         ))}
       </ol>
       {climbers.length > 3 && (
@@ -260,28 +283,43 @@ function SeasonPeaks({ players, season }: { players: ComparedPlayer[]; season: n
               className={cn('flex items-center gap-3 py-1.5 text-[14px] text-t2', player.me && mineClass)}
             >
               <Place place={place} mine={player.me} />
-              <PlayerName player={{ ...player, shown: player.soloShown }} className="flex-1" />
-              <b className="num text-[17px] text-t1">{formatted(player.peakGap?.gap ?? null, 'mmr')}</b>
+              <PlayerName player={{ ...player, shown: nameOf(player) }} className="flex-1" />
+              <b className="num text-[17px] text-t1">{formatted(player.peakGaps[kind]?.gap ?? null, 'mmr')}</b>
             </li>
           ))}
         </ol>
       )}
-      {unread.length > 0 && (
+      {unknown.length > 0 && (
         <p className="m-0 text-[12px] text-t3 [line-height:1.45]">
-          Compte solo pas encore relevé cette saison : {new Intl.ListFormat('fr').format(unread)}.
+          Pas de peak {kind} relevé cette saison, ou pas de peak all time d’avant connu :{' '}
+          {new Intl.ListFormat('fr').format(unknown)}.
         </p>
       )}
     </section>
   );
 }
 
+/** A peak in small: its capitals, then the figure, in the colour of the rank it reaches when it has one. */
+function PeakFigure({ label, value, tier }: { label: string; value: number; tier?: number | null }) {
+  return (
+    <span className="flex items-baseline justify-between gap-2">
+      <span className="text-t3">{label}</span>
+      <span
+        className="num text-[14px] lg:text-[15px]"
+        style={tier === undefined ? undefined : { color: `rgb(${rankLightRgb(tier)})` }}
+      >
+        {formatNumber(value)}
+      </span>
+    </span>
+  );
+}
+
 /** One step of the podium: a player card in their rank's colour, standing on its pedestal. */
-function PodiumCard({ line, step }: { line: RankedLine; step: 1 | 2 | 3 }) {
+function PodiumCard({ line, gap, name, step }: { line: RankedLine; gap: PeakGap; name: string; step: 1 | 2 | 3 }) {
   const { player, place } = line;
-  const gap = player.peakGap as PeakGap;
   const rgb = rankRgb(gap.tier);
   const first = step === 1;
-  const reached = gap.gap === 0;
+  const atLeast = (gap.gap ?? -1) >= 0;
   return (
     <li className={cn('row-start-1 flex min-w-0 animate-rise flex-col gap-2', podiumSteps[step].column)}>
       <div
@@ -305,7 +343,7 @@ function PodiumCard({ line, step }: { line: RankedLine; step: 1 | 2 | 3 }) {
             className={cn(
               'num [line-height:.85]',
               first ? 'text-[38px] lg:text-[52px]' : 'text-[30px] lg:text-[42px]',
-              reached ? 'text-win' : 'text-t1',
+              atLeast ? 'text-win' : 'text-t1',
             )}
           >
             {formatted(gap.gap, 'mmr')}
@@ -320,22 +358,15 @@ function PodiumCard({ line, step }: { line: RankedLine; step: 1 | 2 | 3 }) {
             first ? 'size-14 lg:size-20' : 'size-11 lg:size-16',
           )}
         />
-        <span className="relative z-4 flex min-w-0 max-w-full flex-col items-center gap-1">
+        <span className="relative z-4 flex w-full min-w-0 flex-col items-center gap-2">
           <span className="flex min-w-0 max-w-full flex-col items-center gap-1 lg:flex-row">
-            <b className="line-clamp-2 break-all font-semibold text-[13px] [line-height:1.2] lg:text-[15px]">
-              {player.soloShown}
-            </b>
+            <b className="line-clamp-2 break-all font-semibold text-[13px] [line-height:1.2] lg:text-[15px]">{name}</b>
             {player.me && <Badge variant="tag">TOI</Badge>}
           </span>
-          <span className="flex w-full flex-col gap-0.5 text-[11px] lg:flex-row lg:justify-center lg:gap-3 lg:text-[12px]">
-            <span className="flex justify-between gap-1.5 lg:justify-center">
-              <span className="text-t3">Saison</span>
-              <span className={cn('num', reached ? 'text-t1' : 'text-t2')}>{formatNumber(gap.peak)}</span>
-            </span>
-            <span className="flex justify-between gap-1.5 lg:justify-center">
-              <span className="text-t3">All time</span>
-              <span className="num text-t2">{formatNumber(gap.allTime)}</span>
-            </span>
+          {/* The season's peak over the peak all time before it: the gap reads from one to the other. */}
+          <span className="flex w-full max-w-[150px] flex-col gap-1 text-[11px] lg:text-[12px]">
+            <PeakFigure label="Saison" value={gap.peak} />
+            {gap.allTime !== null && <PeakFigure label="All time" value={gap.allTime} tier={gap.allTimeTier} />}
           </span>
         </span>
       </div>

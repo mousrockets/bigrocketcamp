@@ -238,23 +238,37 @@ test('adds up the stats of collector 0.7.0, names the game’s events, and lines
   expect(players.map((player) => punchingBall?.value(player))).toEqual([2, 0]);
 });
 
-test('measures each solo peak of the season against the solo peak all time, whatever the accounts compared', () => {
+test('measures each account’s peak of the season against its peak all time before the season', () => {
   const ranked = boardWith({
     results: [],
     doublesRanks: [
-      aRank({ player: 'alice', best: 2000, solo: aSoloRank({ pseudo: 'alice-en-solo', best: 1100 }) }),
-      aRank({ player: 'bob', best: 1400 }),
+      aRank({
+        player: 'alice',
+        seasonStartBest: { mmr: 1200, label: 'Champion II · Division III', tier: 17 },
+        // Her solo best, set by hand: no rank of its own.
+        solo: aSoloRank({ pseudo: 'alice-en-solo', seasonStartBest: { mmr: 1100, label: '', tier: null } }),
+      }),
+      aRank({ player: 'bob' }),
     ],
   });
-  const gaps = (account: 'all' | 'duo' | 'solo', season: number | null) =>
-    comparedPlayers(ranked, seasons, ['alice', 'bob'], 'alice', 'all', account, season).map(
-      (player) => player.peakGap && [player.soloShown, player.peakGap.peak, player.peakGap.allTime, player.peakGap.gap],
-    );
-  // Alice's solo account peaked at 1 040 this season, 60 under its 1 100; her duo, not counted. Bob has no solo.
-  expect(gaps('duo', 24)).toEqual([['alice-en-solo', 1040, 1100, -60], null]);
-  expect(gaps('all', 24)).toEqual(gaps('solo', 24));
-  expect(gaps('all', null)).toEqual([null, null]);
-  // No best kept by the rank source: the highest solo season peak read stands for it.
-  const unread = boardWith({ results: [], doublesRanks: [] });
-  expect(comparedPlayers(unread, seasons, ['alice'], 'alice', 'all', 'all', 24)[0]?.peakGap?.allTime).toBe(1040);
+  const gaps = (kind: 'solo' | 'duo', season: number | null) =>
+    comparedPlayers(ranked, seasons, ['alice', 'bob'], 'alice', 'all', 'all', season).map((player) => {
+      const gap = player.peakGaps[kind];
+      return gap && [gap.peak, gap.allTime, gap.gap];
+    });
+  // Alice's duo beat its best before the season (1 200) by 50; her solo stayed 60 under its (1 100).
+  expect(gaps('duo', 24)).toEqual([
+    [1250, 1200, 50],
+    // Bob's duo was read this season, but its best before it is unknown.
+    [1330, null, null],
+  ]);
+  expect(gaps('solo', 24)).toEqual([[1040, 1100, -60], null]);
+  // A past season measures against the seasons before it the app read: none before season 23.
+  expect(gaps('duo', 23)).toEqual([[1120, null, null], null]);
+  expect(gaps('duo', null)).toEqual([null, null]);
+  // A best set by hand takes the colour of the rank it reaches on the ladder.
+  const [alice] = comparedPlayers(ranked, seasons, ['alice'], 'alice', 'all', 'all', 24);
+  expect(alice?.peakGaps.solo?.allTimeTier).toBeGreaterThan(0);
+  expect(alice?.peakGaps.duo?.allTimeTier).toBe(17);
+  expect(alice?.soloShown).toBe('alice-en-solo');
 });

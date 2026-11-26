@@ -44,8 +44,15 @@ const board = boardWith({
   ],
   // Their solo accounts' best ever: Bob's set before this season, Alice's this season.
   doublesRanks: [
-    aRank({ player: 'bob', solo: aSoloRank({ pseudo: 'bob-solo', best: 1400 }) }),
-    aRank({ player: 'alice', solo: aSoloRank({ pseudo: 'alice-solo', best: 1210 }) }),
+    aRank({
+      player: 'bob',
+      seasonStartBest: { mmr: 1300, label: 'Champion III · Division I', tier: 18 },
+      solo: aSoloRank({ pseudo: 'bob-solo', seasonStartBest: { mmr: 1400, label: '', tier: null } }),
+    }),
+    aRank({
+      player: 'alice',
+      solo: aSoloRank({ pseudo: 'alice-solo', seasonStartBest: { mmr: 1150, label: '', tier: null } }),
+    }),
   ],
 });
 
@@ -114,18 +121,24 @@ test('shows a past season from its address, and every match from the season list
   expect(within(wins).getAllByText('67 %')).toHaveLength(2);
 });
 
-test('stands the solo accounts that came closest to their peak all time on a podium', async () => {
+test('stands the solo accounts closest to their peak all time before the season on a podium, the duo ones a tap away', async () => {
   renderInApp(<StatsPage />, { board, path: '/stats' });
   const podium = await screen.findByRole('region', { name: 'Au plus près de son peak all time' });
   // The ratings arrive apart from the board.
-  await within(podium).findByText('−60');
-  // Alice reached her solo peak all time (1 210) this season; Bob stayed 60 under his (1 400).
+  await within(podium).findByText('+60');
+  // Alice's solo beat its best before the season (1 150) by 60; Bob's stayed 60 under his (1 400).
   const [first, second] = within(podium).getAllByRole('listitem');
-  expect(first).toHaveTextContent(/^0écart\s*alice-solo\s*TOI\s*Saison1 210\s*All time1 210/);
-  expect(first).toHaveTextContent(/Place 1$/);
-  expect(within(first as HTMLElement).getByText('0')).toHaveClass('text-win');
+  expect(first).toHaveTextContent(/^\+60écart\s*alice-solo\s*TOI\s*Saison1 210\s*All time1 150/);
+  expect(within(first as HTMLElement).getByText('+60')).toHaveClass('text-win');
   expect(second).toHaveTextContent(/^−60écart\s*bob-solo\s*Saison1 340\s*All time1 400/);
   expect(second).toHaveTextContent(/Place 2$/);
+  // The peak all time takes its rank's colour.
+  expect(within(second as HTMLElement).getByText('1 400')).toHaveAttribute('style', expect.stringContaining('color'));
+
+  await userEvent.click(within(podium).getByRole('button', { name: 'Duo' }));
+  // In duo, only Bob's best before the season is known, and he has no duo peak read this season.
+  expect(within(podium).queryAllByRole('listitem')).toHaveLength(0);
+  expect(podium).toHaveTextContent(/Pas de peak duo relevé cette saison, ou pas de peak all time d’avant connu/);
 });
 
 test('the solo accounts are named by their own pseudo', async () => {
