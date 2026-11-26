@@ -55,6 +55,7 @@ import {
   type Stat,
   type StatFormat,
   type StyleAxis,
+  type StyleLine,
   seasonsPlayed,
   styleAxes,
   styleOf,
@@ -452,22 +453,21 @@ function StatCard({ stat, players }: { stat: Stat; players: ComparedPlayer[] }) 
  */
 function StyleCard({ axis, players }: { axis: StyleAxis; players: ComparedPlayer[] }) {
   const { lines } = styleOf(axis, players);
-  // The member's dot last, so that it shows above the others.
-  const dots = [...lines.filter((line) => !line.player.me), ...lines.filter((line) => line.player.me)];
+  const dots = laned(lines);
   return (
     <Card variant="glass" role="region" aria-label={axis.label} className="gap-5 p-5">
       <span className="label-caps">{axis.label}</span>
       <div className="flex flex-col gap-2.5">
-        <div aria-hidden="true" className="relative h-6">
+        <div aria-hidden="true" className="relative h-9">
           <span className="absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-linear-to-r from-white/5 via-white/12 to-white/5" />
           <span className="absolute top-1/2 left-1/2 h-4 w-0.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/30" />
           {dots.map(
-            ({ player, position }) =>
+            ({ player, position, lane }) =>
               position !== null && (
                 <i
                   key={player.name}
                   className={cn(
-                    'absolute top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full transition-[left] duration-700 ease-(--ease)',
+                    'absolute -translate-x-1/2 -translate-y-1/2 rounded-full transition-[left] duration-700 ease-(--ease)',
                     player.me
                       ? 'size-5 shadow-[0_0_0_2.5px_var(--color-t1),0_0_16px_rgba(var(--dot),.8)]'
                       : 'size-3.5 shadow-[0_0_0_2px_rgba(0,0,0,.55)]',
@@ -475,7 +475,8 @@ function StyleCard({ axis, players }: { axis: StyleAxis; players: ComparedPlayer
                   style={
                     {
                       left: `${position * 100}%`,
-                      background: `rgb(var(--dot))`,
+                      top: `calc(50% + ${lane * 10}px)`,
+                      background: 'rgb(var(--dot))',
                       '--dot': rankRgb(player.tier),
                     } as CSSProperties
                   }
@@ -509,6 +510,22 @@ function StyleCard({ axis, players }: { axis: StyleAxis; players: ComparedPlayer
       </ol>
     </Card>
   );
+}
+
+/**
+ * The dots of an axis, each in a lane so that two close ones both show: on the line, then just above, then just
+ * below. The member's comes last, above the others.
+ */
+function laned(lines: StyleLine[]): (StyleLine & { lane: number })[] {
+  const placed: (StyleLine & { lane: number })[] = [];
+  for (const line of [...lines].sort((a, b) => Number(a.player.me) - Number(b.player.me))) {
+    const near = placed.filter(
+      (other) => line.position !== null && other.position !== null && Math.abs(other.position - line.position) < 0.05,
+    );
+    const lane = [0, -1, 1].find((candidate) => !near.some((other) => other.lane === candidate)) ?? 0;
+    placed.push({ ...line, lane });
+  }
+  return placed;
 }
 
 /** The member's place wears a medal's colour on the podium. */

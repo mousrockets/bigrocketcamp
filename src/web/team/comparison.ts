@@ -241,8 +241,11 @@ export const styleAxes: StyleAxis[] = [
   { label: 'Passes par but', low: 'Finisseur', high: 'Passeur', counts: (p) => [p.career.assists, p.career.goals] },
 ];
 
-/** The club's ratio sits in the middle; this many times more, or less, at each end. */
-const styleSpan = 3;
+/**
+ * The club's ratio sits in the middle; this many times more, or less, at each end: players of a club lean apart by
+ * a tenth or a fifth, which must show; further leans sit at the ends.
+ */
+export const styleSpan = 1.5;
 
 export interface StyleLine {
   player: ComparedPlayer;
