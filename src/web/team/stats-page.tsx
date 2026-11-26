@@ -1,6 +1,25 @@
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { cn } from 'cn';
+import {
+  Bomb,
+  Crosshair,
+  DoorOpen,
+  Dumbbell,
+  Eye,
+  Flag,
+  Ghost,
+  Goal,
+  type LucideIcon,
+  Moon,
+  Rocket,
+  ShieldCheck,
+  Target,
+  Timer,
+  TrendingDown,
+  Trophy,
+  Zap,
+} from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 import { formatNumber } from '../../lib/format';
 import { seasonAt } from '../../lib/season';
@@ -30,6 +49,8 @@ import {
   type StatFormat,
   seasonsPlayed,
   type TableMode,
+  type TableStat,
+  tableSections,
   tableStats,
 } from './comparison';
 import { splitRankLabel } from './stats';
@@ -152,14 +173,7 @@ export function StatsPage() {
               </div>
             </Section>
             <Section kicker="Les prix" title="Et le trophée revient à…">
-              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-                {prizes
-                  // A prize nobody can win yet (a stat no collector sent) waits.
-                  .filter((prize) => players.some((player) => prize.value(player) !== null))
-                  .map((prize) => (
-                    <StatCard key={prize.prize} stat={prize} players={players} />
-                  ))}
-              </div>
+              <PrizeShelf players={players} />
             </Section>
             <Section kicker="Tout le détail" title="Le tableau">
               <span className="w-full max-w-[260px]">
@@ -363,11 +377,113 @@ function Bar({ line, format }: { line: RankedLine; format: StatFormat }) {
   );
 }
 
-/** Every stat, one line each, one column per player, the member's tinted, the best figure of each line lit. */
-function StatsTable({ stats, players }: { stats: Stat[]; players: ComparedPlayer[] }) {
-  const lowest = new Intl.ListFormat('fr', { type: 'conjunction' }).format(
-    stats.filter((stat) => stat.lowerIsBetter).map((stat) => stat.label.toLowerCase()),
+/** Each prize's picture, drawn from its stat. */
+const prizeIcons: Record<string, LucideIcon> = {
+  'Le démolisseur': Bomb,
+  'L’abonné aux montants': Goal,
+  'Le roi des prolongations': Timer,
+  'Clean sheet': ShieldCheck,
+  'Le noctambule': Moon,
+  'Rage quit': DoorOpen,
+  'Les bras d’acier': Dumbbell,
+  'La chute': TrendingDown,
+  'Le canonnier': Zap,
+  'Le bolide': Rocket,
+  'Le sniper': Crosshair,
+  'L’œil de lynx': Eye,
+  'Le roi du kickoff': Flag,
+  'Le punching-ball': Target,
+  'Le traître': Ghost,
+};
+
+/**
+ * The prizes as a trophy shelf: small tiles, the member's own trophies first and in gold, each one saying who wins it
+ * and, when it is not them, where the member stands. A prize nobody can win yet (a stat no collector sent) waits.
+ */
+function PrizeShelf({ players }: { players: ComparedPlayer[] }) {
+  const shelf = prizes
+    .filter((prize) => players.some((player) => prize.value(player) !== null))
+    .map((prize) => ({ prize, ...ranked(prize, players) }))
+    .map((entry) => ({ ...entry, won: entry.leaders.some((line) => line.player.me) }))
+    .sort((a, b) => Number(b.won) - Number(a.won));
+  const won = shelf.filter((entry) => entry.won).length;
+  return (
+    <div className="flex flex-col gap-4">
+      <p className="m-0 -mt-2 text-[15px] text-t2">
+        {won === 0
+          ? 'Aucun pour toi cette fois. La revanche est à un match.'
+          : `Tu en remportes ${formatNumber(won)} sur ${formatNumber(shelf.length)}.`}
+      </p>
+      <ul className="m-0 grid list-none grid-cols-2 gap-3 p-0 md:grid-cols-3 lg:grid-cols-5">
+        {shelf.map(({ prize, lines, leaders, won: mine }) => {
+          const Icon = prizeIcons[prize.prize] ?? Trophy;
+          const [leader] = leaders;
+          const me = lines.find((line) => line.player.me);
+          return (
+            <li
+              key={prize.prize}
+              className={cn(
+                'relative flex min-w-0 flex-col gap-3 overflow-hidden rounded-[20px] p-4',
+                mine
+                  ? 'bg-[radial-gradient(120%_90%_at_0%_0%,color-mix(in_oklab,var(--medal-1)_16%,transparent),transparent_65%),rgba(255,255,255,.05)] shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--medal-1)_45%,transparent)]'
+                  : 'bg-white/4 shadow-[inset_0_0_0_.5px_rgba(255,255,255,.08)]',
+              )}
+            >
+              <span
+                aria-hidden="true"
+                className={cn(
+                  'flex size-10 items-center justify-center rounded-full',
+                  mine ? 'bg-medal-1/15 text-medal-1' : 'bg-white/7 text-t2',
+                )}
+              >
+                <Icon size={20} />
+              </span>
+              <span className="flex min-w-0 flex-col gap-0.5">
+                <h3 className="title-display text-[18px] [line-height:1.1]">{prize.prize}</h3>
+                <span className="text-[12px] text-t3 [line-height:1.3]">{prize.label}</span>
+              </span>
+              <span className="mt-auto flex min-w-0 flex-col gap-1">
+                <span className="flex min-w-0 items-baseline justify-between gap-2">
+                  <span className={cn('min-w-0 truncate font-semibold text-[14px]', mine ? 'text-t1' : 'text-t2')}>
+                    {leaders.length > 1
+                      ? leaders.map((line) => line.player.shown).join(' & ')
+                      : (leader?.player.shown ?? 'Personne')}
+                  </span>
+                  <b className={cn('num shrink-0 text-[17px]', mine ? 'text-medal-1' : 'text-t1')}>
+                    {formatted(leader?.value ?? null, prize.format)}
+                  </b>
+                </span>
+                {mine ? (
+                  <Badge variant="me" className="w-fit">
+                    TOI
+                  </Badge>
+                ) : (
+                  // Nobody wins the prize (nobody scored above 0): no place to give.
+                  me &&
+                  leader && (
+                    <span className="text-[12px] text-t3">
+                      Toi : {me.place === 1 ? '1er' : me.place ? `${me.place}e` : '–'} ·{' '}
+                      {formatted(me.value, prize.format)}
+                    </span>
+                  )
+                )}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
+}
+
+/**
+ * Every stat, part by part, one column per player, the member's tinted, the best figure of each line lit. Each part
+ * says above it whether its figures read per match.
+ */
+function StatsTable({ stats, players }: { stats: TableStat[]; players: ComparedPlayer[] }) {
+  const sections = tableSections
+    .map((section) => ({ section, stats: stats.filter((stat) => stat.section === section) }))
+    .filter(({ stats: lines }) => lines.length > 0);
   return (
     <>
       <Card variant="glass" className="gap-0 py-1">
@@ -387,37 +503,56 @@ function StatsTable({ stats, players }: { stats: Stat[]; players: ComparedPlayer
               ))}
             </TableRow>
           </TableHeader>
-          <TableBody>
-            {stats.map((stat) => {
-              const best = bestOf(stat, players);
-              return (
-                <TableRow key={stat.label} className="border-line hover:bg-white/3">
-                  <TableHead scope="row" className="sticky left-0 z-1 bg-card pl-4 font-normal text-t2 lg:pl-5">
-                    {stat.label}
-                  </TableHead>
-                  {players.map((player) => {
-                    const value = stat.value(player);
-                    return (
-                      <TableCell
-                        key={player.name}
-                        className={cn(
-                          'num text-right text-[15px] last:pr-4 lg:last:pr-5',
-                          player.me && 'bg-white/6',
-                          value === null ? 'text-t3' : value === best ? 'text-win' : 'text-t1',
-                        )}
-                      >
-                        {formatted(value, stat.format)}
-                      </TableCell>
-                    );
-                  })}
-                </TableRow>
-              );
-            })}
-          </TableBody>
+          {sections.map(({ section, stats: lines }) => (
+            <TableBody key={section}>
+              <TableRow className="border-0 hover:bg-transparent">
+                <TableHead
+                  colSpan={players.length + 1}
+                  scope="colgroup"
+                  className="h-auto px-4 pt-6 pb-2 font-normal lg:px-5"
+                >
+                  <span className="label-caps">
+                    {section}
+                    {lines.some((line) => line.perMatch) && <span className="text-t3/70"> · par match</span>}
+                  </span>
+                </TableHead>
+              </TableRow>
+              {lines.map((stat) => {
+                const best = bestOf(stat, players);
+                return (
+                  <TableRow key={stat.label} className="border-line hover:bg-white/3">
+                    <TableHead scope="row" className="sticky left-0 z-1 bg-card pl-4 font-normal text-t2 lg:pl-5">
+                      {stat.label}
+                      {stat.lowerIsBetter && (
+                        <span className="ml-1 text-t3" title="Le plus bas est le meilleur">
+                          ↓
+                        </span>
+                      )}
+                    </TableHead>
+                    {players.map((player) => {
+                      const value = stat.value(player);
+                      return (
+                        <TableCell
+                          key={player.name}
+                          className={cn(
+                            'num text-right text-[15px] last:pr-4 lg:last:pr-5',
+                            player.me && 'bg-white/6',
+                            value === null ? 'text-t3' : value === best ? 'text-win' : 'text-t1',
+                          )}
+                        >
+                          {formatted(value, stat.format)}
+                        </TableCell>
+                      );
+                    })}
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          ))}
         </Table>
       </Card>
       <p className="m-0 -mt-2 px-1 text-[12px] text-t3 [line-height:1.45]">
-        <span className="text-win">En vert</span>, le meilleur de chaque ligne : le plus bas pour {lowest}.
+        <span className="text-win">En vert</span>, le meilleur de chaque ligne ; ↓ : le plus bas est le meilleur.
       </p>
     </>
   );
