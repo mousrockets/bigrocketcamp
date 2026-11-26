@@ -119,10 +119,10 @@ test('leads with who came closest to their peak all time this season', async () 
   // Alice reached her peak all time (1 210) this season; Bob stayed 60 under his (1 400).
   const [first, second] = within(peaks).getAllByRole('listitem');
   expect(first).toHaveTextContent('alice');
-  expect(first).toHaveTextContent('Saison 1 210 · all time 1 210');
+  expect(first).toHaveTextContent(/Saison1 210\s*All time1 210/);
   expect(within(first as HTMLElement).getByText('0')).toHaveClass('text-win');
   expect(second).toHaveTextContent('bob');
-  expect(second).toHaveTextContent('Saison 1 340 · all time 1 400');
+  expect(second).toHaveTextContent(/Saison1 340\s*All time1 400/);
   expect(second).toHaveTextContent('−60');
   expect(peaks).not.toHaveTextContent(/record/i);
 });

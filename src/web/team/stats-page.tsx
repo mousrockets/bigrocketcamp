@@ -53,7 +53,6 @@ import {
   tableSections,
   tableStats,
 } from './comparison';
-import { splitRankLabel } from './stats';
 
 type Scope = Exclude<CareerScope, 'ranked'>;
 
@@ -225,9 +224,20 @@ const gapStat: Stat = {
   value: (player) => player.peakGap?.gap ?? null,
 };
 
+/** A small labelled figure: its small capitals, then the figure. */
+function Figure({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
+  return (
+    <span className="flex flex-col gap-0.5">
+      <span className="label-caps text-[10px]">{label}</span>
+      <span className={cn('num text-[16px] [line-height:1]', strong ? 'text-t1' : 'text-t2')}>{value}</span>
+    </span>
+  );
+}
+
 /**
  * « Au plus près de son peak all time »: each player's peak of the season against their best ever, the one who reached
- * it or came closest first. Levels differ: the club compares these gaps, not the peaks, which stay in small.
+ * it or came closest first. The gap reads first, in big; then the player; then the two peaks it comes from, small.
+ * Levels differ: the club compares the gaps, not the peaks.
  */
 function SeasonPeaks({
   players,
@@ -240,46 +250,43 @@ function SeasonPeaks({
 }) {
   const { lines } = ranked(gapStat, players);
   return (
-    <Card variant="glass" role="region" aria-label="Au plus près de son peak all time" className="gap-5 p-5 lg:p-6">
-      <span className="flex flex-col gap-1">
-        <span className="label-caps">Saison {season} · au plus près de son peak all time</span>
-        <span className="text-[13px] text-t3">L’écart entre le peak 2v2 de la saison et le peak all time.</span>
-      </span>
-      <ol className="m-0 flex list-none flex-col gap-2 p-0 lg:grid lg:grid-cols-[repeat(auto-fit,minmax(260px,1fr))] lg:gap-4">
+    <Card variant="glass" role="region" aria-label="Au plus près de son peak all time" className="gap-4 p-5 lg:p-6">
+      <span className="label-caps">Saison {season} · au plus près de son peak all time</span>
+      <ol className="m-0 flex list-none flex-col gap-2 p-0 lg:grid lg:grid-cols-[repeat(auto-fit,minmax(280px,1fr))] lg:gap-4">
         {lines.map(({ player, place }) => {
           const gap = player.peakGap;
-          const rank = gap ? splitRankLabel(gap.label) : null;
+          const reached = gap?.gap === 0;
           return (
-            <li key={player.name} className={cn('flex min-w-0 items-center gap-3 py-2', player.me && mineClass)}>
+            <li key={player.name} className={cn('flex min-w-0 items-center gap-3 py-2.5', player.me && mineClass)}>
               <Place place={gap ? place : null} mine={player.me} />
               <img
                 src={`/rocket-league/ranks/${gap?.tier ?? 0}.png`}
                 alt=""
-                className="size-11 shrink-0 object-contain lg:size-14"
+                className="size-11 shrink-0 object-contain lg:size-12"
               />
-              <span className="flex min-w-0 flex-1 flex-col gap-1">
+              <span className="flex min-w-0 flex-1 flex-col gap-2">
                 <PlayerName player={player} className="font-semibold text-[15px]" />
-                <span className="truncate text-[13px] text-t3">
-                  {gap
-                    ? [
-                        `Saison ${formatNumber(gap.peak)}`,
-                        `all time ${formatNumber(gap.allTime)}`,
-                        rank?.rank,
-                        showAccount && `compte ${gap.account}`,
-                      ]
-                        .filter(Boolean)
-                        .join(' · ')
-                    : 'Pas encore relevé cette saison'}
-                </span>
-              </span>
-              <b
-                className={cn(
-                  'num shrink-0 text-[32px] [line-height:.85] lg:text-[40px]',
-                  !gap ? 'text-t3' : gap.gap === 0 ? 'text-win' : player.me || place === 1 ? 'text-t1' : 'text-t2',
+                {gap ? (
+                  <span className="flex items-end gap-4">
+                    <Figure label="Saison" value={formatNumber(gap.peak)} strong={reached} />
+                    <Figure label="All time" value={formatNumber(gap.allTime)} />
+                    {showAccount && <span className="pb-px text-[11px] text-t3">compte {gap.account}</span>}
+                  </span>
+                ) : (
+                  <span className="text-[13px] text-t3">Pas encore relevé cette saison</span>
                 )}
-              >
-                {gap ? formatted(gap.gap, 'mmr') : '–'}
-              </b>
+              </span>
+              <span className="flex shrink-0 flex-col items-end gap-1">
+                <b
+                  className={cn(
+                    'num text-[34px] [line-height:.85] lg:text-[40px]',
+                    !gap ? 'text-t3' : reached ? 'text-win' : player.me || place === 1 ? 'text-t1' : 'text-t2',
+                  )}
+                >
+                  {gap ? formatted(gap.gap, 'mmr') : '–'}
+                </b>
+                {gap && <span className="label-caps text-[10px]">écart</span>}
+              </span>
             </li>
           );
         })}
