@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import type { SeasonMmr } from '../../lib/contract';
-import { anExercise, aRank, aResult, boardWith } from '../test-utils';
+import { anExercise, aRank, aResult, aSoloRank, boardWith } from '../test-utils';
 import { allStats, bestOf, comparedPlayers, keyStats, prizes, ranked, seasonsPlayed } from './comparison';
 
 // The Stats page compares the players over one season: S23 from 10 June, S24 from 23 September 2026.
@@ -29,7 +29,10 @@ const board = boardWith({
     // Charlie plays alone, in S24 only, at 1 in the morning, and leaves.
     aResult({ match_guid: 'night', name: 'charlie', day: '2026-11-04', received: '2026-11-04T00:30:00Z', left: true }),
   ],
-  doublesRanks: [aRank({ player: 'alice', tier: 16 }), aRank({ player: 'bob', tier: 19 })],
+  doublesRanks: [
+    aRank({ player: 'alice', tier: 16, solo: aSoloRank({ pseudo: 'alice-en-solo', playerId: 'Epic|alice-solo|0' }) }),
+    aRank({ player: 'bob', tier: 19 }),
+  ],
   exercises: [
     anExercise({ id: 'a1', player: 'alice', count: 40, day: '2026-11-02', created: '2026-11-02T21:00:00Z' }),
     anExercise({
@@ -124,4 +127,12 @@ test('the table lights the best figure of a line, the lowest when less is better
   expect(bestOf(statNamed('Clean sheets'), players)).toBe(null);
   expect(allStats('tournament').map((stat) => stat.label)).toContain('Tournois gagnés');
   expect(allStats('doubles').map((stat) => stat.label)).not.toContain('Tournois gagnés');
+});
+
+test('names a player by their solo pseudo when only the solo accounts are compared', () => {
+  const shown = (account: 'all' | 'duo' | 'solo') =>
+    comparedPlayers(board, seasons, roster, 'alice', 'all', account, 24).map((player) => player.shown);
+  expect(shown('solo')).toEqual(['alice-en-solo', 'bob', 'charlie']);
+  expect(shown('all')).toEqual(['alice', 'bob', 'charlie']);
+  expect(shown('duo')).toEqual(['alice', 'bob', 'charlie']);
 });

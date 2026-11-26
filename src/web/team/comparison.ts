@@ -31,7 +31,10 @@ export interface PeriodMmr {
 
 /** A player, as the page compares them. */
 export interface ComparedPlayer {
+  /** Their player slot, which is their duo pseudo. */
   name: string;
+  /** The pseudo to show: their solo account's when only that account is compared, once the rank source read it. */
+  shown: string;
   me: boolean;
   /** Their highest current rank, solo or duo, which gives them their colour. */
   tier: number | null;
@@ -92,6 +95,7 @@ export function comparedPlayers(
     const ranks = board.doublesRanks?.find((rank) => rank.player === name);
     return {
       name,
+      shown: (account === 'solo' && ranks?.solo?.pseudo) || name,
       me: name === me,
       tier: highestTier(ranks?.tier, ranks?.solo?.tier),
       career: careerOf(board, name, scope, account, season),
@@ -156,7 +160,13 @@ export const keyStats: Stat[] = [score, mvpRate, goals, saves];
 /** The fun ones, each with its prize. */
 export const prizes: Prize[] = [
   { ...demos, prize: 'Le démolisseur' },
-  { label: 'Poteaux', format: 'count', value: (p) => counted(p, p.career.crossbarHits), prize: 'Poteau rentrant' },
+  // The collector counts a shot on the post or the crossbar, not whether it then went in.
+  {
+    label: 'Poteaux',
+    format: 'count',
+    value: (p) => counted(p, p.career.crossbarHits),
+    prize: 'L’abonné aux montants',
+  },
   {
     label: 'Prolongations gagnées',
     format: 'count',

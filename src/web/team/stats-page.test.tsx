@@ -2,7 +2,7 @@ import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { fakeApi } from '../settings/fake-api';
-import { aResult, boardWith, renderInApp } from '../test-utils';
+import { aRank, aResult, aSoloRank, boardWith, renderInApp } from '../test-utils';
 import { StatsPage } from './stats-page';
 import { TeamPage } from './team-page';
 
@@ -118,6 +118,19 @@ test('leads with each player’s 2v2 peak and what the season brought, the highe
   expect(second).toHaveTextContent('+84 MMR');
 });
 
+test('the solo accounts are named by their own pseudo', async () => {
+  const withSolo = {
+    ...board,
+    doublesRanks: [
+      aRank({ player: 'alice', solo: aSoloRank({ pseudo: 'alice-en-solo', playerId: 'Epic|alice-solo|0' }) }),
+    ],
+  };
+  renderInApp(<StatsPage />, { board: withSolo, path: '/stats' });
+  await pick('Compte', 'Compte solo');
+  expect(await screen.findAllByText('alice-en-solo')).not.toHaveLength(0);
+  expect(screen.queryByText('alice')).not.toBeInTheDocument();
+});
+
 test('crowns the prizes and lights the best of each line of the table', async () => {
   renderInApp(<StatsPage />, { board, path: '/stats' });
   const assassin = await screen.findByRole('region', { name: 'Le démolisseur' });
@@ -126,6 +139,7 @@ test('crowns the prizes and lights the best of each line of the table', async ()
   // Alice scored 4 this season, Bob 1.
   expect(within(goals).getByText('4')).toHaveClass('text-win');
   expect(within(goals).getByText('1')).not.toHaveClass('text-win');
+  expect(screen.getByText(/le meilleur de chaque ligne : le plus bas pour défaites/)).toBeInTheDocument();
 });
 
 test('says so when nobody played in the mode chosen', async () => {

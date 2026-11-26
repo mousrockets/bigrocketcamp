@@ -122,7 +122,7 @@ export function StatsPage() {
             <Skeleton className="h-[300px] rounded-[22px]" />
           </BoardPending>
         )}
-        {board && <Peaks players={players} season={season} />}
+        {board && <Peaks players={players} season={season} showAccount={hasSolo && account === 'all'} />}
         {board && !anyMatch && (
           <p className="m-0 -mt-4 text-[15px] text-t2">
             {modeWords[scope]} {season === null ? 'au compteur' : `en saison ${season}`}. Le kickoff attend.
@@ -130,7 +130,7 @@ export function StatsPage() {
         )}
         {board && anyMatch && (
           <>
-            <Section kicker="L’essentiel" title="Qui porte l’équipe">
+            <Section kicker="L’essentiel" title="Les chiffres clés">
               <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
                 {keyStats.map((stat) => (
                   <StatCard key={stat.label} stat={stat} players={players} />
@@ -176,7 +176,7 @@ function PlayerName({ player, className }: { player: ComparedPlayer; className?:
         className="size-2 shrink-0 rounded-full"
         style={{ background: `rgb(${rankLightRgb(player.tier)})` }}
       />
-      <span className="truncate">{player.name}</span>
+      <span className="truncate">{player.shown}</span>
       {player.me && <Badge variant="me">TOI</Badge>}
     </span>
   );
@@ -186,7 +186,16 @@ function PlayerName({ player, className }: { player: ComparedPlayer; className?:
  * The highest 2v2 rating of each player over the period, with its rank, and what the period brought from its first
  * rating to its last: a level, where a share of wins only tells a streak.
  */
-function Peaks({ players, season }: { players: ComparedPlayer[]; season: number | null }) {
+function Peaks({
+  players,
+  season,
+  showAccount,
+}: {
+  players: ComparedPlayer[];
+  season: number | null;
+  /** Both accounts count: each line says which one climbed highest. */
+  showAccount: boolean;
+}) {
   const lines = [...players].sort((a, b) => (b.mmr?.peak.mmr ?? -1) - (a.mmr?.peak.mmr ?? -1));
   const [top] = lines;
   return (
@@ -208,7 +217,9 @@ function Peaks({ players, season }: { players: ComparedPlayer[]; season: number 
               <span className="flex min-w-0 flex-1 flex-col gap-1">
                 <PlayerName player={player} className="font-semibold text-[15px]" />
                 <span className="truncate text-[13px] text-t3">
-                  {rank ? `${rank.rank}${rank.division ? ` · ${rank.division}` : ''}` : 'Pas encore relevé'}
+                  {rank
+                    ? [rank.rank, rank.division, showAccount && `compte ${mmr?.account}`].filter(Boolean).join(' · ')
+                    : 'Pas encore relevé'}
                 </span>
               </span>
               <span className="flex shrink-0 flex-col items-end gap-1">
@@ -256,19 +267,20 @@ function StatCard({ stat, players }: { stat: Stat | Prize; players: ComparedPlay
           {formatted(leader?.value ?? null, stat.format)}
         </b>
         <span className="min-w-0 truncate pb-0.5 text-[14px] text-t2">
-          {leaders.length > 1 ? 'Égalité' : leader ? leader.player.name : 'Personne'}
+          {leaders.length > 1 ? 'Égalité' : leader ? leader.player.shown : 'Personne'}
         </span>
       </div>
       <ol className="m-0 flex list-none flex-col gap-3 p-0">
         {lines.map((line) => (
-          <Bar key={line.player.name} line={line} format={stat.format} />
+          <Bar key={line.player.name} line={line} format={stat.format} leading={leaders.includes(line)} />
         ))}
       </ol>
     </Card>
   );
 }
 
-function Bar({ line, format }: { line: RankedLine; format: StatFormat }) {
+/** A player's bar: the leader's in white, the others' in grey; the player's colour stays on the dot by their name. */
+function Bar({ line, format, leading }: { line: RankedLine; format: StatFormat; leading: boolean }) {
   return (
     <li className="flex flex-col gap-1.5">
       <span className="flex items-baseline justify-between gap-3 text-[13px] text-t2">
@@ -279,8 +291,8 @@ function Bar({ line, format }: { line: RankedLine; format: StatFormat }) {
       </span>
       <span aria-hidden="true" className="h-1.5 overflow-hidden rounded-full bg-white/6">
         <i
-          className="block h-full origin-left animate-grow rounded-full"
-          style={{ width: `${line.share * 100}%`, background: `rgb(${rankLightRgb(line.player.tier)})` }}
+          className={cn('block h-full origin-left animate-grow rounded-full', leading ? 'bg-t1' : 'bg-white/28')}
+          style={{ width: `${line.share * 100}%` }}
         />
       </span>
     </li>
@@ -289,48 +301,56 @@ function Bar({ line, format }: { line: RankedLine; format: StatFormat }) {
 
 /** Every stat, one line each, one column per player, the best figure of each line lit. */
 function StatsTable({ stats, players }: { stats: Stat[]; players: ComparedPlayer[] }) {
+  const lowest = new Intl.ListFormat('fr', { type: 'conjunction' }).format(
+    stats.filter((stat) => stat.lowerIsBetter).map((stat) => stat.label.toLowerCase()),
+  );
   return (
-    <Card variant="glass" className="gap-0 py-1">
-      <Table className="text-[14px]">
-        <TableHeader>
-          <TableRow className="border-line hover:bg-transparent">
-            <TableHead className="sticky left-0 z-1 bg-card pl-4 font-normal text-t3 lg:pl-5">
-              <span className="sr-only">Stat</span>
-            </TableHead>
-            {players.map((player) => (
-              <TableHead key={player.name} className="min-w-24 text-right last:pr-4 lg:last:pr-5">
-                <PlayerName player={player} className="justify-end font-semibold text-[13px] text-t1" />
+    <>
+      <Card variant="glass" className="gap-0 py-1">
+        <Table className="text-[14px]">
+          <TableHeader>
+            <TableRow className="border-line hover:bg-transparent">
+              <TableHead className="sticky left-0 z-1 bg-card pl-4 font-normal text-t3 lg:pl-5">
+                <span className="sr-only">Stat</span>
               </TableHead>
-            ))}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {stats.map((stat) => {
-            const best = bestOf(stat, players);
-            return (
-              <TableRow key={stat.label} className="border-line hover:bg-white/3">
-                <TableHead scope="row" className="sticky left-0 z-1 bg-card pl-4 font-normal text-t2 lg:pl-5">
-                  {stat.label}
+              {players.map((player) => (
+                <TableHead key={player.name} className="min-w-24 text-right last:pr-4 lg:last:pr-5">
+                  <PlayerName player={player} className="justify-end font-semibold text-[13px] text-t1" />
                 </TableHead>
-                {players.map((player) => {
-                  const value = stat.value(player);
-                  return (
-                    <TableCell
-                      key={player.name}
-                      className={cn(
-                        'num text-right text-[15px] last:pr-4 lg:last:pr-5',
-                        value === null ? 'text-t3' : value === best ? 'text-win' : 'text-t1',
-                      )}
-                    >
-                      {formatted(value, stat.format)}
-                    </TableCell>
-                  );
-                })}
-              </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
-    </Card>
+              ))}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {stats.map((stat) => {
+              const best = bestOf(stat, players);
+              return (
+                <TableRow key={stat.label} className="border-line hover:bg-white/3">
+                  <TableHead scope="row" className="sticky left-0 z-1 bg-card pl-4 font-normal text-t2 lg:pl-5">
+                    {stat.label}
+                  </TableHead>
+                  {players.map((player) => {
+                    const value = stat.value(player);
+                    return (
+                      <TableCell
+                        key={player.name}
+                        className={cn(
+                          'num text-right text-[15px] last:pr-4 lg:last:pr-5',
+                          value === null ? 'text-t3' : value === best ? 'text-win' : 'text-t1',
+                        )}
+                      >
+                        {formatted(value, stat.format)}
+                      </TableCell>
+                    );
+                  })}
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </Card>
+      <p className="m-0 -mt-2 px-1 text-[12px] text-t3 [line-height:1.45]">
+        <span className="text-win">En vert</span>, le meilleur de chaque ligne : le plus bas pour {lowest}.
+      </p>
+    </>
   );
 }
