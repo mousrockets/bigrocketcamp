@@ -41,16 +41,17 @@ export interface ComparedPlayer {
   pushups: number;
   /** Their game IDs, in lower case, as their matches show them: whom an assist went to. */
   ids: Set<string>;
-  /** How their peak of the season stands against their best before it; null for every season, or none read. */
+  /** How their solo peak of the season stands against their solo peak all time; null for every season, or none read. */
   peakGap: PeakGap | null;
+  /** Their solo account's pseudo, where only that account shows; their duo pseudo while the rank source found none. */
+  soloShown: string;
 }
 
 /**
- * A player's peak of a season against their peak all time: 0 when the season reached it, below 0 by how far it stayed
- * from it. Levels differ, so the club compares these gaps, not the peaks.
+ * A player's solo peak of a season against their solo peak all time: 0 when the season reached it, below 0 by how far
+ * it stayed from it. Levels differ, so the club compares these gaps, not the peaks.
  */
 export interface PeakGap {
-  account: 'duo' | 'solo';
   /** The season's peak, with the rank it came with (« Champion III · Division II ») and its tier for the icon. */
   peak: number;
   label: string;
@@ -61,30 +62,19 @@ export interface PeakGap {
   gap: number;
 }
 
-/** The season's peak of each account against its peak all time; the account closest to its own, when both count. */
-function peakGapOf(
-  board: Board,
-  seasonMmr: readonly SeasonMmr[],
-  name: string,
-  account: CareerAccount,
-  season: number | null,
-): PeakGap | null {
+/**
+ * The solo account's peak of the season against its peak all time, whatever the accounts the page compares: the
+ * solo account is each player's own level, the duo one the club's.
+ */
+function peakGapOf(board: Board, seasonMmr: readonly SeasonMmr[], name: string, season: number | null): PeakGap | null {
   if (season === null) return null;
-  const ranks = board.doublesRanks?.find((rank) => rank.player === name);
-  const gaps = (['duo', 'solo'] as const)
-    .filter((kind) => account === 'all' || account === kind)
-    .flatMap((kind): PeakGap[] => {
-      const own = seasonMmr.filter((line) => line.player === name && line.account === kind);
-      const line = own.find((candidate) => candidate.season === season);
-      if (!line) return [];
-      const allTime = Math.max(
-        (kind === 'duo' ? ranks?.best : ranks?.solo?.best) ?? 0,
-        ...own.map((other) => other.peak.mmr),
-      );
-      const peak = line.peak.mmr;
-      return [{ account: kind, peak, label: line.peak.label, tier: line.peak.tier, allTime, gap: peak - allTime }];
-    });
-  return gaps.reduce<PeakGap | null>((top, gap) => (!top || gap.gap > top.gap ? gap : top), null);
+  const own = seasonMmr.filter((line) => line.player === name && line.account === 'solo');
+  const line = own.find((candidate) => candidate.season === season);
+  if (!line) return null;
+  const best = board.doublesRanks?.find((rank) => rank.player === name)?.solo?.best ?? 0;
+  const allTime = Math.max(best, ...own.map((other) => other.peak.mmr));
+  const peak = line.peak.mmr;
+  return { peak, label: line.peak.label, tier: line.peak.tier, allTime, gap: peak - allTime };
 }
 
 function periodMmr(
@@ -144,7 +134,8 @@ export function comparedPlayers(
       mmr: periodMmr(seasonMmr, name, account, season),
       pushups: pushupsOf(board, name, season),
       ids: new Set(board.results.filter((row) => row.name === name).map((row) => row.player_id.toLowerCase())),
-      peakGap: peakGapOf(board, seasonMmr, name, account, season),
+      peakGap: peakGapOf(board, seasonMmr, name, season),
+      soloShown: ranks?.solo?.pseudo || name,
     };
   });
   return [...players.filter((player) => player.me), ...players.filter((player) => !player.me)];

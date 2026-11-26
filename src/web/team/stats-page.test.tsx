@@ -42,15 +42,18 @@ const board = boardWith({
     ...duo('s24-win', '2026-11-02', true, { alice: 3, bob: 0 }),
     ...duo('s24-loss', '2026-11-03', false, { alice: 1, bob: 1 }),
   ],
-  // Their best ever: Bob's set before this season, Alice's this season.
-  doublesRanks: [aRank({ player: 'bob', best: 1400 }), aRank({ player: 'alice', best: 1210 })],
+  // Their solo accounts' best ever: Bob's set before this season, Alice's this season.
+  doublesRanks: [
+    aRank({ player: 'bob', solo: aSoloRank({ pseudo: 'bob-solo', best: 1400 }) }),
+    aRank({ player: 'alice', solo: aSoloRank({ pseudo: 'alice-solo', best: 1210 }) }),
+  ],
 });
 
 /** What the API answers the Stats page about each season's ratings. */
 const seasons = [
   {
     player: 'bob',
-    account: 'duo',
+    account: 'solo',
     season: 24,
     first: 1300,
     last: 1280,
@@ -58,7 +61,7 @@ const seasons = [
   },
   {
     player: 'alice',
-    account: 'duo',
+    account: 'solo',
     season: 24,
     first: 1100,
     last: 1184,
@@ -66,7 +69,7 @@ const seasons = [
   },
   {
     player: 'alice',
-    account: 'duo',
+    account: 'solo',
     season: 23,
     first: 1050,
     last: 1120,
@@ -111,17 +114,17 @@ test('shows a past season from its address, and every match from the season list
   expect(within(wins).getAllByText('67 %')).toHaveLength(2);
 });
 
-test('leads with who came closest to their peak all time this season', async () => {
+test('leads with whose solo account came closest to its peak all time this season', async () => {
   renderInApp(<StatsPage />, { board, path: '/stats' });
   const peaks = await screen.findByRole('region', { name: 'Au plus près de son peak all time' });
   // The ratings arrive apart from the board.
   await within(peaks).findByText('−60');
   // Alice reached her peak all time (1 210) this season; Bob stayed 60 under his (1 400).
   const [first, second] = within(peaks).getAllByRole('listitem');
-  expect(first).toHaveTextContent('alice');
+  expect(first).toHaveTextContent('alice-solo');
   expect(first).toHaveTextContent(/Saison1 210\s*All time1 210/);
   expect(within(first as HTMLElement).getByText('0')).toHaveClass('text-win');
-  expect(second).toHaveTextContent('bob');
+  expect(second).toHaveTextContent('bob-solo');
   expect(second).toHaveTextContent(/Saison1 340\s*All time1 400/);
   expect(second).toHaveTextContent('−60');
   expect(peaks).not.toHaveTextContent(/record/i);

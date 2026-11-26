@@ -156,9 +156,7 @@ export function StatsPage() {
             <Skeleton className="h-[300px] rounded-[22px]" />
           </BoardPending>
         )}
-        {board && season !== null && (
-          <SeasonPeaks players={players} season={season} showAccount={hasSolo && account === 'all'} />
-        )}
+        {board && season !== null && <SeasonPeaks players={players} season={season} />}
         {board && !anyMatch && (
           <p className="m-0 -mt-4 text-[15px] text-t2">
             {modeWords[scope]} {season === null ? 'au compteur' : `en saison ${season}`}. Le kickoff attend.
@@ -235,23 +233,15 @@ function Figure({ label, value, strong = false }: { label: string; value: string
 }
 
 /**
- * « Au plus près de son peak all time »: each player's peak of the season against their best ever, the one who reached
+ * « Au plus près de son peak all time »: each player's solo peak of the season against their best ever, the one who reached
  * it or came closest first. The gap reads first, in big; then the player; then the two peaks it comes from, small.
  * Levels differ: the club compares the gaps, not the peaks.
  */
-function SeasonPeaks({
-  players,
-  season,
-  showAccount,
-}: {
-  players: ComparedPlayer[];
-  season: number;
-  showAccount: boolean;
-}) {
+function SeasonPeaks({ players, season }: { players: ComparedPlayer[]; season: number }) {
   const { lines } = ranked(gapStat, players);
   return (
     <Card variant="glass" role="region" aria-label="Au plus près de son peak all time" className="gap-4 p-5 lg:p-6">
-      <span className="label-caps">Saison {season} · au plus près de son peak all time</span>
+      <span className="label-caps">Saison {season} · solo · au plus près de son peak all time</span>
       <ol className="m-0 flex list-none flex-col gap-2 p-0 lg:grid lg:grid-cols-[repeat(auto-fit,minmax(280px,1fr))] lg:gap-4">
         {lines.map(({ player, place }) => {
           const gap = player.peakGap;
@@ -265,15 +255,14 @@ function SeasonPeaks({
                 className="size-11 shrink-0 object-contain lg:size-12"
               />
               <span className="flex min-w-0 flex-1 flex-col gap-2">
-                <PlayerName player={player} className="font-semibold text-[15px]" />
+                <PlayerName player={{ ...player, shown: player.soloShown }} className="font-semibold text-[15px]" />
                 {gap ? (
                   <span className="flex items-end gap-4">
                     <Figure label="Saison" value={formatNumber(gap.peak)} strong={reached} />
                     <Figure label="All time" value={formatNumber(gap.allTime)} />
-                    {showAccount && <span className="pb-px text-[11px] text-t3">compte {gap.account}</span>}
                   </span>
                 ) : (
-                  <span className="text-[13px] text-t3">Pas encore relevé cette saison</span>
+                  <span className="text-[13px] text-t3">Compte solo pas encore relevé cette saison</span>
                 )}
               </span>
               <span className="flex shrink-0 flex-col items-end gap-1">

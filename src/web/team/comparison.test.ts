@@ -238,24 +238,23 @@ test('adds up the stats of collector 0.7.0, names the game’s events, and lines
   expect(players.map((player) => punchingBall?.value(player))).toEqual([2, 0]);
 });
 
-test('measures each peak of the season against the peak all time, not against the others’ peaks', () => {
+test('measures each solo peak of the season against the solo peak all time, whatever the accounts compared', () => {
   const ranked = boardWith({
     results: [],
     doublesRanks: [
-      aRank({ player: 'alice', best: 1250 }),
+      aRank({ player: 'alice', best: 2000, solo: aSoloRank({ pseudo: 'alice-en-solo', best: 1100 }) }),
       aRank({ player: 'bob', best: 1400 }),
-      aRank({ player: 'charlie', best: 900 }),
     ],
   });
-  const gaps = (season: number | null) =>
-    comparedPlayers(ranked, seasons, ['alice', 'bob', 'charlie'], 'alice', 'all', 'duo', season).map(
-      (player) => player.peakGap && [player.peakGap.peak, player.peakGap.allTime, player.peakGap.gap],
+  const gaps = (account: 'all' | 'duo' | 'solo', season: number | null) =>
+    comparedPlayers(ranked, seasons, ['alice', 'bob'], 'alice', 'all', account, season).map(
+      (player) => player.peakGap && [player.soloShown, player.peakGap.peak, player.peakGap.allTime, player.peakGap.gap],
     );
-  // Alice reached her peak all time this season; Bob stayed 70 under his; Charlie was never read.
-  expect(gaps(24)).toEqual([[1250, 1250, 0], [1330, 1400, -70], null]);
-  expect(gaps(23)).toEqual([[1120, 1250, -130], null, null]);
-  expect(gaps(null)).toEqual([null, null, null]);
-  // No best kept by the rank source: the highest season peak read stands for it.
+  // Alice's solo account peaked at 1 040 this season, 60 under its 1 100; her duo, not counted. Bob has no solo.
+  expect(gaps('duo', 24)).toEqual([['alice-en-solo', 1040, 1100, -60], null]);
+  expect(gaps('all', 24)).toEqual(gaps('solo', 24));
+  expect(gaps('all', null)).toEqual([null, null]);
+  // No best kept by the rank source: the highest solo season peak read stands for it.
   const unread = boardWith({ results: [], doublesRanks: [] });
-  expect(comparedPlayers(unread, seasons, ['alice'], 'alice', 'all', 'duo', 23)[0]?.peakGap?.allTime).toBe(1250);
+  expect(comparedPlayers(unread, seasons, ['alice'], 'alice', 'all', 'all', 24)[0]?.peakGap?.allTime).toBe(1040);
 });
