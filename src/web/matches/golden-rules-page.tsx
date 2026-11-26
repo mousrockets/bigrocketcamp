@@ -101,8 +101,20 @@ function RuleWords({ rule, language }: { rule: GoldenRule; language: RulesLangua
   const { gist, detail } = rule.words[language];
   return (
     <div className="relative flex flex-col gap-1.5">
-      <p className="m-0 font-medium text-[15px] text-t1 [line-height:1.4]">{gist}</p>
-      <p className="m-0 text-[14px] text-t2 [line-height:1.45]">{detail}</p>
+      <p className="m-0 font-medium text-[15px] text-t1 [line-height:1.4]">
+        <Italics text={gist} />
+      </p>
+      <p className="m-0 text-[14px] text-t2 [line-height:1.45]">
+        <Italics text={detail} />
+      </p>
     </div>
+  );
+}
+
+/** A rule's words, the game's English words between asterisks set in italics. */
+function Italics({ text }: { text: string }) {
+  return text.split('*').map((part, index) =>
+    // biome-ignore lint/suspicious/noArrayIndexKey: the parts of a fixed text keep their order.
+    index % 2 === 1 ? <em key={index}>{part}</em> : part,
   );
 }

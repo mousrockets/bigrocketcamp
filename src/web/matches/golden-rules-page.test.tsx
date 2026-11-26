@@ -23,7 +23,7 @@ test('shows the twenty rules in their four tiers, in French', async () => {
       .getAllByRole('heading', { level: 3 })
       .map((heading) => heading.textContent),
   ).toEqual(['1. Proximity', '2. Play Your Role', '3. Last Man', '4. Back Wall']);
-  expect(within(core).getByText(/tu attends et tu shadow/)).toBeInTheDocument();
+  expect(within(core).getByText(/si c’est toi, tu y vas/)).toBeInTheDocument();
   for (const tier of ['Reading the Game & Positioning', 'Control, Economy & Offense', 'High-Rank & SSL Execution']) {
     expect(screen.getByRole('region', { name: tier })).toBeInTheDocument();
   }
@@ -37,14 +37,23 @@ test('switches the rules to English and back', async () => {
   const language = await screen.findByRole('group', { name: 'Langue des règles' });
   await userEvent.click(within(language).getByRole('button', { name: 'EN' }));
   expect(await screen.findByText(/if you’re closer, go/)).toBeInTheDocument();
-  expect(screen.queryByText(/tu attends et tu shadow/)).not.toBeInTheDocument();
+  expect(screen.queryByText(/si c’est toi, tu y vas/)).not.toBeInTheDocument();
 
   await userEvent.click(within(language).getByRole('button', { name: 'FR' }));
-  expect(await screen.findByText(/tu attends et tu shadow/)).toBeInTheDocument();
+  expect(await screen.findByText(/si c’est toi, tu y vas/)).toBeInTheDocument();
 });
 
 test('opens in English from its address', async () => {
   renderInApp(<GoldenRulesPage />, { path: '/matchs/golden-rules?langue=en' });
   expect(await screen.findByText(/Read them again before every ranked session/)).toBeInTheDocument();
   expect(screen.getByText(/if you’re closer, go/).closest('[lang]')).toHaveAttribute('lang', 'en');
+});
+
+test('sets the game’s English words in italics in the French rules', async () => {
+  renderInApp(<GoldenRulesPage />, { path: '/matchs/golden-rules' });
+  const gist = (await screen.findByText(/si c’est toi, tu y vas/)).closest('p') as HTMLElement;
+  expect(gist).toHaveTextContent(
+    'Si l’adversaire est plus proche de la balle, tu attends et tu shadow ; si c’est toi, tu y vas.',
+  );
+  expect(within(gist).getByText('shadow').tagName).toBe('EM');
 });
