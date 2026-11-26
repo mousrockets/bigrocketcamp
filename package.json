@@ -16,7 +16,7 @@
     "types": "wrangler types src/worker/runtime.d.ts",
     "deploy": "wrangler d1 time-travel info bigrocketcamp --config wrangler.jsonc && wrangler d1 migrations apply bigrocketcamp --remote --config wrangler.jsonc && wrangler deploy",
     "db:migrate": "wrangler d1 migrations apply bigrocketcamp --local --config wrangler.jsonc",
-    "db:seed": "wrangler d1 execute bigrocketcamp --local --config wrangler.jsonc --file scripts/seed-dev.sql",
+    "db:seed": "node scripts/local-database.ts seed",
     "db:reset": "node scripts/local-database.ts reset",
     "db:pull-prod": "node scripts/local-database.ts pull-prod",
     "db:generate": "drizzle-kit generate",

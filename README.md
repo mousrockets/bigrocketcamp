@@ -15,7 +15,7 @@ Il faut [Node.js](https://nodejs.org), dans la version de `.node-version`.
 ```sh
 npm install
 npm run db:migrate   # crée la base locale
-npm run db:seed      # des membres fictifs
+npm run db:seed      # un club fictif : matchs, séries, rangs, mois clos
 npm run dev          # l'app sur http://127.0.0.1:10071
 npm run check        # lint, types et tests
 ```
