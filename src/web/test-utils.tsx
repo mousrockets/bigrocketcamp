@@ -150,6 +150,7 @@ export function renderInApp(
     '/defis',
     '/matchs',
     '/matchs/golden-rules',
+    '/stats',
     '/declarer',
     '/reglages',
     '/reglages/compte',

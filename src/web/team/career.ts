@@ -1,6 +1,8 @@
+import { parisDay, parisHour } from '../../lib/days';
 import { matchModeOf } from '../../lib/live-stats';
 import { mvpOf } from '../../lib/match-history';
 import { matchIndex } from '../../lib/match-rules';
+import { seasonAt } from '../../lib/season';
 import type { Board } from '../board';
 
 /** What a player did in every match the club received, as the sheet of their card shows it. */
@@ -20,6 +22,23 @@ export interface Career {
   lossStreak: number;
   /** Tournaments the club declared won on a match this player won. */
   tournamentsWon: number;
+  /** The points the game gave them, all matches added. */
+  score: number;
+  /** The goals the other team scored, and the matches with none, among the matches whose final score is known. */
+  conceded: number | null;
+  cleanSheets: number;
+  /** Matches that went to overtime, won and lost. */
+  overtimeWins: number;
+  overtimeLosses: number;
+  /** Matches the other team gave up (received), and their own team gave up (given). */
+  forfeitsReceived: number;
+  forfeitsGiven: number;
+  /** Matches they left before the end. */
+  left: number;
+  /** Matches played between midnight and 5 in Paris. */
+  lateNight: number;
+  /** The matches that came with each count an older collector does not send: an average divides by them. */
+  measured: { demos: number; crossbarHits: number; conceded: number };
 }
 
 /**
@@ -48,11 +67,25 @@ function onAccount(account: CareerAccount, solo: string | null, playerId: string
   return (solo === playerId.toLowerCase()) === (account === 'solo');
 }
 
+/**
+ * The season a match was played in. A match received on its own day was played just before; one received later (an
+ * import, a source catching up) only tells its day, counted at noon in Paris.
+ */
+export const seasonOf = (row: { day: string; received: string }): number | null =>
+  seasonAt(parisDay(row.received) === row.day ? row.received : `${row.day}T12:00:00+01:00`);
+
 const added = (total: number | null, value: number | null | undefined) =>
   typeof value === 'number' ? (total ?? 0) + value : total;
 
 /** The player's lines of the matches no source disputes, each match once, and the MVPs among them. */
-export function careerOf(board: Board, name: string, scope: CareerScope, account: CareerAccount = 'all'): Career {
+export function careerOf(
+  board: Board,
+  name: string,
+  scope: CareerScope,
+  account: CareerAccount = 'all',
+  /** One competitive season, or every match when null. */
+  season: number | null = null,
+): Career {
   const solo = soloAccountOf(board, name);
   const index = matchIndex(board.results, board.matchRosters ?? []);
   const lines = new Map(
@@ -63,7 +96,8 @@ export function careerOf(board: Board, name: string, scope: CareerScope, account
           row.kind === 'match' &&
           !row.review_required &&
           inScope(scope, row.playlist) &&
-          onAccount(account, solo, row.player_id),
+          onAccount(account, solo, row.player_id) &&
+          (season === null || seasonOf(row) === season),
       )
       .map((row) => [row.match_guid, row]),
   );
@@ -80,6 +114,16 @@ export function careerOf(board: Board, name: string, scope: CareerScope, account
     winStreak: 0,
     lossStreak: 0,
     tournamentsWon: 0,
+    score: 0,
+    conceded: null,
+    cleanSheets: 0,
+    overtimeWins: 0,
+    overtimeLosses: 0,
+    forfeitsReceived: 0,
+    forfeitsGiven: 0,
+    left: 0,
+    lateNight: 0,
+    measured: { demos: 0, crossbarHits: 0, conceded: 0 },
   };
   const tournamentsWon = board.rules?.tournamentWins ?? [];
   // A match received late (an import, a source catching up) still belongs to its own day.
@@ -101,8 +145,23 @@ export function careerOf(board: Board, name: string, scope: CareerScope, account
     career.saves += row.saves;
     career.demos = added(career.demos, row.demos);
     career.crossbarHits = added(career.crossbarHits, row.crossbar_hits);
+    if (typeof row.demos === 'number') career.measured.demos++;
+    if (typeof row.crossbar_hits === 'number') career.measured.crossbarHits++;
     if (!row.left && mvpOf(index.get(guid)) === row.player_id) career.mvps++;
     if (won && tournamentsWon.includes(guid)) career.tournamentsWon++;
+    career.score += row.score;
+    // The final score as the game counted it, blue first: a team is 0 for blue, 1 for orange.
+    if (typeof row.blue_goals === 'number' && typeof row.orange_goals === 'number') {
+      const against = row.team === 0 ? row.orange_goals : row.blue_goals;
+      career.conceded = (career.conceded ?? 0) + against;
+      career.measured.conceded++;
+      if (against === 0) career.cleanSheets++;
+    }
+    if (row.overtime) career[won ? 'overtimeWins' : 'overtimeLosses']++;
+    if (row.forfeit && !row.left) career[won ? 'forfeitsReceived' : 'forfeitsGiven']++;
+    if (row.left) career.left++;
+    // A match received on its own day was played just before: its hour is the one the collector sent it at.
+    if (parisDay(row.received) === row.day && parisHour(row.received) < 5) career.lateNight++;
   }
   return career;
 }

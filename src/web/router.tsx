@@ -13,6 +13,7 @@ import { MembersSettings } from './settings/members';
 import { NotificationSettings } from './settings/notifications';
 import { SettingsHome } from './settings/settings-home';
 import { AppShell } from './shell/app-shell';
+import { StatsPage } from './team/stats-page';
 import { TeamPage } from './team/team-page';
 
 // The app's pages. The root (app.tsx) stands in front of all of them, the unknown addresses included:
@@ -78,6 +79,18 @@ const goldenRulesRoute = createRoute({
   component: GoldenRulesPage,
   validateSearch: z.object({ langue: z.enum(rulesLanguages).optional().catch(undefined) }),
 });
+// Every player's stats side by side, opened from L'équipe; `?saison=23` shows a past season, `?saison=tout` every match.
+const statsRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: '/stats',
+  component: StatsPage,
+  validateSearch: z.object({
+    saison: z
+      .union([z.number().int().positive(), z.literal('tout')])
+      .optional()
+      .catch(undefined),
+  }),
+});
 const settingsRoute = createRoute({ getParentRoute: () => shellRoute, path: '/reglages', component: SettingsHome });
 // Réglages opens its screens like iOS Settings, each with the way back to it.
 const settingsScreens = (
@@ -113,6 +126,7 @@ export const routeTree = rootRoute.addChildren([
     challengesRoute,
     matchesRoute,
     goldenRulesRoute,
+    statsRoute,
     settingsRoute,
     ...settingsScreens,
   ]),

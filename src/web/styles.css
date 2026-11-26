@@ -22,6 +22,10 @@
   --link: #64a8ff;
   /* The Golden Rules' own accent, used nowhere else so that it keeps its shine. */
   --gold: #f3cd72;
+  /* The medals of a ranking's first three places, on the Stats page. */
+  --medal-1: #f3cd72;
+  --medal-2: #d6dce6;
+  --medal-3: #d79d6b;
   /* An iOS switch turned on. */
   --switch-on: #34c759;
 
@@ -86,6 +90,9 @@
   --color-win: var(--win);
   --color-link: var(--link);
   --color-gold: var(--gold);
+  --color-medal-1: var(--medal-1);
+  --color-medal-2: var(--medal-2);
+  --color-medal-3: var(--medal-3);
   --color-switch-on: var(--switch-on);
   --color-gate: var(--gate);
   --color-gate-text: var(--gate-text);

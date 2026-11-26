@@ -46,6 +46,18 @@ test('the Golden Rules open in the shell, in English from their address', () => 
   expect(english.search).toEqual({ langue: 'en' });
 });
 
+test('the Stats page opens in the shell, on a season from its address', () => {
+  expect(open('/stats')).toMatchObject({ routes: ['__root__', '/_shell', '/_shell/stats'], notFoundAt: null });
+  for (const [address, saison] of [
+    ['/stats?saison=23', 23],
+    ['/stats?saison=tout', 'tout'],
+  ] as const) {
+    expect(router.parseLocation(createMemoryHistory({ initialEntries: [address] }).location).search.saison).toBe(
+      saison,
+    );
+  }
+});
+
 test('the declaration sheet opens over the tab, from its search', () => {
   const location = router.parseLocation(createMemoryHistory({ initialEntries: ['/matchs?declarer=true'] }).location);
   expect(location.search).toEqual({ declarer: true });

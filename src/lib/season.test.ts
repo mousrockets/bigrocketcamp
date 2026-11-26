@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { currentSeason, seasonEndLabel, seasonTiming } from './season';
+import { currentSeason, seasonAt, seasonEndLabel, seasonStarts, seasonTiming } from './season';
 
 test('an unconfirmed end counts Paris calendar days, never an invented hour or an ended season', () => {
   expect(currentSeason.confirmedEndAt).toBe(null);
@@ -27,4 +27,12 @@ test('a confirmed end converts winter and summer time and stops exactly without 
   expect(beforeEnd.exact && beforeEnd.seconds).toBe(1);
   expect(seasonTiming(end, winter).ended).toBe(true);
   expect(seasonTiming(end + 1000, winter).days).toBe(0);
+});
+
+test('a moment belongs to the season launched last before it, at 9 AM Pacific', () => {
+  expect(seasonAt('2026-09-23T15:59:59Z')).toBe(23);
+  expect(seasonAt('2026-09-23T16:00:00Z')).toBe(24);
+  expect(seasonAt('2026-09-23T18:30:00+02:00')).toBe(24);
+  expect(seasonAt('2026-03-01T20:00:00Z')).toBe(null);
+  expect(seasonStarts.at(-1)?.number).toBe(currentSeason.number);
 });

@@ -1,5 +1,6 @@
 import { Link } from '@tanstack/react-router';
 import { cn } from 'cn';
+import { ChartNoAxesColumn } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { SheetLink } from '../components/sheet-link';
 import { Button, buttonVariants } from '../components/ui/button';
@@ -66,6 +67,10 @@ export function TeamCarousel({ players }: { players: CardPlayer[] }) {
           )}
         </span>
         <span className="flex items-center gap-2">
+          <Link to="/stats" className={buttonVariants({ variant: 'bubble', size: 'hint' })}>
+            <ChartNoAxesColumn />
+            Stats
+          </Link>
           <SheetLink sheet="ranks" className={cn(buttonVariants({ variant: 'bubble', size: 'hint' }), 'lg:mr-2.5')}>
             <LadderIcon />
             Les ranks
