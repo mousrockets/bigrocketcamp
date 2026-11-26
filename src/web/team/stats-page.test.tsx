@@ -135,9 +135,9 @@ test('the member finds their own line: their place in each stat, their column ti
   const [first, second] = within(goals).getAllByRole('listitem');
   expect(first).toHaveTextContent(/^1alice\s*TOI2$/);
   expect(second).toHaveTextContent(/^2bob0,5$/);
-  // The places wear their medal, and the member's line its capsule.
-  expect(within(first as HTMLElement).getByText('1')).toHaveClass('text-medal-1');
-  expect(within(second as HTMLElement).getByText('2')).toHaveClass('text-medal-2');
+  // Only the member's place wears its medal, in big, and their line its capsule.
+  expect(within(first as HTMLElement).getByText('1')).toHaveClass('text-medal-1', 'text-[22px]');
+  expect(within(second as HTMLElement).getByText('2')).toHaveClass('text-t3', 'text-[13px]');
   expect(first).toHaveClass('bg-white/7');
   expect(second).not.toHaveClass('bg-white/7');
   const header = within(screen.getByRole('table')).getByRole('columnheader', { name: /alice/ });

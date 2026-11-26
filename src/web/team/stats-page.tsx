@@ -223,7 +223,7 @@ function Peaks({
           const rank = mmr ? splitRankLabel(mmr.peak.label) : null;
           return (
             <li key={player.name} className={cn('flex min-w-0 items-center gap-3 py-2', player.me && mineClass)}>
-              <Place place={place} />
+              <Place place={place} mine={player.me} />
               <img
                 src={`/rocket-league/ranks/${mmr?.peak.tier ?? 0}.png`}
                 alt=""
@@ -294,16 +294,19 @@ function StatCard({ stat, players }: { stat: Stat | Prize; players: ComparedPlay
   );
 }
 
-/** The first three places wear a medal's colour; the others stay quiet. */
+/** The member's place wears a medal's colour on the podium. */
 const medals: Record<number, string> = { 1: 'text-medal-1', 2: 'text-medal-2', 3: 'text-medal-3' };
 
-/** A player's place in a ranking, in big: what the eye reads first on each line. */
-function Place({ place }: { place: number | null }) {
+/**
+ * A player's place in a ranking. The member's in big, in its medal's colour on the podium: what the eye finds first;
+ * the others' small and quiet.
+ */
+function Place({ place, mine }: { place: number | null; mine: boolean }) {
   return (
     <span
       className={cn(
-        'num w-5 text-center text-[22px] [line-height:1]',
-        place ? (medals[place] ?? 'text-t3') : 'text-t3',
+        'num w-5 text-center [line-height:1]',
+        mine ? ['text-[22px]', (place && medals[place]) ?? 'text-t1'] : 'text-[13px] text-t3',
       )}
     >
       {place ?? '–'}
@@ -322,7 +325,7 @@ function Bar({ line, format }: { line: RankedLine; format: StatFormat }) {
   const mine = line.player.me;
   return (
     <li className={cn('grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 py-1.5', mine && mineClass)}>
-      <Place place={line.place} />
+      <Place place={line.place} mine={line.player.me} />
       <span className="flex min-w-0 flex-col gap-1.5">
         <span
           className={cn(
