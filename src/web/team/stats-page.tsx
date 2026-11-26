@@ -145,29 +145,35 @@ function WinRates({ players }: { players: ComparedPlayer[] }) {
   return (
     <Card variant="glass" role="region" aria-label={winRate.label} className="gap-5 p-5 lg:p-6">
       <span className="label-caps">{winRate.label}</span>
-      <ol className="m-0 grid list-none grid-cols-[repeat(auto-fit,minmax(84px,1fr))] gap-x-3 gap-y-5 lg:gap-x-4 p-0">
+      {/* On a phone, one line per player, the share at the right; on a computer, the players side by side. */}
+      <ol className="m-0 flex list-none flex-col gap-4 p-0 lg:grid lg:grid-cols-[repeat(auto-fit,minmax(160px,1fr))] lg:gap-4">
         {lines.map((line) => (
-          <li key={line.player.name} className="flex min-w-0 flex-col gap-2">
-            <PlayerName player={line.player} className="font-semibold text-[14px]" />
+          <li
+            key={line.player.name}
+            className="flex min-w-0 items-end justify-between gap-3 lg:flex-col-reverse lg:items-start lg:justify-end lg:gap-2"
+          >
+            <span className="flex min-w-0 flex-col gap-1 lg:contents">
+              <PlayerName player={line.player} className="font-semibold text-[15px] lg:order-3 lg:text-[14px]" />
+              <span className="text-[13px] text-t3 lg:order-1">
+                {line.player.career.matches === 0 ? (
+                  'Pas de match'
+                ) : (
+                  <>
+                    <span className="text-win">{formatNumber(line.player.career.wins)} W</span> ·{' '}
+                    <span className="text-cost-strong">{formatNumber(line.player.career.losses)} L</span>
+                  </>
+                )}
+              </span>
+            </span>
             <b
               className={cn(
-                'num text-[40px] [line-height:.85] lg:text-[56px]',
+                'num shrink-0 text-[40px] [line-height:.85] lg:order-2 lg:text-[56px]',
                 leaders.includes(line) ? 'text-t1' : 'text-t2',
                 line.value === null && 'text-t3',
               )}
             >
               {formatted(line.value, winRate.format)}
             </b>
-            <span className="text-[13px] text-t3">
-              {line.player.career.matches === 0 ? (
-                'Pas de match'
-              ) : (
-                <>
-                  <span className="text-win">{formatNumber(line.player.career.wins)} W</span> ·{' '}
-                  <span className="text-cost-strong">{formatNumber(line.player.career.losses)} L</span>
-                </>
-              )}
-            </span>
           </li>
         ))}
       </ol>
