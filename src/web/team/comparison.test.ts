@@ -172,6 +172,22 @@ test('names a player by their solo pseudo when only the solo accounts are compar
   expect(shown('duo')).toEqual(['alice', 'bob', 'charlie']);
 });
 
+test('the posts and the demolitions taken crown per match: who plays most does not win them', () => {
+  const posts = boardWith({
+    results: [
+      aResult({ match_guid: 'p1', name: 'alice', crossbar_hits: 3 }),
+      aResult({ match_guid: 'p2', name: 'alice', crossbar_hits: 1 }),
+      // An older collector sent no count: the match does not lower her average.
+      aResult({ match_guid: 'p3', name: 'alice', crossbar_hits: null }),
+      aResult({ match_guid: 'p1', name: 'bob', crossbar_hits: 3 }),
+    ],
+  });
+  const players = comparedPlayers(posts, [], ['alice', 'bob'], 'alice', 'all', 'all', null);
+  const posted = prizes.find((prize) => prize.prize === 'L’abonné aux montants');
+  // Alice hit 4 posts in 2 matches, Bob 3 in 1: he wins it.
+  expect(players.map((player) => posted?.value(player))).toEqual([2, 3]);
+});
+
 test('adds up the stats of collector 0.7.0, names the game’s events, and lines the assists up by scorer', () => {
   const stats = (alice: GameStats, bob: GameStats) =>
     (['alice', 'bob'] as const).map((name) =>
@@ -236,7 +252,9 @@ test('adds up the stats of collector 0.7.0, names the game’s events, and lines
   // Per match, over the matches that came with them.
   const perMatch = tableStats('all', 'perMatch', players).find((stat) => stat.label === 'Touches de balle');
   expect(players.map((player) => perMatch?.value(player))).toEqual([30, 20]);
+  // The demolitions taken count per match, over the matches that came with the game's feed: one each here.
   const punchingBall = prizes.find((prize) => prize.prize === 'Le punching-ball');
+  expect(punchingBall?.format).toBe('perMatch');
   expect(players.map((player) => punchingBall?.value(player))).toEqual([2, 0]);
 });
 

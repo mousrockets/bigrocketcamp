@@ -222,11 +222,12 @@ export const prizes: Prize[] = [
     value: (p) => average(p, p.career.demos, p.career.measured.demos),
     prize: 'Le démolisseur',
   },
-  // The collector counts a shot on the post or the crossbar, not whether it then went in.
+  // The collector counts a shot on the post or the crossbar, not whether it then went in. Per match, over the matches
+  // that came with the count: who plays most would win it otherwise.
   {
-    label: 'Poteaux',
-    format: 'count',
-    value: (p) => counted(p, p.career.crossbarHits),
+    label: 'Poteaux / match',
+    format: 'perMatch',
+    value: (p) => average(p, p.career.crossbarHits, p.career.measured.crossbarHits),
     prize: 'L’abonné aux montants',
   },
   {
@@ -266,10 +267,11 @@ export const prizes: Prize[] = [
     value: (p) => tallied(p.career.game.kickoffTouches),
     prize: 'Le roi du kickoff',
   },
+  // The other side of Le démolisseur: per match too, over the matches that came with the game's feed.
   {
-    label: 'Démolitions subies',
-    format: 'count',
-    value: (p) => feed(p, 'Demolish', 'statfeedSecondary'),
+    label: 'Démolitions subies / match',
+    format: 'perMatch',
+    value: (p) => average(p, feed(p, 'Demolish', 'statfeedSecondary'), p.career.game.statfeedMatches),
     prize: 'Le punching-ball',
   },
   {
