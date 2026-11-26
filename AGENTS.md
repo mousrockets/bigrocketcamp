@@ -87,7 +87,7 @@ Une seule façon de faire chaque chose. Si tu ne trouves pas laquelle, cherche u
 - Quatre onglets, les mêmes sur téléphone et sur ordinateur : L'équipe, Défis, Matchs, Réglages. Le profil du membre vit dans Réglages, nulle part ailleurs.
 - Sur téléphone, les codes d'iOS : barre d'onglets flottante en verre, feuilles (`Sheet`, `Drawer`), sélecteurs segmentés (`ToggleGroup`), interrupteurs (`Switch`). Sur ordinateur, une barre latérale (`Sidebar`).
 - Chaque joueur a une seule couleur, celle de son rank actuel le plus haut, duo ou solo (`rankRgb` et `highestTier` dans `src/web/team/stats.ts`).
-- Ranks : toujours les vraies icônes de `public/rocket-league/ranks/<rang>.png`, jamais une icône inventée.
+- Ranks : toujours les vraies icônes de `public/rocket-league/ranks/<rang>.png`, jamais une icône inventée. Le rank Zen, au-dessus de Supersonic Legend, porte l'icône de Supersonic Legend dans une lumière dorée.
 - Animations subtiles. Les effets forts sont réservés aux célébrations. Toujours `prefers-reduced-motion` (règle globale de `styles.css`).
 - Logo Rocket League : jamais modifié, jamais utilisé pour identifier le club. Chaque page qui le montre, ou une icône de rang, affiche la mention d'Epic (`EpicNotice`, `epicNotice`).
 - Sombre uniquement. Chaque écran se vérifie sur téléphone (390 × 844) et sur ordinateur (1440 × 900) ; le passage de l'un à l'autre se fait à `lg` (1024 px).
@@ -167,7 +167,7 @@ Une seule façon de faire chaque chose. Si tu ne trouves pas laquelle, cherche u
 
 ## Jamais
 
-- Un secret, un jeton ou une donnée réelle de joueur dans le code, les tests, les logs ou une PR. Les exemples utilisent des joueurs fictifs.
+- Un secret, un jeton ou une donnée réelle de joueur dans le code, les tests, les logs ou une PR. Les exemples utilisent des joueurs fictifs. Seule exception, voulue par un mainteneur : le pseudo Epic de Zen, joueur pro public, dans `src/lib/zen.ts`.
 - Une donnée propre à une équipe dans le code : nom, logo et membres sont des réglages de l'app.
 - Contourner une protection : anti-bot, CAPTCHA, limite de requêtes.
 - Pousser sur `main`, réécrire l'historique, désactiver un test pour faire passer la CI.

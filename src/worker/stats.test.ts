@@ -57,3 +57,23 @@ test('answers a member each club player’s season and the game’s words for it
     statfeedLabels: { Save: 'Arrêt' },
   });
 });
+
+test('answers a member Zen’s latest rating once the rank source read it, and nobody else', async () => {
+  const zen = (cookie: string | null) =>
+    exports.default.fetch(`${origin}/api/stats/zen`, {
+      headers: { Origin: origin, ...(cookie ? { Cookie: cookie } : {}) },
+    });
+  expect((await zen(null)).status).toBe(401);
+  const token = `token-${crypto.randomUUID()}`;
+  await env.DB.prepare('INSERT INTO sessions (token_hash, member_id, expires) VALUES (?, ?, ?)')
+    .bind(await sha256(token), 'member-alice', Date.now() + 86_400_000)
+    .run();
+  await env.DB.prepare('DELETE FROM zen_rank').run();
+  expect(await (await zen(`session=${token}`)).json()).toEqual({ zen: null });
+  await env.DB.prepare(
+    "INSERT INTO zen_rank (player, mmr, tier, fetched_at) VALUES ('~zen', 2210, 22, '2026-11-26T08:00:00.000Z')",
+  ).run();
+  expect(await (await zen(`session=${token}`)).json()).toEqual({
+    zen: { name: 'zenrll', mmr: 2210, fetchedAt: '2026-11-26T08:00:00.000Z' },
+  });
+});

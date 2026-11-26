@@ -65,6 +65,7 @@ app.use('/club/rules', requireMember);
 app.use('/profile', requireMember);
 app.use('/sounds', requireMember);
 app.use('/stats/seasons', requireMember);
+app.use('/stats/zen', requireMember);
 app.use('/tournament-wins', requireMember);
 app.use('/reminders', requireMember);
 app.use('/reminders/test', requireMember);
