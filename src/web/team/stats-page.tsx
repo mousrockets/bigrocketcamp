@@ -396,9 +396,41 @@ const prizeIcons: Record<string, LucideIcon> = {
   'Le traître': Ghost,
 };
 
+/** What the member lacks to take a prize from its leader, in the prize's own unit. */
+function gapOf(leader: number | null, mine: number, format: StatFormat): string {
+  const gap = Math.max(0, (leader ?? 0) - mine);
+  if (format === 'percent') return `${formatNumber(Math.round(gap))} point${Math.round(gap) >= 2 ? 's' : ''}`;
+  if (format === 'perMatch') return `${formatted(gap, format)} par match`;
+  return formatted(gap, format);
+}
+
+/** A player's bar in a trophy: their pseudo and figure, then their bar against the leader's; the member's in white. */
+function PrizeLine({ line, format }: { line: RankedLine; format: StatFormat }) {
+  const mine = line.player.me;
+  return (
+    <li className="flex flex-col gap-1">
+      <span
+        className={cn('flex min-w-0 items-baseline justify-between gap-2 text-[12px]', mine ? 'text-t1' : 'text-t2')}
+      >
+        <span className={cn('min-w-0 truncate', mine && 'font-semibold')}>{line.player.shown}</span>
+        <span className={cn('num shrink-0 text-[13px]', line.value === null && 'text-t3')}>
+          {formatted(line.value, format)}
+        </span>
+      </span>
+      <span aria-hidden="true" className="h-1 overflow-hidden rounded-full bg-white/6">
+        <i
+          className={cn('block h-full origin-left animate-grow rounded-full', mine ? 'bg-t1' : 'bg-white/40')}
+          style={{ width: `${line.share * 100}%` }}
+        />
+      </span>
+    </li>
+  );
+}
+
 /**
- * The prizes as a trophy shelf: small tiles, the member's own trophies first and in gold, each one saying who wins it
- * and, when it is not them, where the member stands. A prize nobody can win yet (a stat no collector sent) waits.
+ * The prizes as a trophy shelf: small tiles, the member's own trophies first and in gold, each with every player's
+ * bar, the leader first, and what the member lacks to take it. A prize nobody can win yet (a stat no collector sent)
+ * waits.
  */
 function PrizeShelf({ players }: { players: ComparedPlayer[] }) {
   const shelf = prizes
@@ -414,7 +446,7 @@ function PrizeShelf({ players }: { players: ComparedPlayer[] }) {
           ? 'Aucun pour toi cette fois. La revanche est à un match.'
           : `Tu en remportes ${formatNumber(won)} sur ${formatNumber(shelf.length)}.`}
       </p>
-      <ul className="m-0 grid list-none grid-cols-2 gap-3 p-0 md:grid-cols-3 lg:grid-cols-5">
+      <ul className="m-0 grid list-none grid-cols-2 gap-3 p-0 md:grid-cols-3 lg:grid-cols-4">
         {shelf.map(({ prize, lines, leaders, won: mine }) => {
           const Icon = prizeIcons[prize.prize] ?? Trophy;
           const [leader] = leaders;
@@ -442,31 +474,17 @@ function PrizeShelf({ players }: { players: ComparedPlayer[] }) {
                 <h3 className="title-display text-[18px] [line-height:1.1]">{prize.prize}</h3>
                 <span className="text-[12px] text-t3 [line-height:1.3]">{prize.label}</span>
               </span>
-              <span className="mt-auto flex min-w-0 flex-col gap-1">
-                <span className="flex min-w-0 items-baseline justify-between gap-2">
-                  <span className={cn('min-w-0 truncate font-semibold text-[14px]', mine ? 'text-t1' : 'text-t2')}>
-                    {leaders.length > 1
-                      ? leaders.map((line) => line.player.shown).join(' & ')
-                      : (leader?.player.shown ?? 'Personne')}
-                  </span>
-                  <b className={cn('num shrink-0 text-[17px]', mine ? 'text-medal-1' : 'text-t1')}>
-                    {formatted(leader?.value ?? null, prize.format)}
-                  </b>
-                </span>
-                {mine ? (
-                  <Badge variant="me" className="w-fit">
-                    TOI
-                  </Badge>
-                ) : (
-                  // Nobody wins the prize (nobody scored above 0): no place to give.
-                  me &&
-                  leader && (
-                    <span className="text-[12px] text-t3">
-                      Toi : {me.place === 1 ? '1er' : me.place ? `${me.place}e` : '–'} ·{' '}
-                      {formatted(me.value, prize.format)}
-                    </span>
-                  )
-                )}
+              <ol aria-label={`Classement : ${prize.prize}`} className="m-0 mt-auto flex list-none flex-col gap-2 p-0">
+                {lines.map((line) => (
+                  <PrizeLine key={line.player.name} line={line} format={prize.format} />
+                ))}
+              </ol>
+              <span className={cn('text-[12px] [line-height:1.3]', mine ? 'text-medal-1' : 'text-t2')}>
+                {mine
+                  ? 'Il est à toi.'
+                  : leader && me?.value != null
+                    ? `Il te manque ${gapOf(leader.value, me.value, prize.format)}.`
+                    : null}
               </span>
             </li>
           );

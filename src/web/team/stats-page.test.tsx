@@ -147,9 +147,13 @@ test('the member finds their own line: their place in each stat, their column ti
 test('crowns the prizes and lights the best of each line of the table', async () => {
   renderInApp(<StatsPage />, { board, path: '/stats' });
   const rageQuit = (await screen.findByRole('heading', { name: 'Rage quit' })).closest('li') as HTMLElement;
-  // Nobody left a match: nobody wins it, and the member has no place to read.
-  expect(rageQuit).toHaveTextContent('Personne');
-  expect(within(rageQuit).queryByText(/^Toi/)).not.toBeInTheDocument();
+  // Nobody left a match: nobody wins it, nobody lacks anything, and every player still has a line.
+  expect(
+    within(rageQuit)
+      .getAllByRole('listitem')
+      .map((line) => line.textContent),
+  ).toEqual(['alice0', 'bob0']);
+  expect(within(rageQuit).queryByText(/Il te manque/)).not.toBeInTheDocument();
   // No collector counted the demolitions of these matches: that prize waits.
   expect(screen.queryByRole('heading', { name: 'Le démolisseur' })).not.toBeInTheDocument();
   const goals = () =>
@@ -168,16 +172,22 @@ test('crowns the prizes and lights the best of each line of the table', async ()
   expect(within(screen.getByRole('table')).getByRole('rowheader', { name: 'Défaites ↓' })).toBeInTheDocument();
 });
 
-test('shows the game’s ball speeds in km/h, as it sends them', async () => {
+test('shows the game’s ball speeds in km/h, and what the member lacks to take a prize', async () => {
   const fast = boardWith({
     results: board.results.map((row) => ({
       ...row,
-      game_stats: { hardestHit: row.name === 'alice' ? 181.04 : 124.2, statfeed: {} },
+      game_stats: { hardestHit: row.name === 'alice' ? 124.2 : 181.04, statfeed: {} },
     })),
   });
   renderInApp(<StatsPage />, { board: fast, path: '/stats' });
   const cannon = (await screen.findByRole('heading', { name: 'Le canonnier' })).closest('li') as HTMLElement;
-  expect(within(cannon).getAllByText('181 km/h')).not.toHaveLength(0);
+  // Bob leads; Alice, the member, sees her bar under his, and what she lacks to take the prize.
+  expect(
+    within(cannon)
+      .getAllByRole('listitem')
+      .map((line) => line.textContent),
+  ).toEqual(['bob181\u00a0km/h', 'alice124\u00a0km/h']);
+  expect(cannon).toHaveTextContent('Il te manque 57 km/h.');
 });
 
 test('says so when nobody played in the mode chosen', async () => {
