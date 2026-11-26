@@ -321,8 +321,10 @@ function PodiumCard({ line, step }: { line: RankedLine; step: 1 | 2 | 3 }) {
           )}
         />
         <span className="relative z-4 flex min-w-0 max-w-full flex-col items-center gap-1">
-          <span className="flex min-w-0 max-w-full items-center gap-1">
-            <b className="truncate font-semibold text-[13px] lg:text-[15px]">{player.soloShown}</b>
+          <span className="flex min-w-0 max-w-full flex-col items-center gap-1 lg:flex-row">
+            <b className="line-clamp-2 break-all font-semibold text-[13px] [line-height:1.2] lg:text-[15px]">
+              {player.soloShown}
+            </b>
             {player.me && <Badge variant="tag">TOI</Badge>}
           </span>
           <span className="flex w-full flex-col gap-0.5 text-[11px] lg:flex-row lg:justify-center lg:gap-3 lg:text-[12px]">
