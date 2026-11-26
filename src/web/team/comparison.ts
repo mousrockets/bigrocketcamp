@@ -107,7 +107,7 @@ export function comparedPlayers(
 
 /**
  * How a stat is read: a share of the matches, an average per match, a plain count, MMR (signed), a ball speed (in
- * Unreal units per second, shown in km/h), a distance (in Unreal units, shown in metres), or seconds.
+ * km/h), a distance (in Unreal units, shown in metres), or seconds.
  */
 export type StatFormat = 'percent' | 'perMatch' | 'count' | 'mmr' | 'speed' | 'distance' | 'seconds';
 
@@ -190,6 +190,7 @@ export const prizes: Prize[] = [
   { ...pushups, prize: 'Les bras d’acier' },
   { label: 'MMR perdus depuis le peak', format: 'count', value: (p) => p.mmr?.fall ?? null, prize: 'La chute' },
   { label: 'Frappe la plus puissante', format: 'speed', value: (p) => p.career.game.hardestHit, prize: 'Le canonnier' },
+  { label: 'But le plus rapide', format: 'speed', value: (p) => p.career.game.fastestGoal, prize: 'Le bolide' },
   { label: 'But le plus lointain', format: 'distance', value: (p) => p.career.game.longestGoal, prize: 'Le sniper' },
   {
     label: 'Précision des tirs',
@@ -320,6 +321,7 @@ const tableRows = (scope: CareerScope): TableRow[] => [
     ? [{ label: 'Tournois gagnés', total: (p: ComparedPlayer) => counted(p, p.career.tournamentsWon) }]
     : []),
   { label: 'Frappe la plus puissante', total: (p) => p.career.game.hardestHit, format: 'speed' },
+  { label: 'But le plus rapide', total: (p) => p.career.game.fastestGoal, format: 'speed' },
   { label: 'But le plus lointain', total: (p) => p.career.game.longestGoal, format: 'distance' },
   {
     label: 'But le plus rapide après le coup d’envoi',
@@ -333,7 +335,40 @@ const tableRows = (scope: CareerScope): TableRow[] => [
 ];
 
 /** The game's stat feed events a line of the scoreboard already counts: the table shows them once. */
-const scoreboardEvents = new Set(['Goal', 'Assist', 'Save', 'Shot', 'Demolish']);
+const scoreboardEvents = new Set(['Goal', 'Assist', 'Save', 'Shot', 'Demolish', 'MVP', 'Win']);
+
+/**
+ * The game's events in French, whatever the language the game was played in: the words it sends follow the
+ * player's game. An event not listed keeps the game's own words, or its name.
+ */
+const eventWords: Readonly<Record<string, string>> = {
+  AerialGoal: 'But aérien',
+  Assist: 'Passe décisive',
+  BackwardsGoal: 'But à reculons',
+  BicycleGoal: 'But en retourné',
+  BicycleHit: 'Retourné',
+  Center: 'Centre',
+  Clear: 'Dégagement',
+  Demolish: 'Démolition',
+  EpicSave: 'Arrêt décisif',
+  FirstTouch: 'Premier toucher',
+  Goal: 'But',
+  HatTrick: 'Coup du chapeau',
+  HighFive: 'Check',
+  LongGoal: 'But de loin',
+  LowFive: 'Check en bas',
+  MVP: 'MVP',
+  OwnGoal: 'But contre son camp',
+  Playmaker: 'Meneur de jeu',
+  PoolShot: 'Coup de billard',
+  Save: 'Arrêt',
+  Savior: 'Sauveur',
+  Shot: 'Tir cadré',
+  TurtleGoal: 'But en tortue',
+  Win: 'Victoire',
+};
+
+const eventLabel = (name: string, labels: Readonly<Record<string, string>>) => eventWords[name] ?? labels[name] ?? name;
 
 /**
  * The lines the players' own data brings: each stat feed event the game sent, got and taken, named with the game's
@@ -343,7 +378,7 @@ function dataRows(players: readonly ComparedPlayer[], labels: Readonly<Record<st
   const names = (side: 'statfeed' | 'statfeedSecondary') =>
     [...new Set(players.flatMap((player) => [...player.career.game[side].keys()]))].sort();
   const feedRow = (name: string, side: 'statfeed' | 'statfeedSecondary'): TableRow => ({
-    label: side === 'statfeed' ? (labels[name] ?? name) : `Subi : ${labels[name] ?? name}`,
+    label: side === 'statfeed' ? eventLabel(name, labels) : `Subi : ${eventLabel(name, labels)}`,
     total: (p) => feed(p, name, side),
     perMatch: 'average',
     measuredIn: (p) => p.career.game.statfeedMatches,

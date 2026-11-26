@@ -70,8 +70,8 @@ function formatted(value: number | null, format: StatFormat): string {
   // Two decimals: averages of a few matches are close, and one decimal would show a tie the bars deny.
   if (format === 'perMatch') return formatNumber(Math.round(value * 100) / 100);
   if (format === 'mmr') return value > 0 ? `+${formatNumber(value)}` : value < 0 ? `−${formatNumber(-value)}` : '0';
-  // The game counts in Unreal units: a centimetre, a centimetre per second.
-  if (format === 'speed') return `${formatNumber(Math.round(value * 0.036))}\u00a0km/h`;
+  // The game sends ball speeds in km/h, and distances in Unreal units: centimetres.
+  if (format === 'speed') return `${formatNumber(Math.round(value))}\u00a0km/h`;
   if (format === 'distance') return `${formatNumber(Math.round(value / 10) / 10)}\u00a0m`;
   if (format === 'seconds') return `${formatNumber(Math.round(value * 10) / 10)}\u00a0s`;
   return formatNumber(Math.round(value));

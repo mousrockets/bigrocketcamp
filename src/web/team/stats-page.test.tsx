@@ -163,6 +163,18 @@ test('crowns the prizes and lights the best of each line of the table', async ()
   expect(screen.getByText(/le meilleur de chaque ligne : le plus bas pour défaites/)).toBeInTheDocument();
 });
 
+test('shows the game’s ball speeds in km/h, as it sends them', async () => {
+  const fast = boardWith({
+    results: board.results.map((row) => ({
+      ...row,
+      game_stats: { hardestHit: row.name === 'alice' ? 181.04 : 124.2, statfeed: {} },
+    })),
+  });
+  renderInApp(<StatsPage />, { board: fast, path: '/stats' });
+  const cannon = await screen.findByRole('region', { name: 'Le canonnier' });
+  expect(within(cannon).getAllByText('181 km/h')).not.toHaveLength(0);
+});
+
 test('says so when nobody played in the mode chosen', async () => {
   renderInApp(<StatsPage />, { board, path: '/stats' });
   await pick('Mode', 'Tournoi');
