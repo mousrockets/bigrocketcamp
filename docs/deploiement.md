@@ -56,6 +56,8 @@ Tout ce qui a été réglé à la main pour l'instance mousrockets.com, chez Clo
 
 La source de rangs de mousrockets.com est un autre Worker du même compte, avec son propre stockage KV et sa tâche planifiée chaque minute. Elle est mise en ligne à la main, pas par Workers Builds. Son dépôt est privé, car il touche au compte Epic jetable, et ses réglages y sont documentés. L'app ne l'appelle jamais : c'est la source qui interroge l'app, avec `RANK_SOURCE_KEY`.
 
+Au plus une fois par jour, `GET /api/ranks/targets` ajoute aux comptes du club celui de Zen (`~zen`, de type `solo`, nom Epic dans `src/lib/zen.ts`) : la source le cherche et le lit comme un compte solo, sans changement de son côté. L'app ne garde que son dernier relevé (`zen_rank`), à part des rangs du club : il n'a ni historique ni place dans les défis, et coiffe l'échelle de « Les ranks ».
+
 ### Resend, pour les e-mails
 
 - Un compte dédié à l'app. Le domaine `mousrockets.com` y est vérifié, dans la région **Ireland (eu-west-1)**, pour que les envois restent dans l'UE.

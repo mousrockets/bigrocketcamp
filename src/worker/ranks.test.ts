@@ -43,10 +43,59 @@ beforeEach(async () => {
     env.DB.prepare('DELETE FROM solo_ranks'),
     env.DB.prepare('DELETE FROM player_identities'),
     env.DB.prepare('DELETE FROM player_identity_aliases'),
+    // Zen was asked for today: the club's accounts alone, unless a test says otherwise.
+    env.DB.prepare("INSERT OR REPLACE INTO zen_rank (player, asked_at) VALUES ('~zen', ?)").bind(
+      new Date().toISOString(),
+    ),
     env.DB.prepare(
       "INSERT INTO player_identities (slot, owner, player_id) VALUES ('bob', 'member-bob', 'Epic|bob-test|0')",
     ),
   ]);
+});
+
+describe('Zen, the mark above Supersonic Legend', () => {
+  const zenTarget = { player: '~zen', kind: 'solo', platform: 'Epic', name: 'zenrll', playerId: null };
+  const zenReading = (mmr: number, observedAt = new Date().toISOString()) => ({
+    player: '~zen',
+    kind: 'solo',
+    name: 'zenrll',
+    playerId: `Epic|${'a'.repeat(32)}|0`,
+    mmr,
+    tier: 22,
+    division: null,
+    observedAt,
+  });
+  const targets = async () => ((await (await call('/api/ranks/targets')).json()) as { targets: unknown[] }).targets;
+
+  test('is read once a day: the rank source gets his account a day after it was last asked for it', async () => {
+    await env.DB.prepare("UPDATE zen_rank SET asked_at = '2026-01-01T00:00:00.000Z'").run();
+    expect(await targets()).toContainEqual(zenTarget);
+    // Asked for today: tomorrow, then.
+    expect(await targets()).not.toContainEqual(expect.objectContaining({ player: '~zen' }));
+  });
+
+  test('keeps only his latest reading, apart from the club’s ranks and history', async () => {
+    expect(await (await post([zenReading(2210)])).json()).toEqual({ ok: true, changed: 0, ignored: 0 });
+    expect(await (await post([zenReading(2190, '2020-01-01T00:00:00.000Z')])).json()).toMatchObject({ ok: true });
+    expect(await env.DB.prepare("SELECT mmr, tier, player_id FROM zen_rank WHERE player = '~zen'").first()).toEqual({
+      mmr: 2210,
+      tier: 22,
+      player_id: `Epic|${'a'.repeat(32)}|0`,
+    });
+    expect(await env.DB.prepare('SELECT COUNT(*) AS n FROM solo_ranks').first('n')).toBe(0);
+    expect(await env.DB.prepare('SELECT COUNT(*) AS n FROM solo_mmr_entries').first('n')).toBe(0);
+  });
+
+  test('ignores a reading of another account under his name', async () => {
+    await post([zenReading(2210)]);
+    // Once found, his account is read by its ID: another one does not take his place.
+    expect(await (await post([{ ...zenReading(1500), playerId: `Epic|${'b'.repeat(32)}|0` }])).json()).toEqual({
+      ok: true,
+      changed: 0,
+      ignored: 1,
+    });
+    expect(await env.DB.prepare("SELECT mmr FROM zen_rank WHERE player = '~zen'").first('mmr')).toBe(2210);
+  });
 });
 
 describe('the rank source API', () => {

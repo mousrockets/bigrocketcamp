@@ -15,6 +15,8 @@ import {
   type SoundCollections,
   seasonMmrList,
   soundCollections,
+  type ZenAnswer,
+  zenAnswer,
 } from '../lib/contract';
 import { parseOrThrow } from '../lib/validation';
 import type { DeployedVersion } from '../lib/version';
@@ -122,6 +124,13 @@ export const soundCollectionsQuery = queryOptions({
 export const seasonMmrQuery = queryOptions({
   queryKey: ['stats', 'seasons'],
   queryFn: (): Promise<SeasonMmrList> => dataOf(api.stats.seasons.$get(), seasonMmrList, 'Saisons indisponibles.'),
+});
+
+/** Zen's latest rating, the mark above Supersonic Legend: read once a day by the rank source, so kept an hour here. */
+export const zenQuery = queryOptions({
+  queryKey: ['stats', 'zen'],
+  queryFn: (): Promise<ZenAnswer> => dataOf(api.stats.zen.$get(), zenAnswer, 'Rank de Zen indisponible.'),
+  staleTime: 3_600_000,
 });
 
 /**

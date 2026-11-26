@@ -479,6 +479,21 @@ export const soloRanks = sqliteTable('solo_ranks', {
   ...seasonStartBest,
 });
 
+/**
+ * Zen's ranked 2v2 rating, the mark at the top of the club's ladder: only the latest reading, read once a day at
+ * most (src/lib/zen.ts).
+ */
+export const zenRank = sqliteTable('zen_rank', {
+  player: text('player').primaryKey(),
+  /** Null until the rank source found the account from its Epic name. */
+  playerId: text('player_id'),
+  mmr: integer('mmr'),
+  tier: integer('tier'),
+  fetchedAt: text('fetched_at'),
+  /** When the rank source was last asked to read it: a day goes by before it is asked again. */
+  askedAt: text('asked_at'),
+});
+
 /** Each change of a solo account's rating, as the rank source read it. */
 export const soloMmrEntries = sqliteTable(
   'solo_mmr_entries',
