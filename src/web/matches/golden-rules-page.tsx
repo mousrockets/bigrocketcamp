@@ -1,5 +1,4 @@
 import { useNavigate, useSearch } from '@tanstack/react-router';
-import { cn } from 'cn';
 import { BackLink } from '../components/back-link';
 import { SegmentedControl } from '../components/segmented-control';
 import { TabPage } from '../components/tab-page';
@@ -11,7 +10,7 @@ const languages = [
   { value: 'en', label: 'EN' },
 ] as const satisfies readonly { value: RulesLanguage; label: string }[];
 
-/** Squishy's Golden Rules, opened from Matchs: the first tier in cards of their own, the others in lists. */
+/** Squishy's Golden Rules, opened from Matchs: each tier, then each of its rules in a card of its own. */
 export function GoldenRulesPage() {
   const { langue } = useSearch({ strict: false });
   const language: RulesLanguage = langue ?? 'fr';
@@ -53,41 +52,30 @@ export function GoldenRulesPage() {
 /** A tier: its small capitals and name, beside its rules on a computer, above them on a phone. */
 function Tier({ tier, language }: { tier: GoldenTier; language: RulesLanguage }) {
   const headingId = `tier-${tier.number}`;
-  const core = tier.number === 1;
   return (
     <section
       aria-labelledby={headingId}
       className="flex flex-col gap-4 lg:grid lg:grid-cols-[220px_minmax(0,1fr)] lg:items-start lg:gap-10"
     >
       <div className="flex flex-col gap-1.5 lg:sticky lg:top-8">
-        <span className={cn('label-caps', core && 'text-gold')}>Tier {tier.number}</span>
+        <span className="label-caps text-gold">Tier {tier.number}</span>
         <h2 id={headingId} className="title-display text-[24px] [line-height:1.1] lg:text-[26px]">
           {tier.name}
         </h2>
       </div>
-      {core ? (
-        <ol className="m-0 grid list-none gap-3 p-0 lg:grid-cols-2">
-          {tier.rules.map((rule) => (
-            <li key={rule.number} className="flex">
-              <CoreRule rule={rule} language={language} />
-            </li>
-          ))}
-        </ol>
-      ) : (
-        <Card variant="glass" className="gap-0 py-0">
-          <ol className="m-0 list-none p-0">
-            {tier.rules.map((rule) => (
-              <RuleRow key={rule.number} rule={rule} language={language} />
-            ))}
-          </ol>
-        </Card>
-      )}
+      <ol className="m-0 grid list-none gap-3 p-0 lg:grid-cols-2">
+        {tier.rules.map((rule) => (
+          <li key={rule.number} className="flex">
+            <RuleCard rule={rule} language={language} />
+          </li>
+        ))}
+      </ol>
     </section>
   );
 }
 
-/** A rule of the first tier: a card of its own, its number big and golden. */
-function CoreRule({ rule, language }: { rule: GoldenRule; language: RulesLanguage }) {
+/** A rule: a card of its own, its number big and golden. */
+function RuleCard({ rule, language }: { rule: GoldenRule; language: RulesLanguage }) {
   return (
     <Card variant="glass" className="relative flex-1 gap-3 p-5">
       <i
@@ -105,24 +93,6 @@ function CoreRule({ rule, language }: { rule: GoldenRule; language: RulesLanguag
       </div>
       <RuleWords rule={rule} language={language} />
     </Card>
-  );
-}
-
-/** A rule of the other tiers: one row of its tier's list. */
-function RuleRow({ rule, language }: { rule: GoldenRule; language: RulesLanguage }) {
-  return (
-    <li className="flex gap-4 px-4 py-4 not-first:border-line not-first:border-t-[.5px] lg:gap-5 lg:px-5 lg:py-[18px]">
-      <b aria-hidden="true" className="num w-7 shrink-0 text-right text-[26px] text-gold/55 [line-height:1]">
-        {rule.number}
-      </b>
-      <div className="flex min-w-0 flex-1 flex-col gap-2">
-        <h3 className="m-0 font-semibold text-[17px] [line-height:1.2]">
-          <span className="sr-only">{rule.number}. </span>
-          {rule.name}
-        </h3>
-        <RuleWords rule={rule} language={language} />
-      </div>
-    </li>
   );
 }
 
