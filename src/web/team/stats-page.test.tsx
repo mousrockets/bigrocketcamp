@@ -209,7 +209,7 @@ test('crowns the prizes and lights the best of each line of the table', async ()
   // A tap, or a hover on a computer, shows the total it comes from.
   await userEvent.click(within(goals()).getByRole('button', { name: '2, 4 au total' }));
   const bubble = await screen.findByText('Au total');
-  expect(bubble.parentElement).toHaveTextContent('Au total4');
+  expect(bubble.parentElement).toHaveTextContent(/^Au total4$/);
   expect(screen.getByText(/Touche ou survole un chiffre pour voir son total/)).toBeInTheDocument();
   // The table reads part by part, each one saying whether it reads per match.
   expect(

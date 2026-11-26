@@ -722,7 +722,8 @@ function StatsTable({ stats, players }: { stats: TableStat[]; players: ComparedP
                             <TotalOf
                               figure={figure}
                               tone={tone}
-                              total={`${formatNumber(count)}${stat.of ? ` sur ${formatNumber(stat.of(player))}` : ''}`}
+                              count={formatNumber(count)}
+                              of={stat.of ? formatNumber(stat.of(player)) : null}
                             />
                           )}
                         </TableCell>
@@ -747,13 +748,13 @@ function StatsTable({ stats, players }: { stats: TableStat[]; players: ComparedP
  * A rate of the table, and the total it comes from in a small bubble: shown on hover on a computer, on a tap on a
  * phone, so that the table keeps one figure per player.
  */
-function TotalOf({ figure, tone, total }: { figure: string; tone: string; total: string }) {
+function TotalOf({ figure, tone, count, of }: { figure: string; tone: string; count: string; of: string | null }) {
   return (
     <Popover>
       <PopoverTrigger
         openOnHover
         delay={120}
-        aria-label={`${figure}, ${total} au total`}
+        aria-label={`${figure}, ${count}${of ? ` sur ${of}` : ''} au total`}
         className={cn(
           'num -mx-1.5 -my-0.5 rounded-[7px] px-1.5 py-0.5 text-[15px] [line-height:1.1] transition-colors hover:bg-white/8 data-[popup-open]:bg-white/10',
           tone,
@@ -767,7 +768,15 @@ function TotalOf({ figure, tone, total }: { figure: string; tone: string; total:
         className="w-auto items-center gap-0.5 rounded-[12px] bg-[rgba(28,28,30,.94)] px-3 py-2 text-t1 ring-white/10 backdrop-blur-[30px]"
       >
         <span className="label-caps text-[10px]">Au total</span>
-        <b className="num whitespace-nowrap text-[17px] [line-height:1]">{total}</b>
+        <span className="flex items-baseline gap-1 whitespace-nowrap">
+          <b className="num text-[17px] [line-height:1]">{count}</b>
+          {of && (
+            <>
+              <span className="text-[12px] text-t3">sur</span>
+              <b className="num text-[17px] [line-height:1]">{of}</b>
+            </>
+          )}
+        </span>
       </PopoverContent>
     </Popover>
   );
