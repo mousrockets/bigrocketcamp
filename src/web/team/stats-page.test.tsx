@@ -89,6 +89,8 @@ test('L’équipe leads to the Stats page, which leads back', async () => {
   expect(await screen.findByRole('link', { name: 'Stats' })).toHaveAttribute('href', '/stats');
   renderInApp(<StatsPage />, { board, path: '/stats' });
   expect(await screen.findByRole('link', { name: 'L’équipe' })).toHaveAttribute('href', '/');
+  // The ranks' ladder opens over Stats, as the rules over Défis.
+  expect(screen.getByRole('link', { name: 'Les ranks' })).toHaveAttribute('href', '/stats?ranks=true');
 });
 
 /** Picks an entry of one of the page's lists. */

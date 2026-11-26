@@ -176,26 +176,12 @@ test('shows on each card the share of pushups paid back, then how many', async (
   expect(within(card).getByText('6 / 10 remboursées')).toBeInTheDocument();
 });
 
-test('opens the ranks’ ladder from the team', async () => {
-  renderInApp(<TeamPage />, { board });
-  expect(await screen.findByRole('link', { name: 'Les ranks' })).toHaveAttribute('href', '/?ranks=true');
-});
-
-test('links the day’s summary from the team on a computer', async () => {
+test('leads only to Stats from the team: the ranks and the day’s summary live elsewhere', async () => {
   setViewportWidth(1440);
   try {
     renderInApp(<TeamPage />, { board });
-    expect(await screen.findByRole('link', { name: 'Bilan du jour' })).toHaveAttribute('href', '/matchs');
-  } finally {
-    setViewportWidth(1024);
-  }
-});
-
-test('leaves the day’s summary to the tab bar on a phone', async () => {
-  setViewportWidth(390);
-  try {
-    renderInApp(<TeamPage />, { board });
-    await screen.findByRole('link', { name: 'Les ranks' });
+    expect(await screen.findByRole('link', { name: 'Stats' })).toHaveAttribute('href', '/stats');
+    expect(screen.queryByRole('link', { name: 'Les ranks' })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Bilan du jour' })).not.toBeInTheDocument();
   } finally {
     setViewportWidth(1024);

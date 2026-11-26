@@ -31,12 +31,15 @@ import { BackLink } from '../components/back-link';
 import { BoardPending } from '../components/board-pending';
 import { FilterSelect } from '../components/filter-select';
 import { SegmentedControl } from '../components/segmented-control';
+import { SheetLink } from '../components/sheet-link';
 import { TabPage } from '../components/tab-page';
 import { Badge } from '../components/ui/badge';
+import { buttonVariants } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { Skeleton } from '../components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { seasonMmrQuery } from '../queries';
+import { LadderIcon } from '../shell/icons';
 import { type CareerAccount, type CareerScope, soloAccountOf } from './career';
 import {
   bestOf,
@@ -137,7 +140,17 @@ export function StatsPage() {
     });
 
   return (
-    <TabPage back={<BackLink to="/">L’équipe</BackLink>} kicker="La team en chiffres" title="Stats">
+    <TabPage
+      back={<BackLink to="/">L’équipe</BackLink>}
+      kicker="La team en chiffres"
+      title="Stats"
+      aside={
+        <SheetLink sheet="ranks" className={buttonVariants({ variant: 'bubble', size: 'hint' })}>
+          <LadderIcon />
+          Les ranks
+        </SheetLink>
+      }
+    >
       <div className="flex animate-rise flex-col gap-10 px-5 pt-6 [animation-delay:.06s] lg:gap-14 lg:px-0 lg:pt-0">
         {/* On a phone, the filters stay on one line and scroll sideways, to the screen's edges, as iOS chips do. */}
         <div className="-mx-5 flex gap-2 overflow-x-auto px-5 [scrollbar-width:none] lg:mx-0 lg:flex-wrap lg:px-0 [&>*]:shrink-0">
