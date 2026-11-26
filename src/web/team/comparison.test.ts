@@ -1,7 +1,16 @@
 import { expect, test } from 'vitest';
 import type { SeasonMmr } from '../../lib/contract';
 import { anExercise, aRank, aResult, aSoloRank, boardWith } from '../test-utils';
-import { allStats, bestOf, comparedPlayers, keyStats, prizes, ranked, seasonsPlayed } from './comparison';
+import {
+  bestOf,
+  comparedPlayers,
+  keyStats,
+  prizes,
+  ranked,
+  seasonsPlayed,
+  type TableMode,
+  tableStats,
+} from './comparison';
 
 // The Stats page compares the players over one season: S23 from 10 June, S24 from 23 September 2026.
 
@@ -53,8 +62,8 @@ const seasons: SeasonMmr[] = [
   { player: 'bob', account: 'duo', season: 24, first: 1300, last: 1290, peak: peak(1330, 17) },
 ];
 const roster = ['alice', 'bob', 'charlie'];
-const statNamed = (label: string) => {
-  const stat = allStats('doubles').find((candidate) => candidate.label === label);
+const statNamed = (label: string, mode: TableMode = 'total') => {
+  const stat = tableStats('doubles', mode).find((candidate) => candidate.label === label);
   if (!stat) throw new Error(`${label} is in the table`);
   return stat;
 };
@@ -94,7 +103,7 @@ test('counts the season’s exercises in pushups', () => {
 test('reads the endings of the matches: goals conceded, overtimes, forfeits, matches left, late nights', () => {
   const players = comparedPlayers(board, seasons, roster, 'alice', 'all', 'all', 24);
   const row = (label: string) => players.map((player) => statNamed(label).value(player));
-  expect(row('Buts encaissés / match')).toEqual([1.5, 1.5, null]);
+  expect(row('Buts encaissés')).toEqual([3, 3, null]);
   expect(row('Clean sheets')).toEqual([1, 1, null]);
   expect(row('Prolongations gagnées')).toEqual([1, 1, 0]);
   expect(row('FF donnés')).toEqual([1, 1, 0]);
@@ -104,7 +113,7 @@ test('reads the endings of the matches: goals conceded, overtimes, forfeits, mat
 
 test('ranks the players, ties sharing the lead and those without a figure last', () => {
   const players = comparedPlayers(board, seasons, ['alice', 'bob', 'charlie', 'dana'], 'alice', 'all', 'all', 24);
-  const wins = ranked(statNamed('% de victoires'), players);
+  const wins = ranked(statNamed('Victoires', 'perMatch'), players);
   expect(wins.lines.map((line) => [line.player.name, line.value])).toEqual([
     ['alice', 50],
     ['bob', 50],
@@ -124,8 +133,21 @@ test('the table lights the best figure of a line, the lowest when less is better
   expect(bestOf(statNamed('Buts'), players)).toBe(3);
   expect(bestOf(statNamed('Matchs quittés'), players)).toBe(0);
   expect(bestOf(statNamed('Clean sheets'), players)).toBe(null);
-  expect(allStats('tournament').map((stat) => stat.label)).toContain('Tournois gagnés');
-  expect(allStats('doubles').map((stat) => stat.label)).not.toContain('Tournois gagnés');
+  expect(tableStats('tournament', 'total').map((stat) => stat.label)).toContain('Tournois gagnés');
+  expect(tableStats('doubles', 'total').map((stat) => stat.label)).not.toContain('Tournois gagnés');
+});
+
+test('per match, an action is averaged, an ending becomes a share of the matches, a record stays as it is', () => {
+  const players = comparedPlayers(board, seasons, roster, 'alice', 'all', 'all', 24);
+  const row = (label: string) => players.map((player) => statNamed(label, 'perMatch').value(player));
+  expect(row('Buts')).toEqual([1.5, 0, 0]);
+  expect(row('Prolongations gagnées')).toEqual([50, 50, 0]);
+  expect(row('Matchs quittés')).toEqual([0, 0, 100]);
+  expect(row('Win streak max')).toEqual([1, 1, 0]);
+  // Only the matches that came with a final score count: Charlie's has none.
+  expect(row('Buts encaissés')).toEqual([1.5, 1.5, null]);
+  expect(statNamed('Buts', 'perMatch').format).toBe('perMatch');
+  expect(statNamed('MVP', 'perMatch').format).toBe('percent');
 });
 
 test('names a player by their solo pseudo when only the solo accounts are compared', () => {

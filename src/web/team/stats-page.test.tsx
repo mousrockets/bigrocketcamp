@@ -97,11 +97,8 @@ test('shows a past season from its address, and every match from the season list
   await pick('Saison', 'Toutes les saisons');
   expect(await screen.findByRole('combobox', { name: 'Saison' })).toHaveTextContent('Toutes les saisons');
   const table = screen.getByRole('table');
-  expect(
-    within(within(table).getByRole('rowheader', { name: '% de victoires' }).closest('tr') as HTMLElement).getAllByText(
-      '67 %',
-    ),
-  ).toHaveLength(2);
+  const wins = within(table).getByRole('rowheader', { name: 'Victoires' }).closest('tr') as HTMLElement;
+  expect(within(wins).getAllByText('67 %')).toHaveLength(2);
 });
 
 test('leads with each player’s 2v2 peak and what the season brought, the highest first', async () => {
@@ -135,10 +132,16 @@ test('crowns the prizes and lights the best of each line of the table', async ()
   renderInApp(<StatsPage />, { board, path: '/stats' });
   const assassin = await screen.findByRole('region', { name: 'Le démolisseur' });
   expect(within(assassin).getByRole('heading', { name: 'Le démolisseur' })).toBeInTheDocument();
-  const goals = within(screen.getByRole('table')).getByRole('rowheader', { name: 'Buts' }).closest('tr') as HTMLElement;
-  // Alice scored 4 this season, Bob 1.
-  expect(within(goals).getByText('4')).toHaveClass('text-win');
-  expect(within(goals).getByText('1')).not.toHaveClass('text-win');
+  const goals = () =>
+    within(screen.getByRole('table')).getByRole('rowheader', { name: 'Buts' }).closest('tr') as HTMLElement;
+  // Alice scored 4 in 2 matches this season, Bob 1: per match first, then the totals.
+  expect(within(goals()).getByText('2')).toHaveClass('text-win');
+  expect(within(goals()).getByText('0,5')).not.toHaveClass('text-win');
+  await userEvent.click(
+    within(screen.getByRole('group', { name: 'Chiffres du tableau' })).getByRole('button', { name: 'Total' }),
+  );
+  expect(within(goals()).getByText('4')).toHaveClass('text-win');
+  expect(within(goals()).getByText('1')).not.toHaveClass('text-win');
   expect(screen.getByText(/le meilleur de chaque ligne : le plus bas pour défaites/)).toBeInTheDocument();
 });
 

@@ -120,34 +120,16 @@ export interface Prize extends Stat {
 }
 
 const played = (player: ComparedPlayer, value: number | null) => (player.career.matches === 0 ? null : value);
-const share = (player: ComparedPlayer, count: number) => played(player, (count / player.career.matches) * 100);
-const average = (player: ComparedPlayer, total: number | null) =>
-  played(player, total === null ? null : total / player.career.matches);
+const share = (player: ComparedPlayer, count: number | null, of = player.career.matches) =>
+  played(player, count === null || of === 0 ? null : (count / of) * 100);
+const average = (player: ComparedPlayer, total: number | null, of = player.career.matches) =>
+  played(player, total === null || of === 0 ? null : total / of);
 const counted = (player: ComparedPlayer, count: number | null) => played(player, count);
 
-const matches: Stat = { label: 'Matchs', format: 'count', value: (p) => counted(p, p.career.matches) };
-const wins: Stat = { label: 'Victoires', format: 'count', value: (p) => counted(p, p.career.wins) };
-const losses: Stat = {
-  label: 'Défaites',
-  format: 'count',
-  value: (p) => counted(p, p.career.losses),
-  lowerIsBetter: true,
-};
-const winRate: Stat = { label: '% de victoires', format: 'percent', value: (p) => share(p, p.career.wins) };
 const score: Stat = { label: 'Score moyen', format: 'count', value: (p) => average(p, p.career.score) };
 const goals: Stat = { label: 'Buts / match', format: 'perMatch', value: (p) => average(p, p.career.goals) };
-const assists: Stat = { label: 'Passes D / match', format: 'perMatch', value: (p) => average(p, p.career.assists) };
 const saves: Stat = { label: 'Arrêts / match', format: 'perMatch', value: (p) => average(p, p.career.saves) };
 const mvpRate: Stat = { label: 'Taux de MVP', format: 'percent', value: (p) => share(p, p.career.mvps) };
-const demos: Stat = { label: 'Démos / match', format: 'perMatch', value: (p) => average(p, p.career.demos) };
-const conceded: Stat = {
-  label: 'Buts encaissés / match',
-  format: 'perMatch',
-  value: (p) => average(p, p.career.conceded),
-  lowerIsBetter: true,
-};
-const peak: Stat = { label: 'Peak 2v2', format: 'count', value: (p) => p.mmr?.peak.mmr ?? null };
-const gained: Stat = { label: 'MMR gagné', format: 'mmr', value: (p) => p.mmr?.gained ?? null };
 const pushups: Stat = { label: 'Pompes faites', format: 'count', value: (p) => p.pushups };
 
 /** The figures that say the most, after the peak: a card each. */
@@ -155,7 +137,12 @@ export const keyStats: Stat[] = [score, mvpRate, goals, saves];
 
 /** The fun ones, each with its prize. */
 export const prizes: Prize[] = [
-  { ...demos, prize: 'Le démolisseur' },
+  {
+    label: 'Démos / match',
+    format: 'perMatch',
+    value: (p) => average(p, p.career.demos, p.career.measured.demos),
+    prize: 'Le démolisseur',
+  },
   // The collector counts a shot on the post or the crossbar, not whether it then went in.
   {
     label: 'Poteaux',
@@ -186,50 +173,90 @@ export const prizes: Prize[] = [
   { label: 'MMR perdus depuis le peak', format: 'count', value: (p) => p.mmr?.fall ?? null, prize: 'La chute' },
 ];
 
-/** Every stat the page has, for the table: the matches, the play, the endings, the rating, the club. */
-export const allStats = (scope: CareerScope): Stat[] => [
-  matches,
-  wins,
-  losses,
-  winRate,
-  score,
-  { label: 'Buts', format: 'count', value: (p) => counted(p, p.career.goals) },
-  goals,
-  { label: 'Passes D', format: 'count', value: (p) => counted(p, p.career.assists) },
-  assists,
-  { label: 'Arrêts', format: 'count', value: (p) => counted(p, p.career.saves) },
-  saves,
-  { label: 'Démos', format: 'count', value: (p) => counted(p, p.career.demos) },
-  demos,
-  { label: 'Poteaux', format: 'count', value: (p) => counted(p, p.career.crossbarHits) },
-  { label: 'MVP', format: 'count', value: (p) => counted(p, p.career.mvps) },
-  mvpRate,
-  conceded,
+/** How the table shows its figures: each match's average, or the totals. */
+export type TableMode = 'perMatch' | 'total';
+
+/**
+ * A line of the table. Its total, and what it becomes per match: an action (goals, saves…) is averaged over the
+ * matches, an ending (a win, an MVP, a forfeit…) becomes the share of the matches it happened in; a record (a streak,
+ * the peak) stays as it is.
+ */
+interface TableRow {
+  label: string;
+  total: (player: ComparedPlayer) => number | null;
+  /** How it reads per match; none for a record. */
+  perMatch?: 'average' | 'share';
+  /** The matches the figure was measured in, when an older collector did not send it. */
+  measuredIn?: (player: ComparedPlayer) => number;
+  format?: StatFormat;
+  lowerIsBetter?: boolean;
+}
+
+const tableRows = (scope: CareerScope): TableRow[] => [
+  { label: 'Matchs', total: (p) => counted(p, p.career.matches) },
+  { label: 'Victoires', total: (p) => counted(p, p.career.wins), perMatch: 'share' },
+  { label: 'Défaites', total: (p) => counted(p, p.career.losses), perMatch: 'share', lowerIsBetter: true },
+  { label: 'Score', total: (p) => counted(p, p.career.score), perMatch: 'average' },
+  { label: 'Buts', total: (p) => counted(p, p.career.goals), perMatch: 'average' },
+  { label: 'Passes D', total: (p) => counted(p, p.career.assists), perMatch: 'average' },
+  { label: 'Arrêts', total: (p) => counted(p, p.career.saves), perMatch: 'average' },
   {
-    label: 'Clean sheets',
-    format: 'count',
-    value: (p) => counted(p, p.career.conceded === null ? null : p.career.cleanSheets),
+    label: 'Démos',
+    total: (p) => counted(p, p.career.demos),
+    perMatch: 'average',
+    measuredIn: (p) => p.career.measured.demos,
   },
-  { label: 'Prolongations gagnées', format: 'count', value: (p) => counted(p, p.career.overtimeWins) },
   {
-    label: 'Prolongations perdues',
-    format: 'count',
-    value: (p) => counted(p, p.career.overtimeLosses),
+    label: 'Poteaux',
+    total: (p) => counted(p, p.career.crossbarHits),
+    perMatch: 'average',
+    measuredIn: (p) => p.career.measured.crossbarHits,
+  },
+  { label: 'MVP', total: (p) => counted(p, p.career.mvps), perMatch: 'share' },
+  {
+    label: 'Buts encaissés',
+    total: (p) => counted(p, p.career.conceded),
+    perMatch: 'average',
+    measuredIn: (p) => p.career.measured.conceded,
     lowerIsBetter: true,
   },
-  { label: 'FF reçus', format: 'count', value: (p) => counted(p, p.career.forfeitsReceived) },
-  { label: 'FF donnés', format: 'count', value: (p) => counted(p, p.career.forfeitsGiven), lowerIsBetter: true },
-  { label: 'Matchs quittés', format: 'count', value: (p) => counted(p, p.career.left), lowerIsBetter: true },
-  { label: 'Matchs après minuit', format: 'count', value: (p) => counted(p, p.career.lateNight) },
-  { label: 'Win streak max', format: 'count', value: (p) => counted(p, p.career.winStreak) },
-  { label: 'Lose streak max', format: 'count', value: (p) => counted(p, p.career.lossStreak), lowerIsBetter: true },
+  {
+    label: 'Clean sheets',
+    total: (p) => counted(p, p.career.conceded === null ? null : p.career.cleanSheets),
+    perMatch: 'share',
+    measuredIn: (p) => p.career.measured.conceded,
+  },
+  { label: 'Prolongations gagnées', total: (p) => counted(p, p.career.overtimeWins), perMatch: 'share' },
+  {
+    label: 'Prolongations perdues',
+    total: (p) => counted(p, p.career.overtimeLosses),
+    perMatch: 'share',
+    lowerIsBetter: true,
+  },
+  { label: 'FF reçus', total: (p) => counted(p, p.career.forfeitsReceived), perMatch: 'share' },
+  { label: 'FF donnés', total: (p) => counted(p, p.career.forfeitsGiven), perMatch: 'share', lowerIsBetter: true },
+  { label: 'Matchs quittés', total: (p) => counted(p, p.career.left), perMatch: 'share', lowerIsBetter: true },
+  { label: 'Matchs après minuit', total: (p) => counted(p, p.career.lateNight), perMatch: 'share' },
+  { label: 'Win streak max', total: (p) => counted(p, p.career.winStreak) },
+  { label: 'Lose streak max', total: (p) => counted(p, p.career.lossStreak), lowerIsBetter: true },
   ...(scope === 'tournament'
-    ? [{ label: 'Tournois gagnés', format: 'count', value: (p) => counted(p, p.career.tournamentsWon) } satisfies Stat]
+    ? [{ label: 'Tournois gagnés', total: (p: ComparedPlayer) => counted(p, p.career.tournamentsWon) }]
     : []),
-  peak,
-  gained,
-  pushups,
+  { label: 'Peak 2v2', total: (p) => p.mmr?.peak.mmr ?? null },
+  { label: 'MMR gagné', total: (p) => p.mmr?.gained ?? null, format: 'mmr' },
+  { label: 'Pompes faites', total: (p) => p.pushups },
 ];
+
+/** Every stat the page has, for the table, in its mode: the matches, the play, the endings, the rating, the club. */
+export const tableStats = (scope: CareerScope, mode: TableMode): Stat[] =>
+  tableRows(scope).map(({ label, total, perMatch, measuredIn, format = 'count', lowerIsBetter }): Stat => {
+    const base = { label, ...(lowerIsBetter && { lowerIsBetter }) };
+    if (mode === 'total' || !perMatch) return { ...base, format, value: total };
+    const of = (player: ComparedPlayer) => measuredIn?.(player) ?? player.career.matches;
+    return perMatch === 'average'
+      ? { ...base, format: 'perMatch', value: (p) => average(p, total(p), of(p)) }
+      : { ...base, format: 'percent', value: (p) => share(p, total(p), of(p)) };
+  });
 
 /** A player's line in a stat: their figure, and its length against the leader's, from 0 to 1. */
 export interface RankedLine {

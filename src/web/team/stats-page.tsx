@@ -9,6 +9,7 @@ import { useClub } from '../club';
 import { BackLink } from '../components/back-link';
 import { BoardPending } from '../components/board-pending';
 import { FilterSelect } from '../components/filter-select';
+import { SegmentedControl } from '../components/segmented-control';
 import { TabPage } from '../components/tab-page';
 import { Badge } from '../components/ui/badge';
 import { Card } from '../components/ui/card';
@@ -17,7 +18,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { seasonMmrQuery } from '../queries';
 import { type CareerAccount, type CareerScope, soloAccountOf } from './career';
 import {
-  allStats,
   bestOf,
   type ComparedPlayer,
   comparedPlayers,
@@ -29,6 +29,8 @@ import {
   type Stat,
   type StatFormat,
   seasonsPlayed,
+  type TableMode,
+  tableStats,
 } from './comparison';
 import { splitRankLabel } from './stats';
 
@@ -47,6 +49,11 @@ const accounts = [
   { value: 'solo', label: 'Compte solo' },
   { value: 'duo', label: 'Compte duo' },
 ] as const satisfies readonly { value: CareerAccount; label: string }[];
+
+const tableModes = [
+  { value: 'perMatch', label: 'Par match' },
+  { value: 'total', label: 'Total' },
+] as const satisfies readonly { value: TableMode; label: string }[];
 
 /** How the empty page names the matches of each mode. */
 const modeWords: Record<Scope, string> = {
@@ -78,6 +85,8 @@ export function StatsPage() {
   // The club plays 2v2 first: it opens there.
   const [scope, setScope] = useState<Scope>('doubles');
   const [chosenAccount, setAccount] = useState<CareerAccount>('all');
+  // Per match first: the players did not all play as many matches.
+  const [tableMode, setTableMode] = useState<TableMode>('perMatch');
   const current = seasonAt(new Date().toISOString());
   // The ratings come apart from the board: until they arrive, the peaks wait and the rest shows.
   const seasonMmr = useQuery(seasonMmrQuery).data ?? [];
@@ -145,7 +154,15 @@ export function StatsPage() {
               </div>
             </Section>
             <Section kicker="Tout le détail" title="Le tableau">
-              <StatsTable stats={allStats(scope)} players={players} />
+              <span className="w-full max-w-[260px]">
+                <SegmentedControl
+                  label="Chiffres du tableau"
+                  options={tableModes}
+                  value={tableMode}
+                  onChange={setTableMode}
+                />
+              </span>
+              <StatsTable stats={tableStats(scope, tableMode)} players={players} />
             </Section>
           </>
         )}

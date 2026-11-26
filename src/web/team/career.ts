@@ -37,6 +37,8 @@ export interface Career {
   left: number;
   /** Matches played between midnight and 5 in Paris. */
   lateNight: number;
+  /** The matches that came with each count an older collector does not send: an average divides by them. */
+  measured: { demos: number; crossbarHits: number; conceded: number };
 }
 
 /**
@@ -121,6 +123,7 @@ export function careerOf(
     forfeitsGiven: 0,
     left: 0,
     lateNight: 0,
+    measured: { demos: 0, crossbarHits: 0, conceded: 0 },
   };
   const tournamentsWon = board.rules?.tournamentWins ?? [];
   // A match received late (an import, a source catching up) still belongs to its own day.
@@ -142,6 +145,8 @@ export function careerOf(
     career.saves += row.saves;
     career.demos = added(career.demos, row.demos);
     career.crossbarHits = added(career.crossbarHits, row.crossbar_hits);
+    if (typeof row.demos === 'number') career.measured.demos++;
+    if (typeof row.crossbar_hits === 'number') career.measured.crossbarHits++;
     if (!row.left && mvpOf(index.get(guid)) === row.player_id) career.mvps++;
     if (won && tournamentsWon.includes(guid)) career.tournamentsWon++;
     career.score += row.score;
@@ -149,6 +154,7 @@ export function careerOf(
     if (typeof row.blue_goals === 'number' && typeof row.orange_goals === 'number') {
       const against = row.team === 0 ? row.orange_goals : row.blue_goals;
       career.conceded = (career.conceded ?? 0) + against;
+      career.measured.conceded++;
       if (against === 0) career.cleanSheets++;
     }
     if (row.overtime) career[won ? 'overtimeWins' : 'overtimeLosses']++;
