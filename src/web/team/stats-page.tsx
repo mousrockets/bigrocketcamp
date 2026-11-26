@@ -194,6 +194,9 @@ function PlayerName({ player, className }: { player: ComparedPlayer; className?:
   );
 }
 
+/** The highest 2v2 rating of the period, which ranks the players in the peaks. */
+const peakStat: Stat = { label: 'Peak 2v2', format: 'count', value: (player) => player.mmr?.peak.mmr ?? null };
+
 /**
  * The highest 2v2 rating of each player over the period, with its rank, and what the period brought from its first
  * rating to its last: a level, where a share of wins only tells a streak.
@@ -208,19 +211,19 @@ function Peaks({
   /** Both accounts count: each line says which one climbed highest. */
   showAccount: boolean;
 }) {
-  const lines = [...players].sort((a, b) => (b.mmr?.peak.mmr ?? -1) - (a.mmr?.peak.mmr ?? -1));
-  const [top] = lines;
+  const { lines } = ranked(peakStat, players);
   return (
     <Card variant="glass" role="region" aria-label="Peak 2v2" className="gap-5 p-5 lg:p-6">
       <span className="label-caps">
         {season === null ? 'Peak 2v2 · toutes saisons' : `Peak 2v2 · saison ${season}`}
       </span>
-      <ol className="m-0 flex list-none flex-col gap-4 p-0 lg:grid lg:grid-cols-[repeat(auto-fit,minmax(220px,1fr))] lg:gap-6">
-        {lines.map((player) => {
+      <ol className="m-0 flex list-none flex-col gap-2 p-0 lg:grid lg:grid-cols-[repeat(auto-fit,minmax(240px,1fr))] lg:gap-4">
+        {lines.map(({ player, place }) => {
           const mmr = player.mmr;
           const rank = mmr ? splitRankLabel(mmr.peak.label) : null;
           return (
-            <li key={player.name} className="flex min-w-0 items-center gap-3">
+            <li key={player.name} className={cn('flex min-w-0 items-center gap-3 py-2', player.me && mineClass)}>
+              <Place place={place} />
               <img
                 src={`/rocket-league/ranks/${mmr?.peak.tier ?? 0}.png`}
                 alt=""
@@ -238,7 +241,7 @@ function Peaks({
                 <b
                   className={cn(
                     'num text-[32px] [line-height:.85] lg:text-[40px]',
-                    !mmr ? 'text-t3' : player === top ? 'text-t1' : 'text-t2',
+                    !mmr ? 'text-t3' : place === 1 || player.me ? 'text-t1' : 'text-t2',
                   )}
                 >
                   {mmr ? formatNumber(mmr.peak.mmr) : '–'}
@@ -282,7 +285,7 @@ function StatCard({ stat, players }: { stat: Stat | Prize; players: ComparedPlay
           {leaders.length > 1 ? 'Égalité' : leader ? leader.player.shown : 'Personne'}
         </span>
       </div>
-      <ol className="m-0 flex list-none flex-col gap-3 p-0">
+      <ol className="m-0 flex list-none flex-col gap-1.5 p-0">
         {lines.map((line) => (
           <Bar key={line.player.name} line={line} format={stat.format} />
         ))}
@@ -291,28 +294,59 @@ function StatCard({ stat, players }: { stat: Stat | Prize; players: ComparedPlay
   );
 }
 
+/** The first three places wear a medal's colour; the others stay quiet. */
+const medals: Record<number, string> = { 1: 'text-medal-1', 2: 'text-medal-2', 3: 'text-medal-3' };
+
+/** A player's place in a ranking, in big: what the eye reads first on each line. */
+function Place({ place }: { place: number | null }) {
+  return (
+    <span
+      className={cn(
+        'num w-5 text-center text-[22px] [line-height:1]',
+        place ? (medals[place] ?? 'text-t3') : 'text-t3',
+      )}
+    >
+      {place ?? '–'}
+    </span>
+  );
+}
+
+/** The member's own line, set apart in a soft capsule, as a selected row would be. */
+const mineClass = '-mx-3 rounded-[14px] bg-white/7 px-3 shadow-[inset_0_0_0_.5px_rgba(255,255,255,.1)]';
+
 /**
- * A player's line in a stat: their place, pseudo and figure, then their bar. The member's stands out in white, the
- * others' stay grey: the leader already shows in big above, the member finds their own place at a glance.
+ * A player's line in a stat: their place, pseudo and figure, then their bar. The member's stands out in a capsule,
+ * their bar in white; the others' stay grey.
  */
 function Bar({ line, format }: { line: RankedLine; format: StatFormat }) {
   const mine = line.player.me;
   return (
-    <li className="flex flex-col gap-1.5">
-      <span className={cn('flex items-baseline justify-between gap-3 text-[13px]', mine ? 'text-t1' : 'text-t2')}>
-        <span className="flex min-w-0 items-baseline gap-2">
-          <span className="num w-3 shrink-0 text-right text-[13px] text-t3">{line.place ?? '–'}</span>
+    <li className={cn('grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 py-1.5', mine && mineClass)}>
+      <Place place={line.place} />
+      <span className="flex min-w-0 flex-col gap-1.5">
+        <span
+          className={cn(
+            'flex items-baseline justify-between gap-3',
+            mine ? 'text-[15px] text-t1' : 'text-[13px] text-t2',
+          )}
+        >
           <PlayerName player={line.player} className={cn(mine && 'font-semibold')} />
+          <span
+            className={cn(
+              'num',
+              mine ? 'text-[17px]' : 'text-[15px]',
+              line.value === null ? 'text-t3' : mine ? 'text-t1' : 'text-t2',
+            )}
+          >
+            {formatted(line.value, format)}
+          </span>
         </span>
-        <span className={cn('num text-[15px]', line.value === null ? 'text-t3' : mine ? 'text-t1' : 'text-t2')}>
-          {formatted(line.value, format)}
+        <span aria-hidden="true" className="h-1.5 overflow-hidden rounded-full bg-white/6">
+          <i
+            className={cn('block h-full origin-left animate-grow rounded-full', mine ? 'bg-t1' : 'bg-white/40')}
+            style={{ width: `${line.share * 100}%` }}
+          />
         </span>
-      </span>
-      <span aria-hidden="true" className="h-1.5 overflow-hidden rounded-full bg-white/6">
-        <i
-          className={cn('block h-full origin-left animate-grow rounded-full', mine ? 'bg-t1' : 'bg-white/40')}
-          style={{ width: `${line.share * 100}%` }}
-        />
       </span>
     </li>
   );
