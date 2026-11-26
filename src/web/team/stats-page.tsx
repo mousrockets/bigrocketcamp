@@ -70,6 +70,10 @@ function formatted(value: number | null, format: StatFormat): string {
   // Two decimals: averages of a few matches are close, and one decimal would show a tie the bars deny.
   if (format === 'perMatch') return formatNumber(Math.round(value * 100) / 100);
   if (format === 'mmr') return value > 0 ? `+${formatNumber(value)}` : value < 0 ? `−${formatNumber(-value)}` : '0';
+  // The game counts in Unreal units: a centimetre, a centimetre per second.
+  if (format === 'speed') return `${formatNumber(Math.round(value * 0.036))}\u00a0km/h`;
+  if (format === 'distance') return `${formatNumber(Math.round(value / 10) / 10)}\u00a0m`;
+  if (format === 'seconds') return `${formatNumber(Math.round(value * 10) / 10)}\u00a0s`;
   return formatNumber(Math.round(value));
 }
 
@@ -89,7 +93,8 @@ export function StatsPage() {
   const [tableMode, setTableMode] = useState<TableMode>('perMatch');
   const current = seasonAt(new Date().toISOString());
   // The ratings come apart from the board: until they arrive, the peaks wait and the rest shows.
-  const seasonMmr = useQuery(seasonMmrQuery).data ?? [];
+  const stats = useQuery(seasonMmrQuery).data;
+  const seasonMmr = stats?.seasons ?? [];
   const played = board ? seasonsPlayed(board, seasonMmr, club.roster) : [];
   const seasons = [...new Set([...(current === null ? [] : [current]), ...played])].sort((a, b) => b - a);
   const season = saison === 'tout' ? null : (saison ?? current);
@@ -148,9 +153,12 @@ export function StatsPage() {
             </Section>
             <Section kicker="Les prix" title="Et le trophée revient à…">
               <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-                {prizes.map((prize) => (
-                  <StatCard key={prize.prize} stat={prize} players={players} />
-                ))}
+                {prizes
+                  // A prize nobody can win yet (a stat no collector sent) waits.
+                  .filter((prize) => players.some((player) => prize.value(player) !== null))
+                  .map((prize) => (
+                    <StatCard key={prize.prize} stat={prize} players={players} />
+                  ))}
               </div>
             </Section>
             <Section kicker="Tout le détail" title="Le tableau">
@@ -162,7 +170,7 @@ export function StatsPage() {
                   onChange={setTableMode}
                 />
               </span>
-              <StatsTable stats={tableStats(scope, tableMode)} players={players} />
+              <StatsTable stats={tableStats(scope, tableMode, players, stats?.statfeedLabels)} players={players} />
             </Section>
           </>
         )}

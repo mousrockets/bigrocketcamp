@@ -115,11 +115,13 @@ export const soundCollectionsQuery = queryOptions({
     (await dataOf(api.sounds.$get(), soundCollections, 'Badges indisponibles.')).collections,
 });
 
-/** Each account's MMR over each season, for the Stats page: read when it opens, not kept for offline. */
+/**
+ * Each account's MMR over each season, and the game's words for its stat feed events, for the Stats page: read when
+ * it opens, not kept for offline.
+ */
 export const seasonMmrQuery = queryOptions({
   queryKey: ['stats', 'seasons'],
-  queryFn: async (): Promise<SeasonMmrList['seasons']> =>
-    (await dataOf(api.stats.seasons.$get(), seasonMmrList, 'Saisons indisponibles.')).seasons,
+  queryFn: (): Promise<SeasonMmrList> => dataOf(api.stats.seasons.$get(), seasonMmrList, 'Saisons indisponibles.'),
 });
 
 /**

@@ -1,5 +1,6 @@
 import { expect, test } from 'vitest';
 import type { SeasonMmr } from '../../lib/contract';
+import type { GameStats } from '../../lib/game-stats';
 import { anExercise, aRank, aResult, aSoloRank, boardWith } from '../test-utils';
 import {
   bestOf,
@@ -62,8 +63,10 @@ const seasons: SeasonMmr[] = [
   { player: 'bob', account: 'duo', season: 24, first: 1300, last: 1290, peak: peak(1330, 17) },
 ];
 const roster = ['alice', 'bob', 'charlie'];
+/** Everyone of the roster over season 24, as the page compares them. */
+const everyone = () => comparedPlayers(board, seasons, roster, 'alice', 'all', 'all', 24);
 const statNamed = (label: string, mode: TableMode = 'total') => {
-  const stat = tableStats('doubles', mode).find((candidate) => candidate.label === label);
+  const stat = tableStats('doubles', mode, everyone()).find((candidate) => candidate.label === label);
   if (!stat) throw new Error(`${label} is in the table`);
   return stat;
 };
@@ -135,8 +138,10 @@ test('the table lights the best figure of a line, the lowest when less is better
   expect(bestOf(statNamed('Buts'), players)).toBe(3);
   expect(bestOf(statNamed('Matchs quittés'), players)).toBe(0);
   expect(bestOf(statNamed('Clean sheets'), players)).toBe(null);
-  expect(tableStats('tournament', 'total').map((stat) => stat.label)).toContain('Tournois gagnés');
-  expect(tableStats('doubles', 'total').map((stat) => stat.label)).not.toContain('Tournois gagnés');
+  expect(tableStats('tournament', 'total', everyone()).map((stat) => stat.label)).toContain('Tournois gagnés');
+  expect(tableStats('doubles', 'total', everyone()).map((stat) => stat.label)).not.toContain('Tournois gagnés');
+  // No collector 0.7.0 match in this season: none of its lines.
+  expect(tableStats('doubles', 'total', everyone()).map((stat) => stat.label)).not.toContain('Tirs');
 });
 
 test('per match, an action is averaged, an ending becomes a share of the matches, a record stays as it is', () => {
@@ -158,4 +163,63 @@ test('names a player by their solo pseudo when only the solo accounts are compar
   expect(shown('solo')).toEqual(['alice-en-solo', 'bob', 'charlie']);
   expect(shown('all')).toEqual(['alice', 'bob', 'charlie']);
   expect(shown('duo')).toEqual(['alice', 'bob', 'charlie']);
+});
+
+test('adds up the stats of collector 0.7.0, names the game’s events, and lines the assists up by scorer', () => {
+  const stats = (alice: GameStats, bob: GameStats) =>
+    (['alice', 'bob'] as const).map((name) =>
+      aResult({
+        match_guid: `m-${JSON.stringify([alice, bob]).length}`,
+        name,
+        day: '2026-11-05',
+        received: '2026-11-05T20:00:00Z',
+        winner: 0,
+        goals: name === 'alice' ? 2 : 1,
+        game_stats: name === 'alice' ? alice : bob,
+      }),
+    );
+  const withGame = boardWith({
+    results: [
+      ...stats(
+        {
+          shots: 4,
+          touches: 30,
+          kickoffTouches: 2,
+          statfeed: { Save: 1, AerialGoal: 1 },
+          statfeedSecondary: { Demolish: 2 },
+          assistsTo: { 'Epic|bob|0': 1 },
+          hardestHit: 2500,
+          longestGoal: 4000,
+          quickestGoal: 9.5,
+        },
+        { shots: 2, touches: 20, kickoffTouches: 1, statfeed: {}, hardestHit: 3000, quickestGoal: 12 },
+      ),
+      // A match of an older collector: it counts in the matches, not in these stats.
+      ...stats({}, {}).map((row) => ({ ...row, match_guid: 'older', game_stats: null })),
+    ],
+  });
+  const players = comparedPlayers(withGame, [], ['alice', 'bob'], 'alice', 'all', 'all', 24);
+  const table = tableStats('all', 'total', players, { AerialGoal: 'But aérien', Demolish: 'Démolition' });
+  const row = (label: string) => {
+    const stat = table.find((candidate) => candidate.label === label);
+    if (!stat) throw new Error(`${label} is in the table`);
+    return players.map((player) => stat.value(player));
+  };
+  expect(row('Tirs')).toEqual([4, 2]);
+  // Alice: 2 goals on 4 shots; the goals of the older match do not count against her shots.
+  expect(row('Précision des tirs')).toEqual([50, 50]);
+  expect(row('Premiers au coup d’envoi')).toEqual([2, 1]);
+  expect(row('But aérien')).toEqual([1, 0]);
+  expect(row('Subi : Démolition')).toEqual([2, 0]);
+  expect(row('Passes D pour bob')).toEqual([1, null]);
+  expect(row('Passes D pour alice')).toEqual([null, 0]);
+  expect(row('Frappe la plus puissante')).toEqual([2500, 3000]);
+  expect(row('But le plus rapide après le coup d’envoi')).toEqual([9.5, 12]);
+  // A save already has its line, from the scoreboard.
+  expect(table.map((stat) => stat.label)).not.toContain('Save');
+  // Per match, over the matches that came with them.
+  const perMatch = tableStats('all', 'perMatch', players).find((stat) => stat.label === 'Touches de balle');
+  expect(players.map((player) => perMatch?.value(player))).toEqual([30, 20]);
+  const punchingBall = prizes.find((prize) => prize.prize === 'Le punching-ball');
+  expect(players.map((player) => punchingBall?.value(player))).toEqual([2, 0]);
 });
