@@ -201,15 +201,16 @@ test('crowns the prizes and lights the best of each line of the table', async ()
   expect(screen.queryByRole('heading', { name: 'Le démolisseur' })).not.toBeInTheDocument();
   const goals = () =>
     within(screen.getByRole('table')).getByRole('rowheader', { name: 'Buts' }).closest('tr') as HTMLElement;
-  // Alice scored 4 in 2 matches this season, Bob 1: per match, each with its total in small below, no switch.
+  // Alice scored 4 in 2 matches this season, Bob 1: one figure per player, per match, and no switch.
   expect(within(goals()).getByText('2')).toHaveClass('text-win');
   expect(within(goals()).getByText('0,5')).not.toHaveClass('text-win');
-  expect(within(goals()).getByText('4')).toHaveClass('text-t3');
-  expect(within(goals()).getByText('1')).toHaveClass('text-t3');
+  expect(within(goals()).queryByText('4')).not.toBeInTheDocument();
   expect(screen.queryByRole('group', { name: 'Chiffres du tableau' })).not.toBeInTheDocument();
-  expect(
-    screen.getByText(/le meilleur de chaque ligne ; en petit, le total ; ↓ : le plus bas est le meilleur/),
-  ).toBeInTheDocument();
+  // A tap, or a hover on a computer, shows the total it comes from.
+  await userEvent.click(within(goals()).getByRole('button', { name: '2, 4 au total' }));
+  const bubble = await screen.findByText('Au total');
+  expect(bubble.parentElement).toHaveTextContent('Au total4');
+  expect(screen.getByText(/Touche ou survole un chiffre pour voir son total/)).toBeInTheDocument();
   // The table reads part by part, each one saying whether it reads per match.
   expect(
     within(screen.getByRole('table')).getByRole('columnheader', { name: 'Attaque · par match' }),

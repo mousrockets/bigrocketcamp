@@ -333,7 +333,7 @@ interface TableRow {
   perMatch?: 'average' | 'share';
   /** What the rate divides by: the matches the figure was measured in, by default every match. */
   measuredIn?: (player: ComparedPlayer) => number;
-  /** Whether the total shows what it was counted among (« 12/36 »), when no other line says it. */
+  /** Whether the total shows what it was counted among (« 12 sur 36 »), when no other line says it. */
   showOf?: boolean;
   format?: StatFormat;
   /** How its average per match reads, when not with two decimals: a score of hundreds needs none. */
@@ -564,9 +564,9 @@ export interface TableStat extends Stat {
   section: TableSection;
   /** Whether the line reads as a rate: the part says so above it. */
   perMatch: boolean;
-  /** For a rate, how many times it happened; shown in small below it. */
+  /** For a rate, how many times it happened; shown on demand beside it. */
   total?: (player: ComparedPlayer) => number | null;
-  /** What the total was counted among, when no other line says it: « 12/36 ». */
+  /** What the total was counted among, when no other line says it: « 12 sur 36 ». */
   of?: (player: ComparedPlayer) => number;
 }
 

@@ -36,6 +36,7 @@ import { TabPage } from '../components/tab-page';
 import { Badge } from '../components/ui/badge';
 import { buttonVariants } from '../components/ui/button';
 import { Card } from '../components/ui/card';
+import { Popover, PopoverContent, PopoverTrigger } from '../components/ui/popover';
 import { Skeleton } from '../components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { seasonMmrQuery } from '../queries';
@@ -705,6 +706,8 @@ function StatsTable({ stats, players }: { stats: TableStat[]; players: ComparedP
                     {players.map((player) => {
                       const value = stat.value(player);
                       const count = value === null ? null : (stat.total?.(player) ?? null);
+                      const figure = formatted(value, stat.format);
+                      const tone = value === null ? 'text-t3' : value === best ? 'text-win' : 'text-t1';
                       return (
                         <TableCell
                           key={player.name}
@@ -713,19 +716,14 @@ function StatsTable({ stats, players }: { stats: TableStat[]; players: ComparedP
                             player.me && 'bg-white/6',
                           )}
                         >
-                          <b
-                            className={cn(
-                              'num block text-[15px] [line-height:1.1]',
-                              value === null ? 'text-t3' : value === best ? 'text-win' : 'text-t1',
-                            )}
-                          >
-                            {formatted(value, stat.format)}
-                          </b>
-                          {count !== null && (
-                            <span className="mt-1 block text-[11px] text-t3 tabular-nums [line-height:1.1]">
-                              {formatNumber(count)}
-                              {stat.of && `/${formatNumber(stat.of(player))}`}
-                            </span>
+                          {count === null ? (
+                            <b className={cn('num text-[15px] [line-height:1.1]', tone)}>{figure}</b>
+                          ) : (
+                            <TotalOf
+                              figure={figure}
+                              tone={tone}
+                              total={`${formatNumber(count)}${stat.of ? ` sur ${formatNumber(stat.of(player))}` : ''}`}
+                            />
                           )}
                         </TableCell>
                       );
@@ -738,9 +736,39 @@ function StatsTable({ stats, players }: { stats: TableStat[]; players: ComparedP
         </Table>
       </Card>
       <p className="m-0 -mt-2 px-1 text-[12px] text-t3 [line-height:1.45]">
-        <span className="text-win">En vert</span>, le meilleur de chaque ligne ; en petit, le total ; ↓ : le plus bas
-        est le meilleur.
+        <span className="text-win">En vert</span>, le meilleur de chaque ligne ; ↓ : le plus bas est le meilleur. Touche
+        ou survole un chiffre pour voir son total.
       </p>
     </>
+  );
+}
+
+/**
+ * A rate of the table, and the total it comes from in a small bubble: shown on hover on a computer, on a tap on a
+ * phone, so that the table keeps one figure per player.
+ */
+function TotalOf({ figure, tone, total }: { figure: string; tone: string; total: string }) {
+  return (
+    <Popover>
+      <PopoverTrigger
+        openOnHover
+        delay={120}
+        aria-label={`${figure}, ${total} au total`}
+        className={cn(
+          'num -mx-1.5 -my-0.5 rounded-[7px] px-1.5 py-0.5 text-[15px] [line-height:1.1] transition-colors hover:bg-white/8 data-[popup-open]:bg-white/10',
+          tone,
+        )}
+      >
+        {figure}
+      </PopoverTrigger>
+      <PopoverContent
+        side="top"
+        sideOffset={6}
+        className="w-auto items-center gap-0.5 rounded-[12px] bg-[rgba(28,28,30,.94)] px-3 py-2 text-t1 ring-white/10 backdrop-blur-[30px]"
+      >
+        <span className="label-caps text-[10px]">Au total</span>
+        <b className="num whitespace-nowrap text-[17px] [line-height:1]">{total}</b>
+      </PopoverContent>
+    </Popover>
   );
 }
