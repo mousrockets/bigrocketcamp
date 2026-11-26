@@ -24,8 +24,6 @@ export function seasonsPlayed(board: Board, seasonMmr: readonly SeasonMmr[], ros
 export interface PeriodMmr {
   account: 'duo' | 'solo';
   peak: SeasonPeak;
-  /** What the season brought, from its first rating to its last; seasons added up over every season. */
-  gained: number;
   /** The most they fell from a season's peak to its last rating. */
   fall: number;
 }
@@ -121,7 +119,6 @@ function periodMmr(
   return {
     account: best.account === 'solo' ? 'solo' : 'duo',
     peak: best.peak,
-    gained: own.reduce((total, line) => total + line.last - line.first, 0),
     fall: Math.max(...own.map((line) => line.peak.mmr - line.last)),
   };
 }
@@ -184,6 +181,8 @@ export interface Stat {
 /** A stat that crowns a player, with a name for the prize. */
 export interface Prize extends Stat {
   prize: string;
+  /** How many times it happened, for a prize given to a rate: « 50 fois » reads better than « 0,96 » alone. */
+  total?: (player: ComparedPlayer) => number | null;
 }
 
 const played = (player: ComparedPlayer, value: number | null) => (player.career.matches === 0 ? null : value);
@@ -214,43 +213,66 @@ const pushups: Stat = { label: 'Pompes faites', format: 'count', value: (p) => p
 /** The figures that say the most, after the peak: a card each. */
 export const keyStats: Stat[] = [score, mvpRate, goals, saves];
 
-/** The fun ones, each with its prize. */
+/**
+ * The fun ones, each with its prize. A prize of something that happens in a match goes to its rate, per match or in
+ * share of the matches, over the matches that came with it: who plays most would win it otherwise. Its total, how
+ * many times it happened, shows beside it in small.
+ */
 export const prizes: Prize[] = [
   {
     label: 'Démos / match',
     format: 'perMatch',
     value: (p) => average(p, p.career.demos, p.career.measured.demos),
+    total: (p) => p.career.demos,
     prize: 'Le démolisseur',
   },
-  // The collector counts a shot on the post or the crossbar, not whether it then went in. Per match, over the matches
-  // that came with the count: who plays most would win it otherwise.
+  // The collector counts a shot on the post or the crossbar, not whether it then went in.
   {
     label: 'Poteaux / match',
     format: 'perMatch',
     value: (p) => average(p, p.career.crossbarHits, p.career.measured.crossbarHits),
+    total: (p) => p.career.crossbarHits,
     prize: 'L’abonné aux montants',
   },
+  // Won among the overtimes played, three at least: one lucky overtime makes no king.
   {
     label: 'Prolongations gagnées',
-    format: 'count',
-    value: (p) => counted(p, p.career.overtimeWins),
+    format: 'percent',
+    value: (p) => {
+      const overtimes = p.career.overtimeWins + p.career.overtimeLosses;
+      return overtimes >= 3 ? share(p, p.career.overtimeWins, overtimes) : null;
+    },
+    total: (p) => p.career.overtimeWins,
     prize: 'Le roi des prolongations',
   },
   {
     label: 'Matchs sans encaisser',
-    format: 'count',
-    value: (p) => counted(p, p.career.conceded === null ? null : p.career.cleanSheets),
+    format: 'percent',
+    value: (p) => share(p, p.career.conceded === null ? null : p.career.cleanSheets, p.career.measured.conceded),
+    total: (p) => p.career.cleanSheets,
     prize: 'Clean sheet',
   },
+  // A night owl is one who plays many nights: the count is the prize.
   {
     label: 'Matchs après minuit',
     format: 'count',
     value: (p) => counted(p, p.career.lateNight),
     prize: 'Le noctambule',
   },
-  { label: 'Matchs quittés', format: 'count', value: (p) => counted(p, p.career.left), prize: 'Rage quit' },
+  {
+    label: 'Matchs quittés',
+    format: 'percent',
+    value: (p) => share(p, p.career.left),
+    total: (p) => p.career.left,
+    prize: 'Rage quit',
+  },
   { ...pushups, prize: 'Les bras d’acier' },
-  { label: 'MMR perdus depuis le peak', format: 'count', value: (p) => p.mmr?.fall ?? null, prize: 'La chute' },
+  {
+    label: 'MMR perdus depuis le peak de la saison',
+    format: 'count',
+    value: (p) => p.mmr?.fall ?? null,
+    prize: 'La chute',
+  },
   { label: 'Frappe la plus puissante', format: 'speed', value: (p) => p.career.game.hardestHit, prize: 'Le canonnier' },
   { label: 'But le plus rapide', format: 'speed', value: (p) => p.career.game.fastestGoal, prize: 'Le bolide' },
   { label: 'But le plus lointain', format: 'distance', value: (p) => p.career.game.longestGoal, prize: 'Le sniper' },
@@ -265,19 +287,22 @@ export const prizes: Prize[] = [
     label: 'Premiers au coup d’envoi / match',
     format: 'perMatch',
     value: (p) => tallied(p.career.game.kickoffTouches),
+    total: (p) => total(p.career.game.kickoffTouches),
     prize: 'Le roi du kickoff',
   },
-  // The other side of Le démolisseur: per match too, over the matches that came with the game's feed.
+  // The other side of Le démolisseur.
   {
     label: 'Démolitions subies / match',
     format: 'perMatch',
     value: (p) => average(p, feed(p, 'Demolish', 'statfeedSecondary'), p.career.game.statfeedMatches),
+    total: (p) => feed(p, 'Demolish', 'statfeedSecondary'),
     prize: 'Le punching-ball',
   },
   {
-    label: 'Buts contre son camp',
-    format: 'count',
-    value: (p) => (p.career.game.ownGoals.matches ? p.career.game.ownGoals.total : null),
+    label: 'Buts contre son camp / match',
+    format: 'perMatch',
+    value: (p) => tallied(p.career.game.ownGoals),
+    total: (p) => total(p.career.game.ownGoals),
     prize: 'Le traître',
   },
 ];
@@ -298,7 +323,6 @@ export const tableSections = [
   'Les fins de match',
   'Les records',
   'Les passes décisives',
-  'Le rang et le club',
 ] as const;
 export type TableSection = (typeof tableSections)[number];
 
@@ -441,9 +465,6 @@ const tableRows = (scope: CareerScope): TableRow[] => [
     format: 'seconds',
     lowerIsBetter: true,
   },
-  { section: 'Le rang et le club', label: 'Peak 2v2', total: (p) => p.mmr?.peak.mmr ?? null },
-  { section: 'Le rang et le club', label: 'MMR gagné', total: (p) => p.mmr?.gained ?? null, format: 'mmr' },
-  { section: 'Le rang et le club', label: 'Pompes faites', total: (p) => p.pushups },
 ];
 
 /** The game's stat feed events a line of the scoreboard already counts: the table shows them once. */

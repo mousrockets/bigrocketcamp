@@ -524,8 +524,11 @@ function gapOf(leader: number | null, mine: number, format: StatFormat): string 
   return formatted(gap, format);
 }
 
-/** A player's bar in a trophy: their pseudo and figure, then their bar against the leader's; the member's in white. */
-function PrizeLine({ line, format }: { line: RankedLine; format: StatFormat }) {
+/**
+ * A player's bar in a trophy: their pseudo and figure, then their bar against the leader's; the member's in white. A
+ * prize given to a rate shows, before it and in small, how many times it happened: the rate ranks, the count tells.
+ */
+function PrizeLine({ line, format, count }: { line: RankedLine; format: StatFormat; count: number | null }) {
   const mine = line.player.me;
   return (
     <li className="flex flex-col gap-1">
@@ -533,8 +536,13 @@ function PrizeLine({ line, format }: { line: RankedLine; format: StatFormat }) {
         className={cn('flex min-w-0 items-baseline justify-between gap-2 text-[12px]', mine ? 'text-t1' : 'text-t2')}
       >
         <span className={cn('min-w-0 truncate', mine && 'font-semibold')}>{line.player.shown}</span>
-        <span className={cn('num shrink-0 text-[13px]', line.value === null && 'text-t3')}>
-          {formatted(line.value, format)}
+        <span className="flex shrink-0 items-baseline gap-1.5">
+          {line.value !== null && count !== null && (
+            <span className="text-[11px] text-t3">{formatNumber(count)}&nbsp;fois</span>
+          )}
+          <span className={cn('num text-[13px]', line.value === null && 'text-t3')}>
+            {formatted(line.value, format)}
+          </span>
         </span>
       </span>
       <span aria-hidden="true" className="h-1 overflow-hidden rounded-full bg-white/6">
@@ -596,7 +604,12 @@ function PrizeShelf({ players }: { players: ComparedPlayer[] }) {
               </span>
               <ol aria-label={`Classement : ${prize.prize}`} className="m-0 mt-auto flex list-none flex-col gap-2 p-0">
                 {lines.map((line) => (
-                  <PrizeLine key={line.player.name} line={line} format={prize.format} />
+                  <PrizeLine
+                    key={line.player.name}
+                    line={line}
+                    format={prize.format}
+                    count={prize.total?.(line.player) ?? null}
+                  />
                 ))}
               </ol>
               <span className={cn('text-[12px] [line-height:1.3]', mine ? 'text-medal-1' : 'text-t2')}>

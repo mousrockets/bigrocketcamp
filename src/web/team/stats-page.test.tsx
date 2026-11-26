@@ -193,7 +193,7 @@ test('crowns the prizes and lights the best of each line of the table', async ()
     within(rageQuit)
       .getAllByRole('listitem')
       .map((line) => line.textContent),
-  ).toEqual(['alice0', 'bob0']);
+  ).toEqual(['alice0\u00a0fois0\u00a0%', 'bob0\u00a0fois0\u00a0%']);
   expect(within(rageQuit).queryByText(/Il te manque/)).not.toBeInTheDocument();
   // No collector counted the demolitions of these matches: that prize waits.
   expect(screen.queryByRole('heading', { name: 'Le démolisseur' })).not.toBeInTheDocument();
@@ -211,6 +211,8 @@ test('crowns the prizes and lights the best of each line of the table', async ()
   // The table reads part by part, each one saying whether it reads per match.
   expect(within(screen.getByRole('table')).getByRole('columnheader', { name: 'Attaque' })).toBeInTheDocument();
   expect(within(screen.getByRole('table')).getByRole('rowheader', { name: 'Défaites ↓' })).toBeInTheDocument();
+  // The rank and the pushups have their own pages: the table keeps to the matches.
+  expect(within(screen.getByRole('table')).queryByRole('columnheader', { name: 'Le rang et le club' })).toBeNull();
 });
 
 test('shows the game’s ball speeds in km/h, and what the member lacks to take a prize', async () => {
