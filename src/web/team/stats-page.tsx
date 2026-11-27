@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { cn } from 'cn';
 import {
   Bomb,
+  ChevronRight,
   Crosshair,
   DoorOpen,
   Dumbbell,
@@ -22,6 +23,7 @@ import {
 } from 'lucide-react';
 import type { CSSProperties, ReactNode } from 'react';
 import { formatNumber } from '../../lib/format';
+import { comparedFigure, type Pro, twinPro } from '../../lib/pros';
 import { seasonAt } from '../../lib/season';
 import { useBoardState } from '../board';
 import { useClub } from '../club';
@@ -39,11 +41,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { seasonMmrQuery } from '../queries';
 import { LadderIcon } from '../shell/icons';
 import { type CareerAccount, modesPlayed, type StatsMode, soloAccountOf } from './career';
+import { useComparedPro } from './compared-pro';
 import {
   bestOf,
   type ComparedPlayer,
   comparedPlayers,
   keyStats,
+  type ProsSlug,
   prizeMinimum,
   prizes,
   type RankedLine,
@@ -59,8 +63,7 @@ import {
   tableSections,
   tableStats,
 } from './comparison';
-import { twinPro } from './pros';
-import { ProsSheet, prosSource } from './pros-sheet';
+import { ProsSheet, prosSource, targetName } from './pros-sheet';
 import { formatted, gapOf, PlayerName } from './stat-parts';
 import { rankRgb } from './stats';
 
@@ -299,21 +302,7 @@ function StatCard({ stat, players }: { stat: Stat; players: ComparedPlayer[] }) 
   const value = (lines.find((line) => line.player.me) ?? leaders[0])?.value ?? null;
   return (
     <Card variant="glass" role="region" aria-label={stat.label} className="relative gap-4 p-5">
-      <span className="flex items-baseline justify-between gap-3">
-        <span className="label-caps">{stat.label}</span>
-        {stat.pros && (
-          // The whole card opens the sheet, through its link: a link stays one for a screen reader.
-          <Link
-            to="."
-            search={(previous) => ({ ...previous, pros: stat.pros?.slug })}
-            resetScroll={false}
-            aria-label={`${stat.label} face aux pros`}
-            className="label-caps text-link after:absolute after:inset-0 after:rounded-[inherit]"
-          >
-            vs pros ›
-          </Link>
-        )}
-      </span>
+      <span className="label-caps">{stat.label}</span>
       <b className={cn('num text-[40px] [line-height:.85]', value === null && 'text-t3')}>
         {formatted(value, stat.format)}
       </b>
@@ -322,7 +311,36 @@ function StatCard({ stat, players }: { stat: Stat; players: ComparedPlayer[] }) 
           <Bar key={line.player.name} line={line} format={stat.format} />
         ))}
       </ol>
+      {stat.pros && <ProsRow stat={stat} figure={stat.pros.figure} slug={stat.pros.slug} />}
     </Card>
+  );
+}
+
+/**
+ * The foot of a key figure the pros have, as a row of iOS settings: what it opens, the figure of the pro the member
+ * measures against as a teaser, a chevron. The whole card opens the sheet, through this link: a link stays one for a
+ * screen reader.
+ */
+function ProsRow({ stat, figure, slug }: { stat: Stat; figure: (pro: Pro) => number; slug: ProsSlug }) {
+  const { target } = useComparedPro();
+  return (
+    <Link
+      to="."
+      search={(previous) => ({ ...previous, pros: slug })}
+      resetScroll={false}
+      aria-label={`${stat.label} face aux pros`}
+      className="group/pros -mx-5 -mb-5 mt-auto flex items-center gap-2 border-line border-t px-5 py-3.5 text-[14px] text-t2 transition-colors after:absolute after:inset-0 after:rounded-[inherit] hover:text-t1"
+    >
+      <span className="flex-1">Face aux pros</span>
+      <span className="flex min-w-0 items-baseline gap-1.5 text-medal-1">
+        <span className="truncate text-[13px]">{targetName(target)}</span>
+        <span className="num text-[15px]">{formatted(comparedFigure(target, figure), stat.format)}</span>
+      </span>
+      <ChevronRight
+        aria-hidden="true"
+        className="size-4 text-t3 transition-transform group-hover/pros:translate-x-0.5"
+      />
+    </Link>
   );
 }
 
@@ -409,45 +427,105 @@ function StyleCard({ axis, players }: { axis: StyleAxis; players: ComparedPlayer
   );
 }
 
+interface Twin {
+  player: ComparedPlayer;
+  pro: Pro;
+  goalsPerSave: number;
+  assistsPerGoal: number;
+}
+
 /**
- * Each player's twin among the pros: the one with the same style, on both axes. Only in Ranked 2v2, the pros' mode.
+ * Each player's twin among the pros: the one with the same style, on both axes. The member's is the reveal, in gold,
+ * their two ratios against the pro's; the club's other players follow, each with theirs. Only in Ranked 2v2, the pros'
+ * mode.
  */
 function TwinsCard({ players }: { players: ComparedPlayer[] }) {
   const [goals, assists] = styleAxes.map((axis) => styleOf(axis, players).lines);
-  const twins = players.flatMap((player, index) => {
-    const twin = twinPro(goals?.[index]?.ratio ?? null, assists?.[index]?.ratio ?? null);
-    return twin ? [{ player, twin }] : [];
+  const twins = players.flatMap((player, index): Twin[] => {
+    const goalsPerSave = goals?.[index]?.ratio ?? null;
+    const assistsPerGoal = assists?.[index]?.ratio ?? null;
+    const pro = twinPro(goalsPerSave, assistsPerGoal);
+    return pro && goalsPerSave && assistsPerGoal ? [{ player, pro, goalsPerSave, assistsPerGoal }] : [];
   });
   if (twins.length === 0) return null;
+  const mine = twins.find((twin) => twin.player.me);
+  const others = twins.filter((twin) => twin !== mine);
   return (
-    <Card variant="glass" role="region" aria-label="Les jumeaux pros" className="gap-4 p-5 md:col-span-2">
-      <span className="flex flex-col gap-1.5">
-        <span className="label-caps">Les jumeaux pros</span>
-        <span className="text-[14px] text-t2">
-          Le pro qui a ton style : mêmes buts par arrêt, mêmes assists par but.
-        </span>
-      </span>
-      <ul className="m-0 grid list-none gap-3 p-0 md:grid-cols-3">
-        {twins.map(({ player, twin }) => (
-          <li key={player.name} className={cn('flex flex-col gap-1.5 py-3', player.me && mineClass)}>
-            <span className={cn('flex items-center gap-2', player.me ? 'text-[15px] text-t1' : 'text-[13px] text-t2')}>
-              <i
-                aria-hidden="true"
-                className="size-2 shrink-0 rounded-full"
-                style={{ background: `rgb(${rankRgb(player.tier)})` }}
-              />
-              <PlayerName player={player} className={cn(player.me && 'font-semibold')} />
-            </span>
-            <b className="title-display text-[24px] text-medal-1 [line-height:1]">{twin.name}</b>
-            <span className="text-[13px] text-t3">
-              {formatted(twin.goalsPerSave, 'perMatch')} but par arrêt · {formatted(twin.assistsPerGoal, 'perMatch')}{' '}
-              assist par but
-            </span>
-          </li>
-        ))}
-      </ul>
+    <Card variant="glass" role="region" aria-label="Les jumeaux pros" className="relative gap-5 p-5 md:col-span-2">
+      {mine && <span aria-hidden="true" className="twin-glow pointer-events-none absolute inset-0" />}
+      <span className="label-caps">Les jumeaux pros</span>
+      <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] md:gap-10">
+        {mine && <TwinReveal twin={mine} />}
+        {others.length > 0 && (
+          <section
+            aria-label="Le club"
+            className={cn(
+              'flex flex-col gap-1',
+              mine && 'border-line border-t pt-4 md:border-t-0 md:border-l md:pt-0 md:pl-10',
+            )}
+          >
+            {mine && <span className="label-caps pb-1">Et le club</span>}
+            <ul className="m-0 flex list-none flex-col p-0">
+              {others.map(({ player, pro }) => (
+                <li key={player.name} className="flex items-center gap-2.5 py-2.5 text-[15px] text-t2">
+                  <i
+                    aria-hidden="true"
+                    className="size-2 shrink-0 rounded-full"
+                    style={{ background: `rgb(${rankRgb(player.tier)})` }}
+                  />
+                  <PlayerName player={player} className="flex-1" />
+                  {pro === mine?.pro && <span className="text-[13px] text-t3">comme toi</span>}
+                  <span className="truncate font-semibold text-medal-1">{pro.name}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+      </div>
       <p className="m-0 text-[11px] text-t3 [line-height:1.5]">{prosSource}</p>
     </Card>
+  );
+}
+
+/** The member's twin, revealed: the pro's name in big, then the two ratios that make them alike, side by side. */
+function TwinReveal({ twin }: { twin: Twin }) {
+  const rows = [
+    { label: 'Buts par arrêt', mine: twin.goalsPerSave, theirs: twin.pro.goalsPerSave },
+    { label: 'Assists par but', mine: twin.assistsPerGoal, theirs: twin.pro.assistsPerGoal },
+  ];
+  return (
+    <div className="relative flex animate-rise flex-col gap-5">
+      <span className="flex flex-col gap-1.5">
+        <span className="text-[15px] text-t2">Tu joues comme</span>
+        <b className="twin-name title-display text-[40px] text-medal-1 [line-height:1]">{twin.pro.name}</b>
+      </span>
+      <Table className="text-[14px]">
+        <TableHeader className="[&_tr]:border-0">
+          <TableRow className="border-0 hover:bg-transparent">
+            <TableHead className="h-auto p-0 pb-1.5">
+              <span className="sr-only">Ratio</span>
+            </TableHead>
+            <TableHead className="label-caps h-auto p-0 pb-1.5 text-right">Toi</TableHead>
+            <TableHead className="label-caps h-auto max-w-28 truncate p-0 pb-1.5 pl-5 text-right text-medal-1">
+              {twin.pro.name}
+            </TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.map((row) => (
+            <TableRow key={row.label} className="border-line hover:bg-transparent">
+              <TableCell className="p-0 py-2 text-t2">{row.label}</TableCell>
+              <TableCell className="num p-0 py-2 text-right text-[17px] text-t1">
+                {formatted(row.mine, 'perMatch')}
+              </TableCell>
+              <TableCell className="num p-0 py-2 pl-5 text-right text-[17px] text-medal-1">
+                {formatted(row.theirs, 'perMatch')}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
   );
 }
 

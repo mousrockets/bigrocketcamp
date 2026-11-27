@@ -1,6 +1,13 @@
 import { Hono } from 'hono';
-import { invalidDuoPseudo, type OwnProfile, profile } from '../../lib/contract';
-import { deleteOwnAccount, readOwnProfile, saveOwnProfile } from '../../lib/members';
+import {
+  comparedProInput,
+  type Done,
+  invalidComparedPro,
+  invalidDuoPseudo,
+  type OwnProfile,
+  profile,
+} from '../../lib/contract';
+import { deleteOwnAccount, readOwnProfile, saveComparedPro, saveOwnProfile } from '../../lib/members';
 import { type AppEnv, clearSessionCookie, sameOriginOnly } from '../auth';
 import { failure, noStore } from '../respond';
 import { jsonBody } from '../validate';
@@ -18,6 +25,10 @@ export const profileRoutes = new Hono<AppEnv>()
     } catch (error) {
       return failure(c, error, 'Profil invalide.');
     }
+  })
+  .put('/pro', sameOriginOnly, ...jsonBody(comparedProInput, { invalid: invalidComparedPro }), async (c) => {
+    await saveComparedPro(c.env.DB, c.var.member.id, c.req.valid('json').pro);
+    return c.json({ ok: true } satisfies Done, 200, noStore);
   })
   .delete('/', sameOriginOnly, async (c) => {
     try {

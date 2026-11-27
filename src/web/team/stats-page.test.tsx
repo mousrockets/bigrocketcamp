@@ -1,8 +1,8 @@
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
-import { fakeApi } from '../settings/fake-api';
-import { aRank, aResult, aSoloRank, boardWith, renderInApp } from '../test-utils';
+import { fakeApi, writes } from '../settings/fake-api';
+import { aRank, aResult, aSoloRank, boardWith, renderInApp, testClub } from '../test-utils';
 import { StatsPage } from './stats-page';
 import { TeamPage } from './team-page';
 
@@ -107,21 +107,21 @@ test('opens on the season under way, in 2v2, on every account', async () => {
   const goals = screen.getByRole('region', { name: 'Buts / match' });
   // Alice: 4 goals in 2 matches; Bob: 1.
   expect(within(goals).getAllByText('alice')).not.toHaveLength(0);
-  expect(within(goals).getByText('0,5')).toBeInTheDocument();
+  expect(within(goals).getByText('0,50')).toBeInTheDocument();
 });
 
 test('a key figure shows the member’s own in big, above every player’s bar', async () => {
   renderInApp(<StatsPage />, { board, path: '/stats' });
   // This season Alice leads: 2 goals a match, Bob 0,5.
   const goals = await screen.findByRole('region', { name: 'Buts / match' });
-  expect(goals).toHaveTextContent(/^Buts \/ matchvs pros ›2\s*1alice/);
+  expect(goals).toHaveTextContent(/^Buts \/ match2,00\s*1alice.*Face aux prosZen1,58$/);
 });
 
 test('a key figure shows the member’s own even when another leads it', async () => {
   renderInApp(<StatsPage />, { board, path: '/stats?saison=23' });
   // In season 23, Bob scored 4, Alice none: her 0 shows, behind him.
   const goals = await screen.findByRole('region', { name: 'Buts / match' });
-  expect(goals).toHaveTextContent(/^Buts \/ matchvs pros ›0\s*1bob/);
+  expect(goals).toHaveTextContent(/^Buts \/ match0,00\s*1bob/);
 });
 
 test('a key figure the pros have opens them, and one they lack does not', async () => {
@@ -146,11 +146,48 @@ test('measures the member against Zen first, then any pro or their average, amon
   expect(within(ranking).getAllByRole('listitem')).toHaveLength(12);
   expect(within(ranking).getAllByRole('listitem')[0]).toHaveTextContent('alice');
   expect(sheet).toHaveTextContent(/relevé sur RL Tracker le 27 novembre 2026/);
+});
 
+test('keeps the pro the member chose, for the sheet and every card, on every device', async () => {
+  const sent = fakeApi({ 'GET /api/stats/seasons': { seasons } });
+  renderInApp(<StatsPage />, { board, path: '/stats?pros=buts' });
+  const sheet = await screen.findByRole('dialog', { name: 'Face aux pros' });
   await userEvent.click(within(sheet).getByRole('combobox', { name: 'Pro comparé' }));
   await userEvent.click(await screen.findByRole('option', { name: 'La moyenne des pros' }));
   expect(sheet).toHaveTextContent('1,51');
   expect(sheet).toHaveTextContent('Tu fais mieux que la moyenne des pros.');
+  expect(screen.getByRole('link', { name: 'Tirs / match face aux pros', hidden: true })).toHaveTextContent(
+    'Moyenne4,34',
+  );
+  await vi.waitFor(() =>
+    expect(writes(sent)).toEqual([{ method: 'PUT', path: '/api/profile/pro', body: { pro: 'moyenne' } }]),
+  );
+});
+
+test('opens on the pro the member chose before', async () => {
+  const club = { ...testClub, me: { ...testClub.me, comparedPro: 'Atow' } };
+  renderInApp(<StatsPage />, { club, board, path: '/stats' });
+  expect(await screen.findByRole('link', { name: 'Buts / match face aux pros' })).toHaveTextContent(
+    'Face aux prosAtow1,75',
+  );
+});
+
+test('falls back to Zen when the pro chosen is no longer one of the list', async () => {
+  const club = { ...testClub, me: { ...testClub.me, comparedPro: 'Un ancien pro' } };
+  renderInApp(<StatsPage />, { club, board, path: '/stats' });
+  expect(await screen.findByRole('link', { name: 'Buts / match face aux pros' })).toHaveTextContent('Zen1,58');
+});
+
+test('takes the choice back when it cannot be saved', async () => {
+  fakeApi({
+    'GET /api/stats/seasons': { seasons },
+    'PUT /api/profile/pro': new Response(JSON.stringify({ error: 'Hors ligne.' }), { status: 503 }),
+  });
+  renderInApp(<StatsPage />, { board, path: '/stats?pros=buts' });
+  const sheet = await screen.findByRole('dialog', { name: 'Face aux pros' });
+  await userEvent.click(within(sheet).getByRole('combobox', { name: 'Pro comparé' }));
+  await userEvent.click(await screen.findByRole('option', { name: 'Atow' }));
+  await vi.waitFor(() => expect(within(sheet).getByRole('combobox', { name: 'Pro comparé' })).toHaveTextContent('Zen'));
 });
 
 test('tells the member what they lack to reach a pro', async () => {
@@ -179,12 +216,19 @@ test('gives each player the pro with the same style, in Ranked 2v2 only', async 
   });
   renderInApp(<StatsPage />, { board: styled, path: '/stats' });
   const twins = await screen.findByRole('region', { name: 'Les jumeaux pros' });
-  // Alice: 0,75 goals a save and 0,67 assists a goal; Bob far more of a defender.
+  // Alice: 0,75 goals a save and 0,67 assists a goal, against Fairy Peak!'s 0,66 and 0,56; Bob far more of a defender.
+  expect(twins).toHaveTextContent('Tu joues commeFairy Peak!');
   expect(
     within(twins)
+      .getAllByRole('row')
+      .map((row) => row.textContent),
+  ).toEqual(['RatioToiFairy Peak!', 'Buts par arrêt0,750,66', 'Assists par but0,670,56']);
+  const club = within(twins).getByRole('region', { name: 'Le club' });
+  expect(
+    within(club)
       .getAllByRole('listitem')
       .map((line) => line.textContent),
-  ).toEqual([expect.stringMatching(/^aliceTOIFairy Peak!/), expect.stringMatching(/^bobReyyynn/)]);
+  ).toEqual(['bobReyyynn']);
 });
 
 test('gives no pro twin outside Ranked 2v2', async () => {
@@ -224,9 +268,9 @@ test('names the player of a dot, with their figure, on a tap or a hover', async 
   });
   const attack = await screen.findByRole('region', { name: 'Buts par arrêt' });
   // Both dots share a colour when both players share a rank: the bubble tells them apart.
-  await userEvent.click(within(attack).getByRole('button', { name: 'bob, 0,5' }));
+  await userEvent.click(within(attack).getByRole('button', { name: 'bob, 0,50' }));
   const bubble = (await screen.findAllByText('bob')).find((element) => element.closest('[data-slot=popover-content]'));
-  expect(bubble?.closest('[data-slot=popover-content]')).toHaveTextContent(/^bob0,5$/);
+  expect(bubble?.closest('[data-slot=popover-content]')).toHaveTextContent(/^bob0,50$/);
 });
 
 test('shows a past season from its address, and every match from the season list', async () => {
@@ -234,7 +278,7 @@ test('shows a past season from its address, and every match from the season list
   expect(await screen.findByRole('combobox', { name: 'Saison' })).toHaveTextContent('Saison 23');
   const goals = screen.getByRole('region', { name: 'Buts / match' });
   expect(within(goals).getAllByText('bob')).not.toHaveLength(0);
-  expect(within(goals).getAllByText('4')).not.toHaveLength(0);
+  expect(within(goals).getAllByText('4,00')).not.toHaveLength(0);
 
   await pick('Saison', 'Toutes les saisons');
   expect(await screen.findByRole('combobox', { name: 'Saison' })).toHaveTextContent('Toutes les saisons');
@@ -276,8 +320,8 @@ test('the member finds their own line: their place in each stat, their column ti
   const goals = await screen.findByRole('region', { name: 'Buts / match' });
   // Alice, the member, scored 2 a match, Bob 0,5.
   const [first, second] = within(goals).getAllByRole('listitem');
-  expect(first).toHaveTextContent(/^1alice\s*TOI2$/);
-  expect(second).toHaveTextContent(/^2bob0,5$/);
+  expect(first).toHaveTextContent(/^1alice\s*TOI2,00$/);
+  expect(second).toHaveTextContent(/^2bob0,50$/);
   // Only the member's place wears its medal, in big, and their line its capsule.
   expect(within(first as HTMLElement).getByText('1')).toHaveClass('text-medal-1', 'text-[22px]');
   expect(within(second as HTMLElement).getByText('2')).toHaveClass('text-t3', 'text-[13px]');
@@ -305,12 +349,12 @@ test('crowns the prizes and lights the best of each line of the table', async ()
   const goals = () =>
     within(screen.getByRole('table')).getByRole('rowheader', { name: 'Buts' }).closest('tr') as HTMLElement;
   // Alice scored 4 in 2 matches this season, Bob 1: one figure per player, per match, and no switch.
-  expect(within(goals()).getByText('2')).toHaveClass('text-win');
-  expect(within(goals()).getByText('0,5')).not.toHaveClass('text-win');
+  expect(within(goals()).getByText('2,00')).toHaveClass('text-win');
+  expect(within(goals()).getByText('0,50')).not.toHaveClass('text-win');
   expect(within(goals()).queryByText('4')).not.toBeInTheDocument();
   expect(screen.queryByRole('group', { name: 'Chiffres du tableau' })).not.toBeInTheDocument();
   // A tap, or a hover on a computer, shows the total it comes from.
-  await userEvent.click(within(goals()).getByRole('button', { name: '2, 4 au total' }));
+  await userEvent.click(within(goals()).getByRole('button', { name: '2,00, 4 au total' }));
   const bubble = await screen.findByText('Au total');
   expect(bubble.parentElement).toHaveTextContent(/^Au total4$/);
   expect(screen.getByText(/Touche ou survole un chiffre pour voir son total/)).toBeInTheDocument();

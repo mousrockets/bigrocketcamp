@@ -42,6 +42,20 @@ function pro(
 /** The pro every comparison starts from: the best player there is, who already crowns the ranks' ladder. */
 export const firstPro = 'Zen';
 
+/** Whom a member measures against: a pro by name, or all of them on average, under this name. */
+export const averageOfPros = 'moyenne';
+export const comparedPros: readonly string[] = [averageOfPros, ...pros.map((one) => one.name)];
+
+/** Whom the member measures against: their choice, saved on their profile, or Zen's until they make one. */
+export const comparedPro = (choice: string | null | undefined): string =>
+  choice && comparedPros.includes(choice) ? choice : firstPro;
+
+/** The figure the member measures against: the pro's own, or the pros' average. */
+export function comparedFigure(target: string, figure: (pro: Pro) => number): number {
+  const chosen = pros.find((one) => one.name === target);
+  return chosen ? figure(chosen) : proAverage(figure);
+}
+
 /** The pros' average of a figure, as if it were one more pro. */
 export const proAverage = (figure: (pro: Pro) => number) =>
   pros.reduce((sum, one) => sum + figure(one), 0) / pros.length;

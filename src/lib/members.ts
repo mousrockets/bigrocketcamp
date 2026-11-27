@@ -41,6 +41,8 @@ export interface Profile {
 export interface OwnProfile extends Profile {
   /** A duo pseudo with game history no longer changes: every record of the player is keyed by it. */
   duoPseudoLocked: boolean;
+  /** Whom the member measures against on Stats; null until they choose. Theirs alone: no other member reads it. */
+  comparedPro: string | null;
 }
 
 /** An error the API answers with its own HTTP status. */
@@ -97,9 +99,17 @@ export async function slotHasHistory(db: Database, slot: string): Promise<boolea
 }
 
 export async function readOwnProfile(db: Database, memberId: string): Promise<OwnProfile> {
-  const [row] = await orm(db).select(profileColumns).from(members).where(eq(members.id, memberId));
+  const [row] = await orm(db)
+    .select({ ...profileColumns, comparedPro: members.comparedPro })
+    .from(members)
+    .where(eq(members.id, memberId));
   if (!row) throw withStatus('Membre introuvable.', 404);
   return { ...row, duoPseudoLocked: row.duoPseudo !== null && (await slotHasHistory(db, row.duoPseudo)) };
+}
+
+/** Whom the member measures against on Stats: a name of src/lib/pros.ts, which the contract checked. */
+export async function saveComparedPro(db: Database, memberId: string, pro: string): Promise<void> {
+  await orm(db).update(members).set({ comparedPro: pro }).where(eq(members.id, memberId));
 }
 
 export interface ProfileInput {
