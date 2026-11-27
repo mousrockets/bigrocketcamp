@@ -6,7 +6,9 @@ import type { ComparedPlayer, StatFormat } from './comparison';
 /** A stat's figure as the page writes it; a dash when there is none. */
 export function formatted(value: number | null, format: StatFormat): string {
   if (value === null) return '–';
-  if (format === 'percent') return `${formatNumber(Math.round(value))} %`;
+  // A small share shows its two decimals: one match left among 366 is 0,27 %, not 0 %.
+  if (format === 'percent')
+    return `${value > 0 && value < 1 ? formatHundredths(value) : formatNumber(Math.round(value))} %`;
   // Two decimals, always: averages of a few matches are close, and one decimal would show a tie the bars deny.
   if (format === 'perMatch') return formatHundredths(value);
   // The game sends ball speeds in km/h, and distances in Unreal units: centimetres.
@@ -40,7 +42,12 @@ export function PlayerName({
 /** What the member lacks to take a prize from its leader, in the prize's own unit. */
 export function gapOf(leader: number | null, mine: number, format: StatFormat): string {
   const gap = Math.max(0, (leader ?? 0) - mine);
-  if (format === 'percent') return `${formatNumber(Math.round(gap))} point${Math.round(gap) >= 2 ? 's' : ''}`;
-  if (format === 'perMatch') return `${formatted(gap, format)} par match`;
+  // A gap under a point shows its two decimals: the rounding would show none while the leader is ahead.
+  if (format === 'percent') {
+    if (gap > 0 && gap < 1) return `${formatHundredths(gap)} point`;
+    return `${formatNumber(Math.round(gap))} point${Math.round(gap) >= 2 ? 's' : ''}`;
+  }
+  if (format === 'perMatch')
+    return gap > 0 && gap < 0.005 ? 'moins de 0,01 par match' : `${formatted(gap, format)} par match`;
   return formatted(gap, format);
 }
