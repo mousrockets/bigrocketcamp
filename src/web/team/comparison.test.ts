@@ -528,3 +528,73 @@ test('the 2v2 ratings only take a prize when the 2v2 is among the modes', () => 
   expect(fall(only('doubles'))[0]).not.toBeNull();
   expect(fall(only('standard', 'tournament-standard'))).toEqual([null, null, null]);
 });
+
+/** A match of collector 0.8.0: Alice's car followed in ten updates of play, a third of them with the ball her team's. */
+const followed = (car: Partial<NonNullable<GameStats['car']>> = {}): GameStats => ({
+  aerialTouches: 2,
+  defensiveTouches: 4,
+  offensiveTouches: 3,
+  possession: { samples: 9, owned: 3 },
+  car: {
+    samples: 10,
+    boostSum: 500,
+    noBoost: 1,
+    fullBoost: 2,
+    supersonic: 3,
+    onGround: 6,
+    onWall: 1,
+    boosting: 4,
+    powerslides: 2,
+    pickups: 12,
+    bigPickups: 3,
+    boostCollected: 300,
+    ...car,
+  },
+});
+
+test('reads the boost, the moves and the possession of collector 0.8.0, over ten matches at least', () => {
+  const tenMatches = boardWith({
+    results: [
+      ...Array.from({ length: 10 }, (_, index) =>
+        aResult({ match_guid: `car-${index}`, name: 'alice', game_stats: followed() }),
+      ),
+      // Bob's car was followed in two matches only: too few.
+      ...[0, 1].map((index) => aResult({ match_guid: `car-${index}`, name: 'bob', game_stats: followed() })),
+    ],
+  });
+  const players = comparedPlayers(tenMatches, [], ['alice', 'bob'], 'alice', every, 'all', null);
+  const table = tableStats(every, players);
+  const line = (label: string) => {
+    const stat = table.find((candidate) => candidate.label === label);
+    if (!stat) throw new Error(`${label} is in the table`);
+    return stat;
+  };
+  const values = (label: string) => players.map((player) => line(label).value(player));
+  expect(values('Pastilles ramassées')).toEqual([12, null]);
+  expect(values('Grosses pastilles')).toEqual([3, null]);
+  expect(values('Boost ramassé')).toEqual([300, null]);
+  expect(values('Boost moyen')).toEqual([50, null]);
+  expect(values('À 0 de boost')).toEqual([10, null]);
+  expect(values('Supersonique')).toEqual([30, null]);
+  // Neither on the ground nor on a wall: in the air.
+  expect(values('En l’air')).toEqual([30, null]);
+  expect(values('Dérapages')).toEqual([2, null]);
+  expect(values('Possession')).toEqual([(3 / 9) * 100, null]);
+  expect(values('Touches aériennes')).toEqual([2, null]);
+  // The pickups are estimated; a share of time has no total; a style lights nobody.
+  expect(table.filter((stat) => stat.estimated).map((stat) => stat.label)).toEqual([
+    'Pastilles ramassées',
+    'Grosses pastilles',
+    'Boost ramassé',
+  ]);
+  expect(line('Supersonique').total).toBeUndefined();
+  expect(players.map((player) => line('Pastilles ramassées').total?.(player))).toEqual([120, 24]);
+  expect(bestOf(line('Au sol'), players)).toBe(null);
+  expect(table.map((stat) => stat.section)).toContain('Le mouvement');
+});
+
+test('shows none of the boost and moves before collector 0.8.0', () => {
+  const labels = tableStats(only('doubles'), everyone()).map((stat) => stat.label);
+  expect(labels).not.toContain('Pastilles ramassées');
+  expect(labels).not.toContain('Possession');
+});

@@ -73,6 +73,31 @@ export interface GameTally {
   fastestGoal: number | null;
   longestGoal: number | null;
   quickestGoal: number | null;
+  /** Since collector 0.8.0: touches high, near their own goal, near the opponents'. */
+  aerialTouches: Tally;
+  defensiveTouches: Tally;
+  offensiveTouches: Tally;
+  /** Their team's possession: the updates of play after a touch, those whose last touch was theirs. */
+  possession: { samples: number; owned: number; matches: number };
+  /** Their car over the updates of play, in the matches the game showed it: their team's, seen by a collector. */
+  car: CarTally;
+}
+
+/** A car's counts of updates of play, added up, with the matches that came with them. */
+export interface CarTally {
+  matches: number;
+  samples: number;
+  boostSum: number;
+  noBoost: number;
+  fullBoost: number;
+  supersonic: number;
+  onGround: number;
+  onWall: number;
+  boosting: number;
+  powerslides: number;
+  pickups: number;
+  bigPickups: number;
+  boostCollected: number;
 }
 
 /** Hoops and Dropshot: a goal's distance means nothing off a standard pitch. */
@@ -107,7 +132,40 @@ function addGame(game: GameTally, stats: GameStats, goals: number, playlist: num
   game.fastestGoal = most(game.fastestGoal, stats.fastestGoal);
   if (!oddPitches.has(playlist ?? 0)) game.longestGoal = most(game.longestGoal, stats.longestGoal);
   game.quickestGoal = least(game.quickestGoal, stats.quickestGoal);
+  addTo(game.aerialTouches, stats.aerialTouches);
+  addTo(game.defensiveTouches, stats.defensiveTouches);
+  addTo(game.offensiveTouches, stats.offensiveTouches);
+  if (stats.possession) {
+    game.possession.samples += stats.possession.samples;
+    game.possession.owned += stats.possession.owned;
+    game.possession.matches++;
+  }
+  if (stats.car) {
+    const { car } = game;
+    car.matches++;
+    for (const key of carCounts) car[key] += stats.car[key];
+  }
 }
+
+const carCounts = [
+  'samples',
+  'boostSum',
+  'noBoost',
+  'fullBoost',
+  'supersonic',
+  'onGround',
+  'onWall',
+  'boosting',
+  'powerslides',
+  'pickups',
+  'bigPickups',
+  'boostCollected',
+] as const satisfies readonly Exclude<keyof CarTally, 'matches'>[];
+
+const carTally = (): CarTally => ({
+  matches: 0,
+  ...(Object.fromEntries(carCounts.map((key) => [key, 0])) as Record<(typeof carCounts)[number], number>),
+});
 
 /**
  * Which matches count: every one, the ranked ones, one ranked playlist (1v1, 2v2, 3v3), or the tournaments. A match
@@ -327,6 +385,11 @@ export function careerOf(
       fastestGoal: null,
       longestGoal: null,
       quickestGoal: null,
+      aerialTouches: tally(),
+      defensiveTouches: tally(),
+      offensiveTouches: tally(),
+      possession: { samples: 0, owned: 0, matches: 0 },
+      car: carTally(),
     },
   };
   const tournamentsWon = board.rules?.tournamentWins ?? [];

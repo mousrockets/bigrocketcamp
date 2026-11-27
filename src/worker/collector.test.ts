@@ -266,6 +266,45 @@ describe('sending with the collector token', () => {
     ]);
   });
 
+  test('keeps the car, the possession and the touches’ places of collector 0.8.0', async () => {
+    const token = await pairedToken();
+    const body = livePayload({ guid: 'synthetic-car-stats' });
+    body.state.Players = body.state.Players.map((player) => ({
+      ...player,
+      AerialTouches: 2,
+      DefensiveTouches: 5,
+      OffensiveTouches: 3,
+      Possession: { Samples: 3000, Owned: 1500 },
+      ...(player.TeamNum === 0 && {
+        Car: {
+          Samples: 3000,
+          BoostSum: 150000,
+          NoBoost: 300,
+          FullBoost: 200,
+          Supersonic: 400,
+          OnGround: 2000,
+          OnWall: 200,
+          Boosting: 700,
+          Powerslides: 80,
+          Pickups: 100,
+          BigPickups: 20,
+          BoostCollected: 2500,
+        },
+      }),
+    }));
+    expect((await call('/api/live', { method: 'POST', token, body })).status).toBe(200);
+    const row = await env.DB.prepare(
+      `SELECT game_stats FROM match_results WHERE name = 'alice' AND match_guid = 'synthetic-car-stats'`,
+    ).first<{ game_stats: string }>();
+    expect(JSON.parse(row?.game_stats ?? 'null')).toMatchObject({
+      aerialTouches: 2,
+      defensiveTouches: 5,
+      offensiveTouches: 3,
+      possession: { samples: 3000, owned: 1500 },
+      car: { samples: 3000, boostSum: 150000, pickups: 100, bigPickups: 20 },
+    });
+  });
+
   test('the status names the player, and a revoked token is refused', async () => {
     const token = await pairedToken();
     const status = await call('/api/collector/status', { token });

@@ -69,3 +69,70 @@ test('keeps the game’s readable words for its events, trimmed', () => {
   expect(statfeedLabelsOf({ Save: '\u0007' })).toEqual([]);
   expect(statfeedLabelsOf('not an object')).toEqual([]);
 });
+
+// Collector 0.8.0 adds where each touch was, the team's possession, and the car of each player the game shows (its
+// README, « Le boost, le mouvement, la possession et les zones de touche »), here from a real match.
+const car = {
+  Samples: 3716,
+  BoostSum: 175458,
+  NoBoost: 353,
+  FullBoost: 296,
+  Supersonic: 530,
+  OnGround: 2587,
+  OnWall: 315,
+  Boosting: 844,
+  Powerslides: 92,
+  Pickups: 118,
+  BigPickups: 25,
+  BoostCollected: 2970,
+};
+
+test('reads the touches’ places, the possession and the car of collector 0.8.0', () => {
+  const stats = gameStatsOf(
+    {
+      ...line,
+      AerialTouches: 19,
+      DefensiveTouches: 35,
+      OffensiveTouches: 16,
+      Possession: { Samples: 3651, Owned: 1781 },
+      Car: car,
+    },
+    'Stadium_P',
+  );
+  expect(stats).toMatchObject({
+    aerialTouches: 19,
+    defensiveTouches: 35,
+    offensiveTouches: 16,
+    possession: { samples: 3651, owned: 1781 },
+    car: {
+      samples: 3716,
+      boostSum: 175458,
+      noBoost: 353,
+      fullBoost: 296,
+      supersonic: 530,
+      onGround: 2587,
+      onWall: 315,
+      boosting: 844,
+      powerslides: 92,
+      pickups: 118,
+      bigPickups: 25,
+      boostCollected: 2970,
+    },
+  });
+});
+
+test('drops a car or a possession that cannot be, and keeps the rest', () => {
+  const stats = gameStatsOf(
+    {
+      ...line,
+      Possession: { Samples: 10, Owned: 11 },
+      // More boost than a full tank in every update.
+      Car: { ...car, BoostSum: car.Samples * 100 + 1 },
+    },
+    undefined,
+  );
+  expect(stats).not.toHaveProperty('possession');
+  expect(stats).not.toHaveProperty('car');
+  expect(stats).toMatchObject({ shots: 5 });
+  expect(gameStatsOf({ ...line, Car: { ...car, Samples: 0, BoostSum: 0 } }, undefined)).not.toHaveProperty('car');
+});

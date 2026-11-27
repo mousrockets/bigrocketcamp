@@ -46,6 +46,7 @@ import {
   bestOf,
   type ComparedPlayer,
   comparedPlayers,
+  estimateMargin,
   keyStats,
   type ProsSlug,
   prizeMinimum,
@@ -778,6 +779,11 @@ function StatsTable({ stats, players }: { stats: TableStat[]; players: ComparedP
                   <TableRow key={stat.label} className="border-line hover:bg-white/3">
                     <TableHead scope="row" className={cn(labelColumn, 'text-t2')}>
                       {stat.label}
+                      {stat.estimated && (
+                        <span className="ml-1 text-t3" title={`Estimé, à ±${estimateMargin} % près`}>
+                          ≈
+                        </span>
+                      )}
                       {stat.lowerIsBetter && (
                         <span className="ml-1 text-t3" title="Le plus bas est le meilleur">
                           ↓
@@ -821,6 +827,14 @@ function StatsTable({ stats, players }: { stats: TableStat[]; players: ComparedP
         <span className="text-win">En vert</span>, le meilleur de chaque ligne ; ↓ : le plus bas est le meilleur. Touche
         ou survole un chiffre pour voir son total.
       </p>
+      {stats.some((stat) => stat.estimated) && (
+        <p className="m-0 -mt-2 px-1 text-[12px] text-t3 [line-height:1.45]">
+          ≈ : estimé à ±{estimateMargin} % près. Le jeu n’envoie pas les pastilles ramassées : on les compte aux hausses
+          du boost, relevé 10 fois par seconde. Face au tableau du jeu, 1 à 2 pastilles d’écart sur un match. Les parts
+          de temps viennent des mêmes relevés, au dixième de seconde près. Boost et mouvement : ton équipe seulement, le
+          jeu cache les voitures adverses.
+        </p>
+      )}
     </>
   );
 }

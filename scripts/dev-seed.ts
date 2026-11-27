@@ -5,6 +5,7 @@
 // Each day draws from its own random sequence, and the simulation always starts on the same day: a day gets the same
 // matches whenever the seed runs, so running it again, even weeks later, only adds the days since.
 import { parisDay, shiftDay, shiftMonth } from '../src/lib/days';
+import type { GameStats } from '../src/lib/game-stats';
 import {
   defaultForfeitRules,
   defaultHighScoreRules,
@@ -198,7 +199,7 @@ interface Row {
   saves: number;
   demos?: number;
   crossbar_hits?: number;
-  game_stats?: { shots: number };
+  game_stats?: GameStats;
 }
 
 interface Ending {
@@ -279,6 +280,11 @@ function teamRows(
     const score = 100 * line.goals + 50 * line.assists + 50 * saves + 25 * demos + between(random, 80, 320);
     // A sequence of their own: the shots came later than the rest, and leave every other figure as it was.
     const shots = line.goals + between(randomFor(`shots ${base.match_guid} ${line.playerId}`), 0, 4);
+    // Collector 0.8.0's car and ball, later still: a sequence of their own too. Teammates share the possession.
+    const followed = carAndBall(
+      randomFor(`car ${base.match_guid} ${line.playerId}`),
+      randomFor(`possession ${base.match_guid} ${base.team}`),
+    );
     return {
       match_guid: base.match_guid,
       player_id: line.playerId,
@@ -291,9 +297,37 @@ function teamRows(
       goals: line.goals,
       assists: line.assists,
       saves,
-      ...(withExtras ? { demos, crossbar_hits: crossbars, game_stats: { shots } } : {}),
+      ...(withExtras ? { demos, crossbar_hits: crossbars, game_stats: { shots, ...followed } } : {}),
     };
   });
+}
+
+/** A car followed about five minutes, ten updates a second, as collector 0.8.0 counts it, with its team's ball. */
+function carAndBall(random: Random, team: Random): GameStats {
+  const samples = between(random, 2800, 3400);
+  const share = (low: number, high: number) => Math.round((samples * between(random, low, high)) / 100);
+  const pickups = between(random, 80, 125);
+  const ball = between(team, 2700, 3300);
+  return {
+    aerialTouches: between(random, 4, 20),
+    defensiveTouches: between(random, 12, 35),
+    offensiveTouches: between(random, 8, 30),
+    possession: { samples: ball, owned: Math.round((ball * between(team, 38, 62)) / 100) },
+    car: {
+      samples,
+      boostSum: samples * between(random, 32, 55),
+      noBoost: share(4, 15),
+      fullBoost: share(3, 10),
+      supersonic: share(8, 16),
+      onGround: share(60, 74),
+      onWall: share(4, 8),
+      boosting: share(18, 25),
+      powerslides: between(random, 50, 95),
+      pickups,
+      bigPickups: between(random, 14, 28),
+      boostCollected: pickups * between(random, 22, 27),
+    },
+  };
 }
 
 function playMatch(
