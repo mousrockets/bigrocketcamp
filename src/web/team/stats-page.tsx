@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate, useSearch } from '@tanstack/react-router';
+import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { cn } from 'cn';
 import {
   Bomb,
@@ -31,7 +31,6 @@ import { FilterSelect } from '../components/filter-select';
 import { mineClass, Place } from '../components/ranking-place';
 import { SheetLink } from '../components/sheet-link';
 import { TabPage } from '../components/tab-page';
-import { Badge } from '../components/ui/badge';
 import { buttonVariants } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { Popover, PopoverContent, PopoverTrigger } from '../components/ui/popover';
@@ -60,6 +59,9 @@ import {
   tableSections,
   tableStats,
 } from './comparison';
+import { twinPro } from './pros';
+import { ProsSheet, prosSource } from './pros-sheet';
+import { formatted, gapOf, PlayerName } from './stat-parts';
 import { rankRgb } from './stats';
 
 /** The modes the page compares, and how the address names them. */
@@ -114,18 +116,6 @@ function written<Value extends string>(
     .join(',');
 }
 
-function formatted(value: number | null, format: StatFormat): string {
-  if (value === null) return '–';
-  if (format === 'percent') return `${formatNumber(Math.round(value))} %`;
-  // Two decimals: averages of a few matches are close, and one decimal would show a tie the bars deny.
-  if (format === 'perMatch') return formatNumber(Math.round(value * 100) / 100);
-  // The game sends ball speeds in km/h, and distances in Unreal units: centimetres.
-  if (format === 'speed') return `${formatNumber(Math.round(value))}\u00a0km/h`;
-  if (format === 'distance') return `${formatNumber(Math.round(value / 10) / 10)}\u00a0m`;
-  if (format === 'seconds') return `${formatNumber(Math.round(value * 10) / 10)}\u00a0s`;
-  return formatNumber(Math.round(value));
-}
-
 /**
  * The Stats page, opened from L'équipe: every player side by side over the seasons, modes and accounts chosen: the
  * figures that say the most, the styles of play, the prizes, and every stat in a table. The peaks have their own
@@ -164,6 +154,8 @@ export function StatsPage() {
     seasons.length > 1 && seasons.length === seasonOptions.length
       ? null
       : new Set(seasons.map((season) => Number(season)));
+  // The pros' figures are of Ranked 2v2: the club's compare with them in that mode alone.
+  const onlyDoubles = chosenModes.length === 1 && chosenModes[0] === 'doubles';
   const account: CareerAccount = chosenAccounts.length === 2 ? 'all' : (chosenAccounts[0] ?? 'all');
   const lone = seasonFilter?.size === 1 ? [...seasonFilter][0] : undefined;
   const players = board
@@ -261,6 +253,7 @@ export function StatsPage() {
                 {styleAxes.map((axis) => (
                   <StyleCard key={axis.label} axis={axis} players={players} />
                 ))}
+                {onlyDoubles && <TwinsCard players={players} />}
               </div>
             </Section>
             <Section kicker="Les prix" title="Et le trophée revient à…">
@@ -272,6 +265,14 @@ export function StatsPage() {
           </>
         )}
       </div>
+      <ProsSheet
+        slug={search.pros}
+        players={players}
+        onlyDoubles={onlyDoubles}
+        onClose={() =>
+          void navigate({ to: '.', search: (previous) => ({ ...previous, pros: undefined }), resetScroll: false })
+        }
+      />
     </TabPage>
   );
 }
@@ -290,19 +291,6 @@ function Section({ kicker, title, children }: { kicker: string; title: string; c
 }
 
 /**
- * A player's pseudo, and TOI for the member. Their rank shows on their card, not again by every name. In a narrow
- * column, the pseudo wraps rather than losing its end.
- */
-function PlayerName({ player, wrap, className }: { player: ComparedPlayer; wrap?: boolean; className?: string }) {
-  return (
-    <span className={cn('flex min-w-0 items-center gap-1.5', wrap && 'flex-wrap gap-y-1', className)}>
-      <span className={wrap ? '[overflow-wrap:anywhere]' : 'truncate'}>{player.shown}</span>
-      {player.me && <Badge variant="me">TOI</Badge>}
-    </span>
-  );
-}
-
-/**
  * One of the figures that say the most: the member's own in big, then every player's bar, the best first. A member
  * without a line of their own sees the leader's figure.
  */
@@ -310,8 +298,22 @@ function StatCard({ stat, players }: { stat: Stat; players: ComparedPlayer[] }) 
   const { lines, leaders } = ranked(stat, players);
   const value = (lines.find((line) => line.player.me) ?? leaders[0])?.value ?? null;
   return (
-    <Card variant="glass" role="region" aria-label={stat.label} className="gap-4 p-5">
-      <span className="label-caps">{stat.label}</span>
+    <Card variant="glass" role="region" aria-label={stat.label} className="relative gap-4 p-5">
+      <span className="flex items-baseline justify-between gap-3">
+        <span className="label-caps">{stat.label}</span>
+        {stat.pros && (
+          // The whole card opens the sheet, through its link: a link stays one for a screen reader.
+          <Link
+            to="."
+            search={(previous) => ({ ...previous, pros: stat.pros?.slug })}
+            resetScroll={false}
+            aria-label={`${stat.label} face aux pros`}
+            className="label-caps text-link after:absolute after:inset-0 after:rounded-[inherit]"
+          >
+            vs pros ›
+          </Link>
+        )}
+      </span>
       <b className={cn('num text-[40px] [line-height:.85]', value === null && 'text-t3')}>
         {formatted(value, stat.format)}
       </b>
@@ -408,6 +410,48 @@ function StyleCard({ axis, players }: { axis: StyleAxis; players: ComparedPlayer
 }
 
 /**
+ * Each player's twin among the pros: the one with the same style, on both axes. Only in Ranked 2v2, the pros' mode.
+ */
+function TwinsCard({ players }: { players: ComparedPlayer[] }) {
+  const [goals, assists] = styleAxes.map((axis) => styleOf(axis, players).lines);
+  const twins = players.flatMap((player, index) => {
+    const twin = twinPro(goals?.[index]?.ratio ?? null, assists?.[index]?.ratio ?? null);
+    return twin ? [{ player, twin }] : [];
+  });
+  if (twins.length === 0) return null;
+  return (
+    <Card variant="glass" role="region" aria-label="Les jumeaux pros" className="gap-4 p-5 md:col-span-2">
+      <span className="flex flex-col gap-1.5">
+        <span className="label-caps">Les jumeaux pros</span>
+        <span className="text-[14px] text-t2">
+          Le pro qui a ton style : mêmes buts par arrêt, mêmes assists par but.
+        </span>
+      </span>
+      <ul className="m-0 grid list-none gap-3 p-0 md:grid-cols-3">
+        {twins.map(({ player, twin }) => (
+          <li key={player.name} className={cn('flex flex-col gap-1.5 py-3', player.me && mineClass)}>
+            <span className={cn('flex items-center gap-2', player.me ? 'text-[15px] text-t1' : 'text-[13px] text-t2')}>
+              <i
+                aria-hidden="true"
+                className="size-2 shrink-0 rounded-full"
+                style={{ background: `rgb(${rankRgb(player.tier)})` }}
+              />
+              <PlayerName player={player} className={cn(player.me && 'font-semibold')} />
+            </span>
+            <b className="title-display text-[24px] text-medal-1 [line-height:1]">{twin.name}</b>
+            <span className="text-[13px] text-t3">
+              {formatted(twin.goalsPerSave, 'perMatch')} but par arrêt · {formatted(twin.assistsPerGoal, 'perMatch')}{' '}
+              assist par but
+            </span>
+          </li>
+        ))}
+      </ul>
+      <p className="m-0 text-[11px] text-t3 [line-height:1.5]">{prosSource}</p>
+    </Card>
+  );
+}
+
+/**
  * The dots of an axis, each in a lane so that two close ones both show: on the line, then just above, then just
  * below. The member's comes last, above the others.
  */
@@ -479,14 +523,6 @@ const prizeIcons: Record<string, LucideIcon> = {
   'Le punching-ball': Target,
   'Le traître': Ghost,
 };
-
-/** What the member lacks to take a prize from its leader, in the prize's own unit. */
-function gapOf(leader: number | null, mine: number, format: StatFormat): string {
-  const gap = Math.max(0, (leader ?? 0) - mine);
-  if (format === 'percent') return `${formatNumber(Math.round(gap))} point${Math.round(gap) >= 2 ? 's' : ''}`;
-  if (format === 'perMatch') return `${formatted(gap, format)} par match`;
-  return formatted(gap, format);
-}
 
 /**
  * A player's bar in a trophy: their pseudo and figure, then their bar against the leader's; the member's in white. A

@@ -13,6 +13,7 @@ import { MembersSettings } from './settings/members';
 import { NotificationSettings } from './settings/notifications';
 import { SettingsHome } from './settings/settings-home';
 import { AppShell } from './shell/app-shell';
+import { prosSlugs } from './team/comparison';
 import { StatsPage } from './team/stats-page';
 import { TeamPage } from './team/team-page';
 
@@ -91,7 +92,13 @@ const statsRoute = createRoute({
   getParentRoute: () => shellRoute,
   path: '/stats',
   component: StatsPage,
-  validateSearch: z.object({ saison: statsFilter, mode: statsFilter, compte: statsFilter }),
+  validateSearch: z.object({
+    saison: statsFilter,
+    mode: statsFilter,
+    compte: statsFilter,
+    // A key figure against the pros, in a sheet over the page: `?pros=tirs`.
+    pros: z.enum(prosSlugs).optional().catch(undefined),
+  }),
 });
 const settingsRoute = createRoute({ getParentRoute: () => shellRoute, path: '/reglages', component: SettingsHome });
 // Réglages opens its screens like iOS Settings, each with the way back to it.
