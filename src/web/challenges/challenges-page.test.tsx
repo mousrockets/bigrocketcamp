@@ -2,6 +2,7 @@ import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import type { Board } from '../board';
+import { fakeApi } from '../settings/fake-api';
 import { anExercise, aRank, boardWith, renderInApp, testClub } from '../test-utils';
 import { ChallengesPage } from './challenges-page';
 
@@ -10,6 +11,8 @@ const now = new Date('2026-11-07T15:15:30Z');
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(now);
+  // The season's challenge reads the ratings apart from the board.
+  fakeApi({ 'GET /api/stats/seasons': { seasons: [], statfeedLabels: {} } });
 });
 afterEach(() => {
   vi.useRealTimers();
@@ -339,8 +342,7 @@ test('nobody pays while two players share the last place', async () => {
 });
 
 test('lists the drinks still owed by a closed month, which the member marks offered', async () => {
-  const fetch = vi.fn(async () => Response.json({ ok: true }));
-  vi.stubGlobal('fetch', fetch);
+  const sent = fakeApi({ 'GET /api/stats/seasons': { seasons: [] }, 'POST /api/monthly': { ok: true } });
   const debt = {
     id: '2026-10:bob:alice',
     month: '2026-10',
@@ -367,7 +369,7 @@ test('lists the drinks still owed by a closed month, which the member marks offe
   expect(within(debts).getByText('bob → alice')).toBeInTheDocument();
   expect(within(debts).getByText('1 boisson · défi d’octobre')).toBeInTheDocument();
   await userEvent.click(within(debts).getByRole('button', { name: 'Boisson offerte' }));
-  expect(fetch).toHaveBeenCalledOnce();
+  expect(sent.filter((request) => request.path === '/api/monthly')).toHaveLength(1);
 });
 
 test('says in French when a drink cannot be marked offered without a connection', async () => {

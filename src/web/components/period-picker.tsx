@@ -6,7 +6,7 @@ import { Button, buttonVariants } from './ui/button';
 
 /** The period an arrow leads to: the search parameter that names it, and what a screen reader says. */
 export interface PeriodStep {
-  search: Record<string, string | undefined>;
+  search: Record<string, string | number | undefined>;
   label: string;
 }
 

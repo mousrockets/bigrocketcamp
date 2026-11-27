@@ -2,8 +2,6 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { cn } from 'cn';
 import {
-  ArrowDown,
-  ArrowUp,
   Bomb,
   Crosshair,
   DoorOpen,
@@ -22,7 +20,7 @@ import {
   Trophy,
   Zap,
 } from 'lucide-react';
-import { type CSSProperties, type ReactNode, useState } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { formatNumber } from '../../lib/format';
 import { seasonAt } from '../../lib/season';
 import { useBoardState } from '../board';
@@ -30,7 +28,7 @@ import { useClub } from '../club';
 import { BackLink } from '../components/back-link';
 import { BoardPending } from '../components/board-pending';
 import { FilterSelect } from '../components/filter-select';
-import { SegmentedControl } from '../components/segmented-control';
+import { mineClass, Place } from '../components/ranking-place';
 import { SheetLink } from '../components/sheet-link';
 import { TabPage } from '../components/tab-page';
 import { Badge } from '../components/ui/badge';
@@ -47,8 +45,6 @@ import {
   type ComparedPlayer,
   comparedPlayers,
   keyStats,
-  type PeakAccount,
-  type PeakGap,
   prizeMinimum,
   prizes,
   type RankedLine,
@@ -64,8 +60,7 @@ import {
   tableSections,
   tableStats,
 } from './comparison';
-import { tilt, untilt } from './player-card';
-import { rankLightRgb, rankRgb } from './stats';
+import { rankRgb } from './stats';
 
 /** The modes the page compares, and how the address names them. */
 const modeOptions: readonly { value: StatsMode; label: string; slug: string }[] = [
@@ -124,7 +119,6 @@ function formatted(value: number | null, format: StatFormat): string {
   if (format === 'percent') return `${formatNumber(Math.round(value))} %`;
   // Two decimals: averages of a few matches are close, and one decimal would show a tie the bars deny.
   if (format === 'perMatch') return formatNumber(Math.round(value * 100) / 100);
-  if (format === 'mmr') return value > 0 ? `+${formatNumber(value)}` : value < 0 ? `−${formatNumber(-value)}` : '0';
   // The game sends ball speeds in km/h, and distances in Unreal units: centimetres.
   if (format === 'speed') return `${formatNumber(Math.round(value))}\u00a0km/h`;
   if (format === 'distance') return `${formatNumber(Math.round(value / 10) / 10)}\u00a0m`;
@@ -133,8 +127,9 @@ function formatted(value: number | null, format: StatFormat): string {
 }
 
 /**
- * The Stats page, opened from L'équipe: every player side by side over one season, or every season. The 2v2 peak
- * leads, as it tells a level; then the figures that say the most, the prizes, and every stat in a table.
+ * The Stats page, opened from L'équipe: every player side by side over the seasons, modes and accounts chosen: the
+ * figures that say the most, the styles of play, the prizes, and every stat in a table. The peaks have their own
+ * challenge, in Défis.
  */
 export function StatsPage() {
   const club = useClub();
@@ -142,7 +137,7 @@ export function StatsPage() {
   const search = useSearch({ strict: false });
   const navigate = useNavigate();
   const current = seasonAt(new Date().toISOString());
-  // The ratings come apart from the board: until they arrive, the peaks wait and the rest shows.
+  // The ratings come apart from the board: until they arrive, Le parachutiste waits and the rest shows.
   const stats = useQuery(seasonMmrQuery).data;
   const seasonMmr = stats?.seasons ?? [];
   const played = board ? seasonsPlayed(board, seasonMmr, club.roster) : [];
@@ -245,7 +240,6 @@ export function StatsPage() {
             <Skeleton className="h-[300px] rounded-[22px]" />
           </BoardPending>
         )}
-        {board && lone !== undefined && <SeasonPeaks players={players} season={lone} />}
         {board && !anyMatch && (
           <p className="m-0 -mt-4 text-[15px] text-t2">
             {missing === null ? nothing : `Coche au moins ${missing} pour voir les stats.`}
@@ -296,7 +290,7 @@ function Section({ kicker, title, children }: { kicker: string; title: string; c
 }
 
 /**
- * A player's pseudo, and TOI for the member. Their rank shows in the peaks, not again by every name. In a narrow
+ * A player's pseudo, and TOI for the member. Their rank shows on their card, not again by every name. In a narrow
  * column, the pseudo wraps rather than losing its end.
  */
 function PlayerName({ player, wrap, className }: { player: ComparedPlayer; wrap?: boolean; className?: string }) {
@@ -305,196 +299,6 @@ function PlayerName({ player, wrap, className }: { player: ComparedPlayer; wrap?
       <span className={wrap ? '[overflow-wrap:anywhere]' : 'truncate'}>{player.shown}</span>
       {player.me && <Badge variant="me">TOI</Badge>}
     </span>
-  );
-}
-
-/** The accounts a podium of peaks can compare: the solo one, each player's own level, first. */
-const peakAccounts = [
-  { value: 'solo', label: 'Solo' },
-  { value: 'duo', label: 'Duo' },
-] as const satisfies readonly { value: PeakAccount; label: string }[];
-
-/** The gap between the season's peak and the peak all time before it, on an account: what ranks the players. */
-const gapStatOf = (kind: PeakAccount): Stat => ({
-  label: 'Écart au peak all time',
-  format: 'mmr',
-  value: (player) => player.peakGaps[kind]?.gap ?? null,
-});
-
-/** The podium's steps: the first in the middle and highest, the second on the left, the third on the right. */
-const podiumSteps = {
-  1: { column: 'col-start-2', pedestal: 'h-14 lg:h-16' },
-  2: { column: 'col-start-1', pedestal: 'h-9 lg:h-10' },
-  3: { column: 'col-start-3', pedestal: 'h-5 lg:h-6' },
-} as const;
-
-/**
- * « Au plus près de son peak all time »: the podium of the accounts whose peak of the season came closest to their
- * peak all time before it, or beat it by the most; the solo accounts first, each player's own level, the duo ones a
- * tap away. Each step is a player card: the gap reads first, then the player under their rank, then the season's peak
- * over the peak all time it is measured against. Levels differ: the club compares the gaps, not the peaks.
- */
-function SeasonPeaks({ players, season }: { players: ComparedPlayer[]; season: number }) {
-  const [kind, setKind] = useState<PeakAccount>('solo');
-  const { lines } = ranked(gapStatOf(kind), players);
-  const climbers = lines.filter((line) => line.player.peakGaps[kind]?.gap != null);
-  const nameOf = (player: ComparedPlayer) => (kind === 'solo' ? player.soloShown : player.name);
-  const unknown = lines.filter((line) => line.player.peakGaps[kind]?.gap == null).map((line) => nameOf(line.player));
-  return (
-    <section aria-label="Au plus près de son peak all time" className="flex flex-col gap-4">
-      <span className="flex flex-wrap items-end justify-between gap-3">
-        <span className="flex flex-col gap-1.5">
-          <span className="label-caps">
-            Saison {season} · peak {kind}
-          </span>
-          <h2 className="title-display text-[24px] [line-height:normal]">Au plus près de son peak all time</h2>
-        </span>
-        <span className="w-[160px]">
-          <SegmentedControl label="Compte du podium" options={peakAccounts} value={kind} onChange={setKind} />
-        </span>
-      </span>
-      <ol className="m-0 grid list-none grid-cols-3 items-end gap-2 p-0 lg:mx-auto lg:w-full lg:max-w-[760px] lg:gap-5">
-        {climbers.slice(0, 3).map((line, index) => (
-          <PodiumCard
-            key={line.player.name}
-            line={line}
-            gap={line.player.peakGaps[kind] as PeakGap}
-            name={nameOf(line.player)}
-            step={(index + 1) as 1 | 2 | 3}
-          />
-        ))}
-      </ol>
-      {climbers.length > 3 && (
-        <ol className="m-0 flex list-none flex-col gap-1 p-0">
-          {climbers.slice(3).map(({ player, place }) => (
-            <li
-              key={player.name}
-              className={cn('flex items-center gap-3 py-1.5 text-[14px] text-t2', player.me && mineClass)}
-            >
-              <Place place={place} mine={player.me} />
-              <PlayerName player={{ ...player, shown: nameOf(player) }} className="flex-1" />
-              <b className="num text-[17px] text-t1">{formatted(player.peakGaps[kind]?.gap ?? null, 'mmr')}</b>
-            </li>
-          ))}
-        </ol>
-      )}
-      {unknown.length > 0 && (
-        <p className="m-0 text-[12px] text-t3 [line-height:1.45]">
-          Pas de peak {kind} relevé cette saison, ou pas de peak all time d’avant connu :{' '}
-          {new Intl.ListFormat('fr').format(unknown)}.
-        </p>
-      )}
-    </section>
-  );
-}
-
-/**
- * A peak in small: its capitals, then the figure in the colour of its rank. The season's peak carries an arrow, up
- * when it went past the peak all time, down when it stayed under: the gap above says by how much.
- */
-function PeakFigure({
-  label,
-  value,
-  tier,
-  rise,
-}: {
-  label: string;
-  value: number;
-  tier: number | null;
-  rise?: number | null;
-}) {
-  const Arrow = rise ? (rise > 0 ? ArrowUp : ArrowDown) : null;
-  return (
-    <span className="flex items-baseline justify-between gap-2">
-      <span className="text-t3">{label}</span>
-      <span className="flex items-center gap-0.5">
-        {Arrow && (
-          <Arrow
-            aria-hidden="true"
-            strokeWidth={3}
-            className={cn('size-3', rise && rise > 0 ? 'text-win' : 'text-t3')}
-          />
-        )}
-        <span className="num text-[14px] lg:text-[15px]" style={{ color: `rgb(${rankLightRgb(tier)})` }}>
-          {formatNumber(value)}
-        </span>
-      </span>
-    </span>
-  );
-}
-
-/** One step of the podium: a player card in their rank's colour, standing on its pedestal. */
-function PodiumCard({ line, gap, name, step }: { line: RankedLine; gap: PeakGap; name: string; step: 1 | 2 | 3 }) {
-  const { player, place } = line;
-  const rgb = rankRgb(gap.tier);
-  const first = step === 1;
-  const atLeast = (gap.gap ?? -1) >= 0;
-  return (
-    <li className={cn('row-start-1 flex min-w-0 animate-rise flex-col gap-2', podiumSteps[step].column)}>
-      <div
-        onPointerMove={tilt}
-        onPointerLeave={untilt}
-        style={{ '--rank': rgb, '--rank-light': rankLightRgb(gap.tier) } as CSSProperties}
-        className={cn(
-          'player-card flex flex-col items-center gap-3 px-2.5 pt-4 pb-3.5 text-center lg:gap-4 lg:px-4 lg:pt-6 lg:pb-5',
-          player.me && 'shadow-[inset_0_0_0_1px_rgba(255,255,255,.32)]',
-        )}
-      >
-        <i
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 z-1"
-          style={{ background: `radial-gradient(130% 70% at 50% -10%, rgba(${rgb},.32), rgba(${rgb},0) 65%)` }}
-        />
-        <i aria-hidden="true" className="player-card-holo pointer-events-none absolute inset-0 z-2" />
-        <i aria-hidden="true" className="player-card-glint pointer-events-none absolute inset-0 z-3" />
-        <span className="relative z-4 flex flex-col items-center gap-1.5">
-          <b
-            className={cn(
-              'num [line-height:.85]',
-              first ? 'text-[38px] lg:text-[52px]' : 'text-[30px] lg:text-[42px]',
-              atLeast ? 'text-win' : 'text-t1',
-            )}
-          >
-            {formatted(gap.gap, 'mmr')}
-          </b>
-          <span className="label-caps text-[10px]">écart</span>
-        </span>
-        <img
-          src={`/rocket-league/ranks/${gap.tier ?? 0}.png`}
-          alt=""
-          className={cn(
-            'relative z-4 object-contain [filter:drop-shadow(0_6px_16px_rgba(var(--rank),.55))]',
-            first ? 'size-14 lg:size-20' : 'size-11 lg:size-16',
-          )}
-        />
-        <span className="relative z-4 flex w-full min-w-0 flex-col items-center gap-2">
-          <span className="flex min-w-0 max-w-full flex-col items-center gap-1 lg:flex-row">
-            <b className="line-clamp-2 break-all font-semibold text-[13px] [line-height:1.2] lg:text-[15px]">{name}</b>
-            {player.me && <Badge variant="tag">TOI</Badge>}
-          </span>
-          {/* The season's peak over the peak all time before it: the gap reads from one to the other. */}
-          <span className="flex w-full max-w-[150px] flex-col gap-1 text-[11px] lg:text-[12px]">
-            <PeakFigure label="Saison" value={gap.peak} tier={gap.tier} rise={gap.gap} />
-            {gap.allTime !== null && <PeakFigure label="All time" value={gap.allTime} tier={gap.allTimeTier} />}
-          </span>
-        </span>
-      </div>
-      <div
-        aria-hidden="true"
-        className={cn(
-          'flex origin-bottom animate-pedestal items-start justify-center rounded-[12px_12px_4px_4px] pt-1.5',
-          podiumSteps[step].pedestal,
-          first
-            ? 'bg-linear-to-b from-white/18 to-white/4 shadow-[inset_0_1px_0_rgba(255,255,255,.35)]'
-            : 'bg-linear-to-b from-white/8 to-white/2 shadow-[inset_0_1px_0_rgba(255,255,255,.14)]',
-        )}
-      >
-        <span className={cn('num text-[15px] lg:text-[17px]', player.me ? medals[place ?? 0] : 'text-t3')}>
-          {place}
-        </span>
-      </div>
-      <span className="sr-only">Place {place}</span>
-    </li>
   );
 }
 
@@ -618,29 +422,6 @@ function laned(lines: StyleLine[]): (StyleLine & { lane: number })[] {
   }
   return placed;
 }
-
-/** The member's place wears a medal's colour on the podium. */
-const medals: Record<number, string> = { 1: 'text-medal-1', 2: 'text-medal-2', 3: 'text-medal-3' };
-
-/**
- * A player's place in a ranking. The member's in big, in its medal's colour on the podium: what the eye finds first;
- * the others' small and quiet.
- */
-function Place({ place, mine }: { place: number | null; mine: boolean }) {
-  return (
-    <span
-      className={cn(
-        'num w-5 text-center [line-height:1]',
-        mine ? ['text-[22px]', (place && medals[place]) ?? 'text-t1'] : 'text-[13px] text-t3',
-      )}
-    >
-      {place ?? '–'}
-    </span>
-  );
-}
-
-/** The member's own line, set apart in a soft capsule, as a selected row would be. */
-const mineClass = '-mx-3 rounded-[14px] bg-white/7 px-3 shadow-[inset_0_0_0_.5px_rgba(255,255,255,.1)]';
 
 /**
  * A player's line in a stat: their place, pseudo and figure, then their bar. The member's stands out in a capsule,

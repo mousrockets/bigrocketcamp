@@ -2,6 +2,7 @@ import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { cn } from 'cn';
 import { parisDay, parisMonth, shiftDay, weekStart } from '../../lib/days';
 import { formatLongDay, formatWeek } from '../../lib/format';
+import { seasonAt } from '../../lib/season';
 import { useBoardState } from '../board';
 import { useClub } from '../club';
 import { BoardPending, TitleSkeleton } from '../components/board-pending';
@@ -19,6 +20,7 @@ import { MonthlyChallenge } from './monthly-challenge';
 import { type PodiumPeriod, WeeklyPodium } from './podium';
 import { recapMonths } from './recap';
 import { RecapList } from './recap-list';
+import { SeasonChallenge } from './season-challenge';
 import { allTimePodium, firstWeek, weeklyPodium } from './standings';
 
 // On a phone, the two challenges follow each other on the page; on a computer, each sits in its card, side by side.
@@ -56,6 +58,7 @@ export function ChallengesPage() {
   // A week nobody sweated shows only the podium, which already says so.
   const totals = board ? weeklyTotals(board.exercises, club.roster, me, week) : [];
   const recaps = board ? recapMonths(board, club.roster, parisMonth(now)) : [];
+  const season = seasonAt(new Date(now).toISOString());
 
   return (
     <TabPage
@@ -80,9 +83,18 @@ export function ChallengesPage() {
       )}
       {board && (
         <div className="flex flex-col lg:animate-rise lg:flex-row lg:flex-wrap lg:items-start lg:gap-6 lg:[animation-delay:.06s]">
+          {/* The season's challenge leads: the club's most important, the width of the page on a computer. */}
+          {season !== null && (
+            <section
+              aria-label="Défi de la saison"
+              className={cn(challenge, 'max-lg:pt-8 max-lg:[animation-delay:.03s] lg:basis-full')}
+            >
+              <SeasonChallenge board={board} current={season} />
+            </section>
+          )}
           <section
             aria-label="Podium de la semaine"
-            className={cn(challenge, 'max-lg:pt-8 max-lg:[animation-delay:.06s]')}
+            className={cn(challenge, 'max-lg:pt-12 max-lg:[animation-delay:.06s]')}
           >
             <WeeklyPodium
               podium={podium}
