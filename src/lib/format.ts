@@ -20,6 +20,10 @@ const shortDates = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', 
  */
 export const formatNumber = (value: number): string => numbers.format(value).replace(/[\u202f\u00a0]/g, '\u00a0');
 
+/** "+60", "−13", "0": a gap, signed, with a true minus sign. */
+export const formatSigned = (value: number): string =>
+  value > 0 ? `+${formatNumber(value)}` : value < 0 ? `−${formatNumber(-value)}` : '0';
+
 /** The word, with an s from 2 on: "1 pompe", "0 pompe", "2 pompes". */
 export const plural = (count: number, word: string, pluralForm = `${word}s`): string =>
   Math.abs(count) >= 2 ? pluralForm : word;

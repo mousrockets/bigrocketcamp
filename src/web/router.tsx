@@ -50,7 +50,8 @@ const teamRoute = createRoute({
 });
 // A past period has its own address: `?semaine=2026-11-02` (its Monday) and `?mois=2026-10` in Défis,
 // `?jour=2026-11-07` in Matchs. Without one, or with one that cannot be read, the tab shows the current period.
-// `?podium=all-time` turns the week's podium into the one since the first exercise.
+// `?podium=all-time` turns the week's podium into the one since the first exercise; `?saison=23` shows a past season's
+// challenge.
 const dayParameter = z.iso.date().optional().catch(undefined);
 const challengesRoute = createRoute({
   getParentRoute: () => shellRoute,
@@ -60,6 +61,7 @@ const challengesRoute = createRoute({
     semaine: dayParameter,
     mois: monthParameter,
     podium: z.literal('all-time').optional().catch(undefined),
+    saison: z.number().int().positive().optional().catch(undefined),
   }),
 });
 // `?tournoi=<match>` opens, over Matchs, the sheet that declares a tournament won on its last match.
