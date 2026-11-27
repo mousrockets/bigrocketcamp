@@ -57,7 +57,7 @@ export function TeamCarousel({ players }: { players: CardPlayer[] }) {
         <span className="flex items-center gap-2">
           <Link to="/stats" className={cn(buttonVariants({ variant: 'bubble', size: 'hint' }), 'lg:mr-2.5')}>
             <ChartNoAxesColumn />
-            Stats
+            Statistiques
           </Link>
           <CarouselPrevious aria-label="Carte précédente" className={cn(roundButton, 'hidden lg:inline-flex')} />
           <CarouselNext aria-label="Carte suivante" className={cn(roundButton, 'hidden lg:inline-flex')} />
