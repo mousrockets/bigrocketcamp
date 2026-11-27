@@ -222,13 +222,42 @@ test('an action reads per match, a win or an MVP as a share, each with its total
   expect(statNamed('Score').format).toBe('count');
 });
 
-test('leads with the time spent on the game, then attack, team play, defence and the MVPs', () => {
+test('leads with attack, team play, defence, demolitions and the MVPs, then the time spent on the game', () => {
   expect(keyStats.map((stat) => stat.label)).toEqual([
-    'Matchs',
     'Buts / match',
-    'Passes D / match',
+    'Tirs / match',
+    'Assists / match',
     'Arrêts / match',
+    'Démos / match',
     'Taux de MVP',
+    'Matchs',
+  ]);
+  expect(prizes.map((prize) => prize.prize)).toContain('Le démolisseur');
+});
+
+test('counts the shots and the demolitions per match over the matches that came with them', () => {
+  const counted = boardWith({
+    results: [
+      aResult({ match_guid: 'm1', name: 'alice', demos: 3, game_stats: { shots: 5 } }),
+      aResult({ match_guid: 'm2', name: 'alice', demos: 1, game_stats: { shots: 2 } }),
+      // An older collector: neither the shots nor the demolitions are known.
+      aResult({ match_guid: 'm3', name: 'alice' }),
+      aResult({ match_guid: 'm1', name: 'bob' }),
+    ],
+  });
+  const players = comparedPlayers(counted, seasons, ['alice', 'bob'], 'alice', every, 'all', null);
+  const figure = (label: string) => {
+    const stat = keyStats.find((key) => key.label === label);
+    if (!stat) throw new Error(`${label} is a key stat`);
+    return players.map((player) => [player.name, stat.value(player)]);
+  };
+  expect(figure('Tirs / match')).toEqual([
+    ['alice', 3.5],
+    ['bob', null],
+  ]);
+  expect(figure('Démos / match')).toEqual([
+    ['alice', 2],
+    ['bob', null],
   ]);
 });
 

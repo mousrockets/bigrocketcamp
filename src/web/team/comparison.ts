@@ -153,11 +153,18 @@ const feed = (player: ComparedPlayer, name: string, side: 'statfeed' | 'statfeed
 const matches: Stat = { label: 'Matchs', format: 'count', value: (p) => counted(p, p.career.matches) };
 const goals: Stat = { label: 'Buts / match', format: 'perMatch', value: (p) => average(p, p.career.goals) };
 const assists: Stat = {
-  label: 'Passes D / match',
+  label: 'Assists / match',
   format: 'perMatch',
   value: (p) => average(p, p.career.assists),
 };
 const saves: Stat = { label: 'Arrêts / match', format: 'perMatch', value: (p) => average(p, p.career.saves) };
+/** Over the matches that came with them: collector 0.7.0 for the shots, 0.6.0 for the demolitions. */
+const shots: Stat = { label: 'Tirs / match', format: 'perMatch', value: (p) => tallied(p.career.game.shots) };
+const demos: Stat = {
+  label: 'Démos / match',
+  format: 'perMatch',
+  value: (p) => average(p, p.career.demos, p.career.measured.demos),
+};
 /** Among the matches whose MVP is known: a won match whose scoreboard no source completed names none. */
 const mvpRate: Stat = {
   label: 'Taux de MVP',
@@ -167,10 +174,10 @@ const mvpRate: Stat = {
 const pushups: Stat = { label: 'Pompes faites', format: 'count', value: (p) => p.pushups };
 
 /**
- * The figures that say the most, after the peak: the time spent on the game, then attack, team play and defence, and
- * the MVPs. A card each.
+ * The figures that say the most, after the peak: attack, team play and defence, the pressure of the demolitions, the
+ * MVPs, then the time spent on the game. A card each.
  */
-export const keyStats: Stat[] = [matches, goals, assists, saves, mvpRate];
+export const keyStats: Stat[] = [goals, shots, assists, saves, demos, mvpRate, matches];
 
 /**
  * An axis of play style: a ratio of two of a player's counts, which says what kind of player they are, not how good.
@@ -185,7 +192,7 @@ export interface StyleAxis {
 
 export const styleAxes: StyleAxis[] = [
   { label: 'Buts par arrêt', low: 'Défenseur', high: 'Attaquant', counts: (p) => [p.career.goals, p.career.saves] },
-  { label: 'Passes par but', low: 'Finisseur', high: 'Passeur', counts: (p) => [p.career.assists, p.career.goals] },
+  { label: 'Assists par but', low: 'Finisseur', high: 'Passeur', counts: (p) => [p.career.assists, p.career.goals] },
 ];
 
 /**
@@ -344,7 +351,7 @@ export const tableSections = [
   'Le fil du jeu',
   'Les fins de match',
   'Les records',
-  'Les passes décisives',
+  'Les assists',
 ] as const;
 export type TableSection = (typeof tableSections)[number];
 
@@ -413,7 +420,7 @@ const tableRows = (modes: ReadonlySet<StatsMode>): TableRow[] => [
     perMatchFormat: 'count',
   },
   { section: 'Attaque', label: 'Buts', total: (p) => counted(p, p.career.goals), perMatch: 'average' },
-  { section: 'Attaque', label: 'Passes D', total: (p) => counted(p, p.career.assists), perMatch: 'average' },
+  { section: 'Attaque', label: 'Assists', total: (p) => counted(p, p.career.assists), perMatch: 'average' },
   gameRow('Attaque', 'Tirs', (game) => game.shots),
   {
     section: 'Attaque',
@@ -525,7 +532,7 @@ const scoreboardEvents = new Set(['Goal', 'Assist', 'Save', 'Shot', 'Demolish', 
  */
 const eventWords: Readonly<Record<string, string>> = {
   AerialGoal: 'But aérien',
-  Assist: 'Passe décisive',
+  Assist: 'Assist',
   BackwardsGoal: 'But à reculons',
   BicycleGoal: 'But en retourné',
   BicycleHit: 'Retourné',
@@ -581,7 +588,7 @@ function dataRows(players: readonly ComparedPlayer[], labels: Readonly<Record<st
     ...names('statfeedSecondary').map((name) => feedRow(name, 'statfeedSecondary')),
     ...players.map(
       (scorer): TableRow => ({
-        section: 'Les passes décisives',
+        section: 'Les assists',
         label: `Pour ${scorer.shown}`,
         total: (giver) => assistsTo(giver, scorer),
       }),

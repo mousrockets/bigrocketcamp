@@ -248,8 +248,8 @@ export function StatsPage() {
         {board && anyMatch && (
           <>
             <Section kicker="L’essentiel" title="Les chiffres clés">
-              {/* The matches first, the width of the row on a tablet: the time each one spent on the game. */}
-              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-5 md:[&>:first-child]:col-span-2 lg:[&>:first-child]:col-span-1">
+              {/* Every card the same size: a gap at the end of the last row reads better than one card wider. */}
+              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
                 {keyStats.map((stat) => (
                   <StatCard key={stat.label} stat={stat} players={players} />
                 ))}
@@ -463,7 +463,6 @@ function Bar({ line, format }: { line: RankedLine; format: StatFormat }) {
 
 /** Each prize's picture, drawn from its stat. */
 const prizeIcons: Record<string, LucideIcon> = {
-  'Le démolisseur': Bomb,
   'L’abonné aux montants': Goal,
   'Le roi des prolongations': Timer,
   'Le mur': ShieldCheck,
@@ -474,6 +473,7 @@ const prizeIcons: Record<string, LucideIcon> = {
   'Le canonnier': Zap,
   'Le bolide': Rocket,
   'Le sniper': Crosshair,
+  'Le démolisseur': Bomb,
   'L’œil de lynx': Eye,
   'Le roi du kickoff': Flag,
   'Le punching-ball': Target,

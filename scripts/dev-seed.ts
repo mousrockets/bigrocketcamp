@@ -198,6 +198,7 @@ interface Row {
   saves: number;
   demos?: number;
   crossbar_hits?: number;
+  game_stats?: { shots: number };
 }
 
 interface Ending {
@@ -276,6 +277,8 @@ function teamRows(
       [2, 7],
     ]);
     const score = 100 * line.goals + 50 * line.assists + 50 * saves + 25 * demos + between(random, 80, 320);
+    // A sequence of their own: the shots came later than the rest, and leave every other figure as it was.
+    const shots = line.goals + between(randomFor(`shots ${base.match_guid} ${line.playerId}`), 0, 4);
     return {
       match_guid: base.match_guid,
       player_id: line.playerId,
@@ -288,7 +291,7 @@ function teamRows(
       goals: line.goals,
       assists: line.assists,
       saves,
-      ...(withExtras ? { demos, crossbar_hits: crossbars } : {}),
+      ...(withExtras ? { demos, crossbar_hits: crossbars, game_stats: { shots } } : {}),
     };
   });
 }
