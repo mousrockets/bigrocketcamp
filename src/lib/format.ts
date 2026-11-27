@@ -4,6 +4,11 @@ import { sameParisDay, shiftDay } from './days';
 // through this module, so that "1 509", "19 h 42" or "il y a 8 min" read the same everywhere.
 
 const numbers = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2, useGrouping: 'always' });
+const hundredths = new Intl.NumberFormat('fr-FR', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+  useGrouping: 'always',
+});
 const longDays = new Intl.DateTimeFormat('fr-FR', {
   timeZone: 'Europe/Paris',
   weekday: 'long',
@@ -19,6 +24,10 @@ const shortDates = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', 
  * squeeze to nothing.
  */
 export const formatNumber = (value: number): string => numbers.format(value).replace(/[\u202f\u00a0]/g, '\u00a0');
+
+/** "1,20", "0,05": an average, always with its two decimals, so that the figures of a column line up. */
+export const formatHundredths = (value: number): string =>
+  hundredths.format(value).replace(/[\u202f\u00a0]/g, '\u00a0');
 
 /** "+60", "−13", "0": a gap, signed, with a true minus sign. */
 export const formatSigned = (value: number): string =>
