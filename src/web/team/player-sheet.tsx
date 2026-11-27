@@ -1,6 +1,6 @@
 import { cn } from 'cn';
 import { useState } from 'react';
-import { formatNumber } from '../../lib/format';
+import { formatHundredths, formatNumber } from '../../lib/format';
 import { useBoardState } from '../board';
 import { InfoSheet } from '../components/info-sheet';
 import { SegmentedControl } from '../components/segmented-control';
@@ -155,7 +155,7 @@ function MatchStats({ career, label }: { career: Career; label: string }) {
 }
 
 /** « 1,5 / match »: one decimal is enough to compare. */
-const perMatch = (total: number, matches: number) => `${formatNumber(Math.round((total / matches) * 10) / 10)} / match`;
+const perMatch = (total: number, matches: number) => `${formatHundredths(total / matches)} / match`;
 
 function TournamentStats({ career }: { career: Career }) {
   return (

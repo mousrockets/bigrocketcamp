@@ -326,7 +326,7 @@ test('the sheet counts every match in Tout, each ranked playlist apart, and tour
   );
   expect(within(bob).getByRole('region', { name: 'Palmarès' })).toHaveTextContent('1Tournois gagnés');
   expect(within(bob).getByRole('region', { name: 'Statistiques' })).toHaveTextContent(
-    '3Buts1 / match3Assists1 / match4Arrêts1,3 / match',
+    '3Buts1,00 / match3Assists1,00 / match4Arrêts1,33 / match',
   );
 });
 

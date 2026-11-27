@@ -1,5 +1,5 @@
 import { cn } from 'cn';
-import { formatNumber } from '../../lib/format';
+import { formatHundredths, formatNumber } from '../../lib/format';
 import { Badge } from '../components/ui/badge';
 import type { ComparedPlayer, StatFormat } from './comparison';
 
@@ -7,8 +7,8 @@ import type { ComparedPlayer, StatFormat } from './comparison';
 export function formatted(value: number | null, format: StatFormat): string {
   if (value === null) return '–';
   if (format === 'percent') return `${formatNumber(Math.round(value))} %`;
-  // Two decimals: averages of a few matches are close, and one decimal would show a tie the bars deny.
-  if (format === 'perMatch') return formatNumber(Math.round(value * 100) / 100);
+  // Two decimals, always: averages of a few matches are close, and one decimal would show a tie the bars deny.
+  if (format === 'perMatch') return formatHundredths(value);
   // The game sends ball speeds in km/h, and distances in Unreal units: centimetres.
   if (format === 'speed') return `${formatNumber(Math.round(value))}\u00a0km/h`;
   if (format === 'distance') return `${formatNumber(Math.round(value / 10) / 10)}\u00a0m`;
