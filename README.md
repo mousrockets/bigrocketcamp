@@ -20,7 +20,7 @@ npm run dev          # l'app sur http://127.0.0.1:10071
 npm run check        # lint, types et tests
 ```
 
-Pour se connecter en local : `dimitri@example.com`, `vincent@example.com` ou `kevin@example.com`. Le code s'affiche dans le terminal de `npm run dev`.
+Pour se connecter en local : `dimitri@example.com`, `vincent@example.com` ou `kevin@example.com`. Le code s'affiche sur la page de connexion, et dans le terminal de `npm run dev`.
 
 ## Contribuer
 

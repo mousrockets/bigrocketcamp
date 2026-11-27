@@ -53,15 +53,25 @@ export const sameOriginOnly: MiddlewareHandler<AppEnv> = async (c, next) => {
 };
 
 /**
- * Mails a code to a member. Every address gets the same silent answer, so the form never reveals who is in the club:
- * a request within a minute of the last code sends nothing, and that code stays valid.
+ * Where no mail service is set and the app runs on this computer (`npm run dev`), a code is not mailed: the terminal
+ * prints it, and the sign-in page shows it. Never in production, which has a mail service and its own address.
  */
-export async function sendSignInCode(env: Env, email: string, requestUrl: string): Promise<void> {
+function deliveredLocally(env: Env, requestUrl: string): boolean {
+  const host = new URL(requestUrl).hostname;
+  return !env.RESEND_API_KEY && (host === '127.0.0.1' || host === 'localhost');
+}
+
+/**
+ * Mails a code to a member. Every address gets the same silent answer, so the form never reveals who is in the club:
+ * a request within a minute of the last code sends nothing, and that code stays valid. Returns the new code when it
+ * was not mailed, on this computer only: the page shows it.
+ */
+export async function sendSignInCode(env: Env, email: string, requestUrl: string): Promise<string | null> {
   const db = orm(env.DB);
   const [member] = await db.select({ id: members.id }).from(members).where(eq(members.email, email));
-  if (!member) return;
+  if (!member) return null;
   const [previous] = await db.select({ sent: signInCodes.sent }).from(signInCodes).where(eq(signInCodes.email, email));
-  if (previous && Date.now() - previous.sent < codeResendDelay) return;
+  if (previous && Date.now() - previous.sent < codeResendDelay) return null;
 
   const code = randomCode();
   const now = Date.now();
@@ -70,19 +80,17 @@ export async function sendSignInCode(env: Env, email: string, requestUrl: string
     .insert(signInCodes)
     .values({ email, ...saved })
     .onConflictDoUpdate({ target: signInCodes.email, set: saved });
-  await deliver(env, email, code, requestUrl);
+  if (deliveredLocally(env, requestUrl)) {
+    console.log(`Sign-in code for ${email}: ${code}`);
+    return code;
+  }
+  await deliver(env, email, code);
+  return null;
 }
 
-async function deliver(env: Env, email: string, code: string, requestUrl: string): Promise<void> {
-  const host = new URL(requestUrl).hostname;
-  if (!env.MAIL_FROM && env.RESEND_API_KEY) throw new Error('MAIL_FROM is not set.');
-  if (!env.RESEND_API_KEY) {
-    if (host === '127.0.0.1' || host === 'localhost') {
-      console.log(`Sign-in code for ${email}: ${code}`);
-      return;
-    }
-    throw new Error('RESEND_API_KEY is not set.');
-  }
+async function deliver(env: Env, email: string, code: string): Promise<void> {
+  if (!env.RESEND_API_KEY) throw new Error('RESEND_API_KEY is not set.');
+  if (!env.MAIL_FROM) throw new Error('MAIL_FROM is not set.');
   const response = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
