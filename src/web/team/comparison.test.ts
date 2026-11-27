@@ -322,7 +322,8 @@ test('a prize of something that happens in a match goes to its rate, its count b
       ending('o2', 'alice', { winner: 0, overtime: true, orange_goals: 0 }),
       ending('o3', 'alice', { winner: 1, overtime: true }),
       ending('o4', 'alice', { winner: 0 }),
-      // Bob: one overtime won, too few to crown him.
+      ending('o5', 'alice', { winner: 0 }),
+      // Bob: one overtime won, too few to crown him, and a single match: too few for a rate's prize.
       ending('o1', 'bob', { winner: 0, overtime: true }),
     ],
   });
@@ -337,12 +338,12 @@ test('a prize of something that happens in a match goes to its rate, its count b
     [null, 1],
   ]);
   expect(prize('Le mur')).toEqual([
-    [50, 2],
-    [0, 0],
+    [40, 2],
+    [null, 0],
   ]);
   expect(prize('Le fugueur')).toEqual([
     [0, 0],
-    [0, 0],
+    [null, 0],
   ]);
   // The one who fell furthest from the season's peak jumped from highest.
   expect(prizes.map((candidate) => candidate.prize)).toContain('Le parachutiste');
@@ -350,20 +351,22 @@ test('a prize of something that happens in a match goes to its rate, its count b
   expect(prizes.find((candidate) => candidate.prize === 'Le noctambule')?.total).toBeUndefined();
 });
 
-test('the posts and the demolitions taken crown per match: who plays most does not win them', () => {
-  const posts = boardWith({
+test('the posts crown per match, over five matches at least: who plays most does not win them', () => {
+  const posts = (name: string, hits: (number | null)[]) =>
+    hits.map((crossbar_hits, index) => aResult({ match_guid: `${name}-${index}`, name, crossbar_hits }));
+  const played = boardWith({
     results: [
-      aResult({ match_guid: 'p1', name: 'alice', crossbar_hits: 3 }),
-      aResult({ match_guid: 'p2', name: 'alice', crossbar_hits: 1 }),
-      // An older collector sent no count: the match does not lower her average.
-      aResult({ match_guid: 'p3', name: 'alice', crossbar_hits: null }),
-      aResult({ match_guid: 'p1', name: 'bob', crossbar_hits: 3 }),
+      // Alice hit 8 posts in 8 matches; an older collector sent no count for a ninth, which does not lower her average.
+      ...posts('alice', [3, 1, 0, 0, 1, 2, 0, 1, null]),
+      // Bob, 10 in 5: he wins it.
+      ...posts('bob', [2, 2, 2, 2, 2]),
+      // Charlie, 3 in 1: too few matches to take it.
+      ...posts('charlie', [3]),
     ],
   });
-  const players = comparedPlayers(posts, [], ['alice', 'bob'], 'alice', every, 'all', inSeason(null));
+  const players = comparedPlayers(played, [], ['alice', 'bob', 'charlie'], 'alice', every, 'all', inSeason(null));
   const posted = prizes.find((prize) => prize.prize === 'L’abonné aux montants');
-  // Alice hit 4 posts in 2 matches, Bob 3 in 1: he wins it.
-  expect(players.map((player) => posted?.value(player))).toEqual([2, 3]);
+  expect(players.map((player) => posted?.value(player))).toEqual([1, 2, null]);
 });
 
 test('adds up the stats of collector 0.7.0, names the game’s events, and lines the assists up by scorer', () => {
@@ -430,10 +433,12 @@ test('adds up the stats of collector 0.7.0, names the game’s events, and lines
   // Per match, over the matches that came with them.
   const perMatch = tableStats(every, players).find((stat) => stat.label === 'Touches de balle');
   expect(players.map((player) => perMatch?.value(player))).toEqual([30, 20]);
-  // The demolitions taken count per match, over the matches that came with the game's feed: one each here.
+  // The demolitions taken count per match, over the matches that came with the game's feed: one each here, too few
+  // for the prize.
   const punchingBall = prizes.find((prize) => prize.prize === 'Le punching-ball');
   expect(punchingBall?.format).toBe('perMatch');
-  expect(players.map((player) => punchingBall?.value(player))).toEqual([2, 0]);
+  expect(players.map((player) => punchingBall?.value(player))).toEqual([null, null]);
+  expect(row('Subi : Démolition')).toEqual([2, 0]);
 });
 
 test('measures each account’s peak of the season against its peak all time before the season', () => {
@@ -500,4 +505,15 @@ test('counts the MVP the game named, else the best score of the winners, among t
     [1, 2],
   ]);
   expect(players.map((player) => rate.value(player))).toEqual([(1 / 3) * 100, 50]);
+});
+
+test('the 2v2 ratings only take a prize when the 2v2 is among the modes', () => {
+  const fall = (modes: ReadonlySet<StatsMode>) => {
+    const parachute = prizes.find((prize) => prize.prize === 'Le parachutiste');
+    return comparedPlayers(board, seasons, roster, 'alice', modes, 'all', inSeason(24)).map(
+      (player) => parachute?.value(player) ?? null,
+    );
+  };
+  expect(fall(only('doubles'))[0]).not.toBeNull();
+  expect(fall(only('standard', 'tournament-standard'))).toEqual([null, null, null]);
 });

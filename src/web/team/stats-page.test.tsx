@@ -228,14 +228,17 @@ test('the member finds their own line: their place in each stat, their column ti
 
 test('crowns the prizes and lights the best of each line of the table', async () => {
   renderInApp(<StatsPage />, { board, path: '/stats' });
-  const runaway = (await screen.findByRole('heading', { name: 'Le fugueur' })).closest('li') as HTMLElement;
-  // Nobody left a match: nobody wins it, nobody lacks anything, and every player still has a line.
+  const owl = (await screen.findByRole('heading', { name: 'Le noctambule' })).closest('li') as HTMLElement;
+  // Nobody played after midnight: nobody wins it, nobody lacks anything, and every player still has a line.
   expect(
-    within(runaway)
+    within(owl)
       .getAllByRole('listitem')
       .map((line) => line.textContent),
-  ).toEqual(['alice0\u00a0%0\u00a0fois', 'bob0\u00a0%0\u00a0fois']);
-  expect(within(runaway).queryByText(/Il te manque/)).not.toBeInTheDocument();
+  ).toEqual(['alice0', 'bob0']);
+  expect(within(owl).queryByText(/Il te manque/)).not.toBeInTheDocument();
+  // Two matches each: too few for a prize given to a rate, such as the matches left.
+  expect(screen.queryByRole('heading', { name: 'Le fugueur' })).not.toBeInTheDocument();
+  expect(screen.getByText(/Un prix au match se joue sur 5 matchs au moins/)).toBeInTheDocument();
   // No collector counted the demolitions of these matches: that prize waits.
   expect(screen.queryByRole('heading', { name: 'Le démolisseur' })).not.toBeInTheDocument();
   const goals = () =>
