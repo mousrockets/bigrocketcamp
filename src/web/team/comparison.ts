@@ -156,7 +156,8 @@ export function comparedPlayers(
       shown: (account === 'solo' && ranks?.solo?.pseudo) || name,
       me: name === me,
       career: careerOf(board, name, modes, account, seasons),
-      mmr: periodMmr(seasonMmr, name, account, seasons),
+      // The ratings are the 2v2 ones: they tell nothing of the other modes.
+      mmr: modes.has('doubles') ? periodMmr(seasonMmr, name, account, seasons) : null,
       pushups: pushupsOf(board, name, seasons),
       ids: new Set(board.results.filter((row) => row.name === name).map((row) => row.player_id.toLowerCase())),
       peakGaps: {
@@ -286,16 +287,27 @@ export function styleOf(
   return { club, lines };
 }
 
+/** The matches a prize given to a rate needs at least: one lucky match makes no champion. */
+export const prizeMinimum = 5;
+
+/** A rate that can take a prize: none over fewer matches than the minimum. */
+const rated = (value: number | null, of: number) => (of < prizeMinimum ? null : value);
+const averageFor = (player: ComparedPlayer, total: number | null, of = player.career.matches) =>
+  rated(average(player, total, of), of);
+const shareFor = (player: ComparedPlayer, count: number | null, of = player.career.matches) =>
+  rated(share(player, count, of), of);
+const talliedFor = (tally: Tally) => rated(tallied(tally), tally.matches);
+
 /**
  * The fun ones, each with its prize. A prize of something that happens in a match goes to its rate, per match or in
- * share of the matches, over the matches that came with it: who plays most would win it otherwise. Its total, how
- * many times it happened, shows beside it in small.
+ * share of the matches, over the matches that came with it, five at least: who plays most would win it otherwise, and
+ * who played once by luck. Its total, how many times it happened, shows beside it in small.
  */
 export const prizes: Prize[] = [
   {
     label: 'Démos / match',
     format: 'perMatch',
-    value: (p) => average(p, p.career.demos, p.career.measured.demos),
+    value: (p) => averageFor(p, p.career.demos, p.career.measured.demos),
     total: (p) => p.career.demos,
     prize: 'Le démolisseur',
   },
@@ -303,7 +315,7 @@ export const prizes: Prize[] = [
   {
     label: 'Poteaux / match',
     format: 'perMatch',
-    value: (p) => average(p, p.career.crossbarHits, p.career.measured.crossbarHits),
+    value: (p) => averageFor(p, p.career.crossbarHits, p.career.measured.crossbarHits),
     total: (p) => p.career.crossbarHits,
     prize: 'L’abonné aux montants',
   },
@@ -321,7 +333,7 @@ export const prizes: Prize[] = [
   {
     label: 'Matchs sans encaisser',
     format: 'percent',
-    value: (p) => share(p, p.career.conceded === null ? null : p.career.cleanSheets, p.career.measured.conceded),
+    value: (p) => shareFor(p, p.career.conceded === null ? null : p.career.cleanSheets, p.career.measured.conceded),
     total: (p) => p.career.cleanSheets,
     prize: 'Le mur',
   },
@@ -335,15 +347,16 @@ export const prizes: Prize[] = [
   {
     label: 'Matchs quittés',
     format: 'percent',
-    value: (p) => share(p, p.career.left),
+    value: (p) => shareFor(p, p.career.left),
     total: (p) => p.career.left,
     prize: 'Le fugueur',
   },
   { ...pushups, prize: 'Le pompier' },
   {
-    label: 'MMR perdus depuis le peak de la saison',
+    label: 'MMR 2v2 perdus depuis le peak de la saison',
     format: 'count',
-    value: (p) => p.mmr?.fall ?? null,
+    // A player with no match in the modes chosen takes no prize.
+    value: (p) => played(p, p.mmr?.fall ?? null),
     prize: 'Le parachutiste',
   },
   { label: 'Frappe la plus puissante', format: 'speed', value: (p) => p.career.game.hardestHit, prize: 'Le canonnier' },
@@ -359,7 +372,7 @@ export const prizes: Prize[] = [
   {
     label: 'Premiers au coup d’envoi / match',
     format: 'perMatch',
-    value: (p) => tallied(p.career.game.kickoffTouches),
+    value: (p) => talliedFor(p.career.game.kickoffTouches),
     total: (p) => total(p.career.game.kickoffTouches),
     prize: 'Le roi du kickoff',
   },
@@ -367,14 +380,14 @@ export const prizes: Prize[] = [
   {
     label: 'Démolitions subies / match',
     format: 'perMatch',
-    value: (p) => average(p, feed(p, 'Demolish', 'statfeedSecondary'), p.career.game.statfeedMatches),
+    value: (p) => averageFor(p, feed(p, 'Demolish', 'statfeedSecondary'), p.career.game.statfeedMatches),
     total: (p) => feed(p, 'Demolish', 'statfeedSecondary'),
     prize: 'Le punching-ball',
   },
   {
     label: 'Buts contre son camp / match',
     format: 'perMatch',
-    value: (p) => tallied(p.career.game.ownGoals),
+    value: (p) => talliedFor(p.career.game.ownGoals),
     total: (p) => total(p.career.game.ownGoals),
     prize: 'Le traître',
   },

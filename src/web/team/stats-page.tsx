@@ -49,6 +49,7 @@ import {
   keyStats,
   type PeakAccount,
   type PeakGap,
+  prizeMinimum,
   prizes,
   type RankedLine,
   ranked,
@@ -765,7 +766,8 @@ function PrizeShelf({ players }: { players: ComparedPlayer[] }) {
       <p className="m-0 -mt-2 text-[15px] text-t2">
         {won === 0
           ? 'Aucun pour toi cette fois. La revanche est à un match.'
-          : `Tu en remportes ${formatNumber(won)} sur ${formatNumber(shelf.length)}.`}
+          : `Tu en remportes ${formatNumber(won)} sur ${formatNumber(shelf.length)}.`}{' '}
+        Un prix au match se joue sur {prizeMinimum} matchs au moins.
       </p>
       <ul className="m-0 grid list-none grid-cols-2 gap-3 p-0 md:grid-cols-3 lg:grid-cols-4">
         {shelf.map(({ prize, lines, leaders, won: mine }) => {
