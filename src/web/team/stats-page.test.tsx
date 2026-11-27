@@ -86,7 +86,7 @@ const seasons = [
 
 test('L’équipe leads to the Stats page, which leads back', async () => {
   renderInApp(<TeamPage />, { board });
-  expect(await screen.findByRole('link', { name: 'Stats' })).toHaveAttribute('href', '/stats');
+  expect(await screen.findByRole('link', { name: 'Statistiques' })).toHaveAttribute('href', '/stats');
   renderInApp(<StatsPage />, { board, path: '/stats' });
   expect(await screen.findByRole('link', { name: 'L’équipe' })).toHaveAttribute('href', '/');
   // The ranks' ladder opens over Stats, as the rules over Défis.
