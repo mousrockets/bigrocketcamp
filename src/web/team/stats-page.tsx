@@ -257,7 +257,7 @@ export function StatsPage() {
                 {styleAxes.map((axis) => (
                   <StyleCard key={axis.label} axis={axis} players={players} />
                 ))}
-                {onlyDoubles && <TwinsCard players={players} />}
+                <TwinsCard players={players} onlyDoubles={onlyDoubles} />
               </div>
             </Section>
             <Section kicker="Les prix" title="Et le trophée revient à…">
@@ -440,15 +440,40 @@ interface Twin {
  * their two ratios against the pro's; the club's other players follow, each with theirs. Only in Ranked 2v2, the pros'
  * mode.
  */
-function TwinsCard({ players }: { players: ComparedPlayer[] }) {
+function TwinsCard({ players, onlyDoubles }: { players: ComparedPlayer[]; onlyDoubles: boolean }) {
   const [goals, assists] = styleAxes.map((axis) => styleOf(axis, players).lines);
-  const twins = players.flatMap((player, index): Twin[] => {
-    const goalsPerSave = goals?.[index]?.ratio ?? null;
-    const assistsPerGoal = assists?.[index]?.ratio ?? null;
-    const pro = twinPro(goalsPerSave, assistsPerGoal);
-    return pro && goalsPerSave && assistsPerGoal ? [{ player, pro, goalsPerSave, assistsPerGoal }] : [];
-  });
-  if (twins.length === 0) return null;
+  const twins = onlyDoubles
+    ? players.flatMap((player, index): Twin[] => {
+        const goalsPerSave = goals?.[index]?.ratio ?? null;
+        const assistsPerGoal = assists?.[index]?.ratio ?? null;
+        const pro = twinPro(goalsPerSave, assistsPerGoal);
+        return pro && goalsPerSave && assistsPerGoal ? [{ player, pro, goalsPerSave, assistsPerGoal }] : [];
+      })
+    : [];
+  if (twins.length === 0) {
+    return (
+      <Card variant="glass" role="region" aria-label="Les jumeaux pros" className="gap-3 p-5 md:col-span-2">
+        <span className="label-caps">Les jumeaux pros</span>
+        <p className="m-0 text-[15px] text-t2">
+          {onlyDoubles ? (
+            'Pas encore de jumeau : il faut des buts, des arrêts et des assists.'
+          ) : (
+            <>
+              Les pros jouent en 2v2 ranked : ton jumeau se compare là.{' '}
+              <Link
+                to="."
+                search={(previous) => ({ ...previous, mode: '2v2' })}
+                resetScroll={false}
+                className="text-link"
+              >
+                Voir le 2v2 seul
+              </Link>
+            </>
+          )}
+        </p>
+      </Card>
+    );
+  }
   const mine = twins.find((twin) => twin.player.me);
   const others = twins.filter((twin) => twin !== mine);
   return (
@@ -651,8 +676,8 @@ function PrizeLine({
  * waits.
  */
 function PrizeShelf({ players }: { players: ComparedPlayer[] }) {
+  // Every prize shows, a prize nobody has a figure for yet too: it says so.
   const shelf = prizes
-    .filter((prize) => players.some((player) => prize.value(player) !== null))
     .map((prize) => ({ prize, ...ranked(prize, players) }))
     .map((entry) => ({ ...entry, won: entry.leaders.some((line) => line.player.me) }))
     .sort((a, b) => Number(b.won) - Number(a.won));
@@ -706,9 +731,11 @@ function PrizeShelf({ players }: { players: ComparedPlayer[] }) {
               <span className={cn('text-[12px] [line-height:1.3]', mine ? 'text-medal-1' : 'text-t2')}>
                 {mine
                   ? 'Il est à toi.'
-                  : leader && me?.value != null
-                    ? `Il te manque ${gapOf(leader.value, me.value, prize.format)}.`
-                    : null}
+                  : !leader
+                    ? 'Personne pour l’instant : pas encore assez de matchs ici.'
+                    : me?.value != null
+                      ? `Il te manque ${gapOf(leader.value, me.value, prize.format)}.`
+                      : null}
               </span>
             </li>
           );

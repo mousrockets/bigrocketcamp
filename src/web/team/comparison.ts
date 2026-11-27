@@ -500,15 +500,13 @@ const tableRows = (modes: ReadonlySet<StatsMode>): TableRow[] => [
     total: (p) => counted(p, p.career.lossStreak),
     lowerIsBetter: true,
   },
-  ...([...modes].some((mode) => mode.startsWith('tournament'))
-    ? [
-        {
-          section: 'Résultats',
-          label: 'Tournois gagnés',
-          total: (p: ComparedPlayer) => counted(p, p.career.tournamentsWon),
-        } satisfies TableRow,
-      ]
-    : []),
+  // Only a tournament is won: outside them, the line reads « – ».
+  {
+    section: 'Résultats',
+    label: 'Tournois gagnés',
+    total: (p) =>
+      [...modes].some((mode) => mode.startsWith('tournament')) ? counted(p, p.career.tournamentsWon) : null,
+  },
   {
     section: 'Attaque',
     label: 'Score',
@@ -702,8 +700,14 @@ const eventLabel = (name: string, labels: Readonly<Record<string, string>>) => e
  * assists each player gave to each teammate.
  */
 function dataRows(players: readonly ComparedPlayer[], labels: Readonly<Record<string, string>>): TableRow[] {
+  // Every event the app knows has its line, « – » until a match brings it; one it does not know, once a match does.
   const names = (side: 'statfeed' | 'statfeedSecondary') =>
-    [...new Set(players.flatMap((player) => [...player.career.game[side].keys()]))].sort();
+    [
+      ...new Set([
+        ...(side === 'statfeed' ? Object.keys(eventWords) : Object.keys(sufferedHints)),
+        ...players.flatMap((player) => [...player.career.game[side].keys()]),
+      ]),
+    ].sort();
   const feedRow = (name: string, side: 'statfeed' | 'statfeedSecondary'): TableRow => ({
     section: 'Le fil du jeu',
     label: side === 'statfeed' ? eventLabel(name, labels) : `Subi : ${eventLabel(name, labels)}`,
@@ -750,7 +754,7 @@ export interface TableStat extends Stat {
 
 /**
  * Every stat the page has, for the table, part by part: a rate with its total, or a figure as it is. A line nobody
- * has a figure for (a stat no collector sent yet) is left out.
+ * has a figure for yet (a stat no collector sent, too few matches) stays, with « – » for each player.
  */
 export const tableStats = (
   modes: ReadonlySet<StatsMode>,
@@ -801,7 +805,6 @@ export const tableStats = (
           : { format: 'percent', value: (p: ComparedPlayer) => enough(p, share(p, total(p), of(p))) }),
       };
     })
-    .filter((stat) => players.some((player) => stat.value(player) !== null))
     .sort((a, b) => tableSections.indexOf(a.section) - tableSections.indexOf(b.section));
 
 /** A player's line in a stat: their figure, and its length against the leader's, from 0 to 1. */
