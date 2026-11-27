@@ -219,7 +219,12 @@ const assists: Stat = {
   value: (p) => average(p, p.career.assists),
 };
 const saves: Stat = { label: 'Arrêts / match', format: 'perMatch', value: (p) => average(p, p.career.saves) };
-const mvpRate: Stat = { label: 'Taux de MVP', format: 'percent', value: (p) => share(p, p.career.mvps) };
+/** Among the matches whose MVP is known: a won match whose scoreboard no source completed names none. */
+const mvpRate: Stat = {
+  label: 'Taux de MVP',
+  format: 'percent',
+  value: (p) => share(p, p.career.mvps, p.career.measured.mvp),
+};
 const pushups: Stat = { label: 'Pompes faites', format: 'count', value: (p) => p.pushups };
 
 /**
@@ -426,7 +431,13 @@ const gameRow = (
 const tableRows = (modes: ReadonlySet<StatsMode>): TableRow[] => [
   { section: 'Résultats', label: 'Matchs', total: (p) => counted(p, p.career.matches) },
   { section: 'Résultats', label: 'Victoires', total: (p) => counted(p, p.career.wins), perMatch: 'share' },
-  { section: 'Résultats', label: 'MVP', total: (p) => counted(p, p.career.mvps), perMatch: 'share' },
+  {
+    section: 'Résultats',
+    label: 'MVP',
+    total: (p) => counted(p, p.career.mvps),
+    perMatch: 'share',
+    measuredIn: (p) => p.career.measured.mvp,
+  },
   { section: 'Résultats', label: 'Win streak max', total: (p) => counted(p, p.career.winStreak) },
   {
     section: 'Résultats',
