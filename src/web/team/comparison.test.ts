@@ -605,3 +605,35 @@ test('shows the boost and moves before collector 0.8.0 too, with no figure', () 
     expect(everyone().map((player) => stat?.value(player))).toEqual([null, null, null]);
   }
 });
+
+test('crowns the game’s feed and collector 0.8.0 too: flip resets, aerials, possession, boost', () => {
+  const played = boardWith({
+    results: Array.from({ length: 10 }, (_, index) =>
+      aResult({
+        match_guid: `prize-${index}`,
+        name: 'alice',
+        game_stats: { ...followed(), statfeed: { FlipReset: 1, BicycleHit: 2, EpicSave: 1 } },
+      }),
+    ),
+  });
+  const players = comparedPlayers(played, [], ['alice', 'bob'], 'alice', every, 'all', null);
+  const prize = (name: string) => {
+    const found = prizes.find((candidate) => candidate.prize === name);
+    if (!found) throw new Error(`${name} is a prize`);
+    return players.map((player) => found.value(player));
+  };
+  expect(prize('Le magicien')).toEqual([1, null]);
+  expect(prize('L’acrobate')).toEqual([2, null]);
+  expect(prize('Le dernier rempart')).toEqual([1, null]);
+  // No hat trick: none a match, over the matches that came with a feed.
+  expect(prize('Le chapelier')).toEqual([0, null]);
+  expect(prize('L’aviateur')).toEqual([2, null]);
+  expect(prize('Le confisqueur')).toEqual([(3 / 9) * 100, null]);
+  expect(prize('L’aspirateur')).toEqual([12, null]);
+  expect(prize('La fusée')).toEqual([30, null]);
+  expect(prize('L’araignée')).toEqual([10, null]);
+  expect(prize('L’écureuil')).toEqual([50, null]);
+  expect(prizes.filter((candidate) => candidate.estimated).map((candidate) => candidate.prize)).toEqual([
+    'L’aspirateur',
+  ]);
+});

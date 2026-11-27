@@ -382,7 +382,72 @@ export const prizes: Prize[] = [
     total: (p) => total(p.career.game.ownGoals),
     prize: 'Le traître',
   },
+  // The game's own stat feed, per match over the matches that came with it.
+  feedPrize('FlipReset', 'Flip resets / match', 'Le magicien'),
+  feedPrize('BicycleHit', 'Retournés / match', 'L’acrobate'),
+  feedPrize('EpicSave', 'Arrêts décisifs / match', 'Le dernier rempart'),
+  feedPrize('HatTrick', 'Coups du chapeau / match', 'Le chapelier'),
+  // Collector 0.8.0: where each touch was, the possession, the cars.
+  {
+    label: 'Touches aériennes / match',
+    format: 'perMatch',
+    value: (p) => talliedFor(p.career.game.aerialTouches),
+    total: (p) => total(p.career.game.aerialTouches),
+    prize: 'L’aviateur',
+  },
+  {
+    label: 'Possession',
+    format: 'percent',
+    value: (p) => {
+      const { samples, owned, matches } = p.career.game.possession;
+      return rated(share(p, owned, samples), matches);
+    },
+    prize: 'Le confisqueur',
+  },
+  {
+    label: 'Pastilles ramassées / match',
+    format: 'perMatch',
+    value: (p) => averageFor(p, carOf(p).pickups, carOf(p).matches),
+    total: (p) => (carOf(p).matches === 0 ? null : carOf(p).pickups),
+    estimated: true,
+    prize: 'L’aspirateur',
+  },
+  {
+    label: 'Temps supersonique',
+    format: 'percent',
+    value: (p) => carShare(p, (car) => car.supersonic),
+    prize: 'La fusée',
+  },
+  {
+    label: 'Temps au mur',
+    format: 'percent',
+    value: (p) => carShare(p, (car) => car.onWall),
+    prize: 'L’araignée',
+  },
+  {
+    label: 'Boost moyen',
+    format: 'count',
+    value: (p) => rated(average(p, carOf(p).boostSum, carOf(p).samples), carOf(p).matches),
+    prize: 'L’écureuil',
+  },
 ];
+
+/** A prize of the game's stat feed: the events per match, over the matches that came with a feed, ten at least. */
+function feedPrize(event: string, label: string, prize: string): Prize {
+  return {
+    label,
+    format: 'perMatch',
+    value: (p) => averageFor(p, feed(p, event, 'statfeed'), p.career.game.statfeedMatches),
+    total: (p) => feed(p, event, 'statfeed'),
+    prize,
+  };
+}
+
+/** A share of the time a car was on the pitch, over ten matches at least. */
+function carShare(player: ComparedPlayer, part: (car: CarTally) => number): number | null {
+  const car = carOf(player);
+  return rated(share(player, car.matches === 0 ? null : part(car), car.samples), car.matches);
+}
 
 /**
  * The parts of the table, in reading order. What happens in a match reads as a rate, per match or in share of the
