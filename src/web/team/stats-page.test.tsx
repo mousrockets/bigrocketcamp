@@ -114,14 +114,83 @@ test('a key figure shows the member’s own in big, above every player’s bar',
   renderInApp(<StatsPage />, { board, path: '/stats' });
   // This season Alice leads: 2 goals a match, Bob 0,5.
   const goals = await screen.findByRole('region', { name: 'Buts / match' });
-  expect(goals).toHaveTextContent(/^Buts \/ match2\s*1alice/);
+  expect(goals).toHaveTextContent(/^Buts \/ matchvs pros ›2\s*1alice/);
 });
 
 test('a key figure shows the member’s own even when another leads it', async () => {
   renderInApp(<StatsPage />, { board, path: '/stats?saison=23' });
   // In season 23, Bob scored 4, Alice none: her 0 shows, behind him.
   const goals = await screen.findByRole('region', { name: 'Buts / match' });
-  expect(goals).toHaveTextContent(/^Buts \/ match0\s*1bob/);
+  expect(goals).toHaveTextContent(/^Buts \/ matchvs pros ›0\s*1bob/);
+});
+
+test('a key figure the pros have opens them, and one they lack does not', async () => {
+  renderInApp(<StatsPage />, { board, path: '/stats' });
+  expect(await screen.findByRole('link', { name: 'Buts / match face aux pros' })).toHaveAttribute(
+    'href',
+    '/stats?pros=buts',
+  );
+  expect(within(screen.getByRole('region', { name: 'Matchs' })).queryByRole('link')).not.toBeInTheDocument();
+  expect(within(screen.getByRole('region', { name: 'Démos / match' })).queryByRole('link')).not.toBeInTheDocument();
+});
+
+test('measures the member against Zen first, then any pro or their average, among the club and the pros', async () => {
+  renderInApp(<StatsPage />, { board, path: '/stats?pros=buts' });
+  const sheet = await screen.findByRole('dialog', { name: 'Face aux pros' });
+  // Alice scores 2 a match this season, Zen 1,58: Atow, at 1,75, is the closest.
+  expect(within(sheet).getByRole('combobox', { name: 'Pro comparé' })).toHaveTextContent('Zen');
+  expect(sheet).toHaveTextContent('Tu fais mieux que Zen.');
+  expect(sheet).toHaveTextContent('Le pro le plus proche de toi : Atow, à 1,75.');
+  // Ten pros and the club's two players, the best first.
+  const ranking = within(sheet).getByRole('region', { name: 'Le classement' });
+  expect(within(ranking).getAllByRole('listitem')).toHaveLength(12);
+  expect(within(ranking).getAllByRole('listitem')[0]).toHaveTextContent('alice');
+  expect(sheet).toHaveTextContent(/relevé sur RL Tracker le 27 novembre 2026/);
+
+  await userEvent.click(within(sheet).getByRole('combobox', { name: 'Pro comparé' }));
+  await userEvent.click(await screen.findByRole('option', { name: 'La moyenne des pros' }));
+  expect(sheet).toHaveTextContent('1,51');
+  expect(sheet).toHaveTextContent('Tu fais mieux que la moyenne des pros.');
+});
+
+test('tells the member what they lack to reach a pro', async () => {
+  renderInApp(<StatsPage />, { board, path: '/stats?saison=23&pros=buts' });
+  const sheet = await screen.findByRole('dialog', { name: 'Face aux pros' });
+  // No goal for Alice in season 23.
+  expect(sheet).toHaveTextContent('Il te manque 1,58 par match pour égaler Zen.');
+  expect(sheet).toHaveTextContent('Le pro le plus proche de toi : M0nkey M00n, à 1,11.');
+});
+
+test('offers the 2v2 alone when other modes are mixed in, the pros’ own mode', async () => {
+  renderInApp(<StatsPage />, { board, path: '/stats?mode=tout&pros=buts' });
+  const sheet = await screen.findByRole('dialog', { name: 'Face aux pros' });
+  expect(within(sheet).getByRole('link', { name: 'Voir le 2v2 seul' })).toHaveAttribute(
+    'href',
+    '/stats?mode=2v2&pros=buts',
+  );
+});
+
+test('gives each player the pro with the same style, in Ranked 2v2 only', async () => {
+  const styled = boardWith({
+    results: [
+      aResult({ match_guid: 't1', name: 'alice', goals: 3, saves: 4, assists: 2, playlist: 11 }),
+      aResult({ match_guid: 't1', name: 'bob', goals: 1, saves: 4, assists: 1, playlist: 11 }),
+    ],
+  });
+  renderInApp(<StatsPage />, { board: styled, path: '/stats' });
+  const twins = await screen.findByRole('region', { name: 'Les jumeaux pros' });
+  // Alice: 0,75 goals a save and 0,67 assists a goal; Bob far more of a defender.
+  expect(
+    within(twins)
+      .getAllByRole('listitem')
+      .map((line) => line.textContent),
+  ).toEqual([expect.stringMatching(/^aliceTOIFairy Peak!/), expect.stringMatching(/^bobReyyynn/)]);
+});
+
+test('gives no pro twin outside Ranked 2v2', async () => {
+  renderInApp(<StatsPage />, { board, path: '/stats?mode=tout' });
+  await screen.findByRole('region', { name: 'Buts / match' });
+  expect(screen.queryByRole('region', { name: 'Les jumeaux pros' })).not.toBeInTheDocument();
 });
 
 test('places each player’s style on two axes, against the club, with no winner', async () => {
