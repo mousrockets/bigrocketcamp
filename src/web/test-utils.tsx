@@ -1,4 +1,4 @@
-import { QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider, useQuery } from '@tanstack/react-query';
 import {
   createMemoryHistory,
   createRootRoute,
@@ -13,6 +13,7 @@ import type { ReactNode } from 'react';
 import { boardView, emptyBoard } from '../lib/board-sync';
 import { type Board, BoardContext } from './board';
 import { type Club, ClubContext, ClubLogoContext, ClubNameContext } from './club';
+import { clubQuery } from './queries';
 import { createQueryClient } from './query-client';
 
 // Renders a piece of the app as a signed-in member sees it: with its club, its board and a router, so that links
@@ -35,6 +36,7 @@ export const testClub: Club = {
     soloPseudo: null,
     platform: 'pc',
     duoPseudoLocked: false,
+    comparedPro: null,
   },
 };
 
@@ -137,15 +139,21 @@ export function renderInApp(
   ui: ReactNode,
   { club = testClub, board = boardWith({}, club), boardError = '', path = '/' }: Options = {},
 ) {
-  const page = () => (
-    <ClubNameContext value={club.name}>
-      <ClubLogoContext value={club.logo}>
-        <ClubContext value={club}>
-          <BoardContext value={{ board, error: boardError, refresh: async () => board }}>{ui}</BoardContext>
-        </ClubContext>
-      </ClubLogoContext>
-    </ClubNameContext>
-  );
+  const queryClient = createQueryClient();
+  // As in the app, the club is the club query's: a write that changes it on the spot shows.
+  queryClient.setQueryData(clubQuery.queryKey, club);
+  const page = () => {
+    const { data: shown } = useQuery(clubQuery);
+    return (
+      <ClubNameContext value={club.name}>
+        <ClubLogoContext value={club.logo}>
+          <ClubContext value={shown ?? club}>
+            <BoardContext value={{ board, error: boardError, refresh: async () => board }}>{ui}</BoardContext>
+          </ClubContext>
+        </ClubLogoContext>
+      </ClubNameContext>
+    );
+  };
   const root = createRootRoute({ component: Outlet });
   // Every address the app links to exists, so that a link knows whether it is the current page.
   const routes = [
@@ -170,7 +178,7 @@ export function renderInApp(
     scrollRestoration: true,
   });
   return render(
-    <QueryClientProvider client={createQueryClient()}>
+    <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />
     </QueryClientProvider>,
   );

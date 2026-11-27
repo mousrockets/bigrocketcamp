@@ -309,6 +309,13 @@
       "when": 1795785915818,
       "tag": "0043_play_sessions",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "6",
+      "when": 1795804191321,
+      "tag": "0044_compared_pro",
+      "breakpoints": true
     }
   ]
 }

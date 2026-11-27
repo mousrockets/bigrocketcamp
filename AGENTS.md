@@ -167,7 +167,7 @@ Une seule façon de faire chaque chose. Si tu ne trouves pas laquelle, cherche u
 
 ## Jamais
 
-- Un secret, un jeton ou une donnée réelle de joueur dans le code, les tests, les logs ou une PR. Les exemples utilisent des joueurs fictifs. Seules exceptions, voulues par un mainteneur : le pseudo Epic de Zen, joueur pro public, dans `src/lib/zen.ts`, et les chiffres publics de dix joueurs pros relevés sur RL Tracker, dans `src/web/team/pros.ts`.
+- Un secret, un jeton ou une donnée réelle de joueur dans le code, les tests, les logs ou une PR. Les exemples utilisent des joueurs fictifs. Seules exceptions, voulues par un mainteneur : le pseudo Epic de Zen, joueur pro public, dans `src/lib/zen.ts`, et les chiffres publics de dix joueurs pros relevés sur RL Tracker, dans `src/lib/pros.ts`.
 - Une donnée propre à une équipe dans le code : nom, logo et membres sont des réglages de l'app.
 - Contourner une protection : anti-bot, CAPTCHA, limite de requêtes.
 - Pousser sur `main`, réécrire l'historique, désactiver un test pour faire passer la CI.

@@ -1,22 +1,24 @@
 import { Link } from '@tanstack/react-router';
 import { cn } from 'cn';
-import { useRef, useState } from 'react';
+import { useRef } from 'react';
 import { formatDayMonth } from '../../lib/format';
+import { averageOfPros, closestPro, comparedFigure, type Pro, pros, prosReadOn } from '../../lib/pros';
 import { InfoSheet } from '../components/info-sheet';
 import { mineClass, Place } from '../components/ranking-place';
 import { Card } from '../components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import { useComparedPro } from './compared-pro';
 import { type ComparedPlayer, keyStats, type ProsSlug, type Stat } from './comparison';
-import { closestPro, firstPro, type Pro, proAverage, pros, prosReadOn } from './pros';
 import { formatted, gapOf, PlayerName } from './stat-parts';
 import { rankRgb } from './stats';
 
-/** Whom the member measures against: one pro, or all of them on average. */
-const average = 'moyenne';
 const targets = [
-  { value: average, label: 'La moyenne des pros' },
+  { value: averageOfPros, label: 'La moyenne des pros' },
   ...pros.map((pro) => ({ value: pro.name, label: pro.name })),
 ];
+
+/** Whom the member measures against, in short: the pro's name, or the average. */
+export const targetName = (target: string) => (target === averageOfPros ? 'Moyenne' : target);
 
 /** When and where the figures were read, which every view of them says. */
 export const prosSource = `Ranked 2v2, relevé sur RL Tracker le ${formatDayMonth(prosReadOn)} ${prosReadOn.slice(0, 4)}. Ces chiffres ne bougent plus.`;
@@ -48,7 +50,7 @@ export function ProsSheet({
   const last = useRef(slug);
   if (slug) last.current = slug;
   const stat = keyStats.find((key) => key.pros?.slug === last.current);
-  const [target, setTarget] = useState(firstPro);
+  const { target, choose } = useComparedPro();
   return (
     <InfoSheet
       open={slug !== undefined}
@@ -63,7 +65,7 @@ export function ProsSheet({
           players={players}
           onlyDoubles={onlyDoubles}
           target={target}
-          onTarget={setTarget}
+          onTarget={choose}
         />
       )}
     </InfoSheet>
@@ -88,7 +90,7 @@ function ProsComparison({
   const me = players.find((player) => player.me);
   const mine = me ? stat.value(me) : null;
   const chosen = pros.find((pro) => pro.name === target);
-  const theirs = chosen ? figure(chosen) : proAverage(figure);
+  const theirs = comparedFigure(target, figure);
   const who = chosen ? chosen.name : 'la moyenne des pros';
   return (
     <>

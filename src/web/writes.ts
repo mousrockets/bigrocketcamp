@@ -1,5 +1,6 @@
 import {
   type ClubNameInput,
+  type ComparedProInput,
   done,
   type Invitation,
   type MemberChange,
@@ -60,6 +61,10 @@ export const changeTournamentWin = ({ matchGuid, won }: { matchGuid: string; won
   won
     ? sent(api['tournament-wins'].$post({ json: { matchGuid } }), 'Tournoi impossible à déclarer.')
     : sent(api['tournament-wins'].$delete({ json: { matchGuid } }), 'Tournoi impossible à annuler.');
+
+/** Whom the member measures against on Stats, on every device. */
+export const saveComparedPro = (json: ComparedProInput) =>
+  sent(api.profile.pro.$put({ json }), 'Choix du pro impossible à enregistrer.');
 
 export const deleteAccount = (): Promise<void> => sent(api.profile.$delete(), 'Suppression impossible.');
 

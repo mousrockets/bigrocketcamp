@@ -1,9 +1,9 @@
 import type { SeasonMmr, SeasonPeak } from '../../lib/contract';
 import { pushupCredit } from '../../lib/domain';
+import type { Pro } from '../../lib/pros';
 import type { Board } from '../board';
 import { type Career, type CareerAccount, careerOf, type StatsMode, seasonOf, type Tally } from './career';
 import { soloReading } from './ladder';
-import type { Pro } from './pros';
 import { highestTier } from './stats';
 
 // The Stats page: each player over one season (or every match), then, stat by stat, who leads.

@@ -31,6 +31,8 @@ export const members = sqliteTable(
     platform: text('platform', { enum: ['pc', 'playstation', 'xbox', 'switch'] }),
     /** Players are listed in the order they joined the club. */
     rosterPosition: integer('roster_position'),
+    /** Whom the member measures against on Stats (src/lib/pros.ts): a pro's name, or the pros' average; Zen when null. */
+    comparedPro: text('compared_pro'),
   },
   (table) => [
     uniqueIndex('members_duo_pseudo').on(table.duoPseudo),
