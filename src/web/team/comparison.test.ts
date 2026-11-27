@@ -470,3 +470,34 @@ test('measures each account’s peak of the season against its peak all time bef
   expect(alice?.peakGaps.duo?.allTimeTier).toBe(17);
   expect(alice?.soloShown).toBe('alice-en-solo');
 });
+
+test('counts the MVP the game named, else the best score of the winners, among the matches whose MVP is known', () => {
+  const line = (guid: string, name: string, parts: Partial<Parameters<typeof aLine>[0]> = {}) =>
+    aResult({ match_guid: guid, name, player_id: `Epic|${name}|0`, day: '2026-11-05', winner: 0, ...parts });
+  const mvp = { shots: 3, statfeed: { MVP: 1 } };
+  const played = boardWith({
+    results: [
+      // The game named Bob MVP, though Alice scored more.
+      line('named', 'alice', { score: 600, game_stats: { shots: 4, statfeed: { Goal: 2 } } }),
+      line('named', 'bob', { score: 500, game_stats: mvp }),
+      // A whole scoreboard, from an older collector: the best score of the winners.
+      line('whole', 'alice', { score: 700 }),
+      line('whole', 'bob', { score: 400 }),
+      line('whole', 'rival', { team: 1, score: 300 }),
+      line('whole', 'rival-2', { team: 1, score: 200 }),
+      // Won, but the scoreboard is not whole: nobody knows.
+      line('partial', 'alice', { score: 900 }),
+      // Lost: no MVP among the losers.
+      line('lost', 'alice', { winner: 1 }),
+    ],
+    matchRosters: [{ match_guid: 'whole', expected_players: 4 }],
+  });
+  const players = comparedPlayers(played, [], ['alice', 'bob'], 'alice', every, 'all', null);
+  const rate = keyStats.find((stat) => stat.label === 'Taux de MVP');
+  if (!rate) throw new Error('Taux de MVP is a key stat');
+  expect(players.map((player) => [player.career.mvps, player.career.measured.mvp])).toEqual([
+    [1, 3],
+    [1, 2],
+  ]);
+  expect(players.map((player) => rate.value(player))).toEqual([(1 / 3) * 100, 50]);
+});

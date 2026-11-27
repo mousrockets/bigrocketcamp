@@ -38,8 +38,11 @@ export interface Career {
   left: number;
   /** Matches played between midnight and 5 in Paris. */
   lateNight: number;
-  /** The matches that came with each count an older collector does not send: an average divides by them. */
-  measured: { demos: number; crossbarHits: number; conceded: number };
+  /**
+   * The matches that came with each count an older collector does not send: an average divides by them. For the
+   * MVPs, the matches whose MVP is known: every defeat, as the game names it among the winners.
+   */
+  measured: { demos: number; crossbarHits: number; conceded: number; mvp: number };
   /** What collector 0.7.0 adds to each match: its stats are only known from the matches it sent. */
   game: GameTally;
 }
@@ -222,6 +225,24 @@ function inScope(scope: CareerScope | ReadonlySet<StatsMode>, playlist: number |
   return played === rankedPlaylists[scope];
 }
 
+/** The player the game named MVP of each match, by their game ID in lower case, once a collector 0.7.0 saw it. */
+function gameMvpsOf(board: Board): Map<string, string> {
+  return new Map(
+    board.results
+      .filter((row) => row.kind === 'match' && !row.review_required && (row.game_stats?.statfeed?.MVP ?? 0) > 0)
+      .map((row) => [row.match_guid, row.player_id.toLowerCase()]),
+  );
+}
+
+const mvpsCache = new WeakMap<Board['results'], Map<string, string>>();
+const gameMvps = (board: Board) => {
+  const known = mvpsCache.get(board.results);
+  if (known) return known;
+  const mvps = gameMvpsOf(board);
+  mvpsCache.set(board.results, mvps);
+  return mvps;
+};
+
 /** The game ID of the player's solo account, in lower case, once the rank source found it. */
 export const soloAccountOf = (board: Board, name: string): string | null =>
   board.doublesRanks?.find((rank) => rank.player === name)?.solo?.playerId?.toLowerCase() ?? null;
@@ -254,6 +275,7 @@ export function careerOf(
   const solo = soloAccountOf(board, name);
   const index = matchIndex(board.results, board.matchRosters ?? []);
   const sizes = matchSizes(board);
+  const named = gameMvps(board);
   const lines = new Map(
     board.results
       .filter(
@@ -289,7 +311,7 @@ export function careerOf(
     forfeitsGiven: 0,
     left: 0,
     lateNight: 0,
-    measured: { demos: 0, crossbarHits: 0, conceded: 0 },
+    measured: { demos: 0, crossbarHits: 0, conceded: 0, mvp: 0 },
     game: {
       shots: tally(),
       goalsOnShots: 0,
@@ -329,7 +351,10 @@ export function careerOf(
     career.crossbarHits = added(career.crossbarHits, row.crossbar_hits);
     if (typeof row.demos === 'number') career.measured.demos++;
     if (typeof row.crossbar_hits === 'number') career.measured.crossbarHits++;
-    if (!row.left && mvpOf(index.get(guid)) === row.player_id) career.mvps++;
+    // The game's MVP when a collector saw it named, else the best score of the winners once the scoreboard is whole.
+    const mvp = named.get(guid) ?? mvpOf(index.get(guid))?.toLowerCase() ?? null;
+    if (!won || mvp !== null) career.measured.mvp++;
+    if (won && mvp === row.player_id.toLowerCase()) career.mvps++;
     if (won && tournamentsWon.includes(guid)) career.tournamentsWon++;
     career.score += row.score;
     // The final score as the game counted it, blue first: a team is 0 for blue, 1 for orange.
