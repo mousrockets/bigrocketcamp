@@ -26,6 +26,7 @@ const changes = (parts: Partial<BoardChanges>): BoardChanges => ({
   collectors: [],
   doublesRanks: [],
   mmrDays: [],
+  playSessions: [],
   monthly: {
     startsMonth: '2026-11',
     current: {

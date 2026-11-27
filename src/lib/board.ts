@@ -7,6 +7,7 @@ import { readDoublesRanks } from './doubles-ranks';
 import { type BuiltResult, buildPendingMatches, builtResult, notBuilt, storedColumns } from './match-builds';
 import { readMonthlyMmr } from './monthly-mmr';
 import { orm } from './orm';
+import { readPlaySessions } from './play-session';
 import { readRankSourceHealth } from './rank-source';
 import { type Alias, compareResults, reliabilityOf } from './reconcile';
 import {
@@ -107,7 +108,7 @@ type ResultRow = Parameters<typeof builtResult>[0];
 
 /** The parts of the board small enough to be sent whole with every change. */
 async function readSmallParts({ db, memberId, hasRankSource }: BoardReader, players: ClubPlayer[]) {
-  const [sources, doublesRanks, monthly, rankSource, rules, mmrDays] = await Promise.all([
+  const [sources, doublesRanks, monthly, rankSource, rules, mmrDays, playSessions] = await Promise.all([
     orm(db)
       .select({ id: collectors.id, last_seen: collectors.lastSeen })
       .from(collectors)
@@ -117,8 +118,9 @@ async function readSmallParts({ db, memberId, hasRankSource }: BoardReader, play
     hasRankSource ? readRankSourceHealth(db) : null,
     readChallengeRules(db),
     readDailyMmr(db, rosterOf(players)),
+    readPlaySessions(db),
   ]);
-  return { collectors: sources, doublesRanks, monthly, rankSource, rules, mmrDays };
+  return { collectors: sources, doublesRanks, monthly, rankSource, rules, mmrDays, playSessions };
 }
 
 /** Matches whose full scoreboard is confirmed, in the order of their newest result. */

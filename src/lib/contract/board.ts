@@ -3,6 +3,7 @@ import { defaultForfeitRules, defaultHighScoreRules, defaultLastPlaceRules } fro
 import { says, z } from '../validation';
 import { challengeRules } from './club';
 import { monthlyStandings } from './monthly';
+import { playSession } from './play-session';
 import type { Known } from './shared';
 
 // The board (GET /api/state): from `since`, what changed after that version, page by page; the API may hold the
@@ -155,6 +156,8 @@ const smallParts = {
   rankSource: rankSourceHealth.nullable().catch(null),
   /** Each account's MMR change on each of the last days; absent from an API older than it. */
   mmrDays: z.array(dailyMmr).catch([]),
+  /** The play sessions under way; absent from an API older than them. */
+  playSessions: z.array(playSession).catch([]),
   /** Absent from an API older than the challenge rules: the default ones then apply. */
   rules: challengeRules.catch(() => ({
     lastPlace: defaultLastPlaceRules.map((rule) => ({ ...rule })),

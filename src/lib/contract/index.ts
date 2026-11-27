@@ -11,6 +11,7 @@ export * from './identities';
 export * from './live';
 export * from './members';
 export * from './monthly';
+export * from './play-session';
 export * from './profile';
 export * from './ranks';
 export * from './reminders';

@@ -4,8 +4,10 @@ import {
   type Invitation,
   type MemberChange,
   type MemberToRemove,
+  type PlaySession,
   type ProfileInput,
   pairingCodeCreated,
+  playSessionAnswer,
   type ReminderDevice,
   type ReminderInput,
   type RuleChange,
@@ -130,6 +132,12 @@ export async function testReminder(id: string): Promise<void> {
 export async function settleDrink(body: { action: 'settle' | 'undo'; id: string }): Promise<void> {
   const result = await dataOf(api.monthly.$post({ json: body }), done, 'Action impossible.');
   if (!result.ok) throw Error('Action impossible.');
+}
+
+/** Starts or stops the member's play session; answers the session under way, or null once stopped. */
+export async function playSessionAction(action: 'start' | 'stop'): Promise<PlaySession | null> {
+  const fallback = action === 'start' ? 'Impossible de lancer la session.' : 'Impossible d’arrêter la session.';
+  return (await dataOf(api['play-session'].$post({ json: { action } }), playSessionAnswer, fallback)).session;
 }
 
 // Signing in happens before any session: these calls do not watch for a lost session.

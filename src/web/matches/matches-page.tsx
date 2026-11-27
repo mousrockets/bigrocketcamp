@@ -20,6 +20,7 @@ import { Skeleton } from '../components/ui/skeleton';
 import { useNow } from '../hooks/use-now';
 import { useStickyTop } from '../hooks/use-sticky-top';
 import { DayPicker } from './day-picker';
+import { PlaySessions } from './play-session';
 import {
   type AccountChoice,
   type Accounts,
@@ -91,6 +92,7 @@ export function MatchesPage() {
             style={{ top: summaryColumn.top }}
             className="flex flex-col lg:sticky lg:max-w-[420px] lg:flex-[1_1_340px] lg:gap-10"
           >
+            {day === null && <PlaySessions board={board} />}
             {day === null && session && <SessionRecap session={session} today={today} />}
             <section aria-label="Bilan du jour" className="flex flex-col gap-[18px] px-5 pt-8 lg:p-0">
               <span className="flex flex-col gap-1.5">

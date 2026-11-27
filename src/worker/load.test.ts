@@ -307,8 +307,8 @@ test('an open board costs the same few rows whatever the length of the history',
     expect(rowsOf(long, request)).toBeLessThanOrEqual(5);
   }
   for (const [request, budget] of [
-    // The MMR change of each account's last day adds a few lookups per player.
-    ['open board, after a match', 70],
+    // The MMR change of each account's last day adds a few lookups per player, the play sessions a row per player.
+    ['open board, after a match', 75],
     ['collector sends a match', 100],
     ['monthly close check', 15],
   ] as const) {

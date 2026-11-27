@@ -580,6 +580,24 @@ export const pushSubscriptions = sqliteTable(
   ],
 );
 
+/**
+ * A member's play session: they told the app they are playing, maybe where no collector sees their matches (a
+ * console), so the rank source reads their accounts, duo and solo, every two minutes until it ends. One row per
+ * player, the latest session: a new one replaces it.
+ */
+export const playSessions = sqliteTable('play_sessions', {
+  player: text('player').primaryKey(),
+  memberId: text('member_id')
+    .notNull()
+    .references(() => members.id, { onDelete: 'cascade' }),
+  startedAt: text('started_at').notNull(),
+  /** Set when the member stopped it; a session left open ends on its own (see `src/lib/play-session.ts`). */
+  stoppedAt: text('stopped_at'),
+  /** The duo and solo ratings when it started, to show what the session won or lost. */
+  startDuoMmr: integer('start_duo_mmr'),
+  startSoloMmr: integer('start_solo_mmr'),
+});
+
 // Following the board (see src/lib/board.ts)
 
 /** One counter, moved by triggers with every change the board shows. */

@@ -66,10 +66,13 @@ export function PlayerCard({ player, active, now }: { player: CardPlayer; active
   const rgb = rankRgb(player.tier);
   const { left, paid, owed, percent } = player.debt;
   const climbed = useRise(`rank:${player.name}`, player.tier) > 0;
+  const best = player.solo?.allTime?.mmr ?? null;
+  // A new solo best is celebrated once per device; a rank climbed has its own.
+  const peaked = useRise(`solo-best:${player.name}`, best) > 0 && !climbed;
   return (
     <Card
       data-active={active || undefined}
-      data-rank-up={climbed || undefined}
+      data-rank-up={climbed || peaked || undefined}
       style={{ '--rank': rgb, '--rank-light': rankLightRgb(player.tier) } as CSSProperties}
       onPointerMove={tilt}
       onPointerLeave={untilt}
@@ -86,6 +89,8 @@ export function PlayerCard({ player, active, now }: { player: CardPlayer; active
       <i aria-hidden="true" className="player-card-holo pointer-events-none absolute inset-0 z-2" />
       <i aria-hidden="true" className="player-card-glint pointer-events-none absolute inset-0 z-3" />
       {climbed && <RankUp player={player} />}
+      {/* Each new best replays it. */}
+      {peaked && best !== null && <PeakBurst key={best} best={best} />}
       <div className="relative z-4 flex flex-1 flex-col gap-5 px-5 pt-5 pb-[18px]">
         <CardHeader className="flex items-start justify-between gap-2.5 p-0">
           <span className="flex min-w-0 flex-col gap-[3px]">
@@ -161,6 +166,20 @@ function RankUp({ player }: { player: CardPlayer }) {
       {rank && (
         <b className="font-display font-black text-[22px] italic uppercase">{splitRankLabel(rank.label).rank}</b>
       )}
+    </div>
+  );
+}
+
+/** A new best of the solo account since this device last showed the card: it slams in over the card, in gold. */
+function PeakBurst({ best }: { best: number }) {
+  return (
+    <div
+      role="status"
+      className="peak-burst pointer-events-none absolute inset-0 z-5 flex flex-col items-center justify-center gap-1 bg-black/40 backdrop-blur-[6px]"
+    >
+      <span className="label-caps text-t1">Nouveau peak all time</span>
+      <b className="peak-burst-figure num text-[64px] [line-height:1]">{formatNumber(best)}</b>
+      <span className="font-display font-black text-[20px] text-t1 italic uppercase">GG</span>
     </div>
   );
 }
