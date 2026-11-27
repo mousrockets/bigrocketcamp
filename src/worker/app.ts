@@ -64,6 +64,7 @@ app.use('/monthly', requireMember);
 app.use('/club', requireMember);
 app.use('/club/rules', requireMember);
 app.use('/profile', requireMember);
+app.use('/profile/pro', requireMember);
 app.use('/sounds', requireMember);
 app.use('/play-session', requireMember);
 app.use('/stats/seasons', requireMember);

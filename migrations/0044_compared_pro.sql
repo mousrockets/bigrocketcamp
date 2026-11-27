@@ -1,0 +1,1 @@
+ALTER TABLE `members` ADD `compared_pro` text;

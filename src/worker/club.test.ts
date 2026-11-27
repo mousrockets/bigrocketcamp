@@ -211,6 +211,22 @@ describe('the profile', () => {
     expect(await ranksOf('alice')).toEqual(allKept);
   });
 
+  test('a member measures against Zen until they choose a pro, on every device, and only among the pros', async () => {
+    const pro = async (cookie: string) =>
+      (await (await call('/api/club', cookie)).json<{ me: { comparedPro: string | null } }>()).me.comparedPro;
+    expect(await pro(member)).toBeNull();
+    expect((await call('/api/profile/pro', null, 'PUT', { pro: 'Atow' })).status).toBe(401);
+    expect((await call('/api/profile/pro', member, 'PUT', { pro: 'Atow' })).status).toBe(200);
+    expect(await pro(member)).toBe('Atow');
+    expect((await call('/api/profile/pro', member, 'PUT', { pro: 'moyenne' })).status).toBe(200);
+    expect(await pro(member)).toBe('moyenne');
+    expect((await call('/api/profile/pro', member, 'PUT', { pro: 'Un inconnu' })).status).toBe(400);
+    expect(await pro(member)).toBe('moyenne');
+    // The choice is the member's own: another member's stays as it was, and no list of members shows it.
+    expect(await pro(admin)).toBeNull();
+    expect(JSON.stringify(await (await call('/api/members', admin)).json())).not.toContain('comparedPro');
+  });
+
   test('the only administrator names another one before leaving', async () => {
     expect((await call('/api/profile', admin, 'DELETE')).status).toBe(409);
   });

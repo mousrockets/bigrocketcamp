@@ -1,4 +1,5 @@
 import { platforms } from '../club';
+import { comparedPros } from '../pros';
 import { says, z } from '../validation';
 import { firstName, memberProfile } from './members';
 import type { Known } from './shared';
@@ -33,5 +34,14 @@ export type ProfileInput = z.input<typeof profile>;
 export const ownProfile = memberProfile.extend({
   /** A duo pseudo with game history no longer changes: every record of the player is keyed by it. */
   duoPseudoLocked: z.boolean(),
+  /** Whom the member measures against on Stats; absent from an API older than the pros, null until they choose. */
+  comparedPro: z.string().nullable().catch(null),
 });
 export type OwnProfile = Known<z.output<typeof ownProfile>>;
+
+export const invalidComparedPro = 'Choisis un pro de la liste.';
+/** Whom the member measures against on Stats, from then on and on every device. */
+export const comparedProInput = z.object({
+  pro: z.string(says(invalidComparedPro)).refine((pro) => comparedPros.includes(pro), says(invalidComparedPro)),
+});
+export type ComparedProInput = z.input<typeof comparedProInput>;

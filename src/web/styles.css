@@ -695,6 +695,13 @@
     background: radial-gradient(closest-side, color-mix(in srgb, var(--medal-1) 45%, transparent), transparent 75%);
     animation: rank-up 3.6s var(--ease) 0.2s both;
   }
+  /* The member's pro twin on Stats (src/web/team/stats-page.tsx): a faint gold light from the corner, the name lit by it. */
+  .twin-glow {
+    background: radial-gradient(70% 90% at 0% 0%, color-mix(in srgb, var(--medal-1) 14%, transparent), transparent 70%);
+  }
+  .twin-name {
+    text-shadow: 0 0 28px color-mix(in srgb, var(--medal-1) 40%, transparent);
+  }
   .peak-burst-figure {
     color: var(--medal-1);
     text-shadow: 0 0 24px color-mix(in srgb, var(--medal-1) 70%, transparent);

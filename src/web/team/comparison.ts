@@ -1,5 +1,6 @@
 import type { SeasonMmr, SeasonPeak } from '../../lib/contract';
 import { pushupCredit } from '../../lib/domain';
+import type { Pro } from '../../lib/pros';
 import type { Board } from '../board';
 import { type Career, type CareerAccount, careerOf, type StatsMode, seasonOf, type Tally } from './career';
 import { soloReading } from './ladder';
@@ -109,6 +110,10 @@ export function comparedPlayers(
   return [...players.filter((player) => player.me), ...players.filter((player) => !player.me)];
 }
 
+/** The key stats the pros have a figure of, as the address names their sheet. */
+export const prosSlugs = ['buts', 'tirs', 'passes', 'arrets', 'mvp'] as const;
+export type ProsSlug = (typeof prosSlugs)[number];
+
 /**
  * How a stat is read: a share of the matches, an average per match, a plain count, a ball speed (in
  * km/h), a distance (in Unreal units, shown in metres), or seconds.
@@ -122,6 +127,8 @@ export interface Stat {
   value: (player: ComparedPlayer) => number | null;
   /** Whether less is better (goals conceded, matches left): the table lights the lowest. */
   lowerIsBetter?: boolean;
+  /** The pros' own figure, for a key stat they have one of; its sheet opens at `?pros=<slug>`. */
+  pros?: { slug: ProsSlug; figure: (pro: Pro) => number };
 }
 
 /** A stat that crowns a player, with a name for the prize. */
@@ -151,15 +158,31 @@ const feed = (player: ComparedPlayer, name: string, side: 'statfeed' | 'statfeed
   player.career.game.statfeedMatches === 0 ? null : (player.career.game[side].get(name) ?? 0);
 
 const matches: Stat = { label: 'Matchs', format: 'count', value: (p) => counted(p, p.career.matches) };
-const goals: Stat = { label: 'Buts / match', format: 'perMatch', value: (p) => average(p, p.career.goals) };
+const goals: Stat = {
+  label: 'Buts / match',
+  format: 'perMatch',
+  value: (p) => average(p, p.career.goals),
+  pros: { slug: 'buts', figure: (pro) => pro.goals },
+};
 const assists: Stat = {
   label: 'Assists / match',
   format: 'perMatch',
   value: (p) => average(p, p.career.assists),
+  pros: { slug: 'passes', figure: (pro) => pro.assists },
 };
-const saves: Stat = { label: 'Arrêts / match', format: 'perMatch', value: (p) => average(p, p.career.saves) };
+const saves: Stat = {
+  label: 'Arrêts / match',
+  format: 'perMatch',
+  value: (p) => average(p, p.career.saves),
+  pros: { slug: 'arrets', figure: (pro) => pro.saves },
+};
 /** Over the matches that came with them: collector 0.7.0 for the shots, 0.6.0 for the demolitions. */
-const shots: Stat = { label: 'Tirs / match', format: 'perMatch', value: (p) => tallied(p.career.game.shots) };
+const shots: Stat = {
+  label: 'Tirs / match',
+  format: 'perMatch',
+  value: (p) => tallied(p.career.game.shots),
+  pros: { slug: 'tirs', figure: (pro) => pro.shots },
+};
 const demos: Stat = {
   label: 'Démos / match',
   format: 'perMatch',
@@ -170,6 +193,7 @@ const mvpRate: Stat = {
   label: 'Taux de MVP',
   format: 'percent',
   value: (p) => share(p, p.career.mvps, p.career.measured.mvp),
+  pros: { slug: 'mvp', figure: (pro) => pro.mvpRate },
 };
 const pushups: Stat = { label: 'Pompes faites', format: 'count', value: (p) => p.pushups };
 

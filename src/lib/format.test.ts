@@ -6,6 +6,7 @@ import {
   formatDay,
   formatDayDate,
   formatHour,
+  formatHundredths,
   formatLongDay,
   formatLongMonth,
   formatMonth,
@@ -79,4 +80,11 @@ test('a recent day reads from today: today, yesterday, then in full', () => {
   expect(formatRecentDay('2026-11-07', '2026-11-07')).toBe('Aujourd’hui');
   expect(formatRecentDay('2026-11-06', '2026-11-07')).toBe('Hier · vendredi 6');
   expect(formatRecentDay('2026-11-05', '2026-11-07')).toBe('Jeudi 5 novembre');
+});
+
+test('writes an average with its two decimals, always', () => {
+  expect(formatHundredths(1.2)).toBe('1,20');
+  expect(formatHundredths(0)).toBe('0,00');
+  expect(formatHundredths(1.236)).toBe('1,24');
+  expect(formatHundredths(1509.5)).toBe('1\u00a0509,50');
 });
