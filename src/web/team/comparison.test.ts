@@ -1,7 +1,8 @@
 import { expect, test } from 'vitest';
 import type { SeasonMmr } from '../../lib/contract';
 import type { GameStats } from '../../lib/game-stats';
-import { anExercise, aRank, aResult, aSoloRank, boardWith } from '../test-utils';
+import { aResult as aLine, anExercise, aRank, aSoloRank, boardWith } from '../test-utils';
+import type { StatsMode } from './career';
 import {
   bestOf,
   comparedPlayers,
@@ -16,6 +17,19 @@ import {
 } from './comparison';
 
 // The Stats page compares the players over one season: S23 from 10 June, S24 from 23 September 2026.
+
+/** A line of a ranked 2v2, unless the test says otherwise: the page counts the ranked matches and the tournaments. */
+const aResult = (parts: Parameters<typeof aLine>[0]) => aLine({ playlist: 11, ...parts });
+const every = new Set<StatsMode>([
+  'duel',
+  'doubles',
+  'standard',
+  'tournament-duel',
+  'tournament-doubles',
+  'tournament-standard',
+]);
+const only = (...modes: StatsMode[]) => new Set(modes);
+const inSeason = (season: number | null) => (season === null ? null : new Set([season]));
 
 /** A match of Alice and Bob together, won or lost, on a day of a season. */
 const duo = (guid: string, day: string, won: boolean, parts: { alice: number; bob: number }, extra = {}) =>
@@ -66,9 +80,9 @@ const seasons: SeasonMmr[] = [
 ];
 const roster = ['alice', 'bob', 'charlie'];
 /** Everyone of the roster over season 24, as the page compares them. */
-const everyone = () => comparedPlayers(board, seasons, roster, 'alice', 'all', 'all', 24);
+const everyone = () => comparedPlayers(board, seasons, roster, 'alice', every, 'all', inSeason(24));
 const statNamed = (label: string) => {
-  const stat = tableStats('doubles', everyone()).find((candidate) => candidate.label === label);
+  const stat = tableStats(only('doubles'), everyone()).find((candidate) => candidate.label === label);
   if (!stat) throw new Error(`${label} is in the table`);
   return stat;
 };
@@ -78,35 +92,35 @@ test('offers the seasons the club played or was read in, the newest first', () =
 });
 
 test('counts each player’s matches of the season chosen, the member first', () => {
-  const players = comparedPlayers(board, seasons, roster, 'bob', 'all', 'all', 24);
+  const players = comparedPlayers(board, seasons, roster, 'bob', every, 'all', inSeason(24));
   expect(players.map((player) => [player.name, player.career.matches, player.career.goals])).toEqual([
     ['bob', 2, 0],
     ['alice', 2, 3],
     ['charlie', 1, 0],
   ]);
-  expect(comparedPlayers(board, seasons, roster, 'bob', 'all', 'all', 23)[0]?.career.goals).toBe(3);
-  expect(comparedPlayers(board, seasons, roster, 'bob', 'all', 'all', null)[0]?.career.matches).toBe(3);
+  expect(comparedPlayers(board, seasons, roster, 'bob', every, 'all', inSeason(23))[0]?.career.goals).toBe(3);
+  expect(comparedPlayers(board, seasons, roster, 'bob', every, 'all', inSeason(null))[0]?.career.matches).toBe(3);
 });
 
 test('takes the 2v2 peak of the account that climbed highest, and how far it fell from it', () => {
-  const [alice] = comparedPlayers(board, seasons, roster, 'alice', 'all', 'all', 24);
+  const [alice] = comparedPlayers(board, seasons, roster, 'alice', every, 'all', inSeason(24));
   expect(alice?.mmr).toEqual({ account: 'duo', peak: peak(1250, 16), fall: 70 });
-  const [solo] = comparedPlayers(board, seasons, roster, 'alice', 'all', 'solo', 24);
+  const [solo] = comparedPlayers(board, seasons, roster, 'alice', every, 'solo', inSeason(24));
   expect(solo?.mmr).toMatchObject({ account: 'solo', fall: 60 });
   // Every season: the highest peak, and the worst fall of a season.
-  const [always] = comparedPlayers(board, seasons, roster, 'alice', 'all', 'duo', null);
+  const [always] = comparedPlayers(board, seasons, roster, 'alice', every, 'duo', inSeason(null));
   expect(always?.mmr).toMatchObject({ peak: peak(1250, 16), fall: 70 });
-  expect(comparedPlayers(board, seasons, roster, 'alice', 'all', 'all', 24)[2]?.mmr).toBe(null);
+  expect(comparedPlayers(board, seasons, roster, 'alice', every, 'all', inSeason(24))[2]?.mmr).toBe(null);
 });
 
 test('counts the season’s exercises in pushups', () => {
-  const [alice] = comparedPlayers(board, seasons, roster, 'alice', 'all', 'all', 24);
+  const [alice] = comparedPlayers(board, seasons, roster, 'alice', every, 'all', inSeason(24));
   // 40 pushups, and a minute of plank worth 15.
   expect(alice?.pushups).toBe(55);
 });
 
 test('reads the endings of the matches as rates, each with its total: conceded, overtimes, forfeits, departures', () => {
-  const players = comparedPlayers(board, seasons, roster, 'alice', 'all', 'all', 24);
+  const players = comparedPlayers(board, seasons, roster, 'alice', every, 'all', inSeason(24));
   const row = (label: string) => {
     const stat = statNamed(label);
     return players.map((player) => [stat.value(player), stat.total?.(player) ?? null]);
@@ -146,13 +160,21 @@ test('reads the endings of the matches as rates, each with its total: conceded, 
     [1, null],
   ]);
   // What another line already says has no line of its own: the defeats, the overtimes lost.
-  const labels = tableStats('doubles', everyone()).map((stat) => stat.label);
+  const labels = tableStats(only('doubles'), everyone()).map((stat) => stat.label);
   expect(labels).not.toContain('Défaites');
   expect(labels).not.toContain('Prolongations perdues');
 });
 
 test('ranks the players, ties sharing the lead and those without a figure last', () => {
-  const players = comparedPlayers(board, seasons, ['alice', 'bob', 'charlie', 'dana'], 'alice', 'all', 'all', 24);
+  const players = comparedPlayers(
+    board,
+    seasons,
+    ['alice', 'bob', 'charlie', 'dana'],
+    'alice',
+    every,
+    'all',
+    inSeason(24),
+  );
   const wins = ranked(statNamed('Victoires'), players);
   expect(wins.lines.map((line) => [line.player.name, line.value])).toEqual([
     ['alice', 50],
@@ -171,18 +193,18 @@ test('ranks the players, ties sharing the lead and those without a figure last',
 });
 
 test('the table lights the best figure of a line, the lowest when less is better, none when all are equal', () => {
-  const players = comparedPlayers(board, seasons, roster, 'alice', 'all', 'all', 24);
+  const players = comparedPlayers(board, seasons, roster, 'alice', every, 'all', inSeason(24));
   expect(bestOf(statNamed('Buts'), players)).toBe(1.5);
   expect(bestOf(statNamed('Matchs quittés'), players)).toBe(0);
   expect(bestOf(statNamed('Clean sheets'), players)).toBe(null);
-  expect(tableStats('tournament', everyone()).map((stat) => stat.label)).toContain('Tournois gagnés');
-  expect(tableStats('doubles', everyone()).map((stat) => stat.label)).not.toContain('Tournois gagnés');
+  expect(tableStats(only('tournament-doubles'), everyone()).map((stat) => stat.label)).toContain('Tournois gagnés');
+  expect(tableStats(only('doubles'), everyone()).map((stat) => stat.label)).not.toContain('Tournois gagnés');
   // No collector 0.7.0 match in this season: none of its lines.
-  expect(tableStats('doubles', everyone()).map((stat) => stat.label)).not.toContain('Tirs');
+  expect(tableStats(only('doubles'), everyone()).map((stat) => stat.label)).not.toContain('Tirs');
 });
 
 test('an action reads per match, a win or an MVP as a share, each with its total; a streak stays a count', () => {
-  const players = comparedPlayers(board, seasons, roster, 'alice', 'all', 'all', 24);
+  const players = comparedPlayers(board, seasons, roster, 'alice', every, 'all', inSeason(24));
   const row = (label: string) => players.map((player) => statNamed(label).value(player));
   expect(row('Buts')).toEqual([1.5, 0, 0]);
   expect(players.map((player) => statNamed('Buts').total?.(player))).toEqual([3, 0, 0]);
@@ -217,7 +239,7 @@ test('places each player’s style against the club’s own, with no winner', ()
       aResult({ match_guid: 's1', name: 'bob', goals: 1, saves: 4, assists: 1 }),
     ],
   });
-  const players = comparedPlayers(styled, [], ['alice', 'bob', 'charlie'], 'alice', 'all', 'all', null);
+  const players = comparedPlayers(styled, [], ['alice', 'bob', 'charlie'], 'alice', every, 'all', inSeason(null));
   const [goalsPerSave, assistsPerGoal] = styleAxes;
   if (!goalsPerSave || !assistsPerGoal) throw new Error('two axes');
   // The club: 5 goals for 6 saves. Alice scores twice what she saves.
@@ -235,38 +257,56 @@ test('places each player’s style against the club’s own, with no winner', ()
   );
 });
 
-test('counts a match of unknown playlist in the ranked playlist of its size, so that every mode adds up', () => {
-  const old = (guid: string) =>
-    aResult({ match_guid: guid, name: 'alice', day: '2026-11-05', received: '2026-11-05T20:00:00Z', playlist: null });
+test('counts the ranked matches and the tournaments by their size, and a match of unknown playlist by its size', () => {
+  const line = (guid: string, playlist: number | null, team = 0, name = 'alice') =>
+    aResult({ match_guid: guid, name, player_id: `Epic|${name}|0`, team, day: '2026-11-05', playlist });
   const played = boardWith({
     results: [
-      old('two-v-two'),
-      old('three-v-three'),
-      old('odd'),
-      old('unknown'),
-      { ...old('ranked'), playlist: 11 },
-      { ...old('casual'), playlist: 6 },
+      line('ranked', 11),
+      line('casual', 2),
+      line('private', 6),
+      line('hoops', 27),
+      // A tournament's size is its biggest team, a player who left included.
+      line('cup-2v2', 34),
+      line('cup-2v2', 34, 0, 'bob'),
+      line('cup-2v2', 34, 1, 'rival'),
+      line('cup-3v3', 22),
+      line('cup-3v3', 22, 1, 'rival'),
+      line('cup-3v3', 22, 1, 'rival-2'),
+      line('cup-3v3', 22, 1, 'rival-3'),
+      // Received before the app kept playlists: the size of a scoreboard a source confirmed tells the mode.
+      line('old-2v2', null),
+      line('old-3v3', null),
+      // A 2v2 whose two opponents left ends with two players: Alice and Bob were still a team of two.
+      line('old-forfeit', null),
+      line('old-forfeit', null, 0, 'bob'),
+      // A 2v2 whose player left ends with three.
+      line('old-leaver', null),
+      // No scoreboard confirmed: no mode.
+      line('old-unknown', null),
     ],
-    // Received before the app kept playlists: only how many players each match expected tells its mode.
     matchRosters: [
-      { match_guid: 'two-v-two', expected_players: 4 },
-      { match_guid: 'three-v-three', expected_players: 6 },
-      { match_guid: 'odd', expected_players: 3 },
+      { match_guid: 'old-2v2', expected_players: 4 },
+      { match_guid: 'old-3v3', expected_players: 6 },
+      { match_guid: 'old-forfeit', expected_players: 2 },
+      { match_guid: 'old-leaver', expected_players: 3 },
     ],
   });
-  const matches = (scope: 'all' | 'doubles' | 'standard' | 'duel' | 'ranked') =>
-    comparedPlayers(played, [], ['alice'], 'alice', scope, 'all', null)[0]?.career.matches;
-  expect(matches('doubles')).toBe(2);
-  expect(matches('standard')).toBe(1);
-  expect(matches('duel')).toBe(0);
-  expect(matches('ranked')).toBe(3);
-  // A match of an odd size, or of no known size, counts in every match only.
-  expect(matches('all')).toBe(6);
+  const matches = (modes: ReadonlySet<StatsMode>) =>
+    comparedPlayers(played, [], ['alice'], 'alice', modes, 'all', null)[0]?.career.matches;
+  expect(matches(only('doubles'))).toBe(4);
+  expect(matches(only('standard'))).toBe(1);
+  expect(matches(only('duel'))).toBe(0);
+  expect(matches(only('tournament-doubles'))).toBe(1);
+  expect(matches(only('tournament-standard'))).toBe(1);
+  expect(matches(only('doubles', 'tournament-doubles'))).toBe(5);
+  // Every mode of the list: neither casual, private nor extra modes, nor a match of unknown mode.
+  expect(matches(every)).toBe(7);
 });
 
 test('names a player by their solo pseudo when only the solo accounts are compared', () => {
   const shown = (account: 'all' | 'duo' | 'solo') =>
-    comparedPlayers(board, seasons, roster, 'alice', 'all', account, 24).map((player) => player.shown);
+    comparedPlayers(board, seasons, roster, 'alice', every, account, inSeason(24)).map((player) => player.shown);
   expect(shown('solo')).toEqual(['alice-en-solo', 'bob', 'charlie']);
   expect(shown('all')).toEqual(['alice', 'bob', 'charlie']);
   expect(shown('duo')).toEqual(['alice', 'bob', 'charlie']);
@@ -286,7 +326,7 @@ test('a prize of something that happens in a match goes to its rate, its count b
       ending('o1', 'bob', { winner: 0, overtime: true }),
     ],
   });
-  const players = comparedPlayers(played, [], ['alice', 'bob'], 'alice', 'all', 'all', null);
+  const players = comparedPlayers(played, [], ['alice', 'bob'], 'alice', every, 'all', inSeason(null));
   const prize = (name: string) => {
     const found = prizes.find((candidate) => candidate.prize === name);
     if (!found) throw new Error(`${name} is a prize`);
@@ -320,7 +360,7 @@ test('the posts and the demolitions taken crown per match: who plays most does n
       aResult({ match_guid: 'p1', name: 'bob', crossbar_hits: 3 }),
     ],
   });
-  const players = comparedPlayers(posts, [], ['alice', 'bob'], 'alice', 'all', 'all', null);
+  const players = comparedPlayers(posts, [], ['alice', 'bob'], 'alice', every, 'all', inSeason(null));
   const posted = prizes.find((prize) => prize.prize === 'L’abonné aux montants');
   // Alice hit 4 posts in 2 matches, Bob 3 in 1: he wins it.
   expect(players.map((player) => posted?.value(player))).toEqual([2, 3]);
@@ -360,9 +400,9 @@ test('adds up the stats of collector 0.7.0, names the game’s events, and lines
       ...stats({}, {}).map((row) => ({ ...row, match_guid: 'older', game_stats: null })),
     ],
   });
-  const players = comparedPlayers(withGame, [], ['alice', 'bob'], 'alice', 'all', 'all', 24);
+  const players = comparedPlayers(withGame, [], ['alice', 'bob'], 'alice', every, 'all', inSeason(24));
   // The game's words follow the language it was played in: English here.
-  const table = tableStats('all', players, { BicycleHit: 'Bicycle Hit', Mystery: 'Mystery Event' });
+  const table = tableStats(every, players, { BicycleHit: 'Bicycle Hit', Mystery: 'Mystery Event' });
   const row = (label: string) => {
     const stat = table.find((candidate) => candidate.label === label);
     if (!stat) throw new Error(`${label} is in the table`);
@@ -388,7 +428,7 @@ test('adds up the stats of collector 0.7.0, names the game’s events, and lines
     expect(table.map((stat) => stat.label)).not.toContain(double);
   expect(table.filter((stat) => stat.label === 'MVP')).toHaveLength(1);
   // Per match, over the matches that came with them.
-  const perMatch = tableStats('all', players).find((stat) => stat.label === 'Touches de balle');
+  const perMatch = tableStats(every, players).find((stat) => stat.label === 'Touches de balle');
   expect(players.map((player) => perMatch?.value(player))).toEqual([30, 20]);
   // The demolitions taken count per match, over the matches that came with the game's feed: one each here.
   const punchingBall = prizes.find((prize) => prize.prize === 'Le punching-ball');
@@ -410,7 +450,7 @@ test('measures each account’s peak of the season against its peak all time bef
     ],
   });
   const gaps = (kind: 'solo' | 'duo', season: number | null) =>
-    comparedPlayers(ranked, seasons, ['alice', 'bob'], 'alice', 'all', 'all', season).map((player) => {
+    comparedPlayers(ranked, seasons, ['alice', 'bob'], 'alice', every, 'all', inSeason(season)).map((player) => {
       const gap = player.peakGaps[kind];
       return gap && [gap.peak, gap.allTime, gap.gap];
     });
@@ -425,7 +465,7 @@ test('measures each account’s peak of the season against its peak all time bef
   expect(gaps('duo', 23)).toEqual([[1120, null, null], null]);
   expect(gaps('duo', null)).toEqual([null, null]);
   // A best set by hand takes the colour of the rank it reaches on the ladder.
-  const [alice] = comparedPlayers(ranked, seasons, ['alice'], 'alice', 'all', 'all', 24);
+  const [alice] = comparedPlayers(ranked, seasons, ['alice'], 'alice', every, 'all', inSeason(24));
   expect(alice?.peakGaps.solo?.allTimeTier).toBeGreaterThan(0);
   expect(alice?.peakGaps.duo?.allTimeTier).toBe(17);
   expect(alice?.soloShown).toBe('alice-en-solo');

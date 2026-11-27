@@ -2,7 +2,7 @@ import type { SeasonMmr, SeasonPeak } from '../../lib/contract';
 import { pushupCredit } from '../../lib/domain';
 import { currentSeason } from '../../lib/season';
 import type { Board } from '../board';
-import { type Career, type CareerAccount, type CareerScope, careerOf, seasonOf, type Tally } from './career';
+import { type Career, type CareerAccount, careerOf, type StatsMode, seasonOf, type Tally } from './career';
 import { ratingOnLadder, soloReading } from './ladder';
 import { highestTier } from './stats';
 
@@ -104,14 +104,14 @@ function periodMmr(
   seasonMmr: readonly SeasonMmr[],
   name: string,
   account: CareerAccount,
-  season: number | null,
+  seasons: ReadonlySet<number> | null,
 ): PeriodMmr | null {
   const lines = seasonMmr.filter(
     (line) =>
       line.player === name &&
       (line.account === 'duo' || line.account === 'solo') &&
       (account === 'all' || line.account === account) &&
-      (season === null || line.season === season),
+      (seasons === null || seasons.has(line.season)),
   );
   const best = lines.reduce<(typeof lines)[number] | null>(
     (top, line) => (top && top.peak.mmr >= line.peak.mmr ? top : line),
@@ -126,12 +126,12 @@ function periodMmr(
   };
 }
 
-const pushupsOf = (board: Board, name: string, season: number | null) =>
+const pushupsOf = (board: Board, name: string, seasons: ReadonlySet<number> | null) =>
   board.exercises
     .filter(
       (exercise) =>
         exercise.player === name &&
-        (season === null || seasonOf({ day: exercise.day, received: exercise.created }) === season),
+        (seasons === null || seasons.has(seasonOf({ day: exercise.day, received: exercise.created }) ?? 0)),
     )
     .reduce((total, exercise) => total + pushupCredit(exercise), 0);
 
@@ -142,23 +142,26 @@ export function comparedPlayers(
   seasonMmr: readonly SeasonMmr[],
   roster: readonly string[],
   me: string | null,
-  scope: CareerScope,
+  modes: ReadonlySet<StatsMode>,
   account: CareerAccount,
-  season: number | null,
+  /** The seasons chosen, or every match when null. */
+  seasons: ReadonlySet<number> | null,
 ): ComparedPlayer[] {
+  // A podium of peaks compares one season.
+  const season = seasons?.size === 1 ? [...seasons][0] : null;
   const players = roster.map((name): ComparedPlayer => {
     const ranks = board.doublesRanks?.find((rank) => rank.player === name);
     return {
       name,
       shown: (account === 'solo' && ranks?.solo?.pseudo) || name,
       me: name === me,
-      career: careerOf(board, name, scope, account, season),
-      mmr: periodMmr(seasonMmr, name, account, season),
-      pushups: pushupsOf(board, name, season),
+      career: careerOf(board, name, modes, account, seasons),
+      mmr: periodMmr(seasonMmr, name, account, seasons),
+      pushups: pushupsOf(board, name, seasons),
       ids: new Set(board.results.filter((row) => row.name === name).map((row) => row.player_id.toLowerCase())),
       peakGaps: {
-        solo: peakGapOf(board, seasonMmr, name, 'solo', season),
-        duo: peakGapOf(board, seasonMmr, name, 'duo', season),
+        solo: peakGapOf(board, seasonMmr, name, 'solo', season ?? null),
+        duo: peakGapOf(board, seasonMmr, name, 'duo', season ?? null),
       },
       soloShown: ranks?.solo?.pseudo || name,
       tier: highestTier(ranks?.tier, soloReading(ranks)?.tier),
@@ -420,7 +423,7 @@ const gameRow = (
   ...extra,
 });
 
-const tableRows = (scope: CareerScope): TableRow[] => [
+const tableRows = (modes: ReadonlySet<StatsMode>): TableRow[] => [
   { section: 'Résultats', label: 'Matchs', total: (p) => counted(p, p.career.matches) },
   { section: 'Résultats', label: 'Victoires', total: (p) => counted(p, p.career.wins), perMatch: 'share' },
   { section: 'Résultats', label: 'MVP', total: (p) => counted(p, p.career.mvps), perMatch: 'share' },
@@ -431,7 +434,7 @@ const tableRows = (scope: CareerScope): TableRow[] => [
     total: (p) => counted(p, p.career.lossStreak),
     lowerIsBetter: true,
   },
-  ...(scope === 'tournament'
+  ...([...modes].some((mode) => mode.startsWith('tournament'))
     ? [
         {
           section: 'Résultats',
@@ -640,11 +643,11 @@ export interface TableStat extends Stat {
  * has a figure for (a stat no collector sent yet) is left out.
  */
 export const tableStats = (
-  scope: CareerScope,
+  modes: ReadonlySet<StatsMode>,
   players: readonly ComparedPlayer[],
   labels: Readonly<Record<string, string>> = {},
 ): TableStat[] =>
-  [...tableRows(scope), ...dataRows(players, labels)]
+  [...tableRows(modes), ...dataRows(players, labels)]
     .map((row): TableStat => {
       const {
         section,

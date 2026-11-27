@@ -115,28 +115,112 @@ export type CareerScope = 'all' | 'ranked' | 'duel' | 'doubles' | 'standard' | '
 /** Which of the player's accounts the matches were played on: the solo one, the duo one, or either. */
 export type CareerAccount = 'all' | 'solo' | 'duo';
 
+/**
+ * The modes the Stats page counts: each ranked playlist, and the tournaments by their size. Casual and private
+ * matches, the extra modes and a match of no known size are in none.
+ */
+export type StatsMode =
+  | 'duel'
+  | 'doubles'
+  | 'standard'
+  | 'tournament-duel'
+  | 'tournament-doubles'
+  | 'tournament-standard';
+
 const rankedPlaylists = { duel: 10, doubles: 11, standard: 13 } as const;
 
-function inScope(scope: CareerScope, playlist: number | null | undefined) {
-  if (scope === 'all') return true;
-  if (scope === 'ranked' || scope === 'tournament') return matchModeOf(playlist) === scope;
-  return playlist === rankedPlaylists[scope];
+/** The ranked playlist of each team size: 1v1, 2v2, 3v3. */
+const rankedOfSize: Readonly<Record<number, number>> = {
+  1: rankedPlaylists.duel,
+  2: rankedPlaylists.doubles,
+  3: rankedPlaylists.standard,
+};
+
+const tournamentOfSize: Readonly<Record<number, StatsMode>> = {
+  1: 'tournament-duel',
+  2: 'tournament-doubles',
+  3: 'tournament-standard',
+};
+
+/** What the club knows of a match's size: its players per team, and whether a source confirmed its scoreboard. */
+interface MatchSize {
+  perTeam: number;
+  confirmed: boolean;
 }
 
-/** The ranked playlist of each team size, by the players a match expects: 1v1, 2v2, 3v3. */
-const playlistOfSize: Readonly<Record<number, number>> = {
-  2: rankedPlaylists.duel,
-  4: rankedPlaylists.doubles,
-  6: rankedPlaylists.standard,
+/**
+ * Each match's players per team: the most players a team had, those who left included, or half the final
+ * scoreboard rounded up when a source confirmed it (a 2v2 whose player left ends with three).
+ */
+function matchSizesOf(board: Board): Map<string, MatchSize> {
+  const teams = new Map<string, [Set<string>, Set<string>]>();
+  for (const row of board.results) {
+    if (row.kind !== 'match' || row.review_required || (row.team !== 0 && row.team !== 1)) continue;
+    const [blue, orange] = teams.get(row.match_guid) ?? [new Set<string>(), new Set<string>()];
+    (row.team === 0 ? blue : orange).add(row.player_id.toLowerCase());
+    teams.set(row.match_guid, [blue, orange]);
+  }
+  const expected = new Map((board.matchRosters ?? []).map((roster) => [roster.match_guid, roster.expected_players]));
+  const sizes = new Map<string, MatchSize>();
+  for (const guid of new Set([...teams.keys(), ...expected.keys()])) {
+    const [blue, orange] = teams.get(guid) ?? [new Set(), new Set()];
+    const players = expected.get(guid);
+    const confirmed = typeof players === 'number' && players > 0;
+    const perTeam = Math.max(blue.size, orange.size, confirmed ? Math.ceil(players / 2) : 0);
+    sizes.set(guid, { perTeam, confirmed });
+  }
+  return sizes;
+}
+
+// The board's matches are read for every player and every filter: their sizes, once per board.
+const sizesCache = new WeakMap<Board['results'], Map<string, MatchSize>>();
+const matchSizes = (board: Board) => {
+  const known = sizesCache.get(board.results);
+  if (known) return known;
+  const sizes = matchSizesOf(board);
+  sizesCache.set(board.results, sizes);
+  return sizes;
 };
 
 /**
  * A match's playlist, or for one whose playlist no source sent (most were received before the app kept it, on
- * 12 November 2026), the ranked playlist of its size: a guess, which counts a casual or private match of that size
- * with the ranked ones, chosen so that every match counts in a mode. A match of an odd size stays in none.
+ * 12 November 2026), the ranked playlist of its size, once a source confirmed its scoreboard: a guess, which counts a
+ * casual or private match of that size with the ranked ones. The club plays neither, or a handful.
  */
-export const playlistOf = (playlist: number | null | undefined, expectedPlayers: number | null | undefined) =>
-  playlist ?? playlistOfSize[expectedPlayers ?? 0] ?? null;
+export const playlistOf = (playlist: number | null | undefined, size: MatchSize | undefined) =>
+  playlist ?? (size?.confirmed ? (rankedOfSize[size.perTeam] ?? null) : null);
+
+/** The Stats page's mode of a match: its ranked playlist, or a tournament of its size; null for any other. */
+export function statsModeOf(playlist: number | null | undefined, size: MatchSize | undefined): StatsMode | null {
+  const played = playlistOf(playlist, size);
+  if (played === rankedPlaylists.duel) return 'duel';
+  if (played === rankedPlaylists.doubles) return 'doubles';
+  if (played === rankedPlaylists.standard) return 'standard';
+  if (matchModeOf(played) === 'tournament') return tournamentOfSize[size?.perTeam ?? 0] ?? null;
+  return null;
+}
+
+/** The modes the club played a match of, among those the Stats page counts. */
+export function modesPlayed(board: Board): Set<StatsMode> {
+  const sizes = matchSizes(board);
+  return new Set(
+    board.results
+      .filter((row) => row.kind === 'match' && !row.review_required)
+      .map((row) => statsModeOf(row.playlist, sizes.get(row.match_guid)))
+      .filter((mode) => mode !== null),
+  );
+}
+
+function inScope(scope: CareerScope | ReadonlySet<StatsMode>, playlist: number | null, size: MatchSize | undefined) {
+  if (typeof scope !== 'string') {
+    const mode = statsModeOf(playlist, size);
+    return mode !== null && scope.has(mode);
+  }
+  if (scope === 'all') return true;
+  const played = playlistOf(playlist, size);
+  if (scope === 'ranked' || scope === 'tournament') return matchModeOf(played) === scope;
+  return played === rankedPlaylists[scope];
+}
 
 /** The game ID of the player's solo account, in lower case, once the rank source found it. */
 export const soloAccountOf = (board: Board, name: string): string | null =>
@@ -161,14 +245,15 @@ const added = (total: number | null, value: number | null | undefined) =>
 export function careerOf(
   board: Board,
   name: string,
-  scope: CareerScope,
+  /** A view of the player's sheet, or the Stats page's modes. */
+  scope: CareerScope | ReadonlySet<StatsMode>,
   account: CareerAccount = 'all',
-  /** One competitive season, or every match when null. */
-  season: number | null = null,
+  /** The competitive seasons counted, or every match when null. */
+  seasons: ReadonlySet<number> | null = null,
 ): Career {
   const solo = soloAccountOf(board, name);
   const index = matchIndex(board.results, board.matchRosters ?? []);
-  const sizes = new Map((board.matchRosters ?? []).map((roster) => [roster.match_guid, roster.expected_players]));
+  const sizes = matchSizes(board);
   const lines = new Map(
     board.results
       .filter(
@@ -176,9 +261,9 @@ export function careerOf(
           row.name === name &&
           row.kind === 'match' &&
           !row.review_required &&
-          inScope(scope, playlistOf(row.playlist, sizes.get(row.match_guid))) &&
+          inScope(scope, row.playlist, sizes.get(row.match_guid)) &&
           onAccount(account, solo, row.player_id) &&
-          (season === null || seasonOf(row) === season),
+          (seasons === null || seasons.has(seasonOf(row) ?? 0)),
       )
       .map((row) => [row.match_guid, row]),
   );
