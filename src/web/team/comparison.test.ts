@@ -235,14 +235,19 @@ test('leads with attack, team play, defence, demolitions and the MVPs, then the 
   expect(prizes.map((prize) => prize.prize)).toContain('Le démolisseur');
 });
 
-test('counts the shots and the demolitions per match over the matches that came with them', () => {
+test('counts the shots and the demolitions per match over the matches that came with them, the shots over ten', () => {
   const counted = boardWith({
     results: [
       aResult({ match_guid: 'm1', name: 'alice', demos: 3, game_stats: { shots: 5 } }),
       aResult({ match_guid: 'm2', name: 'alice', demos: 1, game_stats: { shots: 2 } }),
+      ...[1, 4, 3, 5, 2, 1, 4, 3].map((shots, index) =>
+        aResult({ match_guid: `m${index + 4}`, name: 'alice', demos: 0, game_stats: { shots } }),
+      ),
       // An older collector: neither the shots nor the demolitions are known.
       aResult({ match_guid: 'm3', name: 'alice' }),
-      aResult({ match_guid: 'm1', name: 'bob' }),
+      // Bob shot 19 times in 2 matches, one of them a long overtime: too few matches for an average.
+      aResult({ match_guid: 'm1', name: 'bob', demos: 1, game_stats: { shots: 8 } }),
+      aResult({ match_guid: 'm2', name: 'bob', demos: 1, game_stats: { shots: 11 } }),
     ],
   });
   const players = comparedPlayers(counted, seasons, ['alice', 'bob'], 'alice', every, 'all', null);
@@ -252,12 +257,18 @@ test('counts the shots and the demolitions per match over the matches that came 
     return players.map((player) => [player.name, stat.value(player)]);
   };
   expect(figure('Tirs / match')).toEqual([
-    ['alice', 3.5],
+    ['alice', 3],
     ['bob', null],
   ]);
   expect(figure('Démos / match')).toEqual([
-    ['alice', 2],
-    ['bob', null],
+    ['alice', 0.4],
+    ['bob', 1],
+  ]);
+  // The table hides Bob's average too; his total stays.
+  const shots = tableStats(every, players).find((stat) => stat.label === 'Tirs');
+  expect(players.map((player) => [shots?.value(player), shots?.total?.(player)])).toEqual([
+    [3, 30],
+    [null, 19],
   ]);
 });
 
@@ -346,12 +357,11 @@ test('a prize of something that happens in a match goes to its rate, its count b
     aResult({ match_guid: guid, name, blue_goals: 2, orange_goals: 1, ...parts });
   const played = boardWith({
     results: [
-      // Alice: three overtimes, two won; two clean sheets in four matches.
+      // Alice: three overtimes, two won; two clean sheets in ten matches.
       ending('o1', 'alice', { winner: 0, overtime: true, orange_goals: 0 }),
       ending('o2', 'alice', { winner: 0, overtime: true, orange_goals: 0 }),
       ending('o3', 'alice', { winner: 1, overtime: true }),
-      ending('o4', 'alice', { winner: 0 }),
-      ending('o5', 'alice', { winner: 0 }),
+      ...[4, 5, 6, 7, 8, 9, 10].map((n) => ending(`o${n}`, 'alice', { winner: 0 })),
       // Bob: one overtime won, too few to crown him, and a single match: too few for a rate's prize.
       ending('o1', 'bob', { winner: 0, overtime: true }),
     ],
@@ -367,7 +377,7 @@ test('a prize of something that happens in a match goes to its rate, its count b
     [null, 1],
   ]);
   expect(prize('Le mur')).toEqual([
-    [40, 2],
+    [20, 2],
     [null, 0],
   ]);
   expect(prize('Le fugueur')).toEqual([
@@ -380,15 +390,16 @@ test('a prize of something that happens in a match goes to its rate, its count b
   expect(prizes.find((candidate) => candidate.prize === 'Le noctambule')?.total).toBeUndefined();
 });
 
-test('the posts crown per match, over five matches at least: who plays most does not win them', () => {
+test('the posts crown per match, over ten matches at least: who plays most does not win them', () => {
   const posts = (name: string, hits: (number | null)[]) =>
     hits.map((crossbar_hits, index) => aResult({ match_guid: `${name}-${index}`, name, crossbar_hits }));
   const played = boardWith({
     results: [
-      // Alice hit 8 posts in 8 matches; an older collector sent no count for a ninth, which does not lower her average.
-      ...posts('alice', [3, 1, 0, 0, 1, 2, 0, 1, null]),
-      // Bob, 10 in 5: he wins it.
-      ...posts('bob', [2, 2, 2, 2, 2]),
+      // Alice hit 10 posts in 10 matches; an older collector sent no count for an eleventh, which does not lower her
+      // average.
+      ...posts('alice', [3, 1, 0, 0, 1, 2, 0, 1, 0, 2, null]),
+      // Bob, 20 in 10: he wins it.
+      ...posts('bob', [2, 2, 2, 2, 2, 2, 2, 2, 2, 2]),
       // Charlie, 3 in 1: too few matches to take it.
       ...posts('charlie', [3]),
     ],
@@ -411,22 +422,29 @@ test('adds up the stats of collector 0.7.0, names the game’s events, and lines
         game_stats: name === 'alice' ? alice : bob,
       }),
     );
+  // Ten matches alike: the newest collector's averages show over ten matches at least.
+  const tenTimes = (rows: ReturnType<typeof stats>) =>
+    [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].flatMap((n) =>
+      rows.map((row) => ({ ...row, match_guid: `${row.match_guid}-${n}` })),
+    );
   const withGame = boardWith({
     results: [
-      ...stats(
-        {
-          shots: 4,
-          touches: 30,
-          kickoffTouches: 2,
-          statfeed: { Save: 1, AerialGoal: 1, BicycleHit: 2, MVP: 1, Win: 1, Mystery: 1 },
-          fastestGoal: 116.3,
-          statfeedSecondary: { Demolish: 2 },
-          assistsTo: { 'Epic|bob|0': 1 },
-          hardestHit: 2500,
-          longestGoal: 4000,
-          quickestGoal: 9.5,
-        },
-        { shots: 2, touches: 20, kickoffTouches: 1, statfeed: {}, hardestHit: 3000, quickestGoal: 12 },
+      ...tenTimes(
+        stats(
+          {
+            shots: 4,
+            touches: 30,
+            kickoffTouches: 2,
+            statfeed: { Save: 1, AerialGoal: 1, BicycleHit: 2, MVP: 1, Win: 1, Mystery: 1 },
+            fastestGoal: 116.3,
+            statfeedSecondary: { Demolish: 2 },
+            assistsTo: { 'Epic|bob|0': 1 },
+            hardestHit: 2500,
+            longestGoal: 4000,
+            quickestGoal: 9.5,
+          },
+          { shots: 2, touches: 20, kickoffTouches: 1, statfeed: {}, hardestHit: 3000, quickestGoal: 12 },
+        ),
       ),
       // A match of an older collector: it counts in the matches, not in these stats.
       ...stats({}, {}).map((row) => ({ ...row, match_guid: 'older', game_stats: null })),
@@ -450,7 +468,7 @@ test('adds up the stats of collector 0.7.0, names the game’s events, and lines
   expect(row('Mystery Event')).toEqual([1, 0]);
   expect(row('But le plus rapide')).toEqual([116.3, null]);
   expect(row('Subi : Démolition')).toEqual([2, 0]);
-  expect(row('Pour bob')).toEqual([1, null]);
+  expect(row('Pour bob')).toEqual([10, null]);
   expect(row('Pour alice')).toEqual([null, 0]);
   expect(row('Frappe la plus puissante')).toEqual([2500, 3000]);
   expect(row('But le plus rapide après le coup d’envoi')).toEqual([9.5, 12]);
@@ -462,11 +480,10 @@ test('adds up the stats of collector 0.7.0, names the game’s events, and lines
   // Per match, over the matches that came with them.
   const perMatch = tableStats(every, players).find((stat) => stat.label === 'Touches de balle');
   expect(players.map((player) => perMatch?.value(player))).toEqual([30, 20]);
-  // The demolitions taken count per match, over the matches that came with the game's feed: one each here, too few
-  // for the prize.
+  // The demolitions taken count per match, over the matches that came with the game's feed.
   const punchingBall = prizes.find((prize) => prize.prize === 'Le punching-ball');
   expect(punchingBall?.format).toBe('perMatch');
-  expect(players.map((player) => punchingBall?.value(player))).toEqual([null, null]);
+  expect(players.map((player) => punchingBall?.value(player))).toEqual([2, 0]);
   expect(row('Subi : Démolition')).toEqual([2, 0]);
 });
 

@@ -157,6 +157,21 @@ const accuracy = (player: ComparedPlayer) => {
 const feed = (player: ComparedPlayer, name: string, side: 'statfeed' | 'statfeedSecondary') =>
   player.career.game.statfeedMatches === 0 ? null : (player.career.game[side].get(name) ?? 0);
 
+/**
+ * The matches a rate needs at least, to take a prize or when only the newest collector measured it, as many as the
+ * game's placement matches for a rank: one lucky match makes no champion, and two matches, one of them a long
+ * overtime, make no average.
+ */
+export const prizeMinimum = 10;
+
+/** A rate over enough matches: none over fewer than the minimum. */
+const rated = (value: number | null, of: number) => (of < prizeMinimum ? null : value);
+const averageFor = (player: ComparedPlayer, total: number | null, of = player.career.matches) =>
+  rated(average(player, total, of), of);
+const shareFor = (player: ComparedPlayer, count: number | null, of = player.career.matches) =>
+  rated(share(player, count, of), of);
+const talliedFor = (tally: Tally) => rated(tallied(tally), tally.matches);
+
 const matches: Stat = { label: 'Matchs', format: 'count', value: (p) => counted(p, p.career.matches) };
 const goals: Stat = {
   label: 'Buts / match',
@@ -176,11 +191,14 @@ const saves: Stat = {
   value: (p) => average(p, p.career.saves),
   pros: { slug: 'arrets', figure: (pro) => pro.saves },
 };
-/** Over the matches that came with them: collector 0.7.0 for the shots, 0.6.0 for the demolitions. */
+/**
+ * Over the matches that came with them: collector 0.6.0 for the demolitions, 0.7.0 for the shots, ten at least: the
+ * newest collector came with few matches yet.
+ */
 const shots: Stat = {
   label: 'Tirs / match',
   format: 'perMatch',
-  value: (p) => tallied(p.career.game.shots),
+  value: (p) => talliedFor(p.career.game.shots),
   pros: { slug: 'tirs', figure: (pro) => pro.shots },
 };
 const demos: Stat = {
@@ -256,20 +274,9 @@ export function styleOf(
   return { club, lines };
 }
 
-/** The matches a prize given to a rate needs at least: one lucky match makes no champion. */
-export const prizeMinimum = 5;
-
-/** A rate that can take a prize: none over fewer matches than the minimum. */
-const rated = (value: number | null, of: number) => (of < prizeMinimum ? null : value);
-const averageFor = (player: ComparedPlayer, total: number | null, of = player.career.matches) =>
-  rated(average(player, total, of), of);
-const shareFor = (player: ComparedPlayer, count: number | null, of = player.career.matches) =>
-  rated(share(player, count, of), of);
-const talliedFor = (tally: Tally) => rated(tallied(tally), tally.matches);
-
 /**
  * The fun ones, each with its prize. A prize of something that happens in a match goes to its rate, per match or in
- * share of the matches, over the matches that came with it, five at least: who plays most would win it otherwise, and
+ * share of the matches, over the matches that came with it, ten at least: who plays most would win it otherwise, and
  * who played once by luck. Its total, how many times it happened, shows beside it in small.
  */
 export const prizes: Prize[] = [
@@ -388,6 +395,8 @@ interface TableRow {
   perMatch?: 'average' | 'share';
   /** What the rate divides by: the matches the figure was measured in, by default every match. */
   measuredIn?: (player: ComparedPlayer) => number;
+  /** The fewest of `measuredIn` the rate shows over: ten matches for a stat of the newest collector. */
+  minimum?: number;
   /** Whether the total shows what it was counted among (« 12 sur 36 »), when no other line says it. */
   showOf?: boolean;
   format?: StatFormat;
@@ -407,6 +416,7 @@ const gameRow = (
   total: (p) => total(of(p.career.game)),
   perMatch: 'average',
   measuredIn: (p) => of(p.career.game).matches,
+  minimum: prizeMinimum,
   ...extra,
 });
 
@@ -452,6 +462,8 @@ const tableRows = (modes: ReadonlySet<StatsMode>): TableRow[] => [
     total: (p) => (p.career.game.shots.total === 0 ? null : p.career.game.goalsOnShots),
     perMatch: 'share',
     measuredIn: (p) => p.career.game.shots.total,
+    // Ten shots at least, as L’œil de lynx.
+    minimum: 10,
     showOf: true,
   },
   {
@@ -483,6 +495,7 @@ const tableRows = (modes: ReadonlySet<StatsMode>): TableRow[] => [
     total: (p) => total(p.career.game.ownGoals),
     perMatch: 'average',
     measuredIn: (p) => p.career.game.ownGoals.matches,
+    minimum: prizeMinimum,
     lowerIsBetter: true,
   },
   gameRow('Dans le jeu', 'Touches de balle', (game) => game.touches),
@@ -596,6 +609,7 @@ function dataRows(players: readonly ComparedPlayer[], labels: Readonly<Record<st
     total: (p) => feed(p, name, side),
     perMatch: 'average',
     measuredIn: (p) => p.career.game.statfeedMatches,
+    minimum: prizeMinimum,
     ...(side === 'statfeedSecondary' && { lowerIsBetter: true }),
   });
   const assistsTo = (giver: ComparedPlayer, scorer: ComparedPlayer) =>
@@ -648,6 +662,7 @@ export const tableStats = (
         total,
         perMatch,
         measuredIn,
+        minimum = 0,
         showOf,
         format = 'count',
         perMatchFormat,
@@ -656,14 +671,18 @@ export const tableStats = (
       const base = { section, label, ...(lowerIsBetter && { lowerIsBetter }) };
       if (!perMatch) return { ...base, perMatch: false, format, value: total };
       const of = (player: ComparedPlayer) => measuredIn?.(player) ?? player.career.matches;
+      const enough = (player: ComparedPlayer, value: number | null) => (of(player) < minimum ? null : value);
       return {
         ...base,
         perMatch: true,
         total,
         ...(showOf && { of }),
         ...(perMatch === 'average'
-          ? { format: perMatchFormat ?? 'perMatch', value: (p: ComparedPlayer) => average(p, total(p), of(p)) }
-          : { format: 'percent', value: (p: ComparedPlayer) => share(p, total(p), of(p)) }),
+          ? {
+              format: perMatchFormat ?? 'perMatch',
+              value: (p: ComparedPlayer) => enough(p, average(p, total(p), of(p))),
+            }
+          : { format: 'percent', value: (p: ComparedPlayer) => enough(p, share(p, total(p), of(p))) }),
       };
     })
     .filter((stat) => players.some((player) => stat.value(player) !== null))

@@ -343,7 +343,7 @@ test('crowns the prizes and lights the best of each line of the table', async ()
   expect(within(owl).queryByText(/Il te manque/)).not.toBeInTheDocument();
   // Two matches each: too few for a prize given to a rate, such as the matches left.
   expect(screen.queryByRole('heading', { name: 'Le fugueur' })).not.toBeInTheDocument();
-  expect(screen.getByText(/Un prix au match se joue sur 5 matchs au moins/)).toBeInTheDocument();
+  expect(screen.getByText(/Un prix au match se joue sur 10 matchs au moins/)).toBeInTheDocument();
   // No collector counted the demolitions of these matches: that prize waits.
   expect(screen.queryByRole('heading', { name: 'Le démolisseur' })).not.toBeInTheDocument();
   const goals = () =>
