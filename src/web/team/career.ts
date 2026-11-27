@@ -108,7 +108,7 @@ function addGame(game: GameTally, stats: GameStats, goals: number, playlist: num
 
 /**
  * Which matches count: every one, the ranked ones, one ranked playlist (1v1, 2v2, 3v3), or the tournaments. A match
- * whose playlist no source sent only counts in all of them.
+ * whose playlist no source sent counts in the ranked playlist of its size (see `playlistOf`).
  */
 export type CareerScope = 'all' | 'ranked' | 'duel' | 'doubles' | 'standard' | 'tournament';
 
@@ -122,6 +122,21 @@ function inScope(scope: CareerScope, playlist: number | null | undefined) {
   if (scope === 'ranked' || scope === 'tournament') return matchModeOf(playlist) === scope;
   return playlist === rankedPlaylists[scope];
 }
+
+/** The ranked playlist of each team size, by the players a match expects: 1v1, 2v2, 3v3. */
+const playlistOfSize: Readonly<Record<number, number>> = {
+  2: rankedPlaylists.duel,
+  4: rankedPlaylists.doubles,
+  6: rankedPlaylists.standard,
+};
+
+/**
+ * A match's playlist, or for one whose playlist no source sent (most were received before the app kept it, on
+ * 12 November 2026), the ranked playlist of its size: a guess, which counts a casual or private match of that size
+ * with the ranked ones, chosen so that every match counts in a mode. A match of an odd size stays in none.
+ */
+export const playlistOf = (playlist: number | null | undefined, expectedPlayers: number | null | undefined) =>
+  playlist ?? playlistOfSize[expectedPlayers ?? 0] ?? null;
 
 /** The game ID of the player's solo account, in lower case, once the rank source found it. */
 export const soloAccountOf = (board: Board, name: string): string | null =>
@@ -153,6 +168,7 @@ export function careerOf(
 ): Career {
   const solo = soloAccountOf(board, name);
   const index = matchIndex(board.results, board.matchRosters ?? []);
+  const sizes = new Map((board.matchRosters ?? []).map((roster) => [roster.match_guid, roster.expected_players]));
   const lines = new Map(
     board.results
       .filter(
@@ -160,7 +176,7 @@ export function careerOf(
           row.name === name &&
           row.kind === 'match' &&
           !row.review_required &&
-          inScope(scope, row.playlist) &&
+          inScope(scope, playlistOf(row.playlist, sizes.get(row.match_guid))) &&
           onAccount(account, solo, row.player_id) &&
           (season === null || seasonOf(row) === season),
       )

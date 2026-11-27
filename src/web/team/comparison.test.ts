@@ -235,6 +235,35 @@ test('places each player’s style against the club’s own, with no winner', ()
   );
 });
 
+test('counts a match of unknown playlist in the ranked playlist of its size, so that every mode adds up', () => {
+  const old = (guid: string) =>
+    aResult({ match_guid: guid, name: 'alice', day: '2026-11-05', received: '2026-11-05T20:00:00Z', playlist: null });
+  const played = boardWith({
+    results: [
+      old('two-v-two'),
+      old('three-v-three'),
+      old('odd'),
+      old('unknown'),
+      { ...old('ranked'), playlist: 11 },
+      { ...old('casual'), playlist: 6 },
+    ],
+    // Received before the app kept playlists: only how many players each match expected tells its mode.
+    matchRosters: [
+      { match_guid: 'two-v-two', expected_players: 4 },
+      { match_guid: 'three-v-three', expected_players: 6 },
+      { match_guid: 'odd', expected_players: 3 },
+    ],
+  });
+  const matches = (scope: 'all' | 'doubles' | 'standard' | 'duel' | 'ranked') =>
+    comparedPlayers(played, [], ['alice'], 'alice', scope, 'all', null)[0]?.career.matches;
+  expect(matches('doubles')).toBe(2);
+  expect(matches('standard')).toBe(1);
+  expect(matches('duel')).toBe(0);
+  expect(matches('ranked')).toBe(3);
+  // A match of an odd size, or of no known size, counts in every match only.
+  expect(matches('all')).toBe(6);
+});
+
 test('names a player by their solo pseudo when only the solo accounts are compared', () => {
   const shown = (account: 'all' | 'duo' | 'solo') =>
     comparedPlayers(board, seasons, roster, 'alice', 'all', account, 24).map((player) => player.shown);
