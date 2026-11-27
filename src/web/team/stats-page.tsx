@@ -3,18 +3,28 @@ import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { cn } from 'cn';
 import {
   Bomb,
+  Bug,
   ChevronRight,
   Crosshair,
+  Crown,
   DoorOpen,
   Dumbbell,
   Eye,
   Flag,
+  Fuel,
+  Gauge,
   Ghost,
   Goal,
+  Hand,
   type LucideIcon,
+  Magnet,
   Moon,
+  Nut,
+  Plane,
+  RefreshCcw,
   Rocket,
   ShieldCheck,
+  Sparkles,
   Target,
   Timer,
   TrendingDown,
@@ -626,6 +636,16 @@ const prizeIcons: Record<string, LucideIcon> = {
   'Le roi du kickoff': Flag,
   'Le punching-ball': Target,
   'Le traître': Ghost,
+  'Le magicien': Sparkles,
+  'L’acrobate': RefreshCcw,
+  'Le dernier rempart': Hand,
+  'Le chapelier': Crown,
+  'L’aviateur': Plane,
+  'Le confisqueur': Magnet,
+  'L’aspirateur': Fuel,
+  'La fusée': Gauge,
+  'L’araignée': Bug,
+  'L’écureuil': Nut,
 };
 
 /**
@@ -689,6 +709,7 @@ function PrizeShelf({ players }: { players: ComparedPlayer[] }) {
           ? 'Aucun pour toi cette fois. La revanche est à un match.'
           : `Tu en remportes ${formatNumber(won)} sur ${formatNumber(shelf.length)}.`}{' '}
         Un prix au match se joue sur {prizeMinimum} matchs au moins.
+        {shelf.some(({ prize }) => prize.estimated) && ` ≈ : estimé à ±${estimateMargin} % près.`}
       </p>
       <ul className="m-0 grid list-none grid-cols-2 gap-3 p-0 md:grid-cols-3 lg:grid-cols-4">
         {shelf.map(({ prize, lines, leaders, won: mine }) => {
@@ -716,7 +737,10 @@ function PrizeShelf({ players }: { players: ComparedPlayer[] }) {
               </span>
               <span className="flex min-w-0 flex-col gap-0.5">
                 <h3 className="title-display text-[18px] [line-height:1.1]">{prize.prize}</h3>
-                <span className="text-[12px] text-t3 [line-height:1.3]">{prize.label}</span>
+                <span className="text-[12px] text-t3 [line-height:1.3]">
+                  {prize.label}
+                  {prize.estimated && ' ≈'}
+                </span>
               </span>
               <ol aria-label={`Classement : ${prize.prize}`} className="m-0 mt-auto flex list-none flex-col gap-2 p-0">
                 {lines.map((line) => (
@@ -732,7 +756,9 @@ function PrizeShelf({ players }: { players: ComparedPlayer[] }) {
                 {mine
                   ? 'Il est à toi.'
                   : !leader
-                    ? 'Personne pour l’instant : pas encore assez de matchs ici.'
+                    ? lines.every((line) => line.value === null)
+                      ? 'Pas encore de chiffre pour ce prix.'
+                      : 'Personne pour l’instant.'
                     : me?.value != null
                       ? `Il te manque ${gapOf(leader.value, me.value, prize.format)}.`
                       : null}

@@ -342,9 +342,10 @@ test('crowns the prizes and lights the best of each line of the table', async ()
       .map((line) => line.textContent),
   ).toEqual(['alice0', 'bob0']);
   expect(within(owl).queryByText(/Il te manque/)).not.toBeInTheDocument();
+  expect(owl).toHaveTextContent('Personne pour l’instant.');
   // Two matches each: too few for a prize given to a rate, such as the matches left. It shows all the same.
   const runaway = screen.getByRole('heading', { name: 'Le fugueur' }).closest('li') as HTMLElement;
-  expect(runaway).toHaveTextContent('Personne pour l’instant : pas encore assez de matchs ici.');
+  expect(runaway).toHaveTextContent('Pas encore de chiffre pour ce prix.');
   expect(screen.getByText(/Un prix au match se joue sur 10 matchs au moins/)).toBeInTheDocument();
   // No collector counted the demolitions of these matches: that prize waits, and says so.
   const demolisher = screen.getByRole('heading', { name: 'Le démolisseur' }).closest('li') as HTMLElement;
@@ -468,7 +469,9 @@ test('marks the estimated stats and says their margin of error under the table',
   const pickups = await screen.findByRole('rowheader', { name: /Pastilles ramassées/ });
   expect(pickups).toHaveTextContent('Pastilles ramassées≈');
   expect(screen.getByRole('rowheader', { name: 'Supersonique' })).not.toHaveTextContent('≈');
-  expect(screen.getByText(/≈ : estimé à ±2 % près/)).toBeInTheDocument();
+  // Under the table, and under the prizes, which have an estimated one too.
+  expect(screen.getAllByText(/≈ : estimé à ±2 % près/)).toHaveLength(2);
+  expect(screen.getByText(/on les compte aux hausses du boost/)).toBeInTheDocument();
   expect(screen.getByText(/ton équipe seulement/)).toBeInTheDocument();
 });
 
