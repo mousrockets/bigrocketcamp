@@ -197,10 +197,15 @@ test('the table lights the best figure of a line, the lowest when less is better
   expect(bestOf(statNamed('Buts'), players)).toBe(1.5);
   expect(bestOf(statNamed('Matchs quittés'), players)).toBe(0);
   expect(bestOf(statNamed('Clean sheets'), players)).toBe(null);
-  expect(tableStats(only('tournament-doubles'), everyone()).map((stat) => stat.label)).toContain('Tournois gagnés');
-  expect(tableStats(only('doubles'), everyone()).map((stat) => stat.label)).not.toContain('Tournois gagnés');
-  // No collector 0.7.0 match in this season: none of its lines.
-  expect(tableStats(only('doubles'), everyone()).map((stat) => stat.label)).not.toContain('Tirs');
+  const valuesOf = (modes: ReadonlySet<StatsMode>, label: string) => {
+    const stat = tableStats(modes, everyone()).find((candidate) => candidate.label === label);
+    if (!stat) throw new Error(`${label} is in the table`);
+    return everyone().map((player) => stat.value(player));
+  };
+  // Every line shows: a tournament is only won in a tournament, « – » elsewhere.
+  expect(valuesOf(only('doubles'), 'Tournois gagnés')).toEqual([null, null, null]);
+  // No collector 0.7.0 match in this season: its lines read « – ».
+  expect(valuesOf(only('doubles'), 'Tirs')).toEqual([null, null, null]);
 });
 
 test('an action reads per match, a win or an MVP as a share, each with its total; a streak stays a count', () => {
@@ -593,8 +598,10 @@ test('reads the boost, the moves and the possession of collector 0.8.0, over ten
   expect(table.map((stat) => stat.section)).toContain('Le mouvement');
 });
 
-test('shows none of the boost and moves before collector 0.8.0', () => {
-  const labels = tableStats(only('doubles'), everyone()).map((stat) => stat.label);
-  expect(labels).not.toContain('Pastilles ramassées');
-  expect(labels).not.toContain('Possession');
+test('shows the boost and moves before collector 0.8.0 too, with no figure', () => {
+  const table = tableStats(only('doubles'), everyone());
+  for (const label of ['Pastilles ramassées', 'Possession', 'Flip reset', 'Subi : Démolition']) {
+    const stat = table.find((candidate) => candidate.label === label);
+    expect(everyone().map((player) => stat?.value(player))).toEqual([null, null, null]);
+  }
 });

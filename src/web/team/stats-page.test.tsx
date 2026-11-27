@@ -231,10 +231,11 @@ test('gives each player the pro with the same style, in Ranked 2v2 only', async 
   ).toEqual(['bobReyyynn']);
 });
 
-test('gives no pro twin outside Ranked 2v2', async () => {
+test('gives no pro twin outside Ranked 2v2, and says where to find one', async () => {
   renderInApp(<StatsPage />, { board, path: '/stats?mode=tout' });
-  await screen.findByRole('region', { name: 'Buts / match' });
-  expect(screen.queryByRole('region', { name: 'Les jumeaux pros' })).not.toBeInTheDocument();
+  const twins = await screen.findByRole('region', { name: 'Les jumeaux pros' });
+  expect(twins).toHaveTextContent('Les pros jouent en 2v2 ranked');
+  expect(within(twins).getByRole('link', { name: 'Voir le 2v2 seul' })).toHaveAttribute('href', '/stats?mode=2v2');
 });
 
 test('places each player’s style on two axes, against the club, with no winner', async () => {
@@ -341,11 +342,17 @@ test('crowns the prizes and lights the best of each line of the table', async ()
       .map((line) => line.textContent),
   ).toEqual(['alice0', 'bob0']);
   expect(within(owl).queryByText(/Il te manque/)).not.toBeInTheDocument();
-  // Two matches each: too few for a prize given to a rate, such as the matches left.
-  expect(screen.queryByRole('heading', { name: 'Le fugueur' })).not.toBeInTheDocument();
+  // Two matches each: too few for a prize given to a rate, such as the matches left. It shows all the same.
+  const runaway = screen.getByRole('heading', { name: 'Le fugueur' }).closest('li') as HTMLElement;
+  expect(runaway).toHaveTextContent('Personne pour l’instant : pas encore assez de matchs ici.');
   expect(screen.getByText(/Un prix au match se joue sur 10 matchs au moins/)).toBeInTheDocument();
-  // No collector counted the demolitions of these matches: that prize waits.
-  expect(screen.queryByRole('heading', { name: 'Le démolisseur' })).not.toBeInTheDocument();
+  // No collector counted the demolitions of these matches: that prize waits, and says so.
+  const demolisher = screen.getByRole('heading', { name: 'Le démolisseur' }).closest('li') as HTMLElement;
+  expect(
+    within(demolisher)
+      .getAllByRole('listitem')
+      .map((line) => line.textContent),
+  ).toEqual([expect.stringMatching(/–$/), expect.stringMatching(/–$/)]);
   const goals = () =>
     within(screen.getByRole('table')).getByRole('rowheader', { name: 'Buts' }).closest('tr') as HTMLElement;
   // Alice scored 4 in 2 matches this season, Bob 1: one figure per player, per match, and no switch.
