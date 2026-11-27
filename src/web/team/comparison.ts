@@ -2,7 +2,15 @@ import type { SeasonMmr, SeasonPeak } from '../../lib/contract';
 import { pushupCredit } from '../../lib/domain';
 import type { Pro } from '../../lib/pros';
 import type { Board } from '../board';
-import { type Career, type CareerAccount, careerOf, type StatsMode, seasonOf, type Tally } from './career';
+import {
+  type Career,
+  type CareerAccount,
+  type CarTally,
+  careerOf,
+  type StatsMode,
+  seasonOf,
+  type Tally,
+} from './career';
 import { soloReading } from './ladder';
 import { highestTier } from './stats';
 
@@ -127,6 +135,10 @@ export interface Stat {
   value: (player: ComparedPlayer) => number | null;
   /** Whether less is better (goals conceded, matches left): the table lights the lowest. */
   lowerIsBetter?: boolean;
+  /** An estimate, not a count: marked ≈, its margin of error said under the table. */
+  estimated?: boolean;
+  /** A style, not a ranking (time on the ground, on a wall): the table lights none of it. */
+  neutral?: boolean;
   /** The pros' own figure, for a key stat they have one of; its sheet opens at `?pros=<slug>`. */
   pros?: { slug: ProsSlug; figure: (pro: Pro) => number };
 }
@@ -379,6 +391,8 @@ export const tableSections = [
   'Attaque',
   'Défense',
   'Dans le jeu',
+  'Le boost',
+  'Le mouvement',
   'Le fil du jeu',
   'Les fins de match',
   'Les records',
@@ -397,6 +411,12 @@ interface TableRow {
   measuredIn?: (player: ComparedPlayer) => number;
   /** The fewest of `measuredIn` the rate shows over: ten matches for a stat of the newest collector. */
   minimum?: number;
+  /** The matches behind a rate measured in something else (updates of play): the minimum counts them instead. */
+  matchesIn?: (player: ComparedPlayer) => number;
+  /** A share of time: its total, a count of updates of play, means nothing to a member. */
+  withoutTotal?: boolean;
+  estimated?: boolean;
+  neutral?: boolean;
   /** Whether the total shows what it was counted among (« 12 sur 36 »), when no other line says it. */
   showOf?: boolean;
   format?: StatFormat;
@@ -419,6 +439,45 @@ const gameRow = (
   minimum: prizeMinimum,
   ...extra,
 });
+
+/**
+ * The margin of error of the estimated stats, in percent: the boost pickups, counted from the rises of the boost. In a
+ * real match of 27 November 2026, 118 and 106 for 119 and 104 on the game's scoreboard: 1.9 % at most.
+ */
+export const estimateMargin = 2;
+
+const carOf = (player: ComparedPlayer) => player.career.game.car;
+
+/** A count of the car per match, over the matches the game showed it in, ten at least. */
+const carRow = (
+  section: TableSection,
+  label: string,
+  count: (car: CarTally) => number,
+  extra: Partial<TableRow> = {},
+): TableRow => ({
+  section,
+  label,
+  total: (p) => (carOf(p).matches === 0 ? null : count(carOf(p))),
+  perMatch: 'average',
+  measuredIn: (p) => carOf(p).matches,
+  minimum: prizeMinimum,
+  ...extra,
+});
+
+/** A share of the time the car was on the pitch, over ten matches at least. */
+const carTime = (
+  section: TableSection,
+  label: string,
+  part: (car: CarTally) => number,
+  extra: Partial<TableRow> = {},
+): TableRow =>
+  carRow(section, label, part, {
+    perMatch: 'share',
+    measuredIn: (p) => carOf(p).samples,
+    matchesIn: (p) => carOf(p).matches,
+    withoutTotal: true,
+    ...extra,
+  });
 
 const tableRows = (modes: ReadonlySet<StatsMode>): TableRow[] => [
   { section: 'Résultats', label: 'Matchs', total: (p) => counted(p, p.career.matches) },
@@ -508,6 +567,39 @@ const tableRows = (modes: ReadonlySet<StatsMode>): TableRow[] => [
     perMatch: 'average',
     measuredIn: (p) => p.career.measured.demos,
   },
+  // Since collector 0.8.0: the updates of play after a touch whose last touch was the player's team's.
+  {
+    section: 'Dans le jeu',
+    label: 'Possession',
+    total: (p) => (p.career.game.possession.matches === 0 ? null : p.career.game.possession.owned),
+    perMatch: 'share',
+    measuredIn: (p) => p.career.game.possession.samples,
+    matchesIn: (p) => p.career.game.possession.matches,
+    minimum: prizeMinimum,
+    withoutTotal: true,
+  },
+  gameRow('Dans le jeu', 'Touches aériennes', (game) => game.aerialTouches),
+  gameRow('Dans le jeu', 'Touches en défense', (game) => game.defensiveTouches, { neutral: true }),
+  gameRow('Dans le jeu', 'Touches en attaque', (game) => game.offensiveTouches, { neutral: true }),
+  // The game sends no pickup: each rise of the boost is one (collector 0.8.0).
+  carRow('Le boost', 'Pastilles ramassées', (car) => car.pickups, { estimated: true }),
+  carRow('Le boost', 'Grosses pastilles', (car) => car.bigPickups, { estimated: true }),
+  carRow('Le boost', 'Boost ramassé', (car) => car.boostCollected, { estimated: true, perMatchFormat: 'count' }),
+  carRow('Le boost', 'Boost moyen', (car) => car.boostSum, {
+    measuredIn: (p) => carOf(p).samples,
+    matchesIn: (p) => carOf(p).matches,
+    perMatchFormat: 'count',
+    withoutTotal: true,
+    neutral: true,
+  }),
+  carTime('Le boost', 'À 0 de boost', (car) => car.noBoost, { lowerIsBetter: true }),
+  carTime('Le boost', 'À 100 de boost', (car) => car.fullBoost, { neutral: true }),
+  carTime('Le boost', 'En train de booster', (car) => car.boosting, { neutral: true }),
+  carTime('Le mouvement', 'Supersonique', (car) => car.supersonic),
+  carTime('Le mouvement', 'Au sol', (car) => car.onGround, { neutral: true }),
+  carTime('Le mouvement', 'En l’air', (car) => car.samples - car.onGround - car.onWall, { neutral: true }),
+  carTime('Le mouvement', 'Au mur', (car) => car.onWall, { neutral: true }),
+  carRow('Le mouvement', 'Dérapages', (car) => car.powerslides, { neutral: true }),
   // Won among the overtimes played: the lost ones read in the same line.
   {
     section: 'Les fins de match',
@@ -663,19 +755,30 @@ export const tableStats = (
         perMatch,
         measuredIn,
         minimum = 0,
+        matchesIn,
+        withoutTotal,
         showOf,
         format = 'count',
         perMatchFormat,
         lowerIsBetter,
+        estimated,
+        neutral,
       } = row;
-      const base = { section, label, ...(lowerIsBetter && { lowerIsBetter }) };
+      const base = {
+        section,
+        label,
+        ...(lowerIsBetter && { lowerIsBetter }),
+        ...(estimated && { estimated }),
+        ...(neutral && { neutral }),
+      };
       if (!perMatch) return { ...base, perMatch: false, format, value: total };
       const of = (player: ComparedPlayer) => measuredIn?.(player) ?? player.career.matches;
-      const enough = (player: ComparedPlayer, value: number | null) => (of(player) < minimum ? null : value);
+      const enough = (player: ComparedPlayer, value: number | null) =>
+        (matchesIn ?? of)(player) < minimum ? null : value;
       return {
         ...base,
         perMatch: true,
-        total,
+        ...(!withoutTotal && { total }),
         ...(showOf && { of }),
         ...(perMatch === 'average'
           ? {
@@ -719,6 +822,7 @@ export function ranked(stat: Stat, players: readonly ComparedPlayer[]): { lines:
 
 /** The best figure of a table row: the highest, or the lowest when less is better; none when all are equal. */
 export function bestOf(stat: Stat, players: readonly ComparedPlayer[]): number | null {
+  if (stat.neutral) return null;
   const values = players.map((player) => stat.value(player)).filter((value) => value !== null);
   if (new Set(values).size < 2) return null;
   return stat.lowerIsBetter ? Math.min(...values) : Math.max(...values);

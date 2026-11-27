@@ -428,3 +428,37 @@ test('reads its filters from its address', async () => {
   expect(await screen.findByRole('combobox', { name: 'Saison' })).toHaveTextContent('Toutes les saisons');
   expect(screen.getByRole('combobox', { name: 'Mode' })).toHaveTextContent('3v3 + Tournoi 2v2');
 });
+
+test('marks the estimated stats and says their margin of error under the table', async () => {
+  const car = {
+    samples: 10,
+    boostSum: 500,
+    noBoost: 1,
+    fullBoost: 2,
+    supersonic: 3,
+    onGround: 6,
+    onWall: 1,
+    boosting: 4,
+    powerslides: 2,
+    pickups: 12,
+    bigPickups: 3,
+    boostCollected: 300,
+  };
+  const followed = boardWith({
+    results: Array.from({ length: 10 }, (_, index) =>
+      aResult({
+        match_guid: `car-${index}`,
+        name: 'alice',
+        day: '2026-11-05',
+        playlist: 11,
+        game_stats: { car, possession: { samples: 9, owned: 3 } },
+      }),
+    ),
+  });
+  renderInApp(<StatsPage />, { board: followed, path: '/stats' });
+  const pickups = await screen.findByRole('rowheader', { name: /Pastilles ramassées/ });
+  expect(pickups).toHaveTextContent('Pastilles ramassées≈');
+  expect(screen.getByRole('rowheader', { name: 'Supersonique' })).not.toHaveTextContent('≈');
+  expect(screen.getByText(/≈ : estimé à ±2 % près/)).toBeInTheDocument();
+  expect(screen.getByText(/ton équipe seulement/)).toBeInTheDocument();
+});
