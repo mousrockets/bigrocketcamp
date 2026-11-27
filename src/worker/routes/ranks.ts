@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { invalidRanks, type RankActivity, type RanksRecorded, type RankTargets, rankReport } from '../../lib/contract';
+import { readSessionReading } from '../../lib/play-session';
 import {
   readLastRankedMatch,
   readRankSourceHealth,
@@ -40,12 +41,18 @@ export const rankRoutes = new Hono<AppEnv>()
   })
   // The last reading too, from the database: a source that keeps its schedule in an eventually consistent store
   // can tell from it that a reading already happened.
+  // And whose accounts a play session wants read every two minutes, until when.
   .get('/activity', async (c) => {
-    const [lastRankedMatchAt, health] = await Promise.all([
+    const [lastRankedMatchAt, health, session] = await Promise.all([
       readLastRankedMatch(c.env.DB),
       readRankSourceHealth(c.env.DB),
+      readSessionReading(c.env.DB),
     ]);
-    return c.json({ lastRankedMatchAt, lastReadAt: health.lastReadAt } satisfies RankActivity, 200, noStore);
+    return c.json(
+      { lastRankedMatchAt, lastReadAt: health.lastReadAt, ...session } satisfies RankActivity,
+      200,
+      noStore,
+    );
   })
   .post('/', ...reportBody, async (c) => {
     try {

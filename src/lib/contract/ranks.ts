@@ -95,6 +95,10 @@ export type RankTargets = Known<z.output<typeof rankTargets>>;
 export const rankActivity = z.looseObject({
   lastRankedMatchAt: z.string().nullable(),
   lastReadAt: z.string().nullable(),
+  /** Until when a member's play session asks for a reading every two minutes; null without one. */
+  sessionUntil: z.string().nullable(),
+  /** The players in session: every account of theirs, duo and solo, is read every two minutes, no one else's. */
+  sessionPlayers: z.array(z.string()),
 });
 export type RankActivity = Known<z.output<typeof rankActivity>>;
 

@@ -454,10 +454,20 @@ describe('the rank source health', () => {
 
   test('is given with the activity, so a source can tell a reading already happened', async () => {
     const activity = async () => (await call('/api/ranks/activity')).json();
-    expect(await activity()).toEqual({ lastRankedMatchAt: null, lastReadAt: null });
+    expect(await activity()).toEqual({
+      lastRankedMatchAt: null,
+      lastReadAt: null,
+      sessionUntil: null,
+      sessionPlayers: [],
+    });
     const observedAt = new Date().toISOString();
     await post([rank(1180, observedAt)]);
-    expect(await activity()).toEqual({ lastRankedMatchAt: null, lastReadAt: observedAt });
+    expect(await activity()).toEqual({
+      lastRankedMatchAt: null,
+      lastReadAt: observedAt,
+      sessionUntil: null,
+      sessionPlayers: [],
+    });
   });
 
   test('ignores ranks the players entered themselves', async () => {

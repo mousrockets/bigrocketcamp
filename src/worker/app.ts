@@ -12,6 +12,7 @@ import { identityRoutes } from './routes/identities';
 import { liveRoutes } from './routes/live';
 import { memberRoutes } from './routes/members';
 import { monthlyRoutes } from './routes/monthly';
+import { playSessionRoutes } from './routes/play-session';
 import { profileRoutes } from './routes/profile';
 import { rankRoutes } from './routes/ranks';
 import { reminderOptOutRoutes, reminderRoutes } from './routes/reminders';
@@ -64,6 +65,7 @@ app.use('/club', requireMember);
 app.use('/club/rules', requireMember);
 app.use('/profile', requireMember);
 app.use('/sounds', requireMember);
+app.use('/play-session', requireMember);
 app.use('/stats/seasons', requireMember);
 app.use('/stats/zen', requireMember);
 app.use('/tournament-wins', requireMember);
@@ -83,6 +85,7 @@ const routes = publicRoutes
   .route('/club', clubRoutes)
   .route('/profile', profileRoutes)
   .route('/sounds', soundRoutes)
+  .route('/play-session', playSessionRoutes)
   .route('/stats', statsRoutes)
   .route('/tournament-wins', tournamentWinRoutes)
   .route('/reminders', reminderRoutes)
