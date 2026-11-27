@@ -242,7 +242,7 @@ test('the sheet adds up every match of the player, the disputed ones aside', asy
     'Matchs joués1 W · 1 L · 50 % de victoires2',
   );
   const figures = within(sheet).getByRole('region', { name: 'Statistiques' });
-  expect(figures).toHaveTextContent('3Buts1Passes D5Arrêts1MVP');
+  expect(figures).toHaveTextContent('3Buts1Assists5Arrêts1MVP');
 });
 
 test('the sheet counts demolitions and posts once the collector sends them, and says when it does not yet', async () => {
@@ -302,14 +302,14 @@ test('the sheet counts every match in Tout, each ranked playlist apart, and tour
   expect(within(bob).getByRole('region', { name: 'Matchs joués' })).toHaveTextContent(
     'Matchs joués4 W · 2 L · 67 % de victoires6',
   );
-  expect(within(bob).getByRole('region', { name: 'Statistiques' })).toHaveTextContent('12Buts3Passes D10Arrêts');
+  expect(within(bob).getByRole('region', { name: 'Statistiques' })).toHaveTextContent('12Buts3Assists10Arrêts');
 
   await userEvent.click(within(bob).getByRole('button', { name: '2v2' }));
   expect(within(bob).getByText('Ses stats en ranked 2v2.')).toBeInTheDocument();
   expect(within(bob).getByRole('region', { name: 'Matchs ranked 2v2' })).toHaveTextContent(
     'Matchs ranked 2v20 W · 1 L · 0 % de victoires1',
   );
-  expect(within(bob).getByRole('region', { name: 'Statistiques' })).toHaveTextContent('1Buts0Passes D4Arrêts');
+  expect(within(bob).getByRole('region', { name: 'Statistiques' })).toHaveTextContent('1Buts0Assists4Arrêts');
 
   await userEvent.click(within(bob).getByRole('button', { name: '1v1' }));
   expect(within(bob).getByRole('region', { name: 'Matchs ranked 1v1' })).toHaveTextContent(
@@ -326,7 +326,7 @@ test('the sheet counts every match in Tout, each ranked playlist apart, and tour
   );
   expect(within(bob).getByRole('region', { name: 'Palmarès' })).toHaveTextContent('1Tournois gagnés');
   expect(within(bob).getByRole('region', { name: 'Statistiques' })).toHaveTextContent(
-    '3Buts1 / match3Passes D1 / match4Arrêts1,3 / match',
+    '3Buts1 / match3Assists1 / match4Arrêts1,3 / match',
   );
 });
 

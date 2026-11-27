@@ -141,7 +141,7 @@ function MatchStats({ career, label }: { career: Career; label: string }) {
       </section>
       <section aria-label="Statistiques" className="grid grid-cols-2 gap-2">
         <Tile label="Buts" value={career.goals} />
-        <Tile label="Passes D" value={career.assists} />
+        <Tile label="Assists" value={career.assists} />
         <Tile label="Arrêts" value={career.saves} />
         <Tile label="MVP" value={career.mvps} />
         <Tile label="Démos" value={career.demos} />
@@ -167,7 +167,7 @@ function TournamentStats({ career }: { career: Career }) {
       </section>
       <section aria-label="Statistiques" className="grid grid-cols-3 gap-2">
         <Tile label="Buts" value={career.goals} detail={perMatch(career.goals, career.matches)} />
-        <Tile label="Passes D" value={career.assists} detail={perMatch(career.assists, career.matches)} />
+        <Tile label="Assists" value={career.assists} detail={perMatch(career.assists, career.matches)} />
         <Tile label="Arrêts" value={career.saves} detail={perMatch(career.saves, career.matches)} />
       </section>
     </>
