@@ -41,7 +41,7 @@ import { Skeleton } from '../components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { seasonMmrQuery } from '../queries';
 import { LadderIcon } from '../shell/icons';
-import { type CareerAccount, type CareerScope, soloAccountOf } from './career';
+import { type CareerAccount, modesPlayed, type StatsMode, soloAccountOf } from './career';
 import {
   bestOf,
   type ComparedPlayer,
@@ -66,30 +66,57 @@ import {
 import { tilt, untilt } from './player-card';
 import { rankLightRgb, rankRgb } from './stats';
 
-type Scope = Exclude<CareerScope, 'ranked'>;
+/** The modes the page compares, and how the address names them. */
+const modeOptions: readonly { value: StatsMode; label: string; slug: string }[] = [
+  { value: 'duel', label: '1v1', slug: '1v1' },
+  { value: 'doubles', label: '2v2', slug: '2v2' },
+  { value: 'standard', label: '3v3', slug: '3v3' },
+  { value: 'tournament-duel', label: 'Tournoi 1v1', slug: 'tournoi-1v1' },
+  { value: 'tournament-doubles', label: 'Tournoi 2v2', slug: 'tournoi-2v2' },
+  { value: 'tournament-standard', label: 'Tournoi 3v3', slug: 'tournoi-3v3' },
+];
 
-const scopes = [
-  { value: 'all', label: 'Tous les modes' },
-  { value: 'duel', label: '1v1' },
-  { value: 'doubles', label: '2v2' },
-  { value: 'standard', label: '3v3' },
-  { value: 'tournament', label: 'Tournoi' },
-] as const satisfies readonly { value: Scope; label: string }[];
+const accountOptions = [
+  { value: 'solo', label: 'Compte solo', slug: 'solo' },
+  { value: 'duo', label: 'Compte duo', slug: 'duo' },
+] as const;
+type Account = (typeof accountOptions)[number]['value'];
 
-const accounts = [
-  { value: 'all', label: 'Tous les comptes' },
-  { value: 'solo', label: 'Compte solo' },
-  { value: 'duo', label: 'Compte duo' },
-] as const satisfies readonly { value: CareerAccount; label: string }[];
-
-/** How the empty page names the matches of each mode. */
-const modeWords: Record<Scope, string> = {
-  all: 'Pas un match',
+/** How the empty page names the matches of a lone mode. */
+const modeWords: Record<StatsMode, string> = {
   duel: 'Pas un 1v1 ranked',
   doubles: 'Pas un 2v2 ranked',
   standard: 'Pas un 3v3 ranked',
-  tournament: 'Pas un match de tournoi',
+  'tournament-duel': 'Pas un tournoi 1v1',
+  'tournament-doubles': 'Pas un tournoi 2v2',
+  'tournament-standard': 'Pas un tournoi 3v3',
 };
+
+/** A filter's choices as the address reads them: `tout`, `aucun`, or their names apart from commas. */
+function chosen<Value extends string>(
+  /** A lone season reads as a number. */
+  written: string | number | undefined,
+  options: readonly { value: Value; slug: string }[],
+  fallback: readonly Value[],
+): Value[] {
+  if (written === undefined) return options.filter((option) => fallback.includes(option.value)).map((o) => o.value);
+  if (written === 'tout') return options.map((option) => option.value);
+  const slugs = String(written).split(',');
+  return options.filter((option) => slugs.includes(option.slug)).map((option) => option.value);
+}
+
+/** A filter's choices as the address writes them. */
+function written<Value extends string>(
+  values: readonly Value[],
+  options: readonly { value: Value; slug: string }[],
+): string {
+  if (values.length === options.length) return 'tout';
+  if (values.length === 0) return 'aucun';
+  return options
+    .filter((option) => values.includes(option.value))
+    .map((option) => option.slug)
+    .join(',');
+}
 
 function formatted(value: number | null, format: StatFormat): string {
   if (value === null) return '–';
@@ -111,30 +138,60 @@ function formatted(value: number | null, format: StatFormat): string {
 export function StatsPage() {
   const club = useClub();
   const { board, error } = useBoardState();
-  const { saison } = useSearch({ strict: false });
+  const search = useSearch({ strict: false });
   const navigate = useNavigate();
-  // The club plays 2v2 first: it opens there.
-  const [scope, setScope] = useState<Scope>('doubles');
-  const [chosenAccount, setAccount] = useState<CareerAccount>('all');
   const current = seasonAt(new Date().toISOString());
   // The ratings come apart from the board: until they arrive, the peaks wait and the rest shows.
   const stats = useQuery(seasonMmrQuery).data;
   const seasonMmr = stats?.seasons ?? [];
   const played = board ? seasonsPlayed(board, seasonMmr, club.roster) : [];
-  const seasons = [...new Set([...(current === null ? [] : [current]), ...played])].sort((a, b) => b - a);
-  const season = saison === 'tout' ? null : (saison ?? current);
+  const seasonOptions = [...new Set([...(current === null ? [] : [current]), ...played])]
+    .sort((a, b) => b - a)
+    .map((number) => ({
+      value: String(number),
+      label: `Saison ${number}${number === current ? ' (en cours)' : ''}`,
+      slug: String(number),
+    }));
+  // A tournament in 1v1 is rare: the choice shows once the club played one.
+  const tournamentDuels = board ? modesPlayed(board).has('tournament-duel') : false;
+  const modes = modeOptions.filter((option) => option.value !== 'tournament-duel' || tournamentDuels);
   const hasSolo = board ? club.roster.some((name) => soloAccountOf(board, name) !== null) : false;
-  const account = hasSolo ? chosenAccount : 'all';
+  // The current season, in 2v2, on both accounts, until the member picks otherwise: the club plays 2v2 first.
+  const seasons = chosen(search.saison, seasonOptions, current === null ? [] : [String(current)]);
+  const chosenModes = chosen<StatsMode>(search.mode, modes, ['doubles']);
+  // Without a solo account found, every match is on the duo one: no choice to make.
+  const chosenAccounts: Account[] = hasSolo
+    ? chosen<Account>(search.compte, accountOptions, ['solo', 'duo'])
+    : ['solo', 'duo'];
+  // Every season counts every match, those before the seasons the app knows included.
+  const seasonFilter =
+    seasons.length > 1 && seasons.length === seasonOptions.length
+      ? null
+      : new Set(seasons.map((season) => Number(season)));
+  const account: CareerAccount = chosenAccounts.length === 2 ? 'all' : (chosenAccounts[0] ?? 'all');
+  const lone = seasonFilter?.size === 1 ? [...seasonFilter][0] : undefined;
   const players = board
-    ? comparedPlayers(board, seasonMmr, club.roster, club.me.duoPseudo, scope, account, season)
+    ? comparedPlayers(board, seasonMmr, club.roster, club.me.duoPseudo, new Set(chosenModes), account, seasonFilter)
     : [];
-  const anyMatch = players.some((player) => player.career.matches > 0);
-  const choose = (next: string) =>
+  const missing =
+    seasons.length === 0
+      ? 'une saison'
+      : chosenModes.length === 0
+        ? 'un mode'
+        : chosenAccounts.length === 0
+          ? 'un compte'
+          : null;
+  const anyMatch = missing === null && players.some((player) => player.career.matches > 0);
+  // A lone season stays a number in the address, as before: `?saison=23`, not `?saison="23"`.
+  const filter = (key: 'saison' | 'mode' | 'compte', value: string) =>
     void navigate({
       to: '.',
-      search: (previous) => ({ ...previous, saison: next === 'tout' ? 'tout' : Number(next) }),
+      search: (previous) => ({ ...previous, [key]: /^\d+$/.test(value) ? Number(value) : value }),
       resetScroll: false,
     });
+  const nothing = `${chosenModes.length === 1 ? modeWords[chosenModes[0] ?? 'doubles'] : 'Pas un match dans ces modes'} ${
+    seasonFilter === null ? 'au compteur' : lone !== undefined ? `en saison ${lone}` : 'sur ces saisons'
+  }. Le kickoff attend.`;
 
   return (
     <TabPage
@@ -153,18 +210,33 @@ export function StatsPage() {
         <div className="-mx-5 flex gap-2 overflow-x-auto px-5 [scrollbar-width:none] lg:mx-0 lg:flex-wrap lg:px-0 [&>*]:shrink-0">
           <FilterSelect
             label="Saison"
-            options={[
-              ...seasons.map((number) => ({
-                value: String(number),
-                label: `Saison ${number}${number === current ? ' (en cours)' : ''}`,
-              })),
-              { value: 'tout', label: 'Toutes les saisons' },
-            ]}
-            value={season === null ? 'tout' : String(season)}
-            onChange={choose}
+            allLabel="Toutes les saisons"
+            noneLabel="Aucune saison"
+            several={(count) => `${count} saisons`}
+            options={seasonOptions}
+            value={seasons}
+            onChange={(next) => filter('saison', written(next, seasonOptions))}
           />
-          <FilterSelect label="Mode" options={scopes} value={scope} onChange={setScope} />
-          {hasSolo && <FilterSelect label="Compte" options={accounts} value={account} onChange={setAccount} />}
+          <FilterSelect
+            label="Mode"
+            allLabel="Tous les modes"
+            noneLabel="Aucun mode"
+            several={(count) => `${count} modes`}
+            options={modes}
+            value={chosenModes}
+            onChange={(next) => filter('mode', written(next, modes))}
+          />
+          {hasSolo && (
+            <FilterSelect
+              label="Compte"
+              allLabel="Tous les comptes"
+              noneLabel="Aucun compte"
+              several={(count) => `${count} comptes`}
+              options={accountOptions}
+              value={chosenAccounts}
+              onChange={(next) => filter('compte', written(next, accountOptions))}
+            />
+          )}
         </div>
         {!board && (
           <BoardPending error={error} className="flex flex-col gap-3">
@@ -172,10 +244,10 @@ export function StatsPage() {
             <Skeleton className="h-[300px] rounded-[22px]" />
           </BoardPending>
         )}
-        {board && season !== null && <SeasonPeaks players={players} season={season} />}
+        {board && lone !== undefined && <SeasonPeaks players={players} season={lone} />}
         {board && !anyMatch && (
           <p className="m-0 -mt-4 text-[15px] text-t2">
-            {modeWords[scope]} {season === null ? 'au compteur' : `en saison ${season}`}. Le kickoff attend.
+            {missing === null ? nothing : `Coche au moins ${missing} pour voir les stats.`}
           </p>
         )}
         {board && anyMatch && (
@@ -200,7 +272,7 @@ export function StatsPage() {
               <PrizeShelf players={players} />
             </Section>
             <Section kicker="Tout le détail" title="Le tableau">
-              <StatsTable stats={tableStats(scope, players, stats?.statfeedLabels)} players={players} />
+              <StatsTable stats={tableStats(new Set(chosenModes), players, stats?.statfeedLabels)} players={players} />
             </Section>
           </>
         )}

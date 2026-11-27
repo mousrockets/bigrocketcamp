@@ -79,17 +79,17 @@ const goldenRulesRoute = createRoute({
   component: GoldenRulesPage,
   validateSearch: z.object({ langue: z.enum(rulesLanguages).optional().catch(undefined) }),
 });
-// Every player's stats side by side, opened from L'équipe; `?saison=23` shows a past season, `?saison=tout` every match.
+// Every player's stats side by side, opened from L'équipe. Its filters stay in the address, each a list of choices
+// apart from commas: `?saison=24,23&mode=2v2,tournoi-2v2&compte=solo`, `tout` for all of them, `aucun` for none.
+const statsFilter = z
+  .union([z.number().int().positive().transform(String), z.string().regex(/^[a-z0-9-]+(,[a-z0-9-]+)*$/)])
+  .optional()
+  .catch(undefined);
 const statsRoute = createRoute({
   getParentRoute: () => shellRoute,
   path: '/stats',
   component: StatsPage,
-  validateSearch: z.object({
-    saison: z
-      .union([z.number().int().positive(), z.literal('tout')])
-      .optional()
-      .catch(undefined),
-  }),
+  validateSearch: z.object({ saison: statsFilter, mode: statsFilter, compte: statsFilter }),
 });
 const settingsRoute = createRoute({ getParentRoute: () => shellRoute, path: '/reglages', component: SettingsHome });
 // Réglages opens its screens like iOS Settings, each with the way back to it.

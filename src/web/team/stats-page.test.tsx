@@ -93,10 +93,11 @@ test('L’équipe leads to the Stats page, which leads back', async () => {
   expect(screen.getByRole('link', { name: 'Les ranks' })).toHaveAttribute('href', '/stats?ranks=true');
 });
 
-/** Picks an entry of one of the page's lists. */
+/** Ticks or unticks an entry of one of the page's lists, then closes it. */
 async function pick(list: string, entry: string) {
   await userEvent.click(await screen.findByRole('combobox', { name: list }));
   await userEvent.click(await screen.findByRole('option', { name: entry }));
+  await userEvent.keyboard('{Escape}');
 }
 
 test('opens on the season under way, in 2v2, on every account', async () => {
@@ -202,7 +203,9 @@ test('the solo accounts are named by their own pseudo', async () => {
     ],
   };
   renderInApp(<StatsPage />, { board: withSolo, path: '/stats' });
-  await pick('Compte', 'Compte solo');
+  // Both accounts count until one is unticked.
+  await pick('Compte', 'Compte duo');
+  expect(screen.getByRole('combobox', { name: 'Compte' })).toHaveTextContent('Compte solo');
   expect(await screen.findAllByText(/alice-en-solo/)).not.toHaveLength(0);
   expect(screen.queryByText('alice')).not.toBeInTheDocument();
 });
@@ -276,6 +279,44 @@ test('shows the game’s ball speeds in km/h, and what the member lacks to take 
 
 test('says so when nobody played in the mode chosen', async () => {
   renderInApp(<StatsPage />, { board, path: '/stats' });
-  await pick('Mode', 'Tournoi');
-  expect(await screen.findByText('Pas un match de tournoi en saison 24. Le kickoff attend.')).toBeInTheDocument();
+  await pick('Mode', '2v2');
+  expect(await screen.findByRole('combobox', { name: 'Mode' })).toHaveTextContent('Aucun mode');
+  expect(await screen.findByText('Coche au moins un mode pour voir les stats.')).toBeInTheDocument();
+  await pick('Mode', 'Tournoi 3v3');
+  expect(await screen.findByText('Pas un tournoi 3v3 en saison 24. Le kickoff attend.')).toBeInTheDocument();
+});
+
+test('compares several modes and seasons at once, and every one of a list with its first line', async () => {
+  const cup = aResult({ match_guid: 'cup', name: 'alice', day: '2026-11-04', received: '2026-11-04T20:00:00Z' });
+  const withCup = {
+    ...board,
+    results: [
+      ...board.results,
+      { ...cup, playlist: 34, winner: 0 },
+      { ...cup, name: 'bob', player_id: 'Epic|bob|0', playlist: 34, winner: 0 },
+      // A casual match counts in no mode.
+      { ...cup, match_guid: 'casual', playlist: 1, goals: 9 },
+    ],
+  };
+  renderInApp(<StatsPage />, { board: withCup, path: '/stats' });
+  const matches = async () =>
+    within(await screen.findByRole('region', { name: 'Matchs' })).getAllByText(/^\d+$/)[0]?.textContent;
+  expect(await matches()).toBe('2');
+  await pick('Mode', 'Tournoi 2v2');
+  expect(screen.getByRole('combobox', { name: 'Mode' })).toHaveTextContent('2v2 + Tournoi 2v2');
+  expect(await matches()).toBe('3');
+  // Tous les modes: the ranked playlists and the tournaments, not the casual match.
+  await pick('Mode', 'Tous les modes');
+  expect(screen.getByRole('combobox', { name: 'Mode' })).toHaveTextContent('Tous les modes');
+  expect(await matches()).toBe('3');
+  // The club played two seasons: ticking the other one picks them all.
+  await pick('Saison', 'Saison 23');
+  expect(screen.getByRole('combobox', { name: 'Saison' })).toHaveTextContent('Toutes les saisons');
+  expect(await matches()).toBe('4');
+});
+
+test('reads its filters from its address', async () => {
+  renderInApp(<StatsPage />, { board, path: '/stats?saison=tout&mode=3v3,tournoi-2v2' });
+  expect(await screen.findByRole('combobox', { name: 'Saison' })).toHaveTextContent('Toutes les saisons');
+  expect(screen.getByRole('combobox', { name: 'Mode' })).toHaveTextContent('3v3 + Tournoi 2v2');
 });
