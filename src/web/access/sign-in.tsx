@@ -26,7 +26,9 @@ const spamHint = 'Pas de code ? Jette un œil aux indésirables, il se cache par
 /** Signing in with a six-digit code sent by email: no password, no Epic account. */
 export function SignIn() {
   const [sentTo, setSentTo] = useState<string | null>(null);
-  const sendCode = useMutation({ mutationFn: requestSignInCode });
+  // On a developer's computer no mail goes out: the code shows here. A code asked again within a minute is the same.
+  const [devCode, setDevCode] = useState<string | null>(null);
+  const sendCode = useMutation({ mutationFn: requestSignInCode, onSuccess: (code) => code && setDevCode(code) });
   const form = useForm({
     defaultValues: { email: '' },
     validators: { onSubmit: signInEmail },
@@ -43,12 +45,16 @@ export function SignIn() {
   if (sentTo !== null) {
     return (
       <CodeStep
+        // A new code shown fills the boxes again.
+        key={devCode}
         email={sentTo}
+        devCode={devCode}
         resend={() => sendCode.mutateAsync(sentTo).catch(() => {})}
         resending={sendCode.isPending}
         resendError={sendCode.error ? networkError(sendCode.error) : ''}
         changeEmail={() => {
           sendCode.reset();
+          setDevCode(null);
           setSentTo(null);
         }}
       />
@@ -115,12 +121,14 @@ export function SignIn() {
 
 function CodeStep({
   email,
+  devCode,
   resend,
   resending,
   resendError,
   changeEmail,
 }: {
   email: string;
+  devCode: string | null;
   resend: () => Promise<unknown>;
   resending: boolean;
   resendError: string;
@@ -133,7 +141,7 @@ function CodeStep({
     onSuccess: () => location.reload(),
   });
   const form = useForm({
-    defaultValues: { email, code: '' },
+    defaultValues: { email, code: devCode ?? '' },
     validators: { onSubmit: signInCode },
     onSubmit: ({ value }) => verify.mutateAsync(value).catch(() => {}),
   });
@@ -208,7 +216,9 @@ function CodeStep({
               </Button>
             )}
           </form.Subscribe>
-          <GateMessage tone={error ? 'error' : 'info'}>{error || spamHint}</GateMessage>
+          <GateMessage tone={error ? 'error' : 'info'}>
+            {error || (devCode ? `En local, aucun e-mail ne part : ton code est ${devCode}.` : spamHint)}
+          </GateMessage>
           <div className="flex justify-center gap-2">
             <Button type="button" variant="gate-link" size="gate-link" disabled={busy} onClick={() => void resend()}>
               {resending ? 'Envoi…' : 'Renvoyer le code'}

@@ -52,7 +52,7 @@ Après un `db:reset`, comme après une copie de la production, le navigateur gar
 4. Les migrations de la branche s'appliquent par-dessus, quand la production est en retard sur elle.
 5. `.wrangler/database-copy/` est supprimé, même en cas d'échec.
 
-La commande affiche ensuite les adresses des membres, avec leur rôle. On se connecte avec l'une d'elles ; le code s'affiche dans le terminal de `npm run dev`.
+La commande affiche ensuite les adresses des membres, avec leur rôle. On se connecte avec l'une d'elles ; le code s'affiche sur la page de connexion, et dans le terminal de `npm run dev`.
 
 ### Après l'import
 

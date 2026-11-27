@@ -54,11 +54,14 @@ describe('sign-in with an e-mail code', () => {
   });
 
   test('a member receives a code, and asking again within a minute sends nothing new', async () => {
-    expect((await post('/api/auth/code', { email: ' Alice@Example.com ' })).status).toBe(204);
+    // On this computer, with no mail service, the code comes back for the sign-in page to show.
+    const asked = await post('/api/auth/code', { email: ' Alice@Example.com ' });
+    expect(asked.status).toBe(200);
+    const { devCode } = await asked.json<{ devCode: string }>();
     const sent = await env.DB.prepare('SELECT code_hash FROM sign_in_codes WHERE email = ?')
       .bind(email)
       .first('code_hash');
-    expect(sent).toEqual(expect.any(String));
+    expect(sent).toBe(await sha256(`${email}:${devCode}`));
     // The same answer as for an unknown address: asking twice does not reveal who is in the club.
     expect((await post('/api/auth/code', { email })).status).toBe(204);
     expect(
@@ -111,6 +114,17 @@ describe('sign-in with an e-mail code', () => {
       body: '{}',
     });
     expect(after.status).toBe(401);
+  });
+
+  test('a code asked for on the club’s own address is never answered, even with no mail service', async () => {
+    const remote = 'https://club.example';
+    const response = await exports.default.fetch(`${remote}/api/auth/code`, {
+      method: 'POST',
+      headers: { Origin: remote, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    expect(response.status).not.toBe(200);
+    expect(await response.text()).not.toMatch(/devCode|\d{6}/);
   });
 
   test('a request from another site is refused', async () => {

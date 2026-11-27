@@ -12,12 +12,15 @@ afterEach(() => {
 });
 
 /** Answers the sign-in routes, and records what was asked. */
-function serve(verify: () => Response = () => Response.json({ error: 'Code incorrect ou expiré.' }, { status: 401 })) {
+function serve(
+  verify: () => Response = () => Response.json({ error: 'Code incorrect ou expiré.' }, { status: 401 }),
+  code: () => Response = () => new Response(null, { status: 204 }),
+) {
   const sent: { path: string; body: unknown }[] = [];
   globalThis.fetch = (async (input: string, init?: RequestInit) => {
     const path = new URL(input, 'http://app.test').pathname;
     sent.push({ path, body: init?.body ? JSON.parse(String(init.body)) : null });
-    return path === '/api/auth/verify' ? verify() : new Response(null, { status: 204 });
+    return path === '/api/auth/verify' ? verify() : code();
   }) as typeof fetch;
   return sent;
 }
@@ -51,4 +54,17 @@ test('goes back to the address to change it', async () => {
   await userEvent.click(screen.getByRole('button', { name: 'Envoie le code' }));
   await userEvent.click(await screen.findByRole('button', { name: 'Changer d’adresse' }));
   expect(await screen.findByLabelText('Adresse e-mail')).toBeInTheDocument();
+});
+
+test('on a developer’s computer, where no mail goes out, shows the code and fills the boxes with it', async () => {
+  const sent = serve(
+    () => new Response(null, { status: 204 }),
+    () => Response.json({ devCode: '424242' }),
+  );
+  renderInApp(<SignIn />);
+  await userEvent.type(await screen.findByLabelText('Adresse e-mail'), 'alice@example.com');
+  await userEvent.click(screen.getByRole('button', { name: 'Envoie le code' }));
+  expect(await screen.findByText('En local, aucun e-mail ne part : ton code est 424242.')).toBeInTheDocument();
+  await userEvent.click(screen.getByRole('button', { name: 'Je rentre sur le terrain' }));
+  expect(sent.at(-1)).toEqual({ path: '/api/auth/verify', body: { email: 'alice@example.com', code: '424242' } });
 });

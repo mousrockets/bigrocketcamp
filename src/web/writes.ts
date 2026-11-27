@@ -11,6 +11,7 @@ import {
   type RuleChange,
   reminderDevice,
   type SoundDrawn,
+  signInCodeShown,
   soundDrawn,
 } from '../lib/contract';
 import type { ExerciseType } from '../lib/domain';
@@ -133,8 +134,13 @@ export async function settleDrink(body: { action: 'settle' | 'undo'; id: string 
 
 // Signing in happens before any session: these calls do not watch for a lost session.
 
-export const requestSignInCode = (email: string) =>
-  sent(guestApi.auth.code.$post({ json: { email } }), 'Impossible d’envoyer le code. Réessaie dans un instant.');
+/** Asks for a code; on a developer's computer, with no mail service, answers it to show on the page. */
+export async function requestSignInCode(email: string): Promise<string | null> {
+  const response = await guestApi.auth.code.$post({ json: { email } });
+  if (!response.ok) throw new Error(await errorOf(response, 'Impossible d’envoyer le code. Réessaie dans un instant.'));
+  if (response.status === 204) return null;
+  return signInCodeShown.safeParse(await response.json()).data?.devCode ?? null;
+}
 
 export const verifySignInCode = ({ email, code }: { email: string; code: string }) =>
   sent(guestApi.auth.verify.$post({ json: { email, code } }), 'Code incorrect ou expiré.');

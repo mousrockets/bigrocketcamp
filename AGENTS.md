@@ -28,7 +28,7 @@ Règles pour tout agent IA qui travaille sur ce dépôt. Elles valent aussi pour
 - `npm run db:migrate` puis `npm run db:seed` : crée la base locale et son club fictif (trois joueurs, trois mois de matchs, séries, rangs, mois clos), généré par `scripts/dev-seed.ts`.
 - `npm run db:reset` : remet la base locale à zéro, avec les seules données fictives. À lancer avant toute capture pour une PR.
 - `npm run db:pull-prod` : remplace la base locale par une copie minimisée de la production (e-mails fictifs, ni sessions, ni codes, ni abonnements aux notifications). Mainteneur avec accès Cloudflare seulement ; un agent ne la lance que si un mainteneur le lui demande. Après l'import, vider les données du site dans le navigateur. Tout est dans `docs/base-locale.md`.
-- `npm run dev` : lance l'app et l'API sur http://127.0.0.1:10071 (codes de connexion affichés dans le terminal).
+- `npm run dev` : lance l'app et l'API sur http://127.0.0.1:10071 (codes de connexion affichés sur la page de connexion et dans le terminal).
 - `npm run logs` : suit, depuis un autre terminal, ce qu'affiche le serveur de dev déjà lancé (codes de connexion compris), gardé dans `.wrangler/dev.log`.
 - `npm run check` : lint, types et tests. Doit passer avant toute PR.
 - `npm test` : les tests seuls ; `npx vitest run --project web` ou `--project api` pour une moitié.
@@ -48,7 +48,7 @@ Règles pour tout agent IA qui travaille sur ce dépôt. Elles valent aussi pour
 6. Fais valider le changement par la personne avant de pousser :
    - lance le serveur de dev (`npm run dev`) et laisse-le tourner pendant la validation ;
    - pour un changement visible, envoie-lui des captures de chaque écran touché, sur téléphone et sur ordinateur, dans chacun de ses cas (vide, passé, égalité, erreur…). Si le club fictif ne montre pas un cas, ajoute-le à `scripts/dev-seed.ts` s'il peut servir à d'autres, sinon ajoute des données fictives à la main, puis retire-les après les captures, du cache hors ligne du navigateur aussi ;
-   - dis-lui comment tester elle-même : l'adresse à ouvrir, comment se connecter (le code s'affiche dans le terminal), et quoi essayer ;
+   - dis-lui comment tester elle-même : l'adresse à ouvrir, comment se connecter (le code s'affiche sur la page de connexion), et quoi essayer ;
    - attends son accord, puis arrête le serveur.
 7. Commits au format Conventional Commits (`fix: keep pushups after a reload`). Le premier commit de la PR donne son message au commit fusionné : il résume toute la PR.
 8. PR : titre et description en français (quoi, pourquoi, comment vérifier), et `Closes #N`.
