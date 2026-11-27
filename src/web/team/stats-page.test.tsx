@@ -357,7 +357,9 @@ test('crowns the prizes and lights the best of each line of the table', async ()
   await userEvent.click(within(goals()).getByRole('button', { name: '2,00, 4 au total' }));
   const bubble = await screen.findByText('Au total');
   expect(bubble.parentElement).toHaveTextContent(/^Au total4$/);
-  expect(screen.getByText(/Touche ou survole un chiffre pour voir son total/)).toBeInTheDocument();
+  expect(
+    screen.getByText(/Touche ou survole un nom pour savoir ce qu’il compte, un chiffre pour voir son total/),
+  ).toBeInTheDocument();
   // The table reads part by part, each one saying whether it reads per match.
   expect(
     within(screen.getByRole('table')).getByRole('columnheader', { name: 'Attaque · par match' }),
@@ -461,4 +463,13 @@ test('marks the estimated stats and says their margin of error under the table',
   expect(screen.getByRole('rowheader', { name: 'Supersonique' })).not.toHaveTextContent('≈');
   expect(screen.getByText(/≈ : estimé à ±2 % près/)).toBeInTheDocument();
   expect(screen.getByText(/ton équipe seulement/)).toBeInTheDocument();
+});
+
+test('says what a line counts on a tap of its name, and nothing it does not know', async () => {
+  renderInApp(<StatsPage />, { board, path: '/stats' });
+  const table = await screen.findByRole('table');
+  // The row keeps its name for a screen reader.
+  expect(within(table).getByRole('rowheader', { name: 'Victoires' })).toBeInTheDocument();
+  await userEvent.click(within(table).getByRole('button', { name: 'Victoires' }));
+  expect(await screen.findByText('La part des matchs gagnés.')).toBeInTheDocument();
 });

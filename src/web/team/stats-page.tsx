@@ -778,7 +778,7 @@ function StatsTable({ stats, players }: { stats: TableStat[]; players: ComparedP
                 return (
                   <TableRow key={stat.label} className="border-line hover:bg-white/3">
                     <TableHead scope="row" className={cn(labelColumn, 'text-t2')}>
-                      {stat.label}
+                      {stat.hint ? <LineHint label={stat.label} hint={stat.hint} /> : stat.label}
                       {stat.estimated && (
                         <span className="ml-1 text-t3" title={`Estimé, à ±${estimateMargin} % près`}>
                           ≈
@@ -825,7 +825,7 @@ function StatsTable({ stats, players }: { stats: TableStat[]; players: ComparedP
       </Card>
       <p className="m-0 -mt-2 px-1 text-[12px] text-t3 [line-height:1.45]">
         <span className="text-win">En vert</span>, le meilleur de chaque ligne ; ↓ : le plus bas est le meilleur. Touche
-        ou survole un chiffre pour voir son total.
+        ou survole un nom pour savoir ce qu’il compte, un chiffre pour voir son total.
       </p>
       {stats.some((stat) => stat.estimated) && (
         <p className="m-0 -mt-2 px-1 text-[12px] text-t3 [line-height:1.45]">
@@ -836,6 +836,30 @@ function StatsTable({ stats, players }: { stats: TableStat[]; players: ComparedP
         </p>
       )}
     </>
+  );
+}
+
+/** A line's name, and what it counts in a small bubble: on hover on a computer, on a tap on a phone. */
+function LineHint({ label, hint }: { label: string; hint: string }) {
+  return (
+    <Popover>
+      <PopoverTrigger
+        openOnHover
+        delay={120}
+        aria-label={label}
+        className="text-left underline decoration-t3/50 decoration-dotted underline-offset-4 transition-colors hover:text-t1 data-[popup-open]:text-t1"
+      >
+        {label}
+      </PopoverTrigger>
+      <PopoverContent
+        side="top"
+        align="start"
+        sideOffset={6}
+        className="w-auto max-w-64 rounded-[12px] bg-[rgba(28,28,30,.94)] px-3 py-2 text-[13px] text-t1 [line-height:1.4] ring-white/10 backdrop-blur-[30px]"
+      >
+        {hint}
+      </PopoverContent>
+    </Popover>
   );
 }
 

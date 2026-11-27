@@ -12,6 +12,7 @@ import {
   type Tally,
 } from './career';
 import { soloReading } from './ladder';
+import { eventHints, statHints, sufferedHints } from './stat-hints';
 import { highestTier } from './stats';
 
 // The Stats page: each player over one season (or every match), then, stat by stat, who leads.
@@ -139,6 +140,8 @@ export interface Stat {
   estimated?: boolean;
   /** A style, not a ranking (time on the ground, on a wall): the table lights none of it. */
   neutral?: boolean;
+  /** What the line counts, shown on its name; none when the game does not say (stat-hints.ts). */
+  hint?: string;
   /** The pros' own figure, for a key stat they have one of; its sheet opens at `?pros=<slug>`. */
   pros?: { slug: ProsSlug; figure: (pro: Pro) => number };
 }
@@ -417,6 +420,7 @@ interface TableRow {
   withoutTotal?: boolean;
   estimated?: boolean;
   neutral?: boolean;
+  hint?: string;
   /** Whether the total shows what it was counted among (« 12 sur 36 »), when no other line says it. */
   showOf?: boolean;
   format?: StatFormat;
@@ -670,12 +674,14 @@ const eventWords: Readonly<Record<string, string>> = {
   Demolish: 'Démolition',
   EpicSave: 'Arrêt décisif',
   FirstTouch: 'Premier toucher',
+  FlipReset: 'Flip reset',
   Goal: 'But',
   HatTrick: 'Coup du chapeau',
   HighFive: 'Check',
   LongGoal: 'But de loin',
   LowFive: 'Check en bas',
   MVP: 'MVP',
+  OvertimeGoal: 'But en prolongation',
   OwnGoal: 'But contre son camp',
   Playmaker: 'Meneur de jeu',
   PoolShot: 'Coup de billard',
@@ -685,6 +691,9 @@ const eventWords: Readonly<Record<string, string>> = {
   TurtleGoal: 'But en tortue',
   Win: 'Victoire',
 };
+
+/** A hint when there is one: an optional field is left out rather than undefined. */
+const hinted = (hint: string | undefined) => (hint ? { hint } : {});
 
 const eventLabel = (name: string, labels: Readonly<Record<string, string>>) => eventWords[name] ?? labels[name] ?? name;
 
@@ -698,6 +707,7 @@ function dataRows(players: readonly ComparedPlayer[], labels: Readonly<Record<st
   const feedRow = (name: string, side: 'statfeed' | 'statfeedSecondary'): TableRow => ({
     section: 'Le fil du jeu',
     label: side === 'statfeed' ? eventLabel(name, labels) : `Subi : ${eventLabel(name, labels)}`,
+    ...hinted((side === 'statfeed' ? eventHints : sufferedHints)[name]),
     total: (p) => feed(p, name, side),
     perMatch: 'average',
     measuredIn: (p) => p.career.game.statfeedMatches,
@@ -720,6 +730,7 @@ function dataRows(players: readonly ComparedPlayer[], labels: Readonly<Record<st
       (scorer): TableRow => ({
         section: 'Les assists',
         label: `Pour ${scorer.shown}`,
+        hint: `Les assists de chaque joueur sur un but de ${scorer.shown}.`,
         total: (giver) => assistsTo(giver, scorer),
       }),
     ),
@@ -763,6 +774,7 @@ export const tableStats = (
         lowerIsBetter,
         estimated,
         neutral,
+        hint = statHints[label],
       } = row;
       const base = {
         section,
@@ -770,6 +782,7 @@ export const tableStats = (
         ...(lowerIsBetter && { lowerIsBetter }),
         ...(estimated && { estimated }),
         ...(neutral && { neutral }),
+        ...(hint && { hint }),
       };
       if (!perMatch) return { ...base, perMatch: false, format, value: total };
       const of = (player: ComparedPlayer) => measuredIn?.(player) ?? player.career.matches;
